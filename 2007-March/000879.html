@@ -1,0 +1,422 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: Change initialization for 2050 radios
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Change%20initialization%20for%202050%20radios&In-Reply-To=%3C460a92d5.%2BNfCgWddLCeb9ty2%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000878.html">
+   <LINK REL="Next"  HREF="000894.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: Change initialization for 2050 radios</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Change%20initialization%20for%202050%20radios&In-Reply-To=%3C460a92d5.%2BNfCgWddLCeb9ty2%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] bcm43xx: Change initialization for 2050 radios">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Wed Mar 28 18:07:49 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000878.html">Machine checks on PPC with phy-&gt;rev == 1
+</A></li>
+        <LI>Next message: <A HREF="000894.html">[PATCH] bcm43xx: Change initialization for 2050 radios
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#879">[ date ]</a>
+              <a href="thread.html#879">[ thread ]</a>
+              <a href="subject.html#879">[ subject ]</a>
+              <a href="author.html#879">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This patch implements the changes in the specifications for 2050radio_init that
+were recently posted.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+This material is for wireless-2.6 and the 'upstream' branch.
+
+Larry
+
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
+@@ -1343,11 +1343,110 @@ u16 bcm43xx_radio_calibrationvalue(struc
+ 	return ret;
+ }
+ 
++#define LPD(L, P, D)    (((L) &lt;&lt; 2) | ((P) &lt;&lt; 1) | ((D) &lt;&lt; 0))
++static u16 bcm43xx_get_812_value(struct bcm43xx_private *bcm, u8 lpd)
++{
++	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
++	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
++	u16 loop_or = 0;
++	u16 adj_loopback_gain = phy-&gt;loopback_gain[0];
++	u8 loop;
++	u16 extern_lna_control;
++
++	if (!phy-&gt;connected)
++		return 0;
++	if (!has_loopback_gain(phy)) {
++		if (phy-&gt;rev &lt; 7 || !(bcm-&gt;sprom.boardflags
++		    &amp; BCM43xx_BFL_EXTLNA)) {
++			switch (lpd) {
++			case LPD(0, 1, 1):
++				return 0x0FB2;
++			case LPD(0, 0, 1):
++				return 0x00B2;
++			case LPD(1, 0, 1):
++				return 0x30B2;
++			case LPD(1, 0, 0):
++				return 0x30B3;
++			default:
++				assert(0);
++			}
++		} else {
++			switch (lpd) {
++			case LPD(0, 1, 1):
++				return 0x8FB2;
++			case LPD(0, 0, 1):
++				return 0x80B2;
++			case LPD(1, 0, 1):
++				return 0x20B2;
++			case LPD(1, 0, 0):
++				return 0x20B3;
++			default:
++				assert(0);
++			}
++		}
++	} else {
++		if (radio-&gt;revision == 8)
++			adj_loopback_gain += 0x003E;
++		else
++			adj_loopback_gain += 0x0026;
++		if (adj_loopback_gain &gt;= 0x46) {
++			adj_loopback_gain -= 0x46;
++			extern_lna_control = 0x3000;
++		} else if (adj_loopback_gain &gt;= 0x3A) {
++			adj_loopback_gain -= 0x3A;
++			extern_lna_control = 0x2000;
++		} else if (adj_loopback_gain &gt;= 0x2E) {
++			adj_loopback_gain -= 0x2E;
++			extern_lna_control = 0x1000;
++		} else {
++			adj_loopback_gain -= 0x10;
++			extern_lna_control = 0x0000;
++		}
++		for (loop = 0; loop &lt; 16; loop++) {
++			u16 tmp = adj_loopback_gain - 6 * loop;
++			if (tmp &lt; 6)
++				break;
++		}
++
++		loop_or = (loop &lt;&lt; 8) | extern_lna_control;
++		if (phy-&gt;rev &gt;= 7 &amp;&amp; bcm-&gt;sprom.boardflags
++		    &amp; BCM43xx_BFL_EXTLNA) {
++			if (extern_lna_control)
++				loop_or |= 0x8000;
++			switch (lpd) {
++			case LPD(0, 1, 1):
++				return 0x8F92;
++			case LPD(0, 0, 1):
++				return (0x8092 | loop_or);
++			case LPD(1, 0, 1):
++				return (0x2092 | loop_or);
++			case LPD(1, 0, 0):
++				return (0x2093 | loop_or);
++			default:
++				assert(0);
++			}
++		} else {
++			switch (lpd) {
++			case LPD(0, 1, 1):
++				return 0x0F92;
++			case LPD(0, 0, 1):
++			case LPD(1, 0, 1):
++				return (0x0092 | loop_or);
++			case LPD(1, 0, 0):
++				return (0x0093 | loop_or);
++			default:
++				assert(0);
++			}
++		}
++	}
++	return 0;
++}
++
+ u16 bcm43xx_radio_init2050(struct bcm43xx_private *bcm)
+ {
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
+-	u16 backup[19] = { 0 };
++	u16 backup[21] = { 0 };
+ 	u16 ret;
+ 	u16 i, j;
+ 	u32 tmp1 = 0, tmp2 = 0;
+@@ -1373,19 +1472,36 @@ u16 bcm43xx_radio_init2050(struct bcm43x
+ 			backup[8] = bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS);
+ 			backup[9] = bcm43xx_phy_read(bcm, 0x0802);
+ 			bcm43xx_phy_write(bcm, 0x0814,
+-			                  (bcm43xx_phy_read(bcm, 0x0814) | 0x0003));
++			                  (bcm43xx_phy_read(bcm, 0x0814)
++					  | 0x0003));
+ 			bcm43xx_phy_write(bcm, 0x0815,
+-			                  (bcm43xx_phy_read(bcm, 0x0815) &amp; 0xFFFC));	
++			                  (bcm43xx_phy_read(bcm, 0x0815)
++					  &amp; 0xFFFC));
+ 			bcm43xx_phy_write(bcm, BCM43xx_PHY_G_CRS,
+-			                  (bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS) &amp; 0x7FFF));
++			                  (bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS)
++					  &amp; 0x7FFF));
+ 			bcm43xx_phy_write(bcm, 0x0802,
+ 			                  (bcm43xx_phy_read(bcm, 0x0802) &amp; 0xFFFC));
+-			bcm43xx_phy_write(bcm, 0x0811, 0x01B3);
+-			bcm43xx_phy_write(bcm, 0x0812, 0x0FB2);
++			if (phy-&gt;rev &gt; 1) { /* loopback gain enabled */
++				backup[19] = bcm43xx_phy_read(bcm, 0x080F);
++				backup[20] = bcm43xx_phy_read(bcm, 0x0810);
++				if (phy-&gt;rev &gt;= 3)
++					bcm43xx_phy_write(bcm, 0x080F, 0xC020);
++				else
++					bcm43xx_phy_write(bcm, 0x080F, 0x8020);
++				bcm43xx_phy_write(bcm, 0x0810, 0x0000);
++			}
++			bcm43xx_phy_write(bcm, 0x0812,
++					  bcm43xx_get_812_value(bcm, LPD(0, 1, 1)));
++			if (phy-&gt;rev &lt; 7 || !(bcm-&gt;sprom.boardflags
++			    &amp; BCM43xx_BFL_EXTLNA))
++				bcm43xx_phy_write(bcm, 0x0811, 0x01B3);
++			else
++				bcm43xx_phy_write(bcm, 0x0811, 0x09B3);
+ 		}
+-		bcm43xx_write16(bcm, BCM43xx_MMIO_PHY_RADIO,
+-		                (bcm43xx_read16(bcm, BCM43xx_MMIO_PHY_RADIO) | 0x8000));
+ 	}
++	bcm43xx_write16(bcm, BCM43xx_MMIO_PHY_RADIO,
++	                (bcm43xx_read16(bcm, BCM43xx_MMIO_PHY_RADIO) | 0x8000));
+ 	backup[10] = bcm43xx_phy_read(bcm, 0x0035);
+ 	bcm43xx_phy_write(bcm, 0x0035,
+ 	                  (bcm43xx_phy_read(bcm, 0x0035) &amp; 0xFF7F));
+@@ -1397,10 +1513,12 @@ u16 bcm43xx_radio_init2050(struct bcm43x
+ 		bcm43xx_write16(bcm, 0x03E6, 0x0122);
+ 	} else {
+ 		if (phy-&gt;analog &gt;= 2)
+-			bcm43xx_phy_write(bcm, 0x0003, (bcm43xx_phy_read(bcm, 0x0003)
+-					&amp; 0xFFBF) | 0x0040);
++			bcm43xx_phy_write(bcm, 0x0003,
++					  (bcm43xx_phy_read(bcm, 0x0003)
++					  &amp; 0xFFBF) | 0x0040);
+ 		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT,
+-		                (bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT) | 0x2000));
++		                (bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT)
++				| 0x2000));
+ 	}
+ 
+ 	ret = bcm43xx_radio_calibrationvalue(bcm);
+@@ -1408,16 +1526,25 @@ u16 bcm43xx_radio_init2050(struct bcm43x
+ 	if (phy-&gt;type == BCM43xx_PHYTYPE_B)
+ 		bcm43xx_radio_write16(bcm, 0x0078, 0x0026);
+ 
++	if (phy-&gt;connected)
++		bcm43xx_phy_write(bcm, 0x0812,
++				  bcm43xx_get_812_value(bcm, LPD(0, 1, 1)));
+ 	bcm43xx_phy_write(bcm, 0x0015, 0xBFAF);
+ 	bcm43xx_phy_write(bcm, 0x002B, 0x1403);
+ 	if (phy-&gt;connected)
+-		bcm43xx_phy_write(bcm, 0x0812, 0x00B2);
++		bcm43xx_phy_write(bcm, 0x0812,
++				  bcm43xx_get_812_value(bcm, LPD(0, 0, 1)));
+ 	bcm43xx_phy_write(bcm, 0x0015, 0xBFA0);
+ 	bcm43xx_radio_write16(bcm, 0x0051,
+ 	                      (bcm43xx_radio_read16(bcm, 0x0051) | 0x0004));
+-	bcm43xx_radio_write16(bcm, 0x0052, 0x0000);
+-	bcm43xx_radio_write16(bcm, 0x0043,
+-			      (bcm43xx_radio_read16(bcm, 0x0043) &amp; 0xFFF0) | 0x0009);
++	if (radio-&gt;revision == 8)
++		bcm43xx_radio_write16(bcm, 0x0043, 0x001F);
++	else {
++		bcm43xx_radio_write16(bcm, 0x0052, 0x0000);
++		bcm43xx_radio_write16(bcm, 0x0043,
++				      (bcm43xx_radio_read16(bcm, 0x0043) &amp; 0xFFF0)
++				      | 0x0009);
++	}
+ 	bcm43xx_phy_write(bcm, 0x0058, 0x0000);
+ 
+ 	for (i = 0; i &lt; 16; i++) {
+@@ -1425,21 +1552,25 @@ u16 bcm43xx_radio_init2050(struct bcm43x
+ 		bcm43xx_phy_write(bcm, 0x0059, 0xC810);
+ 		bcm43xx_phy_write(bcm, 0x0058, 0x000D);
+ 		if (phy-&gt;connected)
+-			bcm43xx_phy_write(bcm, 0x0812, 0x30B2);
++			bcm43xx_phy_write(bcm, 0x0812,
++					  bcm43xx_get_812_value(bcm, LPD(1, 0, 1)));
+ 		bcm43xx_phy_write(bcm, 0x0015, 0xAFB0);
+ 		udelay(10);
+ 		if (phy-&gt;connected)
+-			bcm43xx_phy_write(bcm, 0x0812, 0x30B2);
++			bcm43xx_phy_write(bcm, 0x0812,
++					  bcm43xx_get_812_value(bcm, LPD(1, 0, 1)));
+ 		bcm43xx_phy_write(bcm, 0x0015, 0xEFB0);
+ 		udelay(10);
+ 		if (phy-&gt;connected)
+-			bcm43xx_phy_write(bcm, 0x0812, 0x30B2);
++			bcm43xx_phy_write(bcm, 0x0812,
++					  bcm43xx_get_812_value(bcm, LPD(1, 0, 0)));
+ 		bcm43xx_phy_write(bcm, 0x0015, 0xFFF0);
+-		udelay(10);
++		udelay(20);
+ 		tmp1 += bcm43xx_phy_read(bcm, 0x002D);
+ 		bcm43xx_phy_write(bcm, 0x0058, 0x0000);
+ 		if (phy-&gt;connected)
+-			bcm43xx_phy_write(bcm, 0x0812, 0x30B2);
++			bcm43xx_phy_write(bcm, 0x0812,
++					  bcm43xx_get_812_value(bcm, LPD(1, 0, 1)));
+ 		bcm43xx_phy_write(bcm, 0x0015, 0xAFB0);
+ 	}
+ 
+@@ -1457,21 +1588,29 @@ u16 bcm43xx_radio_init2050(struct bcm43x
+ 			bcm43xx_phy_write(bcm, 0x0059, 0xC810);
+ 			bcm43xx_phy_write(bcm, 0x0058, 0x000D);
+ 			if (phy-&gt;connected)
+-				bcm43xx_phy_write(bcm, 0x0812, 0x30B2);
++				bcm43xx_phy_write(bcm, 0x0812,
++						  bcm43xx_get_812_value(bcm,
++						  LPD(1, 0, 1)));
+ 			bcm43xx_phy_write(bcm, 0x0015, 0xAFB0);
+ 			udelay(10);
+ 			if (phy-&gt;connected)
+-				bcm43xx_phy_write(bcm, 0x0812, 0x30B2);
++				bcm43xx_phy_write(bcm, 0x0812,
++						  bcm43xx_get_812_value(bcm,
++						  LPD(1, 0, 1)));
+ 			bcm43xx_phy_write(bcm, 0x0015, 0xEFB0);
+ 			udelay(10);
+ 			if (phy-&gt;connected)
+-				bcm43xx_phy_write(bcm, 0x0812, 0x30B3); /* 0x30B3 is not a typo */
++				bcm43xx_phy_write(bcm, 0x0812,
++						  bcm43xx_get_812_value(bcm,
++						  LPD(1, 0, 0)));
+ 			bcm43xx_phy_write(bcm, 0x0015, 0xFFF0);
+ 			udelay(10);
+ 			tmp2 += bcm43xx_phy_read(bcm, 0x002D);
+ 			bcm43xx_phy_write(bcm, 0x0058, 0x0000);
+ 			if (phy-&gt;connected)
+-				bcm43xx_phy_write(bcm, 0x0812, 0x30B2);
++				bcm43xx_phy_write(bcm, 0x0812,
++						  bcm43xx_get_812_value(bcm,
++						  LPD(1, 0, 1)));
+ 			bcm43xx_phy_write(bcm, 0x0015, 0xAFB0);
+ 		}
+ 		tmp2++;
+@@ -1497,15 +1636,20 @@ u16 bcm43xx_radio_init2050(struct bcm43x
+ 		bcm43xx_phy_write(bcm, 0x0030, backup[2]);
+ 		bcm43xx_write16(bcm, 0x03EC, backup[3]);
+ 	} else {
+-		bcm43xx_write16(bcm, BCM43xx_MMIO_PHY_RADIO,
+-				(bcm43xx_read16(bcm, BCM43xx_MMIO_PHY_RADIO) &amp; 0x7FFF));
+ 		if (phy-&gt;connected) {
++			bcm43xx_write16(bcm, BCM43xx_MMIO_PHY_RADIO,
++					(bcm43xx_read16(bcm,
++					BCM43xx_MMIO_PHY_RADIO) &amp; 0x7FFF));
+ 			bcm43xx_phy_write(bcm, 0x0811, backup[4]);
+ 			bcm43xx_phy_write(bcm, 0x0812, backup[5]);
+ 			bcm43xx_phy_write(bcm, 0x0814, backup[6]);
+ 			bcm43xx_phy_write(bcm, 0x0815, backup[7]);
+ 			bcm43xx_phy_write(bcm, BCM43xx_PHY_G_CRS, backup[8]);
+ 			bcm43xx_phy_write(bcm, 0x0802, backup[9]);
++			if (phy-&gt;rev &gt; 1) {
++				bcm43xx_phy_write(bcm, 0x080F, backup[19]);
++				bcm43xx_phy_write(bcm, 0x0810, backup[20]);
++			}
+ 		}
+ 	}
+ 	if (i &gt;= 15)
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_phy.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_phy.h
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_phy.h
+@@ -48,6 +48,10 @@ void bcm43xx_raw_phy_unlock(struct bcm43
+ 		local_irq_restore(flags);	\
+ 	} while (0)
+ 
++/* Card uses the loopback gain stuff */
++#define has_loopback_gain(phy) \
++        (((phy)-&gt;rev &gt; 1) || ((phy)-&gt;connected))
++
+ u16 bcm43xx_phy_read(struct bcm43xx_private *bcm, u16 offset);
+ void bcm43xx_phy_write(struct bcm43xx_private *bcm, u16 offset, u16 val);
+ 
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+@@ -300,16 +300,20 @@ static void bcm43xx_phy_agcsetup(struct 
+ 
+ 	if (phy-&gt;rev &gt; 2) {
+ 		bcm43xx_phy_write(bcm, 0x0422, 0x287A);
+-		bcm43xx_phy_write(bcm, 0x0420, (bcm43xx_phy_read(bcm, 0x0420) &amp; 0x0FFF) | 0x3000); 
++		bcm43xx_phy_write(bcm, 0x0420, (bcm43xx_phy_read(bcm, 0x0420)
++				  &amp; 0x0FFF) | 0x3000);
+ 	}
+ 		
+-	bcm43xx_phy_write(bcm, 0x04A8, (bcm43xx_phy_read(bcm, 0x04A8) &amp; 0x8080) | 0x7874);
++	bcm43xx_phy_write(bcm, 0x04A8, (bcm43xx_phy_read(bcm, 0x04A8) &amp; 0x8080)
++					| 0x7874);
+ 	bcm43xx_phy_write(bcm, 0x048E, 0x1C00);
+ 
+ 	if (phy-&gt;rev == 1) {
+-		bcm43xx_phy_write(bcm, 0x04AB, (bcm43xx_phy_read(bcm, 0x04AB) &amp; 0xF0FF) | 0x0600);
++		bcm43xx_phy_write(bcm, 0x04AB, (bcm43xx_phy_read(bcm, 0x04AB)
++				  &amp; 0xF0FF) | 0x0600);
+ 		bcm43xx_phy_write(bcm, 0x048B, 0x005E);
+-		bcm43xx_phy_write(bcm, 0x048C, (bcm43xx_phy_read(bcm, 0x048C) &amp; 0xFF00) | 0x001E);
++		bcm43xx_phy_write(bcm, 0x048C, (bcm43xx_phy_read(bcm, 0x048C)
++				  &amp; 0xFF00) | 0x001E);
+ 		bcm43xx_phy_write(bcm, 0x048D, 0x0002);
+ 	}
+ 
+@@ -335,7 +339,8 @@ static void bcm43xx_phy_setupg(struct bc
+ 	if (phy-&gt;rev == 1) {
+ 		bcm43xx_phy_write(bcm, 0x0406, 0x4F19);
+ 		bcm43xx_phy_write(bcm, BCM43xx_PHY_G_CRS,
+-				  (bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS) &amp; 0xFC3F) | 0x0340);
++				  (bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS)
++				  &amp; 0xFC3F) | 0x0340);
+ 		bcm43xx_phy_write(bcm, 0x042C, 0x005A);
+ 		bcm43xx_phy_write(bcm, 0x0427, 0x001A);
+ 
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000878.html">Machine checks on PPC with phy-&gt;rev == 1
+</A></li>
+	<LI>Next message: <A HREF="000894.html">[PATCH] bcm43xx: Change initialization for 2050 radios
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#879">[ date ]</a>
+              <a href="thread.html#879">[ thread ]</a>
+              <a href="subject.html#879">[ subject ]</a>
+              <a href="author.html#879">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

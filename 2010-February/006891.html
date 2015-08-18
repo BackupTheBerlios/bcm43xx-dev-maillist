@@ -1,0 +1,166 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 5/5] b43: N-PHY: partly implement SPUR workaround
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%205/5%5D%20b43%3A%20N-PHY%3A%20partly%20implement%20SPUR%20workaround&In-Reply-To=%3C1265282592-25491-5-git-send-email-zajec5%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006890.html">
+   <LINK REL="Next"  HREF="006895.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 5/5] b43: N-PHY: partly implement SPUR workaround</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%205/5%5D%20b43%3A%20N-PHY%3A%20partly%20implement%20SPUR%20workaround&In-Reply-To=%3C1265282592-25491-5-git-send-email-zajec5%40gmail.com%3E"
+       TITLE="[PATCH 5/5] b43: N-PHY: partly implement SPUR workaround">zajec5 at gmail.com
+       </A><BR>
+    <I>Thu Feb  4 12:23:12 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006890.html">[PATCH 4/5] b43: N-PHY: save calibration for further restore
+</A></li>
+        <LI>Next message: <A HREF="006895.html">[PATCH 2/5 V2] b43: N-PHY: load generated samples
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6891">[ date ]</a>
+              <a href="thread.html#6891">[ thread ]</a>
+              <a href="subject.html#6891">[ subject ]</a>
+              <a href="author.html#6891">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_n.c |   64 +++++++++++++++++++++++++++++++++++++-
+ drivers/net/wireless/b43/phy_n.h |    3 ++
+ 2 files changed, 66 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index f632494..6f56844 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -717,6 +717,67 @@ static void b43_nphy_stop_playback(struct b43_wldev *dev)
+ 		b43_nphy_stay_in_carrier_search(dev, 0);
+ }
+ 
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/SpurWar">http://bcm-v4.sipsolutions.net/802.11/PHY/N/SpurWar</A> */
++static void b43_nphy_spur_workaround(struct b43_wldev *dev)
++{
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
++
++	unsigned int channel;
++	int tone[2] = { 57, 58 };
++	u32 noise[2] = { 0x3FF, 0x3FF };
++
++	B43_WARN_ON(dev-&gt;phy.rev &lt; 3);
++
++	if (nphy-&gt;hang_avoid)
++		b43_nphy_stay_in_carrier_search(dev, 1);
++
++	/* FIXME: channel = radio_chanspec */
++
++	if (nphy-&gt;gband_spurwar_en) {
++		/* TODO: N PHY Adjust Analog Pfbw (7) */
++		if (channel == 11 &amp;&amp; dev-&gt;phy.is_40mhz)
++			; /* TODO: N PHY Adjust Min Noise Var(2, tone, noise)*/
++		else
++			; /* TODO: N PHY Adjust Min Noise Var(0, NULL, NULL)*/
++		/* TODO: N PHY Adjust CRS Min Power (0x1E) */
++	}
++
++	if (nphy-&gt;aband_spurwar_en) {
++		if (channel == 54) {
++			tone[0] = 0x20;
++			noise[0] = 0x25F;
++		} else if (channel == 38 || channel == 102 || channel == 118) {
++			if (0 /* FIXME */) {
++				tone[0] = 0x20;
++				noise[0] = 0x21F;
++			} else {
++				tone[0] = 0;
++				noise[0] = 0;
++			}
++		} else if (channel == 134) {
++			tone[0] = 0x20;
++			noise[0] = 0x21F;
++		} else if (channel == 151) {
++			tone[0] = 0x10;
++			noise[0] = 0x23F;
++		} else if (channel == 153 || channel == 161) {
++			tone[0] = 0x30;
++			noise[0] = 0x23F;
++		} else {
++			tone[0] = 0;
++			noise[0] = 0;
++		}
++
++		if (!tone[0] &amp;&amp; !noise[0])
++			; /* TODO: N PHY Adjust Min Noise Var(1, tone, noise)*/
++		else
++			; /* TODO: N PHY Adjust Min Noise Var(0, NULL, NULL)*/
++	}
++
++	if (nphy-&gt;hang_avoid)
++		b43_nphy_stay_in_carrier_search(dev, 0);
++}
++
+ /* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/WorkaroundsGainCtrl">http://bcm-v4.sipsolutions.net/802.11/PHY/N/WorkaroundsGainCtrl</A> */
+ static void b43_nphy_gain_crtl_workarounds(struct b43_wldev *dev)
+ {
+@@ -3079,7 +3140,8 @@ int b43_phy_initn(struct b43_wldev *dev)
+ 	if (phy-&gt;rev &gt;= 3 &amp;&amp; phy-&gt;rev &lt;= 6)
+ 		b43_phy_write(dev, B43_NPHY_PLOAD_CSENSE_EXTLEN, 0x0014);
+ 	b43_nphy_tx_lp_fbw(dev);
+-	/* TODO N PHY Spur Workaround */
++	if (phy-&gt;rev &gt;= 3)
++		b43_nphy_spur_workaround(dev);
+ 
+ 	b43err(dev-&gt;wl, &quot;IEEE 802.11n devices are not supported, yet.\n&quot;);
+ 	return 0;
+diff --git a/drivers/net/wireless/b43/phy_n.h b/drivers/net/wireless/b43/phy_n.h
+index 0400a2c..403aad3 100644
+--- a/drivers/net/wireless/b43/phy_n.h
++++ b/drivers/net/wireless/b43/phy_n.h
+@@ -1002,6 +1002,9 @@ struct b43_phy_n {
+ 	u16 classifier_state;
+ 	u16 clip_state[2];
+ 
++	bool aband_spurwar_en;
++	bool gband_spurwar_en;
++
+ 	bool ipa2g_on;
+ 	u8 iqcal_chanspec_2G;
+ 	u8 rssical_chanspec_2G;
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006890.html">[PATCH 4/5] b43: N-PHY: save calibration for further restore
+</A></li>
+	<LI>Next message: <A HREF="006895.html">[PATCH 2/5 V2] b43: N-PHY: load generated samples
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6891">[ date ]</a>
+              <a href="thread.html#6891">[ thread ]</a>
+              <a href="subject.html#6891">[ subject ]</a>
+              <a href="author.html#6891">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

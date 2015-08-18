@@ -1,0 +1,839 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> B43 problem with wireless-testing 2.6.25-rc8 from APR 8 commit -- ARPs	no longer go through
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20B43%20problem%20with%20wireless-testing%202.6.25-rc8%20from%20APR%208%20commit%20--%20ARPs%0A%09no%20longer%20go%20through&In-Reply-To=%3C48016964.60409%40wetwork.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003769.html">
+   <LINK REL="Next"  HREF="003755.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>B43 problem with wireless-testing 2.6.25-rc8 from APR 8 commit -- ARPs	no longer go through</H1>
+    <B>gavron at wetwork.net</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20B43%20problem%20with%20wireless-testing%202.6.25-rc8%20from%20APR%208%20commit%20--%20ARPs%0A%09no%20longer%20go%20through&In-Reply-To=%3C48016964.60409%40wetwork.net%3E"
+       TITLE="B43 problem with wireless-testing 2.6.25-rc8 from APR 8 commit -- ARPs	no longer go through">gavron at wetwork.net
+       </A><BR>
+    <I>Sun Apr 13 04:01:08 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003769.html">BCM4318 (ASUS WL-500gP) &amp; hostapd problem
+</A></li>
+        <LI>Next message: <A HREF="003755.html">[PATCH] b43legacy: fix bcm4303 crash
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3787">[ date ]</a>
+              <a href="thread.html#3787">[ thread ]</a>
+              <a href="subject.html#3787">[ subject ]</a>
+              <a href="author.html#3787">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I will describe the symptoms in detail below.  The commit that broke it is:
+9e3143b05cf4274dc5c5d4fc1e13ca6c13945587 is first bad commit
+commit 9e3143b05cf4274dc5c5d4fc1e13ca6c13945587
+Author: Johannes Berg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">johannes at sipsolutions.net</A>&gt;
+Date:   Tue Apr 8 17:56:52 2008 +0200
+
+    mac80211: fix key vs. sta locking problems
+   
+    Up to now, key manipulation is supposed to run under RTNL to
+    avoid concurrent manipulations and also allow the set_key()
+    hardware callback to sleep. This is not feasible because STA
+    structs are rcu-protected and thus a lot of operations there
+    cannot take the RTNL. Also, key references are rcu-protected
+    so we cannot do things atomically.
+   
+    This patch changes key locking completely:
+     * key operations are now atomic
+     * hardware crypto offload is enabled and disabled from
+       a workqueue, due to that key freeing is also delayed
+     * debugfs code is also run from a workqueue
+     * keys reference STAs (and vice versa!) so during STA
+       unlink the STAs key reference is removed but not the
+       keys STA reference, to avoid races key todo work is
+       run before STA destruction.
+     * fewer STA operations now need the RTNL which was
+       required due to key operations
+   
+    This fixes the locking problems lockdep pointed out and also
+    makes things more light-weight because the rtnl isn't required
+    as much.
+   
+    Note that the key todo lock/key mutex are global locks, this
+    is not required, of course, they could be per-hardware instead.
+   
+    Signed-off-by: Johannes Berg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">johannes at sipsolutions.net</A>&gt;
+    Signed-off-by: John W. Linville &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>&gt;
+
+:<i>040000 040000 c3d24705019ce120163f8f1efe0afb8aebff58fa 
+</I>41ad23e05abfe62298101ba1d27a1815471c68ba M      net
+
+
+Git bisect log attached.
+
+The problem description is as follows:
+Anywhere from one second to 3-5 minutes after assocation the IP traffic 
+fails to come through.
+Using wireshark on the laptop side I see STP packets and other Ethernet 
+frames.
+The association is good.  iwconfig is good.  RX and TX count increment 
+(iwconfig attached).
+Dmesg says nothing from the point before the failure to the point after. 
+(dmesg attached)
+
+When the problem occurs, wireshark on the wlan (laptop) side shows ARP 
+requests that are not responded to.
+When the problem occurs, wireshark on the LAN (wired) side does not show 
+those ARP requests.
+
+I've tried pings in both directions which only serve to generate ARP 
+requests.  NONE make it to the wlan adapter.
+Other Ethernet traffic (e.g. STP and 802.1q stuff does).
+
+This network uses WEP.
+
+Please advise how I can better test.
+
+Thanks,
+
+Ehud
+
+PS A previous message to bcm43xx-dev has not yet appeared... so there 
+may be an unrelated problem there.
+-------------- next part --------------
+Initializing cgroup subsys cpuset
+Linux version 2.6.25-rc8-ehud-wl (<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell.wetwork.net</A>) (gcc version 4.1.2 20070925 (Red Hat 4.1.2-33)) #1 SMP Sat Apr 12 13:45:30 MST 2008
+Command line: ro root=LABEL=/  quiet
+BIOS-provided physical RAM map:
+ BIOS-e820: 0000000000000000 - 000000000009f000 (usable)
+ BIOS-e820: 000000000009f000 - 00000000000a0000 (reserved)
+ BIOS-e820: 0000000000100000 - 00000000cfe81400 (usable)
+ BIOS-e820: 00000000cfe81400 - 00000000d0000000 (reserved)
+ BIOS-e820: 00000000f0000000 - 00000000f4007000 (reserved)
+ BIOS-e820: 00000000f4008000 - 00000000f400c000 (reserved)
+ BIOS-e820: 00000000fec00000 - 00000000fec10000 (reserved)
+ BIOS-e820: 00000000fed20000 - 00000000feda0000 (reserved)
+ BIOS-e820: 00000000fee00000 - 00000000fee10000 (reserved)
+ BIOS-e820: 00000000ffb00000 - 0000000100000000 (reserved)
+Entering add_active_range(0, 0, 159) 0 entries of 3200 used
+Entering add_active_range(0, 256, 851585) 1 entries of 3200 used
+end_pfn_map = 1048576
+DMI 2.4 present.
+ACPI: RSDP 000FC0C0, 0014 (r0 DELL  )
+ACPI: RSDT CFE8198A, 0044 (r1 DELL    M07     27D8010B ASL        61)
+ACPI: FACP CFE82800, 0074 (r1 DELL    M07     27D8010B ASL        61)
+ACPI: DSDT CFE83400, 519E (r1 INT430 SYSFexxx     1001 INTL 20050624)
+ACPI: FACS CFE91C00, 0040
+ACPI: HPET CFE82F00, 0038 (r1 DELL    M07            1 ASL        61)
+ACPI: APIC CFE83000, 0068 (r1 DELL    M07     27D8010B ASL        47)
+ACPI: ASF! CFE82C00, 005B (r16 DELL    M07     27D8010B ASL        61)
+ACPI: MCFG CFE82FC0, 003E (r16 DELL    M07     27D8010B ASL        61)
+ACPI: TCPA CFE83300, 0032 (r1 DELL    M07     27D8010B ASL        61)
+ACPI: SLIC CFE8309C, 0176 (r1 DELL    M07     27D8010B ASL        61)
+ACPI: SSDT CFE81A11, 04DC (r1  PmRef    CpuPm     3000 INTL 20050624)
+No NUMA configuration found
+Faking a node at 0000000000000000-00000000cfe81000
+Entering add_active_range(0, 0, 159) 0 entries of 3200 used
+Entering add_active_range(0, 256, 851585) 1 entries of 3200 used
+Bootmem setup node 0 0000000000000000-00000000cfe81000
+  NODE_DATA [000000000000d000 - 0000000000014fff]
+  bootmap [0000000000015000 -  000000000002efd7] pages 1a
+early res: 0 [0-fff] BIOS data page
+early res: 1 [6000-7fff] SMP_TRAMPOLINE
+early res: 2 [200000-bcf987] TEXT DATA BSS
+early res: 3 [37cc3000-37fef010] RAMDISK
+early res: 4 [9f000-9ffff] EBDA
+early res: 5 [8000-cfff] PGTABLE
+No mptable found.
+ [ffffe20000000000-ffffe200001fffff] PMD -&gt;ffff810001200000 on node 0
+ [ffffe20000200000-ffffe200003fffff] PMD -&gt;ffff810001400000 on node 0
+ [ffffe20000400000-ffffe200005fffff] PMD -&gt;ffff810001800000 on node 0
+ [ffffe20000600000-ffffe200007fffff] PMD -&gt;ffff810001c00000 on node 0
+ [ffffe20000800000-ffffe200009fffff] PMD -&gt;ffff810001e00000 on node 0
+ [ffffe20000a00000-ffffe20000bfffff] PMD -&gt;ffff810002200000 on node 0
+ [ffffe20000c00000-ffffe20000dfffff] PMD -&gt;ffff810002600000 on node 0
+ [ffffe20000e00000-ffffe20000ffffff] PMD -&gt;ffff810002800000 on node 0
+ [ffffe20001000000-ffffe200011fffff] PMD -&gt;ffff810002c00000 on node 0
+ [ffffe20001200000-ffffe200013fffff] PMD -&gt;ffff810003000000 on node 0
+ [ffffe20001400000-ffffe200015fffff] PMD -&gt;ffff810003200000 on node 0
+ [ffffe20001600000-ffffe200017fffff] PMD -&gt;ffff810003600000 on node 0
+ [ffffe20001800000-ffffe200019fffff] PMD -&gt;ffff810003a00000 on node 0
+ [ffffe20001a00000-ffffe20001bfffff] PMD -&gt;ffff810003c00000 on node 0
+ [ffffe20001c00000-ffffe20001dfffff] PMD -&gt;ffff810004000000 on node 0
+ [ffffe20001e00000-ffffe20001ffffff] PMD -&gt;ffff810004400000 on node 0
+ [ffffe20002000000-ffffe200021fffff] PMD -&gt;ffff810004600000 on node 0
+ [ffffe20002200000-ffffe200023fffff] PMD -&gt;ffff810004a00000 on node 0
+ [ffffe20002400000-ffffe200025fffff] PMD -&gt;ffff810004e00000 on node 0
+ [ffffe20002600000-ffffe200027fffff] PMD -&gt;ffff810005000000 on node 0
+ [ffffe20002800000-ffffe200029fffff] PMD -&gt;ffff810005400000 on node 0
+ [ffffe20002a00000-ffffe20002bfffff] PMD -&gt;ffff810005800000 on node 0
+ [ffffe20002c00000-ffffe20002dfffff] PMD -&gt;ffff810005a00000 on node 0
+ [ffffe20002e00000-ffffe20002ffffff] PMD -&gt;ffff810005e00000 on node 0
+ [ffffe20003000000-ffffe200031fffff] PMD -&gt;ffff810006200000 on node 0
+ [ffffe20003200000-ffffe200033fffff] PMD -&gt;ffff810006400000 on node 0
+ [ffffe20003400000-ffffe200035fffff] PMD -&gt;ffff810006800000 on node 0
+ [ffffe20003600000-ffffe200037fffff] PMD -&gt;ffff810006c00000 on node 0
+ [ffffe20003800000-ffffe200039fffff] PMD -&gt;ffff810006e00000 on node 0
+ [ffffe20003a00000-ffffe20003bfffff] PMD -&gt;ffff810007200000 on node 0
+ [ffffe20003c00000-ffffe20003dfffff] PMD -&gt;ffff810007600000 on node 0
+ [ffffe20003e00000-ffffe20003ffffff] PMD -&gt;ffff810007800000 on node 0
+ [ffffe20004000000-ffffe200041fffff] PMD -&gt;ffff810007c00000 on node 0
+ [ffffe20004200000-ffffe200043fffff] PMD -&gt;ffff810008000000 on node 0
+ [ffffe20004400000-ffffe200045fffff] PMD -&gt;ffff810008200000 on node 0
+ [ffffe20004600000-ffffe200047fffff] PMD -&gt;ffff810008600000 on node 0
+ [ffffe20004800000-ffffe200049fffff] PMD -&gt;ffff810008a00000 on node 0
+ [ffffe20004a00000-ffffe20004bfffff] PMD -&gt;ffff810008c00000 on node 0
+ [ffffe20004c00000-ffffe20004dfffff] PMD -&gt;ffff810009000000 on node 0
+Zone PFN ranges:
+  DMA             0 -&gt;     4096
+  DMA32        4096 -&gt;  1048576
+  Normal    1048576 -&gt;  1048576
+Movable zone start PFN for each node
+early_node_map[2] active PFN ranges
+    0:        0 -&gt;      159
+    0:      256 -&gt;   851585
+On node 0 totalpages: 851488
+  DMA zone: 96 pages used for memmap
+  DMA zone: 2520 pages reserved
+  DMA zone: 1383 pages, LIFO batch:0
+  DMA32 zone: 19863 pages used for memmap
+  DMA32 zone: 827626 pages, LIFO batch:31
+  Normal zone: 0 pages used for memmap
+  Movable zone: 0 pages used for memmap
+ACPI: PM-Timer IO Port: 0x1008
+ACPI: Local APIC address 0xfee00000
+ACPI: LAPIC (acpi_id[0x00] lapic_id[0x00] enabled)
+Processor #0 (Bootup-CPU)
+ACPI: LAPIC (acpi_id[0x01] lapic_id[0x01] enabled)
+Processor #1
+ACPI: LAPIC_NMI (acpi_id[0x00] high edge lint[0x1])
+ACPI: LAPIC_NMI (acpi_id[0x01] high edge lint[0x1])
+ACPI: IOAPIC (id[0x02] address[0xfec00000] gsi_base[0])
+IOAPIC[0]: apic_id 2, address 0xfec00000, GSI 0-23
+ACPI: INT_SRC_OVR (bus 0 bus_irq 0 global_irq 2 dfl dfl)
+ACPI: INT_SRC_OVR (bus 0 bus_irq 9 global_irq 9 high level)
+ACPI: IRQ0 used by override.
+ACPI: IRQ2 used by override.
+ACPI: IRQ9 used by override.
+Setting APIC routing to flat
+ACPI: HPET id: 0x8086a201 base: 0xfed00000
+Using ACPI (MADT) for SMP configuration information
+PM: Registered nosave memory: 000000000009f000 - 00000000000a0000
+PM: Registered nosave memory: 00000000000a0000 - 0000000000100000
+Allocating PCI resources starting at d2000000 (gap: d0000000:20000000)
+SMP: Allowing 2 CPUs, 0 hotplug CPUs
+PERCPU: Allocating 437288 bytes of per cpu data
+Built 1 zonelists in Node order, mobility grouping on.  Total pages: 829009
+Policy zone: DMA32
+Kernel command line: ro root=LABEL=/  quiet
+Initializing CPU#0
+PID hash table entries: 4096 (order: 12, 32768 bytes)
+TSC calibrated against PM_TIMER
+time.c: Detected 1997.335 MHz processor.
+Console: colour VGA+ 80x25
+console [tty0] enabled
+Lock dependency validator: Copyright (c) 2006 Red Hat, Inc., Ingo Molnar
+... MAX_LOCKDEP_SUBCLASSES:    8
+... MAX_LOCK_DEPTH:          48
+... MAX_LOCKDEP_KEYS:        2048
+... CLASSHASH_SIZE:           1024
+... MAX_LOCKDEP_ENTRIES:     8192
+... MAX_LOCKDEP_CHAINS:      16384
+... CHAINHASH_SIZE:          8192
+ memory used by lock dependency info: 1712 kB
+ per task-struct memory footprint: 3456 bytes
+Checking aperture...
+Calgary: detecting Calgary via BIOS EBDA area
+Calgary: Unable to locate Rio Grande table in EBDA - bailing!
+Memory: 3311332k/3406340k available (2580k kernel code, 94620k reserved, 1474k data, 728k init)
+CPA: page pool initialized 1 of 1 pages preallocated
+SLUB: Genslabs=13, HWalign=64, Order=0-1, MinObjects=4, CPUs=2, Nodes=1
+hpet clockevent registered
+Calibrating delay using timer specific routine.. 3999.61 BogoMIPS (lpj=1999807)
+Security Framework initialized
+SELinux:  Initializing.
+SELinux:  Starting in permissive mode
+selinux_register_security:  Registering secondary module capability
+Capability LSM initialized as secondary
+Dentry cache hash table entries: 524288 (order: 10, 4194304 bytes)
+Inode-cache hash table entries: 262144 (order: 9, 2097152 bytes)
+Mount-cache hash table entries: 256
+Initializing cgroup subsys ns
+Initializing cgroup subsys cpuacct
+CPU: L1 I cache: 32K, L1 D cache: 32K
+CPU: L2 cache: 4096K
+CPU 0/0 -&gt; Node 0
+CPU: Physical Processor ID: 0
+CPU: Processor Core ID: 0
+using mwait in idle threads.
+ACPI: Core revision 20070126
+Using local APIC timer interrupts.
+APIC timer calibration result 10402787
+Detected 10.402 MHz APIC timer.
+lockdep: fixing up alternatives.
+Booting processor 1/2 APIC 0x1
+Initializing CPU#1
+Calibrating delay using timer specific routine.. 3994.45 BogoMIPS (lpj=1997225)
+CPU: L1 I cache: 32K, L1 D cache: 32K
+CPU: L2 cache: 4096K
+CPU 1/1 -&gt; Node 0
+CPU: Physical Processor ID: 0
+CPU: Processor Core ID: 1
+Intel(R) Core(TM)2 CPU         T7200  @ 2.00GHz stepping 06
+checking TSC synchronization [CPU#0 -&gt; CPU#1]:
+Measured 4842739224 cycles TSC warp between CPUs, turning off TSC clock.
+Marking TSC unstable due to check_tsc_sync_source failed
+Brought up 2 CPUs
+CPU0 attaching sched-domain:
+ domain 0: span 00000000,00000003
+  groups: 00000000,00000001 00000000,00000002
+  domain 1: span 00000000,00000003
+   groups: 00000000,00000003
+CPU1 attaching sched-domain:
+ domain 0: span 00000000,00000003
+  groups: 00000000,00000002 00000000,00000001
+  domain 1: span 00000000,00000003
+   groups: 00000000,00000003
+khelper used greatest stack depth: 6064 bytes left
+net_namespace: 1144 bytes
+NET: Registered protocol family 16
+ACPI: ACPI Dock Station Driver 
+ACPI: bus type pci registered
+PCI: Using MMCONFIG at f0000000 - f3ffffff
+PCI: Using configuration type 1
+ACPI: EC: Look up EC in DSDT
+ACPI Warning (tbutils-0217): Incorrect checksum in table [TCPA] -  00, should be A3 [20070126]
+ACPI: SSDT CFE819CE, 0043 (r1  LMPWR  DELLLOM     1001 INTL 20050624)
+ACPI: Interpreter enabled
+ACPI: (supports S0 S3 S4 S5)
+ACPI: Using IOAPIC for interrupt routing
+ACPI: PCI Root Bridge [PCI0] (0000:00)
+pci 0000:00:1f.0: quirk: region 1000-107f claimed by ICH6 ACPI/GPIO/TCO
+pci 0000:00:1f.0: quirk: region 1080-10bf claimed by ICH6 GPIO
+PCI: Transparent bridge - 0000:00:1e.0
+ACPI: PCI Interrupt Routing Table [\_SB_.PCI0._PRT]
+ACPI: PCI Interrupt Routing Table [\_SB_.PCI0.AGP_._PRT]
+ACPI: PCI Interrupt Routing Table [\_SB_.PCI0.PCIE._PRT]
+ACPI: PCI Interrupt Routing Table [\_SB_.PCI0.RP01._PRT]
+ACPI: PCI Interrupt Routing Table [\_SB_.PCI0.RP02._PRT]
+ACPI: PCI Interrupt Routing Table [\_SB_.PCI0.PXP0._PRT]
+ACPI: PCI Interrupt Link [LNKA] (IRQs *9 10 11)
+ACPI: PCI Interrupt Link [LNKB] (IRQs 5 7) *3
+ACPI: PCI Interrupt Link [LNKC] (IRQs 9 10 11) *5
+ACPI: PCI Interrupt Link [LNKD] (IRQs 5 7 9 10 11) *0, disabled.
+ACPI: PCI Interrupt Link [LNKE] (IRQs 3 4 5 6 7 9 *10 11 12 14 15)
+ACPI: PCI Interrupt Link [LNKF] (IRQs 3 4 5 6 7 9 10 *11 12 14 15)
+ACPI: PCI Interrupt Link [LNKG] (IRQs 3 4 5 6 7 *9 10 11 12 14 15)
+ACPI: PCI Interrupt Link [LNKH] (IRQs 3 4 *5 6 7 9 10 11 12 14 15)
+Linux Plug and Play Support v0.97 (c) Adam Belay
+pnp: PnP ACPI init
+ACPI: bus type pnp registered
+pnp: PnP ACPI: found 15 devices
+ACPI: ACPI bus type pnp unregistered
+usbcore: registered new interface driver usbfs
+usbcore: registered new interface driver hub
+usbcore: registered new device driver usb
+PCI: Using ACPI for IRQ routing
+PCI: If a device doesn't work, try &quot;pci=routeirq&quot;.  If it helps, post a report
+NetLabel: Initializing
+NetLabel:  domain hash size = 128
+NetLabel:  protocols = UNLABELED CIPSOv4
+NetLabel:  unlabeled traffic allowed by default
+DMAR:parse DMAR table failure.
+PCI-GART: No AMD northbridge found.
+hpet0: at MMIO 0xfed00000, IRQs 2, 8, 11
+hpet0: 3 64-bit timers, 14318180 Hz
+ACPI: RTC can wake from S4
+Switched to high resolution mode on CPU 0
+Switched to high resolution mode on CPU 1
+system 00:00: iomem range 0x0-0x9fbff could not be reserved
+system 00:00: iomem range 0x9fc00-0x9ffff could not be reserved
+system 00:00: iomem range 0xc0000-0xcffff has been reserved
+system 00:00: iomem range 0xe0000-0xfffff has been reserved
+system 00:00: iomem range 0x100000-0xcfe813ff could not be reserved
+system 00:00: iomem range 0xcfe81400-0xcfefffff could not be reserved
+system 00:00: iomem range 0xcff00000-0xcfffffff could not be reserved
+system 00:00: iomem range 0xffb00000-0xffffffff could not be reserved
+system 00:00: iomem range 0xfec00000-0xfec0ffff could not be reserved
+system 00:00: iomem range 0xfee00000-0xfee0ffff could not be reserved
+system 00:00: iomem range 0xfed20000-0xfed3ffff could not be reserved
+system 00:00: iomem range 0xfed45000-0xfed9ffff could not be reserved
+system 00:00: iomem range 0xffa80000-0xffa83fff could not be reserved
+system 00:00: iomem range 0xf4000000-0xf4003fff could not be reserved
+system 00:00: iomem range 0xf4004000-0xf4004fff could not be reserved
+system 00:00: iomem range 0xf4005000-0xf4005fff could not be reserved
+system 00:00: iomem range 0xf4006000-0xf4006fff could not be reserved
+system 00:00: iomem range 0xf4008000-0xf400bfff could not be reserved
+system 00:00: iomem range 0xf0000000-0xf3ffffff could not be reserved
+system 00:02: ioport range 0x4d0-0x4d1 has been reserved
+system 00:02: ioport range 0x1000-0x1005 has been reserved
+system 00:02: ioport range 0x1008-0x100f has been reserved
+system 00:03: ioport range 0xf400-0xf4fe has been reserved
+system 00:03: ioport range 0x1006-0x1007 has been reserved
+system 00:03: ioport range 0x100a-0x1059 could not be reserved
+system 00:03: ioport range 0x1060-0x107f has been reserved
+system 00:03: ioport range 0x1080-0x10bf has been reserved
+system 00:03: ioport range 0x10c0-0x10df has been reserved
+system 00:03: ioport range 0x1010-0x102f has been reserved
+system 00:03: ioport range 0x809-0x809 has been reserved
+system 00:08: ioport range 0xc80-0xcaf has been reserved
+system 00:08: ioport range 0xcc0-0xcff could not be reserved
+system 00:08: ioport range 0x910-0x91f has been reserved
+system 00:08: ioport range 0x920-0x92f has been reserved
+system 00:08: ioport range 0xcbc-0xcbf has been reserved
+system 00:08: ioport range 0x930-0x97f has been reserved
+system 00:0b: iomem range 0xfed00000-0xfed003ff has been reserved
+system 00:0e: ioport range 0xcb0-0xcbb has been reserved
+system 00:0e: iomem range 0xfed40000-0xfed44fff could not be reserved
+PCI: Bridge: 0000:00:01.0
+  IO window: disabled.
+  MEM window: 0xed000000-0xefefffff
+  PREFETCH window: 0x00000000d0000000-0x00000000dfffffff
+PCI: Bridge: 0000:00:1c.0
+  IO window: disabled.
+  MEM window: disabled.
+  PREFETCH window: disabled.
+PCI: Bridge: 0000:00:1c.1
+  IO window: disabled.
+  MEM window: 0xecf00000-0xecffffff
+  PREFETCH window: disabled.
+PCI: Bridge: 0000:00:1c.2
+  IO window: disabled.
+  MEM window: 0xece00000-0xecefffff
+  PREFETCH window: disabled.
+PCI: Bus 4, cardbus bridge: 0000:03:01.0
+  IO window: 0x00002000-0x000020ff
+  IO window: 0x00002400-0x000024ff
+  PREFETCH window: 0xe0000000-0xe3ffffff
+  MEM window: 0xe4000000-0xe7ffffff
+PCI: Bridge: 0000:00:1e.0
+  IO window: 2000-2fff
+  MEM window: 0xe4000000-0xe9ffffff
+  PREFETCH window: 0x00000000e0000000-0x00000000e3ffffff
+ACPI: PCI Interrupt 0000:00:01.0[A] -&gt; GSI 16 (level, low) -&gt; IRQ 16
+PCI: Setting latency timer of device 0000:00:01.0 to 64
+ACPI: PCI Interrupt 0000:00:1c.0[A] -&gt; GSI 16 (level, low) -&gt; IRQ 16
+PCI: Setting latency timer of device 0000:00:1c.0 to 64
+ACPI: PCI Interrupt 0000:00:1c.1[B] -&gt; GSI 17 (level, low) -&gt; IRQ 17
+PCI: Setting latency timer of device 0000:00:1c.1 to 64
+ACPI: PCI Interrupt 0000:00:1c.2[C] -&gt; GSI 18 (level, low) -&gt; IRQ 18
+PCI: Setting latency timer of device 0000:00:1c.2 to 64
+PCI: Setting latency timer of device 0000:00:1e.0 to 64
+PCI: Enabling device 0000:03:01.0 (0000 -&gt; 0003)
+ACPI: PCI Interrupt 0000:03:01.0[A] -&gt; GSI 18 (level, low) -&gt; IRQ 18
+NET: Registered protocol family 2
+IP route cache hash table entries: 131072 (order: 8, 1048576 bytes)
+TCP established hash table entries: 524288 (order: 11, 8388608 bytes)
+TCP bind hash table entries: 65536 (order: 10, 4194304 bytes)
+TCP: Hash tables configured (established 524288 bind 65536)
+TCP reno registered
+checking if image is initramfs... it is
+Freeing initrd memory: 3248k freed
+audit: initializing netlink socket (disabled)
+type=2000 audit(1208014817.906:1): initialized
+Total HugeTLB memory allocated, 0
+VFS: Disk quotas dquot_6.5.1
+Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+SELinux:  Registering netfilter hooks
+Block layer SCSI generic (bsg) driver version 0.4 loaded (major 252)
+io scheduler noop registered
+io scheduler anticipatory registered
+io scheduler deadline registered
+io scheduler cfq registered (default)
+pci 0000:01:00.0: Boot video device
+PCI: Setting latency timer of device 0000:00:01.0 to 64
+assign_interrupt_mode Found MSI capability
+Allocate Port Service[0000:00:01.0:pcie00]
+Allocate Port Service[0000:00:01.0:pcie03]
+PCI: Setting latency timer of device 0000:00:1c.0 to 64
+assign_interrupt_mode Found MSI capability
+Allocate Port Service[0000:00:1c.0:pcie00]
+Allocate Port Service[0000:00:1c.0:pcie02]
+Allocate Port Service[0000:00:1c.0:pcie03]
+PCI: Setting latency timer of device 0000:00:1c.1 to 64
+assign_interrupt_mode Found MSI capability
+Allocate Port Service[0000:00:1c.1:pcie00]
+Allocate Port Service[0000:00:1c.1:pcie02]
+Allocate Port Service[0000:00:1c.1:pcie03]
+PCI: Setting latency timer of device 0000:00:1c.2 to 64
+assign_interrupt_mode Found MSI capability
+Allocate Port Service[0000:00:1c.2:pcie00]
+Allocate Port Service[0000:00:1c.2:pcie02]
+Allocate Port Service[0000:00:1c.2:pcie03]
+pci_hotplug: PCI Hot Plug PCI Core version: 0.5
+ACPI: SSDT CFE82138, 0244 (r1  PmRef  Cpu0Ist     3000 INTL 20050624)
+ACPI: SSDT CFE81EED, 01C6 (r1  PmRef  Cpu0Cst     3001 INTL 20050624)
+ACPI: CPU0 (power states: C1[C1] C2[C2] C3[C3])
+ACPI: ACPI0007:00 is registered as cooling_device0
+ACPI: Processor [CPU0] (supports 8 throttling states)
+ACPI: SSDT CFE8237C, 00C4 (r1  PmRef  Cpu1Ist     3000 INTL 20050624)
+ACPI: SSDT CFE820B3, 0085 (r1  PmRef  Cpu1Cst     3000 INTL 20050624)
+ACPI: CPU1 (power states: C1[C1] C2[C2] C3[C3])
+ACPI: ACPI0007:01 is registered as cooling_device1
+ACPI: Processor [CPU1] (supports 8 throttling states)
+ACPI: LNXTHERM:01 is registered as thermal_zone0
+ACPI: Thermal Zone [THM] (52 C)
+hpet_resources: 0xfed00000 is busy
+Non-volatile memory driver v1.2
+Linux agpgart interface v0.103
+Serial: 8250/16550 driver $Revision: 1.90 $ 4 ports, IRQ sharing enabled
+serial8250: ttyS0 at I/O 0x3f8 (irq = 4) is a 16550A
+serial8250: ttyS2 at I/O 0x3e8 (irq = 0) is a 16550A
+00:0c: ttyS0 at I/O 0x3f8 (irq = 4) is a 16550A
+isa bounce pool size: 16 pages
+brd: module loaded
+input: Macintosh mouse button emulation as /class/input/input0
+Yenta: CardBus bridge found at 0000:03:01.0 [1028:01c2]
+Yenta O2: res at 0x94/0xD4: 00/ea
+Yenta O2: enabling read prefetch/write burst
+Yenta: ISA IRQ mask 0x04b8, PCI irq 18
+Socket status: 30000410
+Yenta: Raising subordinate bus# of parent bus (#03) from #04 to #07
+pcmcia: parent PCI bridge I/O window: 0x2000 - 0x2fff
+pcmcia: parent PCI bridge Memory window: 0xe4000000 - 0xe9ffffff
+pcmcia: parent PCI bridge Memory window: 0xe0000000 - 0xe3ffffff
+PNP: PS/2 Controller [PNP0303:KBC,PNP0f13:PS2M] at 0x60,0x64 irq 1,12
+serio: i8042 KBD port at 0x60,0x64 irq 1
+serio: i8042 AUX port at 0x60,0x64 irq 12
+mice: PS/2 mouse device common for all mice
+input: AT Translated Set 2 keyboard as /class/input/input1
+cpuidle: using governor ladder
+input: PS/2 Mouse as /class/input/input2
+pccard: PCMCIA card inserted into slot 0
+cs: memory probe 0xe0000000-0xe3ffffff: excluding 0xe0000000-0xe3ffffff
+cs: memory probe 0xe4000000-0xe9ffffff: excluding 0xe4000000-0xe81fffff 0xe8e00000-0xe93fffff
+pcmcia: registering new device pcmcia0.0
+input: AlpsPS/2 ALPS GlidePoint as /class/input/input3
+cpuidle: using governor menu
+usbcore: registered new interface driver hiddev
+usbcore: registered new interface driver usbhid
+drivers/hid/usbhid/hid-core.c: v2.6:USB HID core driver
+TCP cubic registered
+Initializing XFRM netlink socket
+NET: Registered protocol family 1
+NET: Registered protocol family 17
+registered taskstats version 1
+Freeing unused kernel memory: 728k freed
+Write protecting the kernel read-only data: 1156k
+ACPI: PCI Interrupt 0000:00:1d.7[A] -&gt; GSI 20 (level, low) -&gt; IRQ 20
+PCI: Setting latency timer of device 0000:00:1d.7 to 64
+ehci_hcd 0000:00:1d.7: EHCI Host Controller
+ehci_hcd 0000:00:1d.7: new USB bus registered, assigned bus number 1
+ehci_hcd 0000:00:1d.7: debug port 1
+PCI: cache line size of 32 is not supported by device 0000:00:1d.7
+ehci_hcd 0000:00:1d.7: irq 20, io mem 0xffa80000
+ehci_hcd 0000:00:1d.7: USB 2.0 started, EHCI 1.00, driver 10 Dec 2004
+usb usb1: configuration #1 chosen from 1 choice
+hub 1-0:1.0: USB hub found
+hub 1-0:1.0: 8 ports detected
+insmod used greatest stack depth: 5176 bytes left
+ohci_hcd: 2006 August 04 USB 1.1 'Open' Host Controller (OHCI) Driver
+USB Universal Host Controller Interface driver v3.0
+ACPI: PCI Interrupt 0000:00:1d.0[A] -&gt; GSI 20 (level, low) -&gt; IRQ 20
+PCI: Setting latency timer of device 0000:00:1d.0 to 64
+uhci_hcd 0000:00:1d.0: UHCI Host Controller
+uhci_hcd 0000:00:1d.0: new USB bus registered, assigned bus number 2
+uhci_hcd 0000:00:1d.0: irq 20, io base 0x0000bf80
+usb usb2: configuration #1 chosen from 1 choice
+hub 2-0:1.0: USB hub found
+hub 2-0:1.0: 2 ports detected
+ACPI: PCI Interrupt 0000:00:1d.1[B] -&gt; GSI 21 (level, low) -&gt; IRQ 21
+PCI: Setting latency timer of device 0000:00:1d.1 to 64
+uhci_hcd 0000:00:1d.1: UHCI Host Controller
+uhci_hcd 0000:00:1d.1: new USB bus registered, assigned bus number 3
+uhci_hcd 0000:00:1d.1: irq 21, io base 0x0000bf60
+usb usb3: configuration #1 chosen from 1 choice
+hub 3-0:1.0: USB hub found
+hub 3-0:1.0: 2 ports detected
+usb 1-2: new high speed USB device using ehci_hcd and address 2
+ACPI: PCI Interrupt 0000:00:1d.2[C] -&gt; GSI 22 (level, low) -&gt; IRQ 22
+PCI: Setting latency timer of device 0000:00:1d.2 to 64
+uhci_hcd 0000:00:1d.2: UHCI Host Controller
+uhci_hcd 0000:00:1d.2: new USB bus registered, assigned bus number 4
+uhci_hcd 0000:00:1d.2: irq 22, io base 0x0000bf40
+usb usb4: configuration #1 chosen from 1 choice
+hub 4-0:1.0: USB hub found
+hub 4-0:1.0: 2 ports detected
+ACPI: PCI Interrupt 0000:00:1d.3[D] -&gt; GSI 23 (level, low) -&gt; IRQ 23
+PCI: Setting latency timer of device 0000:00:1d.3 to 64
+uhci_hcd 0000:00:1d.3: UHCI Host Controller
+uhci_hcd 0000:00:1d.3: new USB bus registered, assigned bus number 5
+uhci_hcd 0000:00:1d.3: irq 23, io base 0x0000bf20
+usb usb5: configuration #1 chosen from 1 choice
+hub 5-0:1.0: USB hub found
+hub 5-0:1.0: 2 ports detected
+usb 1-2: configuration #1 chosen from 1 choice
+hub 1-2:1.0: USB hub found
+hub 1-2:1.0: 4 ports detected
+SCSI subsystem initialized
+Driver 'sd' needs updating - please use bus_type methods
+libata version 3.00 loaded.
+ACPI: PCI Interrupt 0000:00:1f.2[B] -&gt; GSI 17 (level, low) -&gt; IRQ 17
+PCI: Setting latency timer of device 0000:00:1f.2 to 64
+ACPI: PCI interrupt for device 0000:00:1f.2 disabled
+usb 1-2.3: new full speed USB device using ehci_hcd and address 3
+usb 1-2.3: configuration #1 chosen from 1 choice
+hub 1-2.3:1.0: USB hub found
+hub 1-2.3:1.0: 3 ports detected
+usb 1-2.4: new full speed USB device using ehci_hcd and address 4
+usb 1-2.4: configuration #1 chosen from 1 choice
+usb 1-2.3.2: new full speed USB device using ehci_hcd and address 5
+usb 1-2.3.2: configuration #1 chosen from 1 choice
+ata_piix 0000:00:1f.2: version 2.12
+ACPI: PCI Interrupt 0000:00:1f.2[B] -&gt; GSI 17 (level, low) -&gt; IRQ 17
+ata_piix 0000:00:1f.2: MAP [ P0 P2 IDE IDE ]
+PCI: Setting latency timer of device 0000:00:1f.2 to 64
+scsi0 : ata_piix
+scsi1 : ata_piix
+ata1: SATA max UDMA/133 cmd 0x1f0 ctl 0x3f6 bmdma 0xbfa0 irq 14
+ata2: PATA max UDMA/100 cmd 0x170 ctl 0x376 bmdma 0xbfa8 irq 15
+ata1.00: ATA-7: Hitachi HTS721010G9SA00, MCZOC10H, max UDMA/100
+ata1.00: 195371568 sectors, multi 8: LBA48 NCQ (depth 0/32)
+ata1.00: configured for UDMA/100
+ata2.00: ATAPI: Optiarc DVD+/-RW AD-5540A, 102C, max UDMA/33
+ata2.00: configured for UDMA/33
+scsi 0:0:0:0: Direct-Access     ATA      Hitachi HTS72101 MCZO PQ: 0 ANSI: 5
+sd 0:0:0:0: [sda] 195371568 512-byte hardware sectors (100030 MB)
+sd 0:0:0:0: [sda] Write Protect is off
+sd 0:0:0:0: [sda] Mode Sense: 00 3a 00 00
+sd 0:0:0:0: [sda] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+sd 0:0:0:0: [sda] 195371568 512-byte hardware sectors (100030 MB)
+sd 0:0:0:0: [sda] Write Protect is off
+sd 0:0:0:0: [sda] Mode Sense: 00 3a 00 00
+sd 0:0:0:0: [sda] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+ sda: sda1 sda2 sda3 sda4 &lt; sda5 &gt;
+sd 0:0:0:0: [sda] Attached SCSI disk
+scsi 1:0:0:0: CD-ROM            Optiarc  DVD+-RW AD-5540A 102C PQ: 0 ANSI: 5
+insmod used greatest stack depth: 3400 bytes left
+kjournald starting.  Commit interval 5 seconds
+EXT3-fs: mounted filesystem with ordered data mode.
+SELinux:  Disabled at runtime.
+SELinux:  Unregistering netfilter hooks
+type=1404 audit(1208014826.988:2): selinux=0 auid=4294967295 ses=4294967295
+sd 0:0:0:0: Attached scsi generic sg0 type 0
+scsi 1:0:0:0: Attached scsi generic sg1 type 5
+Driver 'sr' needs updating - please use bus_type methods
+sr0: scsi3-mmc drive: 24x/24x writer cd/rw xa/form2 cdda tray
+Uniform CD-ROM driver Revision: 3.20
+sr 1:0:0:0: Attached scsi CD-ROM sr0
+input: PC Speaker as /class/input/input4
+NET: Registered protocol family 23
+dcdbas dcdbas: Dell Systems Management Base Driver (version 5.6.0-3.2)
+tg3.c:v3.88 (March 20, 2008)
+ACPI: PCI Interrupt 0000:09:00.0[A] -&gt; GSI 18 (level, low) -&gt; IRQ 18
+PCI: Setting latency timer of device 0000:09:00.0 to 64
+eth0: Tigon3 [partno(BCM5752KFBG) rev 6002 PHY(5752)] (PCI Express) 10/100/1000Base-T Ethernet 00:18:8b:a5:2c:f5
+eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] WireSpeed[1] TSOcap[1]
+eth0: dma_rwctrl[76180000] dma_mask[64-bit]
+ACPI: AC Adapter [AC] (on-line)
+ACPI: \_SB_.PCI0.IDE0.SEC0.MAST: found ejectable bay
+ACPI: \_SB_.PCI0.IDE0.SEC0.MAST: Adding notify handler
+ACPI: Error installing bay notify handler
+ACPI: Bay [\_SB_.PCI0.IDE0.SEC0.MAST] Added
+ACPI: PCI Interrupt 0000:00:1f.3[B] -&gt; GSI 17 (level, low) -&gt; IRQ 17
+iTCO_vendor_support: vendor-support=0
+iTCO_wdt: Intel TCO WatchDog Timer Driver v1.02 (26-Jul-2007)
+iTCO_wdt: Found a ICH7-M TCO device (Version=2, TCOBASE=0x1060)
+iTCO_wdt: initialized. heartbeat=30 sec (nowayout=0)
+intel_rng: FWH not detected
+ACPI: PCI Interrupt 0000:0c:00.0[A] -&gt; GSI 17 (level, low) -&gt; IRQ 17
+PCI: Setting latency timer of device 0000:0c:00.0 to 64
+input: Video Bus as /class/input/input5
+ssb: Sonics Silicon Backplane found on PCI device 0000:0c:00.0
+rtc_cmos 00:06: rtc core: registered rtc_cmos as rtc0
+rtc0: alarms up to one month, y3k
+ACPI: Video Device [VID] (multi-head: yes  rom: no  post: no)
+input: Video Bus as /class/input/input6
+ACPI: Video Device [VID1] (multi-head: yes  rom: no  post: no)
+input: Video Bus as /class/input/input7
+ACPI: Video Device [VID2] (multi-head: yes  rom: no  post: no)
+b43-phy0: Broadcom 4311 WLAN found
+Bluetooth: Core ver 2.11
+NET: Registered protocol family 31
+Bluetooth: HCI device and connection manager initialized
+Bluetooth: HCI socket layer initialized
+b43-phy0 debug: Found PHY: Analog 4, Type 2, Revision 8
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+phy0: Selected rate control algorithm 'pid'
+ACPI: Battery Slot [BAT0] (battery present)
+ACPI: Battery Slot [BAT1] (battery absent)
+input: Lid Switch as /class/input/input8
+ACPI: Lid Switch [LID]
+input: Power Button (CM) as /class/input/input9
+Bluetooth: HCI USB driver ver 2.9
+usbcore: registered new interface driver hci_usb
+ACPI: Power Button (CM) [PBTN]
+input: Sleep Button (CM) as /class/input/input10
+Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID: FW13 ]
+ACPI: Sleep Button (CM) [SBTN]
+usbcore: registered new interface driver snd-usb-audio
+ACPI: PCI Interrupt 0000:00:1b.0[A] -&gt; GSI 21 (level, low) -&gt; IRQ 21
+PCI: Setting latency timer of device 0000:00:1b.0 to 64
+device-mapper: uevent: version 1.0.3
+device-mapper: ioctl: 4.13.0-ioctl (2007-10-18) initialised: <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">dm-devel at redhat.com</A>
+device-mapper: multipath: version 1.0.5 loaded
+EXT3 FS on sda2, internal journal
+kjournald starting.  Commit interval 5 seconds
+EXT3 FS on sda5, internal journal
+EXT3-fs: mounted filesystem with ordered data mode.
+kjournald starting.  Commit interval 5 seconds
+EXT3 FS on sda1, internal journal
+EXT3-fs: mounted filesystem with ordered data mode.
+Adding 5116692k swap on /dev/sda3.  Priority:-1 extents:1 across:5116692k
+IA-32 Microcode Update Driver: v1.14a &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">tigran at aivazian.fsnet.co.uk</A>&gt;
+warning: process `kudzu' used the deprecated sysctl system call with 1.23.
+NET: Registered protocol family 10
+lo: Disabled Privacy Extensions
+ADDRCONF(NETDEV_UP): eth1: link is not ready
+RPC: Registered udp transport module.
+RPC: Registered tcp transport module.
+fuse init (API version 7.9)
+warning: `dbus-daemon' uses 32-bit capabilities (legacy support in use)
+Bluetooth: L2CAP ver 2.9
+Bluetooth: L2CAP socket layer initialized
+Bluetooth: RFCOMM socket layer initialized
+Bluetooth: RFCOMM TTY layer initialized
+Bluetooth: RFCOMM ver 1.8
+ADDRCONF(NETDEV_UP): eth1: link is not ready
+input: b43-phy0 as /class/input/input11
+b43-phy0: Loading firmware version 351.126 (2006-07-29 05:54:02)
+b43-phy0 warning: You are using an old firmware image. Support for old firmware will be removed in July 2008.
+b43-phy0 warning: You must go to <A HREF="http://linuxwireless.org/en/users/Drivers/b43#devicefirmware">http://linuxwireless.org/en/users/Drivers/b43#devicefirmware</A> and download the latest firmware (version 4).
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 32-bit DMA initialized
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+ACPI: PCI Interrupt 0000:01:00.0[A] -&gt; GSI 16 (level, low) -&gt; IRQ 16
+warning: process `nvidia-installe' used the deprecated sysctl system call with 1.23.
+warning: process `nvidia-installe' used the deprecated sysctl system call with 1.23.
+nvidia: module license 'NVIDIA' taints kernel.
+PCI: Setting latency timer of device 0000:01:00.0 to 64
+NVRM: loading NVIDIA UNIX x86_64 Kernel Module  169.09  Fri Jan 11 14:04:37 PST 2008
+warning: process `nvidia-installe' used the deprecated sysctl system call with 1.23.
+PCI: Setting latency timer of device 0000:01:00.0 to 64
+NVRM: loading NVIDIA UNIX x86_64 Kernel Module  169.09  Fri Jan 11 14:04:37 PST 2008
+NVRM: bad caching on address 0xffff810075528000: actual 0x173 != expected 0x17b
+NVRM: please see the README section on Cache Aliasing for more information
+NVRM: bad caching on address 0xffff810075529000: actual 0x173 != expected 0x17b
+NVRM: bad caching on address 0xffff81007552a000: actual 0x173 != expected 0x17b
+NVRM: bad caching on address 0xffff81007552b000: actual 0x173 != expected 0x17b
+NVRM: bad caching on address 0xffff81007552c000: actual 0x173 != expected 0x17b
+NVRM: bad caching on address 0xffff81007552d000: actual 0x173 != expected 0x17b
+NVRM: bad caching on address 0xffff81007552e000: actual 0x173 != expected 0x17b
+NVRM: bad caching on address 0xffff81007552f000: actual 0x173 != expected 0x17b
+NVRM: bad caching on address 0xffff8100c21e4000: actual 0x173 != expected 0x17b
+NVRM: bad caching on address 0xffff8100c201d000: actual 0x173 != expected 0x17b
+b43-phy0 debug: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:16:01:b9:f9:3f
+wlan0: RX authentication from 00:16:01:b9:f9:3f (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:16:01:b9:f9:3f
+wlan0: RX AssocResp from 00:16:01:b9:f9:3f (capab=0x431 status=0 aid=2)
+wlan0: associated
+wlan0: switched to short barker preamble (BSSID=00:16:01:b9:f9:3f)
+ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+CPU0 attaching NULL sched-domain.
+CPU1 attaching NULL sched-domain.
+CPU0 attaching sched-domain:
+ domain 0: span 00000000,00000003
+  groups: 00000000,00000001 00000000,00000002
+  domain 1: span 00000000,00000003
+   groups: 00000000,00000003
+CPU1 attaching sched-domain:
+ domain 0: span 00000000,00000003
+  groups: 00000000,00000002 00000000,00000001
+  domain 1: span 00000000,00000003
+   groups: 00000000,00000003
+wlan0: no IPv6 routers present
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:16:01:b9:f9:3f
+b43-phy0 debug: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+b43-phy0 debug: Disabling hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:16:01:b9:f9:3f
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:16:01:b9:fe:8f
+wlan0: RX authentication from 00:16:01:b9:fe:8f (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:16:01:b9:fe:8f
+wlan0: RX ReassocResp from 00:16:01:b9:fe:8f (capab=0x431 status=0 aid=4)
+wlan0: associated
+wlan0: CTS protection enabled (BSSID=00:16:01:b9:fe:8f)
+wlan0: switched to long barker preamble (BSSID=00:16:01:b9:fe:8f)
+device wlan0 entered promiscuous mode
+wlan0: CTS protection disabled (BSSID=00:16:01:b9:fe:8f)
+wlan0: switched to short barker preamble (BSSID=00:16:01:b9:fe:8f)
+wlan0: CTS protection enabled (BSSID=00:16:01:b9:fe:8f)
+wlan0: switched to long barker preamble (BSSID=00:16:01:b9:fe:8f)
+wlan0: CTS protection disabled (BSSID=00:16:01:b9:fe:8f)
+wlan0: switched to short barker preamble (BSSID=00:16:01:b9:fe:8f)
+wlan0: CTS protection enabled (BSSID=00:16:01:b9:fe:8f)
+wlan0: switched to long barker preamble (BSSID=00:16:01:b9:fe:8f)
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:16:01:b9:fe:8f
+b43-phy0 debug: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+b43-phy0 debug: Disabling hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:16:01:b9:fe:8f
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:16:01:b9:f9:3f
+wlan0: RX authentication from 00:16:01:b9:f9:3f (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:16:01:b9:f9:3f
+wlan0: RX ReassocResp from 00:16:01:b9:f9:3f (capab=0x431 status=0 aid=2)
+wlan0: associated
+wlan0: CTS protection disabled (BSSID=00:16:01:b9:f9:3f)
+wlan0: switched to short barker preamble (BSSID=00:16:01:b9:f9:3f)
+device wlan0 left promiscuous mode
+-------------- next part --------------
+wlan0     IEEE 802.11  ESSID:&quot;wetwork&quot;  
+          Mode:Managed  Frequency:2.437 GHz  Access Point: 00:16:01:B9:F9:3F   
+          Bit Rate=2 Mb/s   Tx-Power=27 dBm   
+          Retry min limit:7   RTS thr:off   Fragment thr=2352 B   
+          Encryption key:896A-0055-AE77-5E80-FD86-4E38-6B
+          Link Quality=90/100  Signal level=-45 dBm  Noise level=-67 dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: bisect.log
+Type: text/x-log
+Size: 1161 bytes
+Desc: not available
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080412/9ab81c3f/attachment.bin">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080412/9ab81c3f/attachment.bin</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003769.html">BCM4318 (ASUS WL-500gP) &amp; hostapd problem
+</A></li>
+	<LI>Next message: <A HREF="003755.html">[PATCH] b43legacy: fix bcm4303 crash
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3787">[ date ]</a>
+              <a href="thread.html#3787">[ thread ]</a>
+              <a href="subject.html#3787">[ subject ]</a>
+              <a href="author.html#3787">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,222 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Capturing FCS error frames using b43 driver
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Capturing%20FCS%20error%20frames%20using%20b43%20driver&In-Reply-To=%3CFB1F780D-A225-45B8-A231-C7016AD35E5F%40ing.unibs.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005221.html">
+   <LINK REL="Next"  HREF="005224.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Capturing FCS error frames using b43 driver</H1>
+    <B>Francesco Gringoli</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Capturing%20FCS%20error%20frames%20using%20b43%20driver&In-Reply-To=%3CFB1F780D-A225-45B8-A231-C7016AD35E5F%40ing.unibs.it%3E"
+       TITLE="Capturing FCS error frames using b43 driver">francesco.gringoli at ing.unibs.it
+       </A><BR>
+    <I>Wed Feb 18 12:51:13 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005221.html">Capturing FCS error frames using b43 driver
+</A></li>
+        <LI>Next message: <A HREF="005224.html">Capturing FCS error frames using b43 driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5223">[ date ]</a>
+              <a href="thread.html#5223">[ thread ]</a>
+              <a href="subject.html#5223">[ subject ]</a>
+              <a href="author.html#5223">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+On Feb 18, 2009, at 11:15 AM, Michael Buesch wrote:
+
+&gt;<i> On Wednesday 18 February 2009 03:33:01 Francesco Gringoli wrote:
+</I>&gt;&gt;<i> On Feb 18, 2009, at 12:23 AM, Michael Buesch wrote:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> On Wednesday 18 February 2009 00:07:56 Bo Han wrote:
+</I>&gt;&gt;&gt;&gt;<i> I think I am working on the first sanity check in the driver, but
+</I>&gt;&gt;&gt;&gt;<i> still
+</I>&gt;&gt;&gt;&gt;<i> cannot see any FCS error frames.  Is setting B43_MACCTL_KEEP_BAD
+</I>&gt;&gt;&gt;&gt;<i> the only
+</I>&gt;&gt;&gt;&gt;<i> thing we need to do for the firmware?
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> No. I suggest you don't touch that flag anyway and change the
+</I>&gt;&gt;&gt;<i> corresponding
+</I>&gt;&gt;&gt;<i> mac80211 filter flag. You most likely can do that through cfg80211/
+</I>&gt;&gt;&gt;<i> nl80211/iw.
+</I>&gt;&gt;&gt;<i> It will take care to set the b43 flag.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Michael is right, the new iw interface eases all this stuff.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> There are however a few points that should be discussed
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> - why b43_rx(...) (in xmit.c) does not mark the status with
+</I>&gt;&gt;<i> RX_FLAG_FAILED_FCS_CRC when the firmware reports a B43_RX_MAC_FCSERR:
+</I>&gt;&gt;<i> IMHO this should be done to prevent mac80211 to be corrupted and  
+</I>&gt;&gt;<i> crash
+</I>&gt;&gt;<i> the pc when a _very_ noisy frame arrives
+</I>&gt;<i>
+</I>&gt;<i> Well, I think the mac80211 flag was invented afterwards. Remember  
+</I>&gt;<i> that b43
+</I>&gt;<i> was the first mac80211 driver ever and quite a few things didn't  
+</I>&gt;<i> exist when
+</I>&gt;<i> I ported the stuff.
+</I>&gt;<i>
+</I>&gt;<i> So do you care to send a patch?
+</I>ok, I will send.
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Anyway, could you elaborate why you think it would _crash_? I think  
+</I>&gt;<i> it shouldn't
+</I>&gt;<i> crash in any case.
+</I>No. But I have to analyze more because I think there is a problem with  
+the firmware too (all firmwares) that not always sets up correctly the  
+corrupted frame flag when the KEEP_BAD_FRAME bit is activated. I will  
+check this and what happens when KEEP_BAD_FRAME is set and we have a  
+mistake even at the plcp sublayer (see below).
+
+However, if RX_FLAG_FAILED_FCS_CRC is not set up in the status field,  
+mac80211 will process this frame: should not be something related to  
+the skb, probably somewhere it is shortened without checking its  
+actual size, as mac80211 trusts the driver that should already had  
+checked that the skb size correspond to something written in some  
+header, well, just speculating, I'm confused about.
+
+&gt;&gt;<i> - is that correct to have status.rate_idx filled by functions
+</I>&gt;&gt;<i> b43_plcp_get_bitrate_idx_ofdm and b43_plcp_get_bitrate_idx_cck that
+</I>&gt;&gt;<i> compute those values reading the plcp?
+</I>&gt;<i>
+</I>&gt;<i> Yes I think so. This seems to be the best way to do it.
+</I>After some thoughts I'm wondering how these fields could be wrong  
+since the PLCP is protected on its own by another checksum external to  
+MPDU. Probably the firmware keep also frames whose PLCP is wrong,  
+while b43_rx only check for FCS problems within the MPDU. Will  
+investigate.
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;&gt;<i> When a frame is ok, values are
+</I>&gt;&gt;<i> correct and mac80211 uses them without problems. If instead the frame
+</I>&gt;&gt;<i> is not ok, then mac80211 can warn a lot of message because values are
+</I>&gt;&gt;<i> out of range.
+</I>&gt;<i>
+</I>&gt;<i> If the PLCP header is corrupt you're completely fucked anyway.
+</I>&gt;<i> It is a basic and safe assumption that the PLCP header is correct.
+</I>&gt;<i> But it shouldn't _crash_ if it's not correct. But I think it doesn't.
+</I>Well, I think that capturing noisy frames is interesting for all those  
+guys willing to use data for research purposes without buying a  
+network analyzer that basically do the same...
+
+&gt;<i> So if you crank up the flags to pass PLCP corrupted frames it's kind  
+</I>&gt;<i> of
+</I>&gt;<i> expected that they are dropped somewhere in the driver, because we  
+</I>&gt;<i> cannot
+</I>&gt;<i> trust the contents of the frame anyway.
+</I>&gt;<i> How do we know the PLCP length field is still correct for a  
+</I>&gt;<i> corrupted PLCP?
+</I>&gt;<i> So we don't even know if the frame would have the correct length.
+</I>&gt;<i>
+</I>&gt;&gt;<i> Should not we parse these values when FCS is bad and
+</I>&gt;&gt;<i> sanitize them if out of range so that dmesg does not get filled with
+</I>&gt;&gt;<i> warnings?
+</I>&gt;<i>
+</I>&gt;<i> These warnings were removed some time ago. Please update your kernel.
+</I>Uhm... I updated it before writing this mail to check about this  
+possibility but I believed these warns were still there
+
+[taken from __ieee80211_rx() pulled from git yesterday night]
+         if (status-&gt;flag &amp; RX_FLAG_HT) {
+                 /* rate_idx is MCS index */
+                 if (WARN_ON(status-&gt;rate_idx &lt; 0 ||
+                             status-&gt;rate_idx &gt;= 76))
+                         return;
+                 /* HT rates are not in the table - use the highest  
+legacy rate
+                  * for now since other parts of mac80211 may not yet  
+be fully
+                  * MCS aware. */
+                 rate = &amp;sband-&gt;bitrates[sband-&gt;n_bitrates - 1];
+         } else {
+                 if (WARN_ON(status-&gt;rate_idx &lt; 0 ||
+                             status-&gt;rate_idx &gt;= sband-&gt;n_bitrates))
+                         return;
+                 rate = &amp;sband-&gt;bitrates[status-&gt;rate_idx];
+         }
+
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;&gt;<i> Or probably there is another method to get those values,
+</I>&gt;&gt;<i> e.g., the firmware can provide them reading from the radio instead of
+</I>&gt;&gt;<i> computing them reading fields from the plcp?
+</I>&gt;<i>
+</I>&gt;<i> I don't see why this is necessary and how it would be possible.
+</I>You are right, we have simply to trash real noise (frames whose plcp  
+was corrupted) so to avoid to decode the Microwave Owen as you were  
+saying a few days ago :-)
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;&gt;<i> - I noticed that when in monitor mode and when set up to keep bad
+</I>&gt;&gt;<i> frames, the radiotap header is not reporting FCS wrong for malformed
+</I>&gt;&gt;<i> or corrupted frame as it should be, is that correct? Should not the
+</I>&gt;&gt;<i> radiotap header be built on the status filled by first the driver  
+</I>&gt;&gt;<i> then
+</I>&gt;&gt;<i> mac80211?
+</I>&gt;<i>
+</I>&gt;<i> I neither know nor care. If you do, please send patches.
+</I>Ok.
+
+Cheers,
+-FG
+
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> -- 
+</I>&gt;<i> Greetings, Michael.
+</I>
+-------
+
+Francesco Gringoli, PhD - Assistant Professor
+Dept. of Electrical Engineering for Automation
+University of Brescia
+via Branze, 38
+25123 Brescia
+ITALY
+
+Ph:  ++39.030.3715843
+FAX: ++39.030.380014
+WWW: <A HREF="http://www.ing.unibs.it/~gringoli">http://www.ing.unibs.it/~gringoli</A>
+
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005221.html">Capturing FCS error frames using b43 driver
+</A></li>
+	<LI>Next message: <A HREF="005224.html">Capturing FCS error frames using b43 driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5223">[ date ]</a>
+              <a href="thread.html#5223">[ thread ]</a>
+              <a href="subject.html#5223">[ subject ]</a>
+              <a href="author.html#5223">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

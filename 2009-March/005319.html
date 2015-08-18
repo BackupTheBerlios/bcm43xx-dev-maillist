@@ -1,0 +1,201 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Mask PHY TX error interrupt, if not debugging
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Mask%20PHY%20TX%20error%20interrupt%2C%20if%20not%20debugging&In-Reply-To=%3C2CE6D71C-6DB5-41F2-8FFD-C013DC2B9AF6%40ing.unibs.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005318.html">
+   <LINK REL="Next"  HREF="005320.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Mask PHY TX error interrupt, if not debugging</H1>
+    <B>Francesco Gringoli</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Mask%20PHY%20TX%20error%20interrupt%2C%20if%20not%20debugging&In-Reply-To=%3C2CE6D71C-6DB5-41F2-8FFD-C013DC2B9AF6%40ing.unibs.it%3E"
+       TITLE="[PATCH] b43: Mask PHY TX error interrupt, if not debugging">francesco.gringoli at ing.unibs.it
+       </A><BR>
+    <I>Thu Mar 19 20:00:45 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005318.html">[PATCH] b43: Mask PHY TX error interrupt, if not debugging
+</A></li>
+        <LI>Next message: <A HREF="005320.html">[PATCH] b43: Mask PHY TX error interrupt, if not debugging
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5319">[ date ]</a>
+              <a href="thread.html#5319">[ thread ]</a>
+              <a href="subject.html#5319">[ subject ]</a>
+              <a href="author.html#5319">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Mar 19, 2009, at 7:27 PM, Michael Buesch wrote:
+
+&gt;<i> This masks the PHY TX error interrupt, if debugging is disabled.
+</I>&gt;<i>
+</I>&gt;<i> Currently we have a bug somewhere which triggers this interrupt once
+</I>&gt;<i> in a while. (Depends on the network noise/quality). While this is  
+</I>&gt;<i> nonfatal,
+</I>Michael,
+
+some time ago I begin seeing several of these errors, never seen  
+before on one of my host, with both proprietary and open firmwares. As  
+I never noticed those errors before, I wondered if they could be due  
+to some strange frame received by air, something like a frame encoded  
+in CCK but with a broken field that caused the firmware to ack back a  
+frame whose first byte (encoding) didn't match the following inside  
+the plcp. That was obviously not the case, indeed those errors were  
+not even happening on tx tries and surprisingly they were happening  
+also on devices configured in monitor mode.
+
+I finally remembered that the day before starting observing errors, I  
+changed the minipci to pci adapter inside that host, maintaining the  
+same cable and antenna set. Removing the broken adapter stopped PHY  
+errors.
+
+After this debug session I have some notes
+- PHY error IRQs are not triggered by the firmware (both open and  
+proprietary) by writing to the IRQ registers
+- these strange PHY errors are not due to tx tries, they happen also  
+with devices were the tx code has been cut away
+- PHY errors are triggered by the hardware when the number of bytes  
+requested for transmission do not match the tx information stored in  
+the first four bytes of the plcp, this happens for both frames sent by  
+b43 through dma and frames composed by the firmware. If everything is  
+consistent I never see errors on platforms not affected by noise (as  
+my old VIA or the broken minipci to pci adapter).
+
+I would say this noise directly affects the irq line, or it triggers  
+the serializer to send out a packet with completely wrong radio/plcp/ 
+mac configuration that causes a PHY tx error.
+
+Cheers,
+-FG
+&gt;<i>
+</I>&gt;<i> it scares the hell out of users and we frequently receive bugreports
+</I>&gt;<i> that incorrectly identify this error message as the reason.
+</I>&gt;<i>
+</I>&gt;<i> There's another problem with this. The PHY TX error interrupt is  
+</I>&gt;<i> protected
+</I>&gt;<i> with a watchdog that will restart the device if it keeps triggering  
+</I>&gt;<i> very often.
+</I>&gt;<i> This is used to fix interrupt storms from completely broken devices.
+</I>&gt;<i>
+</I>&gt;<i> However, this watchdog might trigger in completely normal operation.
+</I>&gt;<i> If the TX capacity of the card is saturated, the likeliness of the  
+</I>&gt;<i> watchdog
+</I>&gt;<i> triggering increases, as more TX errors occur. The current threshold
+</I>&gt;<i> for the watchdog is 1000 errors in 15 seconds.
+</I>&gt;<i>
+</I>&gt;<i> This patch adds a workaround for the issue by just enabling the  
+</I>&gt;<i> interrupt
+</I>&gt;<i> if debugging is disabled (by Kconfig or by modparam).
+</I>&gt;<i>
+</I>&gt;<i> This has the downside that real fatal PHY TX errors are not caught  
+</I>&gt;<i> anymore.
+</I>&gt;<i> But this is nonfatal due to the following reasons:
+</I>&gt;<i> * If the card is not able to transmit anymore, MLME will notice  
+</I>&gt;<i> anyway.
+</I>&gt;<i> * I did _never_ see a real fatal PHY TX error in a mainline b43  
+</I>&gt;<i> driver.
+</I>&gt;<i> * It does _not_ result in interrupt storms or something like that.
+</I>&gt;<i>  It will simply result in a stalled card. It can be debugged by  
+</I>&gt;<i> enabling
+</I>&gt;<i>  the debugging module parameter.
+</I>&gt;<i>
+</I>&gt;<i> Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch</A>&gt;
+</I>&gt;<i>
+</I>&gt;<i> ---
+</I>&gt;<i>
+</I>&gt;<i> I wonder how much placebo &quot;PHY TX error was fixed and my card  
+</I>&gt;<i> performs great again&quot;
+</I>&gt;<i> we will get. :D
+</I>&gt;<i>
+</I>&gt;<i> !!! DISTRIBUTIONS !!!
+</I>&gt;<i> Disable CONFIG_B43_DEBUG!
+</I>&gt;<i> There is absolutely _no_ reason to enable it on a release kernel.
+</I>&gt;<i> There were valid reasons in the past, but there are none left anymore.
+</I>&gt;<i> So please _disable_ this option now, if you didn't do this already,
+</I>&gt;<i> because with CONFIG_B43_DEBUG enabled the PHY TX errors will still  
+</I>&gt;<i> show.
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> John, please merge this for the next feature release.
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/main.c	2009-03-19  
+</I>&gt;<i> 17:27:39.000000000 +0100
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/main.c	2009-03-19  
+</I>&gt;<i> 18:53:16.000000000 +0100
+</I>&gt;<i> @@ -3990,12 +3990,14 @@ static void setup_struct_wldev_for_init(
+</I>&gt;<i> 	setup_struct_phy_for_init(dev, &amp;dev-&gt;phy);
+</I>&gt;<i>
+</I>&gt;<i> 	/* IRQ related flags */
+</I>&gt;<i> 	dev-&gt;irq_reason = 0;
+</I>&gt;<i> 	memset(dev-&gt;dma_reason, 0, sizeof(dev-&gt;dma_reason));
+</I>&gt;<i> 	dev-&gt;irq_savedstate = B43_IRQ_MASKTEMPLATE;
+</I>&gt;<i> +	if (b43_modparam_verbose &lt; B43_VERBOSITY_DEBUG)
+</I>&gt;<i> +		dev-&gt;irq_savedstate &amp;= ~B43_IRQ_PHY_TXERR;
+</I>&gt;<i>
+</I>&gt;<i> 	dev-&gt;mac_suspended = 1;
+</I>&gt;<i>
+</I>&gt;<i> 	/* Noise calculation context */
+</I>&gt;<i> 	memset(&amp;dev-&gt;noisecalc, 0, sizeof(dev-&gt;noisecalc));
+</I>&gt;<i> }
+</I>&gt;<i>
+</I>&gt;<i> -- 
+</I>&gt;<i> Greetings, Michael.
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Bcm43xx-dev mailing list
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>
+-------
+
+Francesco Gringoli, PhD - Assistant Professor
+Dept. of Electrical Engineering for Automation
+University of Brescia
+via Branze, 38
+25123 Brescia
+ITALY
+
+Ph:  ++39.030.3715843
+FAX: ++39.030.380014
+WWW: <A HREF="http://www.ing.unibs.it/~gringoli">http://www.ing.unibs.it/~gringoli</A>
+
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005318.html">[PATCH] b43: Mask PHY TX error interrupt, if not debugging
+</A></li>
+	<LI>Next message: <A HREF="005320.html">[PATCH] b43: Mask PHY TX error interrupt, if not debugging
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5319">[ date ]</a>
+              <a href="thread.html#5319">[ thread ]</a>
+              <a href="subject.html#5319">[ subject ]</a>
+              <a href="author.html#5319">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

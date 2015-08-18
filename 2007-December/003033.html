@@ -1,0 +1,139 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20net%3A%20wireless%3A%20bcm43xx%3A%20big_buffer_sem%20semaphore%20to%0A%09mutex&In-Reply-To=%3C200712141239.51809.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003032.html">
+   <LINK REL="Next"  HREF="003034.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20net%3A%20wireless%3A%20bcm43xx%3A%20big_buffer_sem%20semaphore%20to%0A%09mutex&In-Reply-To=%3C200712141239.51809.mb%40bu3sch.de%3E"
+       TITLE="[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Dec 14 12:39:51 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003032.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+        <LI>Next message: <A HREF="003034.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3033">[ date ]</a>
+              <a href="thread.html#3033">[ thread ]</a>
+              <a href="subject.html#3033">[ subject ]</a>
+              <a href="author.html#3033">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 14 December 2007 12:15:34 Ingo Molnar wrote:
+&gt;<i> &gt; So you volunteer to maintain bcm43xx? Fine. Thanks a lot.
+</I>&gt;<i> 
+</I>&gt;<i> it's sad that you are trying to force testers to upgrade to your new 
+</I>&gt;<i> driver by threatening to unsupport the old driver.
+</I>
+I dropped maintainance for bcm43xx over a year ago.
+So I am not going to catch it up again. b43 works fine.
+I don't see a reason to support bcm43xx anymore.
+Currently bcm43xx is orphaned, as Larry couldn't support it
+anymore due to other issues.
+
+&gt;<i> The testers who did  
+</I>&gt;<i> nothing but reported that the new driver did not work on their hardware.
+</I>
+Which testers?
+Ray Lee didn't even install the firmware. So it can't work by definition.
+That is not my fault.
+
+&gt;<i> You can write new drivers but you must not break existing users. That's 
+</I>&gt;<i> true for every single piece of the kernel. It is _your_ responsibility 
+</I>&gt;<i> to get that rule right - and if it does not work out of box (no matter 
+</I>&gt;<i> whom to blame, udev or the driver) you dont get to remove the driver 
+</I>&gt;<i> from the upstream kernel.
+</I>
+Ok. So we have to live with an orphaned driver. I am fine with that, too.
+
+&gt;<i> Yes, you can then &quot;unsupport it&quot; in spite and be a prick about it in 
+</I>&gt;<i> general but that will only talk of your own personal qualities and will 
+</I>&gt;<i> sharply reduce your credibility as a maintainer (and eventually hinder 
+</I>&gt;<i> your ability to introduce new code) - users will still have the code 
+</I>&gt;<i> available and will have a chance to fix the driver that happens to work. 
+</I>&gt;<i> (and perhaps another, capable, but friendler maintainer arises.) And 
+</I>&gt;<i> that old code will be a clot to drag around, hindering your 'new' 
+</I>&gt;<i> wireless code all along.
+</I>
+So new code is included in the Linux kernel based only on political
+considerations instead on technical?
+I'm not sure what's the matter. Show me _one_ person for whom
+bcm43xx works and b43/legacy does not. And I will immediately stop
+removal of that driver and fix b43.
+
+&gt;<i> I really dont know why it's so hard to understand: new is totally 
+</I>&gt;<i> useless if it does not work for old setups 100% of the time. And people 
+</I>&gt;<i> _WANT_ to use your new code, so it's not like you have to pull their 
+</I>&gt;<i> hairs to get your stuff tested. And YOU wrote the old code in large 
+</I>&gt;<i> part:
+</I>&gt;<i> 
+</I>&gt;<i>  $ git-authors drivers/net/wireless/bcm43xx/ | tail -10
+</I>&gt;<i>       2  Sam Ravnborg
+</I>&gt;<i>       3  David Howells
+</I>&gt;<i>       3  David Woodhouse
+</I>&gt;<i>       3  Joe Perches
+</I>&gt;<i>       4  Jeff Garzik
+</I>&gt;<i>       5  Daniel Drake
+</I>&gt;<i>       6  Stefano Brivio
+</I>&gt;<i>       9  John W. Linville
+</I>&gt;<i>      48  Larry Finger
+</I>&gt;<i>      80  Michael Buesch
+</I>&gt;<i> 
+</I>&gt;<i> so it's not like &quot;someone else messed it up&quot; and that you would be 
+</I>&gt;<i> incapable of getting it all work nicely and make the migration of users 
+</I>&gt;<i> smoother. And if udev is a hindrance to you, reduce your driver's 
+</I>&gt;<i> dependence on udev breakages.
+</I>
+I'm not sure what you are talking about.
+If udev renames the device to something stupid (like wlan0_rename)
+that is not my fault. That is the fault of a big Linux Distribution
+messing udev config up.
+
+Let's summarise it:
+I don't know a single user for whom bcm43xx works but b43 does not.
+In most cases b43 does work a _lot_ better than bcm43xx.
+If you show me one person for whom bcm43xx works but b43 does not I
+will stop removal of the driver.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003032.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+	<LI>Next message: <A HREF="003034.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3033">[ date ]</a>
+              <a href="thread.html#3033">[ thread ]</a>
+              <a href="subject.html#3033">[ subject ]</a>
+              <a href="author.html#3033">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

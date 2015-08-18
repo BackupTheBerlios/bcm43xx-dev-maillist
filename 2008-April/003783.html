@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Fix usage of struct device used for DMAing
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20usage%20of%20struct%20device%20used%20for%20DMAing&In-Reply-To=%3C200804111213.03606.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003782.html">
+   <LINK REL="Next"  HREF="003784.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Fix usage of struct device used for DMAing</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20usage%20of%20struct%20device%20used%20for%20DMAing&In-Reply-To=%3C200804111213.03606.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43legacy: Fix usage of struct device used for DMAing">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Apr 11 12:13:03 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003782.html">[PATCH] ssb: Fix usage of struct device used for DMAing
+</A></li>
+        <LI>Next message: <A HREF="003784.html">[PATCH v2] b43legacy: Fix usage of struct device used for DMAing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3783">[ date ]</a>
+              <a href="thread.html#3783">[ thread ]</a>
+              <a href="subject.html#3783">[ subject ]</a>
+              <a href="author.html#3783">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes b43legacy for the SSB DMA API change.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+Cc: Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+
+---
+
+John, this is a bugfix for 2.6.25
+
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/dma.c	2008-02-16 19:08:12.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43legacy/dma.c	2008-04-11 12:07:56.000000000 +0200
+@@ -393,11 +393,11 @@ dma_addr_t map_descbuffer(struct b43lega
+ 	dma_addr_t dmaaddr;
+ 
+ 	if (tx)
+-		dmaaddr = dma_map_single(ring-&gt;dev-&gt;dev-&gt;dev,
++		dmaaddr = dma_map_single(ring-&gt;dev-&gt;dev-&gt;dma_dev,
+ 					 buf, len,
+ 					 DMA_TO_DEVICE);
+ 	else
+-		dmaaddr = dma_map_single(ring-&gt;dev-&gt;dev-&gt;dev,
++		dmaaddr = dma_map_single(ring-&gt;dev-&gt;dev-&gt;dma_dev,
+ 					 buf, len,
+ 					 DMA_FROM_DEVICE);
+ 
+@@ -411,11 +411,11 @@ void unmap_descbuffer(struct b43legacy_d
+ 		      int tx)
+ {
+ 	if (tx)
+-		dma_unmap_single(ring-&gt;dev-&gt;dev-&gt;dev,
++		dma_unmap_single(ring-&gt;dev-&gt;dev-&gt;dma_dev,
+ 				 addr, len,
+ 				 DMA_TO_DEVICE);
+ 	else
+-		dma_unmap_single(ring-&gt;dev-&gt;dev-&gt;dev,
++		dma_unmap_single(ring-&gt;dev-&gt;dev-&gt;dma_dev,
+ 				 addr, len,
+ 				 DMA_FROM_DEVICE);
+ }
+@@ -458,9 +458,9 @@ void free_descriptor_buffer(struct b43le
+ 
+ static int alloc_ringmemory(struct b43legacy_dmaring *ring)
+ {
+-	struct device *dev = ring-&gt;dev-&gt;dev-&gt;dev;
++	struct device *dma_dev = ring-&gt;dev-&gt;dev-&gt;dma_dev;
+ 
+-	ring-&gt;descbase = dma_alloc_coherent(dev, B43legacy_DMA_RINGMEMSIZE,
++	ring-&gt;descbase = dma_alloc_coherent(dma_dev, B43legacy_DMA_RINGMEMSIZE,
+ 					    &amp;(ring-&gt;dmabase), GFP_KERNEL);
+ 	if (!ring-&gt;descbase) {
+ 		b43legacyerr(ring-&gt;dev-&gt;wl, &quot;DMA ringmemory allocation&quot;
+@@ -474,9 +474,9 @@ static int alloc_ringmemory(struct b43le
+ 
+ static void free_ringmemory(struct b43legacy_dmaring *ring)
+ {
+-	struct device *dev = ring-&gt;dev-&gt;dev-&gt;dev;
++	struct device *dma_dev = ring-&gt;dev-&gt;dev-&gt;dma_dev;
+ 
+-	dma_free_coherent(dev, B43legacy_DMA_RINGMEMSIZE,
++	dma_free_coherent(dma_dev, B43legacy_DMA_RINGMEMSIZE,
+ 			  ring-&gt;descbase, ring-&gt;dmabase);
+ }
+ 
+@@ -886,7 +886,7 @@ struct b43legacy_dmaring *b43legacy_setu
+ 			goto err_kfree_meta;
+ 
+ 		/* test for ability to dma to txhdr_cache */
+-		dma_test = dma_map_single(dev-&gt;dev-&gt;dev, ring-&gt;txhdr_cache,
++		dma_test = dma_map_single(dev-&gt;dev-&gt;dma_dev, ring-&gt;txhdr_cache,
+ 					  sizeof(struct b43legacy_txhdr_fw3),
+ 					  DMA_TO_DEVICE);
+ 
+@@ -900,7 +900,7 @@ struct b43legacy_dmaring *b43legacy_setu
+ 			if (!ring-&gt;txhdr_cache)
+ 				goto err_kfree_meta;
+ 
+-			dma_test = dma_map_single(dev-&gt;dev-&gt;dev,
++			dma_test = dma_map_single(dev-&gt;dev-&gt;dma_dev,
+ 					ring-&gt;txhdr_cache,
+ 					sizeof(struct b43legacy_txhdr_fw3),
+ 					DMA_TO_DEVICE);
+@@ -910,7 +910,7 @@ struct b43legacy_dmaring *b43legacy_setu
+ 				goto err_kfree_txhdr_cache;
+ 		}
+ 
+-		dma_unmap_single(dev-&gt;dev-&gt;dev,
++		dma_unmap_single(dev-&gt;dev-&gt;dma_dev,
+ 				 dma_test, sizeof(struct b43legacy_txhdr_fw3),
+ 				 DMA_TO_DEVICE);
+ 	}
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003782.html">[PATCH] ssb: Fix usage of struct device used for DMAing
+</A></li>
+	<LI>Next message: <A HREF="003784.html">[PATCH v2] b43legacy: Fix usage of struct device used for DMAing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3783">[ date ]</a>
+              <a href="thread.html#3783">[ thread ]</a>
+              <a href="subject.html#3783">[ subject ]</a>
+              <a href="author.html#3783">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

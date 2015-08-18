@@ -1,0 +1,131 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> RFC V2 bcm43xx: Fix potential race in shutdown of work queues
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20RFC%20V2%20bcm43xx%3A%20Fix%20potential%20race%20in%20shutdown%20of%20work%20queues&In-Reply-To=%3C200709041510.05813.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002284.html">
+   <LINK REL="Next"  HREF="002285.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>RFC V2 bcm43xx: Fix potential race in shutdown of work queues</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20RFC%20V2%20bcm43xx%3A%20Fix%20potential%20race%20in%20shutdown%20of%20work%20queues&In-Reply-To=%3C200709041510.05813.mb%40bu3sch.de%3E"
+       TITLE="RFC V2 bcm43xx: Fix potential race in shutdown of work queues">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Sep  4 15:10:05 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002284.html">RFC V2 bcm43xx: Fix potential race in shutdown of work queues
+</A></li>
+        <LI>Next message: <A HREF="002285.html">Hardware problem sb_id_hi is 0xffffffff
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2289">[ date ]</a>
+              <a href="thread.html#2289">[ thread ]</a>
+              <a href="subject.html#2289">[ subject ]</a>
+              <a href="author.html#2289">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 03 September 2007, Larry Finger wrote:
+&gt;<i> This patch fixes a problem with work queues during shutdown. The bug
+</I>&gt;<i> seems to be responsible for the boot-time crashes reported in
+</I>&gt;<i> <A HREF="http://bugzilla.kernel.org/show_bug.cgi?id=8937.">http://bugzilla.kernel.org/show_bug.cgi?id=8937.</A>
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i> Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> +++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> @@ -3197,6 +3197,9 @@ static void bcm43xx_periodic_work_handle
+</I>&gt;<i>  	unsigned long orig_trans_start = 0;
+</I>&gt;<i>  
+</I>&gt;<i>  	mutex_lock(&amp;bcm-&gt;mutex);
+</I>&gt;<i> +	/* keep from doing and rearming periodic work if shutting down */
+</I>&gt;<i> +	if (bcm43xx_status(bcm) == BCM43xx_STAT_UNINIT)
+</I>&gt;<i> +		goto unlock_mutex;
+</I>&gt;<i>  	if (unlikely(bcm-&gt;periodic_state % 60 == 0)) {
+</I>&gt;<i>  		/* Periodic work will take a long time, so we want it to
+</I>&gt;<i>  		 * be preemtible.
+</I>&gt;<i> @@ -3242,6 +3245,7 @@ static void bcm43xx_periodic_work_handle
+</I>&gt;<i>  	mmiowb();
+</I>&gt;<i>  	bcm-&gt;periodic_state++;
+</I>&gt;<i>  	spin_unlock_irqrestore(&amp;bcm-&gt;irq_lock, flags);
+</I>&gt;<i> +unlock_mutex:
+</I>&gt;<i>  	mutex_unlock(&amp;bcm-&gt;mutex);
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i> @@ -3338,6 +3342,14 @@ static void bcm43xx_free_board(struct bc
+</I>&gt;<i>  	bcm43xx_periodic_tasks_delete(bcm);
+</I>&gt;<i>  
+</I>&gt;<i>  	mutex_lock(&amp;(bcm)-&gt;mutex);
+</I>&gt;<i> +	bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
+</I>&gt;<i> +	mutex_unlock(&amp;(bcm)-&gt;mutex);
+</I>&gt;<i> +
+</I>&gt;<i> +	/* next 2 steps must be unlocked, else they may deadlock */
+</I>&gt;<i> +	cancel_work_sync(&amp;bcm-&gt;restart_work);
+</I>&gt;<i> +	cancel_delayed_work_sync(&amp;bcm-&gt;periodic_work);
+</I>&gt;<i> +
+</I>&gt;<i> +	mutex_lock(&amp;(bcm)-&gt;mutex);
+</I>&gt;<i>  	bcm43xx_shutdown_all_wireless_cores(bcm);
+</I>&gt;<i>  	bcm43xx_pctl_set_crystal(bcm, 0);
+</I>&gt;<i>  	mutex_unlock(&amp;(bcm)-&gt;mutex);
+</I>&gt;<i> @@ -4030,7 +4042,6 @@ static int bcm43xx_net_stop(struct net_d
+</I>&gt;<i>  	err = bcm43xx_disable_interrupts_sync(bcm);
+</I>&gt;<i>  	assert(!err);
+</I>&gt;<i>  	bcm43xx_free_board(bcm);
+</I>&gt;<i> -	flush_scheduled_work();
+</I>&gt;<i>  
+</I>&gt;<i>  	return 0;
+</I>&gt;<i>  }
+</I>&gt;<i> @@ -4165,6 +4176,7 @@ static void bcm43xx_chip_reset(struct wo
+</I>&gt;<i>  	mutex_lock(&amp;(bcm)-&gt;mutex);
+</I>&gt;<i>  	if (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED) {
+</I>&gt;<i>  		bcm43xx_periodic_tasks_delete(bcm);
+</I>&gt;<i> +		bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
+</I>
+No, don't touch that function here. select_wireless_core will take care
+of setting the status correctly.
+The rest of the patch is OK.
+
+&gt;<i>  		phy = bcm43xx_current_phy(bcm);
+</I>&gt;<i>  		err = bcm43xx_select_wireless_core(bcm, phy-&gt;type);
+</I>&gt;<i>  		if (!err)
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002284.html">RFC V2 bcm43xx: Fix potential race in shutdown of work queues
+</A></li>
+	<LI>Next message: <A HREF="002285.html">Hardware problem sb_id_hi is 0xffffffff
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2289">[ date ]</a>
+              <a href="thread.html#2289">[ thread ]</a>
+              <a href="subject.html#2289">[ subject ]</a>
+              <a href="author.html#2289">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

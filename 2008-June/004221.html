@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Support for Dell 1395 Mini-board/Broadcom 4310
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Support%20for%20Dell%201395%20Mini-board/Broadcom%204310&In-Reply-To=%3C484C3CFA.7060708%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004219.html">
+   <LINK REL="Next"  HREF="004223.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Support for Dell 1395 Mini-board/Broadcom 4310</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Support%20for%20Dell%201395%20Mini-board/Broadcom%204310&In-Reply-To=%3C484C3CFA.7060708%40lwfinger.net%3E"
+       TITLE="Support for Dell 1395 Mini-board/Broadcom 4310">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sun Jun  8 22:11:38 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004219.html">Support for Dell 1395 Mini-board/Broadcom 4310
+</A></li>
+        <LI>Next message: <A HREF="004223.html">Support for Dell 1395 Mini-board/Broadcom 4310
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4221">[ date ]</a>
+              <a href="thread.html#4221">[ thread ]</a>
+              <a href="subject.html#4221">[ subject ]</a>
+              <a href="author.html#4221">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Alessandro wrote:
+&gt;<i> Hi everyone,
+</I>&gt;<i> I've found a broadcom 0x4310 on my new shiny laptop. It works perfectly with 
+</I>&gt;<i> ndiswrapper, but it is not recognized by b43 or b43legacy. So I've tried to 
+</I>&gt;<i> hack around the code a bit to find why.
+</I>&gt;<i> 
+</I>&gt;<i> My progress so far are:
+</I>&gt;<i> -) I've added the pci id of my board the the ssb driver, so it now find it. 
+</I>&gt;<i> The SPROM seems to be as large as the one from rev4 (or at least the checksum 
+</I>&gt;<i> is correct with such size), but the last byte says it is a rev8. I've found no 
+</I>&gt;<i> documentation about it and the registers seems to be mapped differently from 
+</I>&gt;<i> previous revisions. I've found where the mac address is from a raw dump, but i 
+</I>&gt;<i> don't know how to recognize the other registers.
+</I>&gt;<i> -) In b43 i've added the revision 15 the then ssb revision list, my board 
+</I>&gt;<i> should be a b/g one, but the phytype is 5, from the headers it should be a LP, 
+</I>&gt;<i> but i cannot find any documentation about it, it may be that even mmio 
+</I>&gt;<i> registers mapping is changed, for example i've seen that if i add 0xC to the 
+</I>&gt;<i> PHYVER MMIO address i get something reasonable, like PHYTYPE_G, revision 6
+</I>&gt;<i> -) The radio version is 0x2062, which seems to be not supported, if i force 
+</I>&gt;<i> the driver to use it, i can do almost nothing with the card, from iwlist i can 
+</I>&gt;<i> see no property at all.
+</I>&gt;<i> 
+</I>&gt;<i> Can you please give me some advice or link to documentation so that i can 
+</I>&gt;<i> finish the quest to support my board and get rid of closed source binary 
+</I>&gt;<i> driver in my kernel-space? :-)
+</I>&gt;<i> 
+</I>&gt;<i> Please tell me if the description is not clear, i'm i bit in a hurry know, so 
+</I>&gt;<i> maybe it is a bit confused.
+</I>&gt;<i> 
+</I>&gt;<i> Best regards,
+</I>&gt;<i> Alessandro Pignotti
+</I>
+At the moment, b43 does not support the LP-PHY, which we think is a low-power 
+b/g device. The RE team is working hard on the routines found in driver 
+4.150.10.5, which supports LP and N-PHYs. Until we finish the decompiling, 
+write the specs, the coders create the necessary modifications to b43, AND 
+the specs and code are debugged, your device will not work. You can either 
+use ndiswrapper, or pick up one of the low-cost Dell versions of the DW1390 
+from E-bay, which is a BCM4311, or a DW1490, which is a BCM4312. With your HP 
+laptop, you will need to change the vendor and product ID's to match your 
+current card using ssb-sprom. HP white-lists PCIe cards and will not boot is 
+an incorrect one is installed.
+
+Booting the machine so that the SPROM can be changed is a little tricky. You 
+need to remove the WLAN card, boot into GRUB, and press a key to stop the 
+automatic GRUB booting. Next you install the WLAN card with the power on, and 
+then finish booting. I don't mess around with the antenna leads at this 
+point. You then need to extract the current SPROM contents, rewrite then 
+Subsytem product ID to 0x137C, rewrite the Subsystem vendor ID to 0x103C, and 
+rewrite the SPROM contents. These steps are described in the README in the 
+ssb-sprom directory. At this point, reboot the machine and if it comes up 
+correctly, you can finish buttoning up the installation.
+
+
+My laptop also came with the BCM4310 - that card is on the shelf while I use 
+a DW1490, which I bought for $17 (including shipping) on E-bay. On ebay.it, 
+there are two for sale for 5-6 EUR, plus shipping. I also have a BCM4311/2.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004219.html">Support for Dell 1395 Mini-board/Broadcom 4310
+</A></li>
+	<LI>Next message: <A HREF="004223.html">Support for Dell 1395 Mini-board/Broadcom 4310
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4221">[ date ]</a>
+              <a href="thread.html#4221">[ thread ]</a>
+              <a href="subject.html#4221">[ subject ]</a>
+              <a href="author.html#4221">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

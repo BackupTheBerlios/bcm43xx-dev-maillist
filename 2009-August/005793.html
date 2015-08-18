@@ -1,0 +1,160 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb: bugfix MAC extract in r8 sprom
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20bugfix%20MAC%20extract%20in%20r8%20sprom&In-Reply-To=%3C69e28c910908140513s1eeb7c6bn812cb73ff61e3fb3%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005790.html">
+   <LINK REL="Next"  HREF="005791.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb: bugfix MAC extract in r8 sprom</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20bugfix%20MAC%20extract%20in%20r8%20sprom&In-Reply-To=%3C69e28c910908140513s1eeb7c6bn812cb73ff61e3fb3%40mail.gmail.com%3E"
+       TITLE="[PATCH] ssb: bugfix MAC extract in r8 sprom">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Fri Aug 14 14:13:27 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005790.html">[PATCH] ssb: bugfix MAC extract in r8 sprom
+</A></li>
+        <LI>Next message: <A HREF="005791.html">[PATCH] ssb: Fix e typo in the rev8 SPROM extraction routine
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5793">[ date ]</a>
+              <a href="thread.html#5793">[ thread ]</a>
+              <a href="subject.html#5793">[ subject ]</a>
+              <a href="author.html#5793">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Beat me by 11 minutes... though you didn't get the patch format right,
+so it can't be applied.
+
+2009/8/14 Mark Huijgen &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mark.sf.net at huijgen.tk</A>&gt;:
+&gt;<i> This patch fixes mac extraction from rev 8 sproms.
+</I>&gt;<i>
+</I>&gt;<i> diff --git a/drivers/ssb/pci.c b/drivers/ssb/pci.c
+</I>&gt;<i> index 593fc61..064930d 100644
+</I>&gt;<i> --- a/drivers/ssb/pci.c
+</I>&gt;<i> +++ b/drivers/ssb/pci.c
+</I>&gt;<i> @@ -480,9 +481,12 @@ static void sprom_extract_r8(struct ssb_sprom *out, const u16 *in)
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;/* extract the MAC address */
+</I>&gt;<i> &#160; &#160; &#160; &#160;for (i = 0; i &lt; 3; i++) {
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; v = in[SPOFF(SSB_SPROM1_IL0MAC) + i];
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; v = in[SPOFF(SSB_SPROM8_IL0MAC) + i];
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;*(((__be16 *)out-&gt;il0mac) + i) = cpu_to_be16(v);
+</I>&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> # ifconfig wlan0
+</I>&gt;<i> wlan0 &#160; &#160; Link encap:Ethernet &#160;HWaddr 00:1A:73:E4:F6:89
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160;BROADCAST MULTICAST &#160;MTU:1500 &#160;Metric:1
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160;RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160;TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160;collisions:0 txqueuelen:1000
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160;RX bytes:0 (0.0 b) &#160;TX bytes:0 (0.0 b)
+</I>&gt;<i>
+</I>&gt;<i> # ifconfig wlan0 up
+</I>&gt;<i> SIOCSIFFLAGS: Operation not supported
+</I>&gt;<i>
+</I>&gt;<i> But now in log:
+</I>&gt;<i> [ 2035.736059] b43 ssb0:0: firmware: requesting b43/ucode13.fw
+</I>&gt;<i> [ 2036.088416] b43-phy2 ERROR: The driver does not know which firmware
+</I>&gt;<i> (initvals) is required for your device (wl-core rev 15)
+</I>&gt;<i>
+</I>&gt;<i> So now I probably need the patch just posted by G&#225;bor.
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Mark
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Mark Huijgen wrote:
+</I>&gt;&gt;<i> Mark Huijgen wrote:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> G&#225;bor Stefanik wrote:
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;<i> ifconfig wlan0
+</I>&gt;&gt;&gt;&gt;&gt;<i> wlan0 &#160; &#160; Link encap:Ethernet &#160;HWaddr FF:FF:FF:FF:FF:FF
+</I>&gt;&gt;&gt;&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160;BROADCAST MULTICAST &#160;MTU:1500 &#160;Metric:1
+</I>&gt;&gt;&gt;&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160;RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+</I>&gt;&gt;&gt;&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160;TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;&gt;&gt;&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160;collisions:0 txqueuelen:1000
+</I>&gt;&gt;&gt;&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160;RX bytes:0 (0.0 b) &#160;TX bytes:0 (0.0 b)
+</I>&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;<i> ifconfig wlan0 up
+</I>&gt;&gt;&gt;&gt;&gt;<i> SIOCSIFFLAGS: Cannot assign requested address
+</I>&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i> Uhh, that doesn't look good...
+</I>&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> I've investigated with some SSB debugging:
+</I>&gt;&gt;&gt;<i> [ 4895.592113] ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x16, vendor
+</I>&gt;&gt;&gt;<i> 0x4243)
+</I>&gt;&gt;&gt;<i> [ 4895.592125] ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x0F,
+</I>&gt;&gt;&gt;<i> vendor 0x4243)
+</I>&gt;&gt;&gt;<i> [ 4895.592135] ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x0A, vendor 0x4243)
+</I>&gt;&gt;&gt;<i> [ 4895.592145] ssb: Core 3 found: PCI-E (cc 0x820, rev 0x09, vendor 0x4243)
+</I>&gt;&gt;&gt;<i> [ 4895.612051] ssb: Found rev 1 PMU (capabilities 0x02A62F01)
+</I>&gt;&gt;&gt;<i> [ 4895.620727] ssb: SPROM revision 8 detected.
+</I>&gt;&gt;&gt;<i> [ 4895.620732] ssb: MAC ff:ff:ff:ff:ff:ff
+</I>&gt;&gt;&gt;<i> [ 4895.642495] ssb: Sonics Silicon Backplane found on PCI device
+</I>&gt;&gt;&gt;<i> 0000:10:00.0
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> I added the ssb: MAC line, sprom extraction seems incorrect for this
+</I>&gt;&gt;&gt;<i> device (is ssb up to date enough in wireless-testing for this device?).
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;<i> Actual mac determined with broadcoms driver: &#160;00:1A:73:E4:F6:89
+</I>&gt;&gt;<i> sprom contents:
+</I>&gt;&gt;<i> 012800007D133C107800BE6D0000C42B642A6429642CE73CFF467F47000C4078A000FFFF0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF1543008002000000301F001800000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF72530712010A0600000000001A00E47389F645440100FF83FFFFFFFF030002FFFFFFFFFF0F00FFFF6C00FFFFFAFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF4A3E571A8AF991FEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0800FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF080E
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> The mac is stored in the string as 1A00E47389F6.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Mark
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005790.html">[PATCH] ssb: bugfix MAC extract in r8 sprom
+</A></li>
+	<LI>Next message: <A HREF="005791.html">[PATCH] ssb: Fix e typo in the rev8 SPROM extraction routine
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5793">[ date ]</a>
+              <a href="thread.html#5793">[ thread ]</a>
+              <a href="subject.html#5793">[ subject ]</a>
+              <a href="author.html#5793">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

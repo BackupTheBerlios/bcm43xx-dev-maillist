@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> More breakage in wireless-dev.git
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20More%20breakage%20in%20wireless-dev.git&In-Reply-To=%3C20070217114436.jhcgs4soo4sgo8sk%40webmail.spamcop.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000585.html">
+   <LINK REL="Next"  HREF="000587.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>More breakage in wireless-dev.git</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20More%20breakage%20in%20wireless-dev.git&In-Reply-To=%3C20070217114436.jhcgs4soo4sgo8sk%40webmail.spamcop.net%3E"
+       TITLE="More breakage in wireless-dev.git">proski at gnu.org
+       </A><BR>
+    <I>Sat Feb 17 17:44:36 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000585.html">More breakage in wireless-dev.git
+</A></li>
+        <LI>Next message: <A HREF="000587.html">More breakage in wireless-dev.git
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#586">[ date ]</a>
+              <a href="thread.html#586">[ thread ]</a>
+              <a href="subject.html#586">[ subject ]</a>
+              <a href="author.html#586">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Quoting Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;:
+
+&gt;<i> On Saturday 17 February 2007 09:06, Pavel Roskin wrote:
+</I>&gt;<i> &gt; I'm still getting &quot;bcm43xx_d80211: FOUND UNSUPPORTED PHY (Analog 4, Type
+</I>&gt;<i> &gt; 0, Revision 7)&quot; from bcm43xx_d80211 for a card that used to work.  That
+</I>&gt;<i> &gt; must be a separate problem.
+</I>&gt;<i>
+</I>&gt;<i> More info about your device, please.
+</I>
+It's the same PCIe module with PCI ID 14e4:4312.
+
+# lspci -v -s 0c:00.0
+0c:00.0 Network controller: Broadcom Corporation BCM4310 UART (rev 01)
+        Subsystem: Dell Unknown device 0007
+        Flags: bus master, fast devsel, latency 0, IRQ 17
+        Memory at efdfc000 (32-bit, non-prefetchable) [size=16K]
+        Capabilities: [40] Power Management version 2
+        Capabilities: [58] Message Signalled Interrupts: 64bit- Queue=0/0
+Enable-
+        Capabilities: [d0] Express Legacy Endpoint IRQ 0
+        Capabilities: [100] Advanced Error Reporting
+        Capabilities: [13c] Virtual Channel
+
+As it turns out, I'm getting the same problems with your (mb) branch, which
+doesn't have the latest wireless-dev.git changes yet.
+
+That's loading the device and bringing it up:
+
+ACPI: PCI Interrupt 0000:0c:00.0[A] -&gt; GSI 17 (level, low) -&gt; IRQ 17
+PCI: Setting latency timer of device 0000:0c:00.0 to 64
+ssb: Sonics Silicon Backplane found on PCI device 0000:0c:00.0
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x11, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x0A, vendor 0x4243)
+ssb: Core 2 found: USB 1.1 Host (cc 0x817, rev 0x03, vendor 0x4243)
+ssb: Core 3 found: PCI-E (cc 0x820, rev 0x01, vendor 0x4243)
+ssb: Switching to ChipCommon core, index 0
+ssb: Switching to PCI-E core, index 3
+bcm43xx_d80211: Broadcom 4311 WLAN found
+ssb: Switching to IEEE 802.11 core, index 1
+wmaster0: Selected rate control algorithm 'simple'
+bcm43xx_d80211: Adding Interface type 2
+bcm43xx_d80211: Found PHY: Analog 4, Type 2, Revision 8
+bcm43xx_d80211: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+ssb: Switching to PCI-E core, index 3
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_d80211: Loading firmware version 371.1122 (2006-11-08 22:02:13)
+ssb: Switching to ChipCommon core, index 0
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_d80211: Radio turned on
+bcm43xx_d80211: Radio enabled by hardware
+bcm43xx_d80211: Chip initialized
+bcm43xx_d80211: 32-bit DMA initialized
+bcm43xx_d80211: Wireless interface started
+wmaster0: Does not support passive scan, disabled
+bcm43xx_d80211: Using hardware based encryption for keyidx: 0, mac:
+ff:ff:ff:ff:ff:ff
+
+Then I do scanning.  I didn't need to bring the interface down, but it's
+possible that some userspace utility tried to do it:
+
+wlan0: starting scan
+bcm43xx_d80211: Reconfiguring PHYmode to A-PHY
+bcm43xx_d80211: Wireless interface stopped
+bcm43xx_d80211: DMA-32 0x0200 (RX) max used slots: 2/64
+bcm43xx_d80211: DMA-32 0x02A0 (TX) max used slots: 0/128
+bcm43xx_d80211: DMA-32 0x0280 (TX) max used slots: 0/128
+bcm43xx_d80211: DMA-32 0x0260 (TX) max used slots: 0/128
+bcm43xx_d80211: DMA-32 0x0240 (TX) max used slots: 0/128
+bcm43xx_d80211: DMA-32 0x0220 (TX) max used slots: 0/128
+bcm43xx_d80211: DMA-32 0x0200 (TX) max used slots: 0/128
+bcm43xx_d80211: Radio turned off
+ssb: Switching to ChipCommon core, index 0
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_d80211: FOUND UNSUPPORTED PHY (Analog 4, Type 0, Revision 7)
+bcm43xx_d80211: Fatal: Could not initialize device for new selected A-PHY mode
+wlan0: failed to set channel 36 (5180 MHz) for scan
+bcm43xx_d80211: Reconfiguring PHYmode to G-PHY
+bcm43xx_d80211: Reconfiguring PHYmode to A-PHY
+wlan0: scan completed
+bcm43xx_d80211: Removing Interface type 2
+bcm43xx_d80211: Radio turned off
+ssb: Switching to ChipCommon core, index 0
+slab error in verify_redzone_free(): cache `size-64': double free detected
+
+Call Trace:
+ [&lt;ffffffff8027c761&gt;] __slab_error+0x21/0x30
+ [&lt;ffffffff8027cfc8&gt;] cache_free_debugcheck+0xf8/0x220
+ [&lt;ffffffff8802f1cd&gt;] :bcm43xx_d80211:bcm43xx_wireless_core_exit+0x3d/0x90
+ [&lt;ffffffff8027d2d0&gt;] kfree+0xb0/0x120
+ [&lt;ffffffff8802f1cd&gt;] :bcm43xx_d80211:bcm43xx_wireless_core_exit+0x3d/0x90
+ [&lt;ffffffff8802f89b&gt;] :bcm43xx_d80211:bcm43xx_remove_interface+0xfb/0x140
+ [&lt;ffffffff880057fa&gt;] :80211:ieee80211_stop+0xfa/0x120
+ [&lt;ffffffff80463032&gt;] dev_close+0x62/0x90
+ [&lt;ffffffff8046246d&gt;] dev_change_flags+0x6d/0x150
+ [&lt;ffffffff8049f022&gt;] devinet_ioctl+0x2f2/0x710
+ [&lt;ffffffff80464276&gt;] dev_ioctl+0x3f6/0x440
+ [&lt;ffffffff80248cd5&gt;] __lock_acquire+0xd35/0xdd0
+ [&lt;ffffffff8049f71c&gt;] inet_ioctl+0x4c/0x80
+ [&lt;ffffffff804573a0&gt;] sock_ioctl+0x210/0x240
+ [&lt;ffffffff804bb9db&gt;] _spin_unlock_irq+0x2b/0x40
+ [&lt;ffffffff8028e68b&gt;] do_ioctl+0x1b/0x60
+ [&lt;ffffffff8028e931&gt;] vfs_ioctl+0x261/0x280
+ [&lt;ffffffff8028e99a&gt;] sys_ioctl+0x4a/0x80
+ [&lt;ffffffff80209b6e&gt;] system_call+0x7e/0x83
+
+ffff81000763e240: redzone 1:0x5a2cf071, redzone 2:0x5a2cf071.
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_d80211: Adding Interface type 2
+bcm43xx_d80211: FOUND UNSUPPORTED PHY (Analog 4, Type 0, Revision 7)
+
+--
+Regards,
+Pavel Roskin
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000585.html">More breakage in wireless-dev.git
+</A></li>
+	<LI>Next message: <A HREF="000587.html">More breakage in wireless-dev.git
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#586">[ date ]</a>
+              <a href="thread.html#586">[ thread ]</a>
+              <a href="subject.html#586">[ subject ]</a>
+              <a href="author.html#586">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

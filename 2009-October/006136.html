@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Protect sanity check against physical device removal
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Protect%20sanity%20check%20against%20physical%20device%20removal&In-Reply-To=%3C200910030058.00906.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006146.html">
+   <LINK REL="Next"  HREF="006138.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Protect sanity check against physical device removal</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Protect%20sanity%20check%20against%20physical%20device%20removal&In-Reply-To=%3C200910030058.00906.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Protect sanity check against physical device removal">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Oct  3 00:57:58 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006146.html">14e4:4315 DMA Errors (still)
+</A></li>
+        <LI>Next message: <A HREF="006138.html">14e4:4315 DMA Errors (still)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6136">[ date ]</a>
+              <a href="thread.html#6136">[ thread ]</a>
+              <a href="subject.html#6136">[ subject ]</a>
+              <a href="author.html#6136">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Fix IRQ mask sanity check for physically pulled device.
+
+Tested-by: Andrew Price &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">andy at andrewprice.me.uk</A>&gt;
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+ drivers/net/wireless/b43/main.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c
++++ wireless-testing/drivers/net/wireless/b43/main.c
+@@ -3874,6 +3874,7 @@ static struct b43_wldev * b43_wireless_c
+ {
+ 	struct b43_wl *wl = dev-&gt;wl;
+ 	struct b43_wldev *orig_dev;
++	u32 mask;
+ 
+ redo:
+ 	if (!dev || b43_status(dev) &lt; B43_STAT_STARTED)
+@@ -3920,7 +3921,8 @@ redo:
+ 			goto redo;
+ 		return dev;
+ 	}
+-	B43_WARN_ON(b43_read32(dev, B43_MMIO_GEN_IRQ_MASK));
++	mask = b43_read32(dev, B43_MMIO_GEN_IRQ_MASK);
++	B43_WARN_ON(mask != 0xFFFFFFFF &amp;&amp; mask);
+ 
+ 	/* Drain the TX queue */
+ 	while (skb_queue_len(&amp;wl-&gt;tx_queue))
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006146.html">14e4:4315 DMA Errors (still)
+</A></li>
+	<LI>Next message: <A HREF="006138.html">14e4:4315 DMA Errors (still)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6136">[ date ]</a>
+              <a href="thread.html#6136">[ thread ]</a>
+              <a href="subject.html#6136">[ subject ]</a>
+              <a href="author.html#6136">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/2] b43: Add lpphy_update_tx_power_npt function to improve	TX power handling on LP PHYs
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/2%5D%20b43%3A%20Add%20lpphy_update_tx_power_npt%20function%20to%20improve%0A%09TX%20power%20handling%20on%20LP%20PHYs&In-Reply-To=%3C1253129236.2989.37.camel%40note%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006095.html">
+   <LINK REL="Next"  HREF="006097.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/2] b43: Add lpphy_update_tx_power_npt function to improve	TX power handling on LP PHYs</H1>
+    <B>Thomas Ilnseher</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/2%5D%20b43%3A%20Add%20lpphy_update_tx_power_npt%20function%20to%20improve%0A%09TX%20power%20handling%20on%20LP%20PHYs&In-Reply-To=%3C1253129236.2989.37.camel%40note%3E"
+       TITLE="[PATCH 1/2] b43: Add lpphy_update_tx_power_npt function to improve	TX power handling on LP PHYs">illth at gmx.de
+       </A><BR>
+    <I>Wed Sep 16 21:27:16 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006095.html">[PATCH 0/2] b43: improve TX power handling for LP PHYs
+</A></li>
+        <LI>Next message: <A HREF="006097.html">[PATCH 2/2] b43: Add lpphy_clear_tx_power_offsets to improve TX	Power handling
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6096">[ date ]</a>
+              <a href="thread.html#6096">[ thread ]</a>
+              <a href="subject.html#6096">[ subject ]</a>
+              <a href="author.html#6096">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The lpphy_update_tx_power_npt routine is currently missing in the code.
+
+I added the routine according to the specs.
+
+Signed-off-by: Thomas Ilnseher &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">illth at gmx.de</A>&gt;
+---
+diff -uNr compat-wireless-2009-09-15/drivers/net/wireless/b43/b43.h compat-wireless-2009-09-15.mod/drivers/net/wireless/b43/b43.h
+--- compat-wireless-2009-09-15/drivers/net/wireless/b43/b43.h	2009-09-15 06:13:53.000000000 +0200
++++ compat-wireless-2009-09-15.mod/drivers/net/wireless/b43/b43.h	2009-09-15 23:35:02.651859159 +0200
+@@ -255,7 +255,10 @@
+ #define B43_SHM_SH_MAXBFRAMES		0x0080	/* Maximum number of frames in a burst */
+ #define B43_SHM_SH_SPUWKUP		0x0094	/* pre-wakeup for synth PU in us */
+ #define B43_SHM_SH_PRETBTT		0x0096	/* pre-TBTT in us */
+-
++/* MAC Statistics */
++#define B43_SHM_SH_TX_FRAMES_SENT	0x00E0	/* # TX Frames sent */
++#define B43_SHM_SH_TX_RTS		0x00E2	/* # TX RTS */
++#define B43_SHM_SH_TX_CTS		0x00E4	/* # TX CTS */
+ /* SHM_SCRATCH offsets */
+ #define B43_SHM_SC_MINCONT		0x0003	/* Minimum contention window */
+ #define B43_SHM_SC_MAXCONT		0x0004	/* Maximum contention window */
+diff -uNr compat-wireless-2009-09-15/drivers/net/wireless/b43/phy_lp.c compat-wireless-2009-09-15.mod/drivers/net/wireless/b43/phy_lp.c
+--- compat-wireless-2009-09-15/drivers/net/wireless/b43/phy_lp.c	2009-09-15 06:13:53.000000000 +0200
++++ compat-wireless-2009-09-15.mod/drivers/net/wireless/b43/phy_lp.c	2009-09-16 00:00:20.712857949 +0200
+@@ -1103,6 +1103,28 @@
+ 			(u16)~B43_LPPHY_TX_PWR_CTL_CMD_MODE, ctl);
+ }
+ 
++static void lpphy_update_tx_power_npt(struct b43_wldev *dev)
++{
++	u16 tx_cnt;
++	u16 npt;
++	u16 s3;
++
++	s3 = b43_shm_read16(dev, B43_SHM_SHARED, B43_SHM_SH_TX_FRAMES_SENT);
++	tx_cnt = s3 - dev-&gt;phy.lp-&gt;tssi_tx_count;
++	npt = (b43_phy_read(dev, B43_LPPHY_TX_PWR_CTL_NNUM) &amp; 0x700) &gt;&gt; 8;
++
++	if ((1 &lt;&lt; (npt &amp; 0x1F)) &gt;= tx_cnt)
++		return;
++	/* NB: Spec says do the stuff if xxx &lt; tx_cnt, so return on xxx &gt; txcnt */
++	dev-&gt;phy.lp-&gt;tssi_tx_count = s3;
++	if (npt &lt; 7) {
++		npt++;
++		b43_phy_maskset(dev, B43_LPPHY_TX_PWR_CTL_NNUM, 0xF8FF, (npt &lt;&lt; 8));
++	}
++	dev-&gt;phy.lp-&gt;tssi_npt = npt;
++	dev-&gt;phy.lp-&gt;tssi_idx = (b43_phy_read(dev, B43_LPPHY_TX_PWR_CTL_STAT) &amp; 0x7F00) &gt;&gt; 8;
++}
++
+ static void lpphy_set_tx_power_control(struct b43_wldev *dev,
+ 				       enum b43_lpphy_txpctl_mode mode)
+ {
+@@ -1116,7 +1138,7 @@
+ 	lpphy-&gt;txpctl_mode = mode;
+ 
+ 	if (oldmode == B43_LPPHY_TXPCTL_HW) {
+-		//TODO Update TX Power NPT
++		lpphy_update_tx_power_npt(dev);
+ 		//TODO Clear all TX Power offsets
+ 	} else {
+ 		if (mode == B43_LPPHY_TXPCTL_HW) {
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006095.html">[PATCH 0/2] b43: improve TX power handling for LP PHYs
+</A></li>
+	<LI>Next message: <A HREF="006097.html">[PATCH 2/2] b43: Add lpphy_clear_tx_power_offsets to improve TX	Power handling
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6096">[ date ]</a>
+              <a href="thread.html#6096">[ thread ]</a>
+              <a href="subject.html#6096">[ subject ]</a>
+              <a href="author.html#6096">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

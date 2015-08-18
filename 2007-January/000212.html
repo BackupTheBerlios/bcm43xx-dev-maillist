@@ -1,0 +1,156 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC PATCH 1/2] Rename V4 firmware
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%20PATCH%201/2%5D%20Rename%20V4%20firmware&In-Reply-To=%3C200701262200.42663.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000229.html">
+   <LINK REL="Next"  HREF="000202.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC PATCH 1/2] Rename V4 firmware</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%20PATCH%201/2%5D%20Rename%20V4%20firmware&In-Reply-To=%3C200701262200.42663.mb%40bu3sch.de%3E"
+       TITLE="[RFC PATCH 1/2] Rename V4 firmware">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jan 26 22:00:42 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000229.html">[RFC PATCH 1/2] Rename V4 firmware
+</A></li>
+        <LI>Next message: <A HREF="000202.html">Bcm43xx oops after suspend to disk
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#212">[ date ]</a>
+              <a href="thread.html#212">[ thread ]</a>
+              <a href="subject.html#212">[ subject ]</a>
+              <a href="author.html#212">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 26 January 2007 14:51, Matthew Garrett wrote:
+&gt;<i> The dscape driver requires v4 firmware, while the mainline driver 
+</I>&gt;<i> prefers v3. Giving the two different names makes it easier to support 
+</I>&gt;<i> parallel installation. This patches fwcutter to dump v4 firmware with a 
+</I>&gt;<i> different name - the second patch alters the dscape driver to request 
+</I>&gt;<i> it.
+</I>
+NACK.
+Learn about &quot;fwpostfix&quot; module parameter.
+Besides that, this patch is buggy.
+
+&gt;<i> Signed-off-by: Matthew Garrett &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mjg59 at srcf.ucam.org</A>&gt;
+</I>&gt;<i> 
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i> diff -urp bcm43xx-fwcutter-006/fwcutter.c bcm43xx-fwcutter-006.new/fwcutter.c
+</I>&gt;<i> --- bcm43xx-fwcutter-006/fwcutter.c	2006-12-08 21:00:28.000000000 +0000
+</I>&gt;<i> +++ bcm43xx-fwcutter-006.new/fwcutter.c	2007-01-26 13:42:08.000000000 +0000
+</I>&gt;<i> @@ -28,6 +28,7 @@
+</I>&gt;<i>  
+</I>&gt;<i>  static struct cmdline_args cmdargs;
+</I>&gt;<i>  int big_endian_cpu;
+</I>&gt;<i> +int v4_firmware;
+</I>&gt;<i>  
+</I>&gt;<i>  static void write_little_endian(FILE *f, byte *buffer, int len, uint8_t flags) 
+</I>&gt;<i>  {
+</I>&gt;<i> @@ -110,11 +111,18 @@ static void write_iv(uint8_t flags, uint
+</I>&gt;<i>  				ivnum = 0;
+</I>&gt;<i>  		}
+</I>&gt;<i>  
+</I>&gt;<i> -		snprintf(ivfilename, sizeof(ivfilename),
+</I>&gt;<i> -			 &quot;%s/bcm43xx_initval%02d%s.fw&quot;,
+</I>&gt;<i> -			 cmdargs.target_dir,
+</I>&gt;<i> -			 ivnum,
+</I>&gt;<i> -			 cmdargs.postfix);
+</I>&gt;<i> +		if (v4_firmware) 
+</I>&gt;<i> +			snprintf(ivfilename, sizeof(ivfilename),
+</I>&gt;<i> +				 &quot;%s/bcm43xx_v4_initval%02d%s.fw&quot;,
+</I>&gt;<i> +				 cmdargs.target_dir,
+</I>&gt;<i> +				 ivnum,
+</I>&gt;<i> +				 cmdargs.postfix);
+</I>&gt;<i> +		else
+</I>&gt;<i> +			snprintf(ivfilename, sizeof(ivfilename),
+</I>&gt;<i> +				 &quot;%s/bcm43xx_initval%02d%s.fw&quot;,
+</I>&gt;<i> +				 cmdargs.target_dir,
+</I>&gt;<i> +				 ivnum,
+</I>&gt;<i> +				 cmdargs.postfix);
+</I>&gt;<i>  
+</I>&gt;<i>  		/* don't extract initval 0 */
+</I>&gt;<i>  		if ( ivnum == 0 ) {
+</I>&gt;<i> @@ -289,16 +297,27 @@ static void extract_fw(uint8_t fwtype, u
+</I>&gt;<i>  	case FIRMWARE_UCODE_5:
+</I>&gt;<i>  	case FIRMWARE_UCODE_11:
+</I>&gt;<i>  	case FIRMWARE_UCODE_13:
+</I>&gt;<i> -		snprintf(outfile, sizeof(outfile), &quot;bcm43xx_microcode%i%s.fw&quot;, 
+</I>&gt;<i> -			 fwtype - FIRMWARE_UCODE_OFFSET, cmdargs.postfix);
+</I>&gt;<i> +		if (v4_firmware)
+</I>&gt;<i> +			snprintf(outfile, sizeof(outfile), &quot;bcm43xx_v4_microcode%i%s.fw&quot;, 
+</I>&gt;<i> +				 fwtype - FIRMWARE_UCODE_OFFSET, cmdargs.postfix);
+</I>&gt;<i> +		else
+</I>&gt;<i> +			snprintf(outfile, sizeof(outfile), &quot;bcm43xx_microcode%i%s.fw&quot;, 
+</I>&gt;<i> +				 fwtype - FIRMWARE_UCODE_OFFSET, cmdargs.postfix);
+</I>&gt;<i>  		break;
+</I>&gt;<i>  	case FIRMWARE_PCM_4:
+</I>&gt;<i>  	case FIRMWARE_PCM_5:
+</I>&gt;<i> -		snprintf(outfile, sizeof(outfile), &quot;bcm43xx_pcm%i%s.fw&quot;, 
+</I>&gt;<i> -			 fwtype, cmdargs.postfix);
+</I>&gt;<i> +		if (v4_firmware)
+</I>&gt;<i> +			snprintf(outfile, sizeof(outfile), &quot;bcm43xx_v4_pcm%i%s.fw&quot;, 
+</I>&gt;<i> +				 fwtype, cmdargs.postfix);
+</I>&gt;<i> +		else
+</I>&gt;<i> +			snprintf(outfile, sizeof(outfile), &quot;bcm43xx_pcm%i%s.fw&quot;, 
+</I>&gt;<i> +				 fwtype, cmdargs.postfix);
+</I>&gt;<i>  		break;
+</I>&gt;<i>  	default:
+</I>&gt;<i> -		snprintf(outfile, sizeof(outfile), &quot;bcm43xx_unknown.fw&quot;);
+</I>&gt;<i> +		if (v4_firmware)
+</I>&gt;<i> +			snprintf(outfile, sizeof(outfile), &quot;bcm43xx_v4_unknown.fw&quot;);
+</I>&gt;<i> +		else
+</I>&gt;<i> +			snprintf(outfile, sizeof(outfile), &quot;bcm43xx_unknown.fw&quot;);
+</I>&gt;<i>  	}
+</I>&gt;<i>  
+</I>&gt;<i>  	if (length &gt; 0) {
+</I>&gt;<i> @@ -577,6 +596,7 @@ static const struct file * find_file(FIL
+</I>&gt;<i>  				       &quot;(wireless-dev kernel tree). If you don't know what \n&quot;
+</I>&gt;<i>  				       &quot;this warning is about, use a 3.xx.xx.xx driver version \n&quot;
+</I>&gt;<i>  				       &quot;instead to extract the firmware.\n&quot;);
+</I>&gt;<i> +				v4_firmware = 1;
+</I>&gt;<i>  			}
+</I>&gt;<i>  			printf(&quot;\n  filename   :  %s\n&quot;, files[i].name);
+</I>&gt;<i>  			printf(&quot;  version    :  %s\n&quot;, files[i].version);
+</I>&gt;<i> 
+</I>
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000229.html">[RFC PATCH 1/2] Rename V4 firmware
+</A></li>
+	<LI>Next message: <A HREF="000202.html">Bcm43xx oops after suspend to disk
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#212">[ date ]</a>
+              <a href="thread.html#212">[ thread ]</a>
+              <a href="subject.html#212">[ subject ]</a>
+              <a href="author.html#212">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 kills my kernel
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20kills%20my%20kernel&In-Reply-To=%3C4B042BCA.2060902%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006384.html">
+   <LINK REL="Next"  HREF="006386.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 kills my kernel</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20kills%20my%20kernel&In-Reply-To=%3C4B042BCA.2060902%40lwfinger.net%3E"
+       TITLE="b43 kills my kernel">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Wed Nov 18 18:15:54 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006384.html">b43 kills my kernel
+</A></li>
+        <LI>Next message: <A HREF="006386.html">b43 kills my kernel
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6385">[ date ]</a>
+              <a href="thread.html#6385">[ thread ]</a>
+              <a href="subject.html#6385">[ subject ]</a>
+              <a href="author.html#6385">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 11/18/2009 08:34 AM, Oncaphillis wrote:
+&gt;<i> The first ioread16 actually succeeds, only the second one fails.
+</I>&gt;<i> My lspci -vnn tells me that the memory is:
+</I>&gt;<i> 
+</I>&gt;<i> Memory at 57100000 (64-bit, non-prefetchable) [size=16K]
+</I>&gt;<i> 
+</I>&gt;<i> Could it be that one has to make a ioread32 here since the
+</I>&gt;<i> memory is 64-bit ? I remember very very remotely that
+</I>&gt;<i> in older days it was impossible or even forbidden to read
+</I>&gt;<i> data from addresses which are not a multiple of 2/4/8 what
+</I>&gt;<i> so ever. But that was pre-PCI.
+</I>
+As long as a 16-bit read is aligned on an even address, it should be OK;
+however, to check completely, please try this patch:
+
+Index: wireless-testing/drivers/ssb/pci.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/pci.c
++++ wireless-testing/drivers/ssb/pci.c
+@@ -251,10 +251,16 @@ static int sprom_check_crc(const u16 *sp
+ static int sprom_do_read(struct ssb_bus *bus, u16 *sprom)
+ {
+ 	int i;
++	u32 buf;
+
+-	for (i = 0; i &lt; bus-&gt;sprom_size; i++)
+-		sprom[i] = ioread16(bus-&gt;mmio + SSB_SPROM_BASE + (i * 2));
+-
++	printk(KERN_INFO &quot;ssb: Entering %s\n&quot;, __func__);
++	for (i = 0; i &lt; bus-&gt;sprom_size; i = i + 2) {
++		buf = ioread32(bus-&gt;mmio + SSB_SPROM_BASE + (i * 2));
++		printk(KERN_INFO &quot;ssb: Read 0x%.8X from SPROM\n&quot;, buf);
++		sprom[i] = buf &amp; 0x0000FFFF;
++		sprom[i+1] = (buf &gt;&gt; 16) &amp; 0x0000FFFF;
++	}
++	printk(KERN_INFO &quot;ssb: Leaving %s\n&quot;, __func__);
+ 	return 0;
+ }
+
+
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006384.html">b43 kills my kernel
+</A></li>
+	<LI>Next message: <A HREF="006386.html">b43 kills my kernel
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6385">[ date ]</a>
+              <a href="thread.html#6385">[ thread ]</a>
+              <a href="subject.html#6385">[ subject ]</a>
+              <a href="author.html#6385">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb: Allow reading of 440-byte SPROM that is not rev 4
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Allow%20reading%20of%20440-byte%20SPROM%20that%20is%20not%20rev%204&In-Reply-To=%3C200804191624.09660.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003884.html">
+   <LINK REL="Next"  HREF="003887.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb: Allow reading of 440-byte SPROM that is not rev 4</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Allow%20reading%20of%20440-byte%20SPROM%20that%20is%20not%20rev%204&In-Reply-To=%3C200804191624.09660.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] ssb: Allow reading of 440-byte SPROM that is not rev 4">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Apr 19 16:24:09 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003884.html">[RFC V2] ssb: Allow reading of 440-byte SPROM that is not rev 4
+</A></li>
+        <LI>Next message: <A HREF="003887.html">[PATCH] b43: Add more btcoexist workarounds
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3885">[ date ]</a>
+              <a href="thread.html#3885">[ thread ]</a>
+              <a href="subject.html#3885">[ subject ]</a>
+              <a href="author.html#3885">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>
+
+The current code checks for the special signature that signifies
+a revision 4 SPROM. Now that a rev. 8 SPROM with a 440-byte length
+has been found that may not have any special code, this check could
+be relaxed. With this patch, if the CRC is incorrect for a 256-byte
+SPROM, the code will immediately check for a 440-byte SPROM. If there
+is still a CRC error, the size is set to 440 bytes, which allows dumping
+of most of any 512-byte SPROM if one is encountered.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+---
+
+John, please apply this to 2.6.27
+
+
+Index: wireless-testing/drivers/ssb/pci.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/pci.c
++++ wireless-testing/drivers/ssb/pci.c
+@@ -505,17 +505,15 @@ static int ssb_pci_sprom_get(struct ssb_
+ 	sprom_do_read(bus, buf);
+ 	err = sprom_check_crc(buf, bus-&gt;sprom_size);
+ 	if (err) {
+-		/* check for rev 4 sprom - has special signature */
+-		if (buf[32] == 0x5372) {
+-			kfree(buf);
+-			buf = kcalloc(SSB_SPROMSIZE_WORDS_R4, sizeof(u16),
+-				      GFP_KERNEL);
+-			if (!buf)
+-				goto out;
+-			bus-&gt;sprom_size = SSB_SPROMSIZE_WORDS_R4;
+-			sprom_do_read(bus, buf);
+-			err = sprom_check_crc(buf, bus-&gt;sprom_size);
+-		}
++		/* try for a 440 byte SPROM - revision 4 and higher */
++		kfree(buf);
++		buf = kcalloc(SSB_SPROMSIZE_WORDS_R4, sizeof(u16),
++			      GFP_KERNEL);
++		if (!buf)
++			goto out;
++		bus-&gt;sprom_size = SSB_SPROMSIZE_WORDS_R4;
++		sprom_do_read(bus, buf);
++		err = sprom_check_crc(buf, bus-&gt;sprom_size);
+ 		if (err)
+ 			ssb_printk(KERN_WARNING PFX &quot;WARNING: Invalid&quot;
+ 				   &quot; SPROM CRC (corrupt SPROM)\n&quot;);
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003884.html">[RFC V2] ssb: Allow reading of 440-byte SPROM that is not rev 4
+</A></li>
+	<LI>Next message: <A HREF="003887.html">[PATCH] b43: Add more btcoexist workarounds
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3885">[ date ]</a>
+              <a href="thread.html#3885">[ thread ]</a>
+              <a href="subject.html#3885">[ subject ]</a>
+              <a href="author.html#3885">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,123 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ieee80211-crypt%3A%20Make%20some%20TKIP%20and%20CCMP%20error%20logging%0A%09conditional%20on%20IEEE80211_DEBUG_DROP&In-Reply-To=%3Cjeirbwfb55.fsf%40sykes.suse.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001003.html">
+   <LINK REL="Next"  HREF="001102.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP</H1>
+    <B>Andreas Schwab</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ieee80211-crypt%3A%20Make%20some%20TKIP%20and%20CCMP%20error%20logging%0A%09conditional%20on%20IEEE80211_DEBUG_DROP&In-Reply-To=%3Cjeirbwfb55.fsf%40sykes.suse.de%3E"
+       TITLE="[PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP">schwab at suse.de
+       </A><BR>
+    <I>Mon Apr 16 20:05:10 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001003.html">[PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP
+</A></li>
+        <LI>Next message: <A HREF="001102.html">[PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1101">[ date ]</a>
+              <a href="thread.html#1101">[ thread ]</a>
+              <a href="subject.html#1101">[ subject ]</a>
+              <a href="author.html#1101">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt; writes:
+
+&gt;<i> There are messages arising from ieee80211_crypt that spam the logs of
+</I>&gt;<i> casual users. These are changed to be logged only if the user specifically
+</I>&gt;<i> requests the IEEE80211_DEBUG_DROP messages. In either case, the error/drop count
+</I>&gt;<i> is incremented.
+</I>&gt;<i>
+</I>&gt;<i> Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i>
+</I>&gt;<i> Index: wireless-2.6/net/ieee80211/ieee80211_crypt_tkip.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-2.6.orig/net/ieee80211/ieee80211_crypt_tkip.c
+</I>&gt;<i> +++ wireless-2.6/net/ieee80211/ieee80211_crypt_tkip.c
+</I>&gt;<i> @@ -465,7 +465,7 @@ static int ieee80211_tkip_decrypt(struct
+</I>&gt;<i>  
+</I>&gt;<i>  	if (tkip_replay_check(iv32, iv16, tkey-&gt;rx_iv32, tkey-&gt;rx_iv16)) {
+</I>&gt;<i>  		if (net_ratelimit()) {
+</I>&gt;<i> -			printk(KERN_DEBUG &quot;TKIP: replay detected: STA=&quot; MAC_FMT
+</I>&gt;<i> +			IEEE80211_DEBUG_DROP(&quot;TKIP: replay detected: STA=&quot; MAC_FMT
+</I>&gt;<i>  			       &quot; previous TSC %08x%04x received TSC &quot;
+</I>&gt;<i>  			       &quot;%08x%04x\n&quot;, MAC_ARG(hdr-&gt;addr2),
+</I>&gt;<i>  			       tkey-&gt;rx_iv32, tkey-&gt;rx_iv16, iv32, iv16);
+</I>&gt;<i> @@ -507,7 +507,7 @@ static int ieee80211_tkip_decrypt(struct
+</I>&gt;<i>  			tkey-&gt;rx_phase1_done = 0;
+</I>&gt;<i>  		}
+</I>&gt;<i>  		if (net_ratelimit()) {
+</I>&gt;<i> -			printk(KERN_DEBUG &quot;TKIP: ICV error detected: STA=&quot;
+</I>&gt;<i> +			IEEE80211_DEBUG_DROP(&quot;TKIP: ICV error detected: STA=&quot;
+</I>&gt;<i>  			       MAC_FMT &quot;\n&quot;, MAC_ARG(hdr-&gt;addr2));
+</I>&gt;<i>  		}
+</I>&gt;<i>  		tkey-&gt;dot11RSNAStatsTKIPICVErrors++;
+</I>&gt;<i> Index: wireless-2.6/net/ieee80211/ieee80211_crypt_ccmp.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-2.6.orig/net/ieee80211/ieee80211_crypt_ccmp.c
+</I>&gt;<i> +++ wireless-2.6/net/ieee80211/ieee80211_crypt_ccmp.c
+</I>&gt;<i> @@ -338,7 +338,7 @@ static int ieee80211_ccmp_decrypt(struct
+</I>&gt;<i>  
+</I>&gt;<i>  	if (ccmp_replay_check(pn, key-&gt;rx_pn)) {
+</I>&gt;<i>  		if (net_ratelimit()) {
+</I>&gt;<i> -			printk(KERN_DEBUG &quot;CCMP: replay detected: STA=&quot; MAC_FMT
+</I>&gt;<i> +			IEEE80211_DEBUG_DROP(&quot;CCMP: replay detected: STA=&quot; MAC_FMT
+</I>&gt;<i>  			       &quot; previous PN %02x%02x%02x%02x%02x%02x &quot;
+</I>&gt;<i>  			       &quot;received PN %02x%02x%02x%02x%02x%02x\n&quot;,
+</I>&gt;<i>  			       MAC_ARG(hdr-&gt;addr2), MAC_ARG(key-&gt;rx_pn),
+</I>&gt;<i>
+</I>&gt;<i>
+</I>
+This is causing an undefined refrence to ieee80211_debug_level with
+CONFIG_IEEE80211_DEBUG=y and CONFIG_IEEE80211_CRYPT_CCMP=m and/or
+CONFIG_IEEE80211_CRYPT_TKIP=m.
+
+WARNING: &quot;ieee80211_debug_level&quot; [net/ieee80211/ieee80211_crypt_tkip.ko] undefined!
+WARNING: &quot;ieee80211_debug_level&quot; [net/ieee80211/ieee80211_crypt_ccmp.ko] undefined!
+
+Andreas.
+
+-- 
+Andreas Schwab, SuSE Labs, <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">schwab at suse.de</A>
+SuSE Linux Products GmbH, Maxfeldstra&#223;e 5, 90409 N&#252;rnberg, Germany
+PGP key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+&quot;And now for something completely different.&quot;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001003.html">[PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP
+</A></li>
+	<LI>Next message: <A HREF="001102.html">[PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1101">[ date ]</a>
+              <a href="thread.html#1101">[ thread ]</a>
+              <a href="subject.html#1101">[ subject ]</a>
+              <a href="author.html#1101">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

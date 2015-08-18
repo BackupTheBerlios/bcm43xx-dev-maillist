@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 4318 Question Frame Check Sequence Errors
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%204318%20Question%20Frame%20Check%20Sequence%20Errors&In-Reply-To=%3C69e28c910901261521n604d16d8k3520a5052678c020%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005122.html">
+   <LINK REL="Next"  HREF="005113.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>4318 Question Frame Check Sequence Errors</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%204318%20Question%20Frame%20Check%20Sequence%20Errors&In-Reply-To=%3C69e28c910901261521n604d16d8k3520a5052678c020%40mail.gmail.com%3E"
+       TITLE="4318 Question Frame Check Sequence Errors">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Tue Jan 27 00:21:15 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005122.html">4318 Question Frame Check Sequence Errors
+</A></li>
+        <LI>Next message: <A HREF="005113.html">4315 status?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5112">[ date ]</a>
+              <a href="thread.html#5112">[ thread ]</a>
+              <a href="subject.html#5112">[ subject ]</a>
+              <a href="author.html#5112">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Mon, Jan 26, 2009 at 10:17 PM, Tex &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">ccmcphe at verizon.net</A>&gt; wrote:
+&gt;<i> I have been running some surveys with the Atheros and Broadcom Drivers.
+</I>&gt;<i> When viewing the frames from wireshark , while in monitor mode, I
+</I>&gt;<i> noticed that the Atheros driver is reporting FCS errors on some frames,
+</I>&gt;<i> but the Broadcom driver isn't, in the radiotap header. If I expand the
+</I>&gt;<i> frame and look at the FCS wireshark reports the frame as bad and shows
+</I>&gt;<i> what the CRC should be. I put printk's in pio_rx_frame() (see below) and
+</I>&gt;<i> noticed that the macstat is being reported as zero. Does this mean that
+</I>&gt;<i> the status is not being sent to the driver from the chip or firmware? Is
+</I>&gt;<i> there some way for me to configure it to report bad FCS frames?
+</I>&gt;<i>
+</I>&gt;<i>             macstat = le32_to_cpu(rxhdr.mac_status);
+</I>&gt;<i>             printk (KERN_DEBUG &quot;pio_rx_frame macstat is %x\n&quot;, macstat);
+</I>&gt;<i>             if (macstat &amp; B43_RX_MAC_FCSERR) {
+</I>&gt;<i>                     if (!(q-&gt;dev-&gt;wl-&gt;filter_flags &amp; FIF_FCSFAIL)) {
+</I>&gt;<i>                             /* Drop frames with failed FCS. */
+</I>&gt;<i>                             err_msg = &quot;Frame FCS error&quot;;
+</I>&gt;<i>                             goto rx_error;
+</I>&gt;<i>                     }
+</I>&gt;<i>
+</I>&gt;<i> b43_op_configure filter has the following flags set:
+</I>&gt;<i>        *fflags &amp;= FIF_PROMISC_IN_BSS |
+</I>&gt;<i>                  FIF_ALLMULTI |
+</I>&gt;<i>                  FIF_FCSFAIL |
+</I>&gt;<i>                  FIF_PLCPFAIL |
+</I>&gt;<i>                  FIF_CONTROL |
+</I>&gt;<i>                  FIF_OTHER_BSS |
+</I>&gt;<i>                  FIF_BCN_PRBRESP_PROMISC;
+</I>&gt;<i>
+</I>&gt;<i>        changed &amp;= FIF_PROMISC_IN_BSS |
+</I>&gt;<i>                   FIF_ALLMULTI |
+</I>&gt;<i>                   FIF_FCSFAIL |
+</I>&gt;<i>                   FIF_PLCPFAIL |
+</I>&gt;<i>                   FIF_CONTROL |
+</I>&gt;<i>                   FIF_OTHER_BSS |
+</I>&gt;<i>                   FIF_BCN_PRBRESP_PROMISC;
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Thanks much
+</I>&gt;<i> Tex
+</I>&gt;<i>
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Bcm43xx-dev mailing list
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>&gt;<i>
+</I>
+Note that you will never see correct FCS values in the Radiotap
+header, as Linux does not actually insert the FCS into the header -
+what Wireshark parses as the FCS field is actually RX Flags. (OpenBSD
+uses index 14 for FCS, while all others use it for RX flags.
+Wireshark, for some reason, follows the OpenBSD spec.)
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005122.html">4318 Question Frame Check Sequence Errors
+</A></li>
+	<LI>Next message: <A HREF="005113.html">4315 status?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5112">[ date ]</a>
+              <a href="thread.html#5112">[ thread ]</a>
+              <a href="subject.html#5112">[ subject ]</a>
+              <a href="author.html#5112">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

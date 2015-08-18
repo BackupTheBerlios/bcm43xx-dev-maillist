@@ -1,0 +1,127 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Machine Check on Fedora rawhide kernel.
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Machine%20Check%20on%20Fedora%20rawhide%20kernel.&In-Reply-To=%3C1189766981.3238.7.camel%40shinybook.infradead.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002383.html">
+   <LINK REL="Next"  HREF="002385.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Machine Check on Fedora rawhide kernel.</H1>
+    <B>David Woodhouse</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Machine%20Check%20on%20Fedora%20rawhide%20kernel.&In-Reply-To=%3C1189766981.3238.7.camel%40shinybook.infradead.org%3E"
+       TITLE="Machine Check on Fedora rawhide kernel.">dwmw2 at infradead.org
+       </A><BR>
+    <I>Fri Sep 14 12:49:41 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002383.html">Machine Check on Fedora rawhide kernel.
+</A></li>
+        <LI>Next message: <A HREF="002385.html">Machine Check on Fedora rawhide kernel.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2384">[ date ]</a>
+              <a href="thread.html#2384">[ thread ]</a>
+              <a href="subject.html#2384">[ subject ]</a>
+              <a href="author.html#2384">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Fri, 2007-09-14 at 12:32 +0200, David Woodhouse wrote:
+&gt;<i> This device is basically identical to the one I handed to John in
+</I>&gt;<i> Cambridge last week. How do I force the b43 driver to bind to it? 
+</I>
+This (and copying b0g0initvals2 from the b43legacy/ directory to b43/)
+didn't work... it seems it can't transmit.
+<A HREF="http://david.woodhou.se/b43-not-working.txt">http://david.woodhou.se/b43-not-working.txt</A>
+
+This card is working fine with bcm43xx-mac80211 right now though.
+
+--- drivers/net/wireless/b43/main.c~    2007-09-14 01:05:37.000000000 +0200
++++ drivers/net/wireless/b43/main.c     2007-09-14 12:41:32.000000000 +0200
+@@ -109,6 +109,7 @@ module_param_named(nohwcrypt, modparam_n
+ MODULE_PARM_DESC(nohwcrypt, &quot;Disable hardware encryption.&quot;);
+ 
+ static const struct ssb_device_id b43_ssb_tbl[] = {
++       SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 4),
+        SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 5),
+        SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 6),
+        SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 7),
+@@ -1648,7 +1649,9 @@ static int b43_request_firmware(struct b
+ 
+        tmshigh = ssb_read32(dev-&gt;dev, SSB_TMSHIGH);
+        if (!fw-&gt;ucode) {
+-               if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10))
++               if (rev == 4)
++                       filename = &quot;ucode4&quot;;
++               else if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10))
+                        filename = &quot;ucode5&quot;;
+                else if ((rev &gt;= 11) &amp;&amp; (rev &lt;= 12))
+                        filename = &quot;ucode11&quot;;
+@@ -1661,7 +1664,9 @@ static int b43_request_firmware(struct b
+                        goto err_load;
+        }
+        if (!fw-&gt;pcm) {
+-               if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10))
++               if (rev == 4)
++                       filename = &quot;pcm4&quot;;
++               else if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10))
+                        filename = &quot;pcm5&quot;;
+                else if (rev &gt;= 11)
+                        filename = NULL;
+@@ -1683,7 +1688,9 @@ static int b43_request_firmware(struct b
+                                goto err_no_initvals;
+                        break;
+                case B43_PHYTYPE_G:
+-                       if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10))
++                       if (rev == 4)
++                               filename = &quot;b0g0initvals2&quot;;
++                       else if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10))
+                                filename = &quot;b0g0initvals5&quot;;
+                        else if (rev &gt;= 13)
+                                filename = &quot;lp0initvals13&quot;;
+@@ -1713,7 +1720,7 @@ static int b43_request_firmware(struct b
+                case B43_PHYTYPE_G:
+                        if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10))
+                                filename = &quot;b0g0bsinitvals5&quot;;
+-                       else if (rev &gt;= 11)
++                       else if (rev == 4 || rev &gt;= 11)
+                                filename = NULL;
+                        else
+                                goto err_no_initvals;
+
+-- 
+dwmw2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002383.html">Machine Check on Fedora rawhide kernel.
+</A></li>
+	<LI>Next message: <A HREF="002385.html">Machine Check on Fedora rawhide kernel.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2384">[ date ]</a>
+              <a href="thread.html#2384">[ thread ]</a>
+              <a href="subject.html#2384">[ subject ]</a>
+              <a href="author.html#2384">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

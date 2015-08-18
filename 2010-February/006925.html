@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: N-PHY: handle allocation fail in samples generation
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20N-PHY%3A%20handle%20allocation%20fail%20in%20samples%20generation&In-Reply-To=%3Cb170af451002051424y446dde31m494830ad8e19b03e%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006924.html">
+   <LINK REL="Next"  HREF="006897.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: N-PHY: handle allocation fail in samples generation</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20N-PHY%3A%20handle%20allocation%20fail%20in%20samples%20generation&In-Reply-To=%3Cb170af451002051424y446dde31m494830ad8e19b03e%40mail.gmail.com%3E"
+       TITLE="[PATCH] b43: N-PHY: handle allocation fail in samples generation">zajec5 at gmail.com
+       </A><BR>
+    <I>Fri Feb  5 23:24:24 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006924.html">[PATCH] b43: N-PHY: handle allocation fail in samples generation
+</A></li>
+        <LI>Next message: <A HREF="006897.html">[RFC][PATCH] b43: LP-PHY: always adjust gain table on channel switch
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6925">[ date ]</a>
+              <a href="thread.html#6925">[ thread ]</a>
+              <a href="subject.html#6925">[ subject ]</a>
+              <a href="author.html#6925">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>W dniu 5 lutego 2010 22:38 u&#380;ytkownik G&#225;bor Stefanik
+&lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt; napisa&#322;:
+&gt;<i> 2010/2/5 Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;:
+</I>&gt;&gt;<i> W dniu 5 lutego 2010 18:34 u&#380;ytkownik G&#225;bor Stefanik
+</I>&gt;&gt;<i> &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt; napisa&#322;:
+</I>&gt;&gt;&gt;<i> 2010/2/4 Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;:
+</I>&gt;&gt;&gt;&gt;<i> Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+</I>&gt;&gt;&gt;&gt;<i> ---
+</I>&gt;&gt;&gt;&gt;<i> &#160;drivers/net/wireless/b43/phy_n.c | &#160; &#160;4 ++++
+</I>&gt;&gt;&gt;&gt;<i> &#160;1 files changed, 4 insertions(+), 0 deletions(-)
+</I>&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+</I>&gt;&gt;&gt;&gt;<i> index 074b34c..795bb1e 100644
+</I>&gt;&gt;&gt;&gt;<i> --- a/drivers/net/wireless/b43/phy_n.c
+</I>&gt;&gt;&gt;&gt;<i> +++ b/drivers/net/wireless/b43/phy_n.c
+</I>&gt;&gt;&gt;&gt;<i> @@ -1069,6 +1069,10 @@ static u16 b43_nphy_gen_load_samples(struct b43_wldev *dev, u32 freq, u16 max,
+</I>&gt;&gt;&gt;&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i> &#160; &#160; &#160; &#160;samples = kzalloc(len * sizeof(struct b43_c32), GFP_KERNEL);
+</I>&gt;&gt;&gt;&gt;<i> + &#160; &#160; &#160; if (!samples) {
+</I>&gt;&gt;&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43err(dev-&gt;wl, &quot;allocation for samples generation failed\n&quot;);
+</I>&gt;&gt;&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; return 0;
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> return -ENOMEM;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Function was somehow designed to return unsigned only. Returning 0
+</I>&gt;&gt;<i> means error (see place where we call b43_nphy_gen_load_samples, we
+</I>&gt;&gt;<i> check result for 0 there.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Is that OK then?
+</I>&gt;<i>
+</I>&gt;<i> In that case, OK - I thought this could be passed up to userspace handlers.
+</I>
+Thanks for review :)
+
+-- 
+Rafa&#322;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006924.html">[PATCH] b43: N-PHY: handle allocation fail in samples generation
+</A></li>
+	<LI>Next message: <A HREF="006897.html">[RFC][PATCH] b43: LP-PHY: always adjust gain table on channel switch
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6925">[ date ]</a>
+              <a href="thread.html#6925">[ thread ]</a>
+              <a href="subject.html#6925">[ subject ]</a>
+              <a href="author.html#6925">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20fix%20b43_plcp_get_bitrate_idx_ofdm%20return%20type&In-Reply-To=%3CEA519788-B815-4A09-8E45-FF431720DE24%40ing.unibs.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005337.html">
+   <LINK REL="Next"  HREF="005347.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type</H1>
+    <B>Francesco Gringoli</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20fix%20b43_plcp_get_bitrate_idx_ofdm%20return%20type&In-Reply-To=%3CEA519788-B815-4A09-8E45-FF431720DE24%40ing.unibs.it%3E"
+       TITLE="[PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type">francesco.gringoli at ing.unibs.it
+       </A><BR>
+    <I>Tue Mar 24 19:57:33 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005337.html">[PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+</A></li>
+        <LI>Next message: <A HREF="005347.html">[PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5346">[ date ]</a>
+              <a href="thread.html#5346">[ thread ]</a>
+              <a href="subject.html#5346">[ subject ]</a>
+              <a href="author.html#5346">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Mar 22, 2009, at 7:18 PM, Larry Finger wrote:
+
+&gt;<i> Lorenzo Nava wrote:
+</I>&gt;&gt;<i> Once again...
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Reported-by: Lorenzo Nava
+</I>&gt;&gt;<i> Signed-off-by: Lorenzo Nava &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">navalorenx at gmail.com</A>&gt;
+</I>&gt;<i> Cc: Stable &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stable at kernel.org</A>&gt;  [2.6.28, 2.6.27]
+</I>&gt;<i>
+</I>&gt;<i> Sorry to join this party late, but the line above should be added as  
+</I>&gt;<i> this bug
+</I>&gt;<i> goes back at least to 2.6.27 and should be applied to stable. I  
+</I>&gt;<i> didn't check any
+</I>&gt;<i> further.
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Larry
+</I>&gt;<i>
+</I>Larry, Michael,
+
+I checked within the firmware to understand what happens when the  
+rate_idx is not successfully resolved. First of all, this never  
+happens with FCS good frames, at least in my experiments. When FCS is  
+wrong, instead, I noticed that padding could be set to 2 by the  
+firmware (by setting bit 0x20 of SPR_RXE_FIFOCTL1) even if it is not  
+necessary, e.g., an error forces both from_ds and to_ds bits to 1, so  
+the firmware thinks the frame is a WDS one, while it is not. This  
+wrong setting, however, is not responsible for the wrong rate_idx.
+
+When a frame is wrong, in fact, we can face two scenarios:
+
+A)- some modulated symbols were not correctly decoded but the packet  
+is preserved (of course its content is wrong)
+B)- what we think is a frame in the rx buffer is not a frame but it is  
+a halved frame (reception stopped before packet ended), or it is a mix  
+of multiple frames on the air
+
+In the first scenario the length of the frame (basically, the  
+SPR_RXE_FRAMELEN value that was used by the firmware to push the frame  
+to the host) is consistent with the length reported inside the plcp,  
+that is always correct (the plcp) as it is protected on its own and we  
+do discard plcp bad frames. In this case I _NEVER_ experienced a  
+mismatch between the padding advertised by the firmware with that I  
+computed by checking the first eight bytes as said before.
+
+In the second case, instead, I saw that sometimes the reported padding  
+is wrong, e.g., a pad = 2 is reported while the plcp begins on the  
+first byte, or viceversa.
+
+The conclusion is that Michael is right, there is a bug in the rx  
+engine, and this bug causes a mis-alignment of the frame pushed  
+through the dma, although this issue is limited to wrong frames of  
+type B.
+
+The bad thing is that sometimes a bad alignment is not resolved in a  
+rate_idx = -1 as the first byte of the plcp (which is not actually the  
+first since the pad was wrong) is mistakenly resolved to a valid  
+encoding. This case can be funny since the determined speed could be  
+wrong.
+
+Cheers,
+-FG
+
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Bcm43xx-dev mailing list
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>
+-------
+
+Francesco Gringoli, PhD - Assistant Professor
+Dept. of Electrical Engineering for Automation
+University of Brescia
+via Branze, 38
+25123 Brescia
+ITALY
+
+Ph:  ++39.030.3715843
+FAX: ++39.030.380014
+WWW: <A HREF="http://www.ing.unibs.it/~gringoli">http://www.ing.unibs.it/~gringoli</A>
+
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005337.html">[PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+</A></li>
+	<LI>Next message: <A HREF="005347.html">[PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5346">[ date ]</a>
+              <a href="thread.html#5346">[ thread ]</a>
+              <a href="subject.html#5346">[ subject ]</a>
+              <a href="author.html#5346">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

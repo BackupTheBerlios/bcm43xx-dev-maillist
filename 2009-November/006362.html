@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> PHY Transmission error and radio turned off with b43legacy
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20PHY%20Transmission%20error%20and%20radio%20turned%20off%20with%20b43legacy&In-Reply-To=%3C4AFF55FB.8060506%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006351.html">
+   <LINK REL="Next"  HREF="006364.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>PHY Transmission error and radio turned off with b43legacy</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20PHY%20Transmission%20error%20and%20radio%20turned%20off%20with%20b43legacy&In-Reply-To=%3C4AFF55FB.8060506%40lwfinger.net%3E"
+       TITLE="PHY Transmission error and radio turned off with b43legacy">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sun Nov 15 02:14:35 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006351.html">PHY Transmission error and radio turned off with b43legacy
+</A></li>
+        <LI>Next message: <A HREF="006364.html">PHY Transmission error and radio turned off with b43legacy
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6362">[ date ]</a>
+              <a href="thread.html#6362">[ thread ]</a>
+              <a href="subject.html#6362">[ subject ]</a>
+              <a href="author.html#6362">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 11/14/2009 06:51 AM, Daniel Schmitt wrote:
+&gt;<i> Hello group,
+</I>&gt;<i> 
+</I>&gt;<i> I managed to get AP with my bcm4306 rev 2 running using b43legacy and hostapd.
+</I>&gt;<i> I'm using compat-wireless-2009-11-13 with patches from openwrt trunk for my 
+</I>&gt;<i> b43legacy driver. I use libnl HEAD version und hostapd 0.6.9.
+</I>&gt;<i> 
+</I>&gt;<i> Now I have two issues.
+</I>&gt;<i> 
+</I>&gt;<i> 1)
+</I>&gt;<i> I'm using Miktorik RB/14 4miniPCI =&gt; 1PCI Adapter for driving my bcm4306 in x86 
+</I>&gt;<i> PC. It always delivers a signal on minipci PIN 13 which powers down the radio. 
+</I>&gt;<i> About this nothing is posted in dmesg. If I disconnect PIN13 in minipci card, 
+</I>&gt;<i> the radio is online and I can scan for nets and start ap.
+</I>&gt;<i> Letting b43legacy_is_hw_radio_enabled() always return 1 in rfkill.c did not help.
+</I>&gt;<i> Here is my dmesg when I modprobe b43legacy and do &quot;ifconfig wlan0 0.0.0.0 up&quot;:
+</I>
+I think this is the first time we have seen a device that uses b43legacy with
+any radio kill hardware. I suspect that the b43legacy_is_hw_radio_enabled() is
+not looking at the correct bit. The hardware will obey the value on PIN13, no
+matter what the driver does. That is why changing ...enabled() did no good.
+
+Please build with the attached patch, and run 2 times, once with PIN13 connected
+and once with PIN13 disconnected. That should let us see where the state of that
+pin shows up.
+
+&gt;<i> I'm only interested in 802.11b so I allowed only bitrates 1,2,5.5 and 11 in 
+</I>&gt;<i> hostapd.conf. By using a WLAN client and doing flood pings with 4096 bytes (ping 
+</I>&gt;<i> -s 4095 -c 1000 -f), I get several PHY transmission errors
+</I>
+Are these related to large packets? If you reduce the size to 1000, does it
+still err?
+
+Larry
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: b43legacy_debug_rfkill
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20091114/e34e07dd/attachment.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20091114/e34e07dd/attachment.ksh</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006351.html">PHY Transmission error and radio turned off with b43legacy
+</A></li>
+	<LI>Next message: <A HREF="006364.html">PHY Transmission error and radio turned off with b43legacy
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6362">[ date ]</a>
+              <a href="thread.html#6362">[ thread ]</a>
+              <a href="subject.html#6362">[ subject ]</a>
+              <a href="author.html#6362">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

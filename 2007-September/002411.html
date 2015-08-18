@@ -1,0 +1,96 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20machine%20check%20errors%20for%20PPC%20architecture%0A%09with%20BCM4306/2&In-Reply-To=%3C46EC2E84.4080901%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002410.html">
+   <LINK REL="Next"  HREF="002412.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20machine%20check%20errors%20for%20PPC%20architecture%0A%09with%20BCM4306/2&In-Reply-To=%3C46EC2E84.4080901%40lwfinger.net%3E"
+       TITLE="[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Sat Sep 15 21:12:04 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002410.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+        <LI>Next message: <A HREF="002412.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2411">[ date ]</a>
+              <a href="thread.html#2411">[ thread ]</a>
+              <a href="subject.html#2411">[ subject ]</a>
+              <a href="author.html#2411">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> On Saturday 15 September 2007 20:07:22 Larry Finger wrote:
+</I>&gt;&gt;<i> Your comments may be correct; however, the fact remains that with a rev 4 BCM4306, the original code
+</I>&gt;&gt;<i> generates many, many machine checks on PPC architecture, and I get reads with all ones on i386
+</I>&gt;&gt;<i> indicating that the read is invalid. These all occur before the firmware is loaded. Making the
+</I>&gt;&gt;<i> &quot;gmode&quot; bit mimic the behavior of the phy_connected variable of bcm43xx gets rid of the problems on
+</I>&gt;&gt;<i> both platforms.
+</I>&gt;<i> 
+</I>&gt;<i> Sure. But if you workaround this like that, you could
+</I>&gt;<i> as well get completely rid of the gmode bit, as you always force it on.
+</I>&gt;<i> But I think that's not what we want. The real fix is simple. See below.
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;&gt;<i> If you can suggest a reordering of the initialization that delays PHY setup until the &quot;magic step&quot;
+</I>&gt;&gt;<i> that eliminates this problem is done on/to the ssb backplane, I will be happy to test it. I was
+</I>&gt;&gt;<i> unable to find such a solution.
+</I>&gt;<i> 
+</I>&gt;<i> There is no reordering needed.
+</I>&gt;<i> You just need to find out why phy-&gt;gmode was not set.
+</I>&gt;<i> I think it's set based on the have_gphy and have_bphy bits.
+</I>&gt;<i> So you need to look there why one of these is not set. That is the real
+</I>&gt;<i> cause of the issue.
+</I>
+In the original code, have_gphy was true, and phy-&gt;gmode was set. These variables were not the cause.
+
+In bcm43xx, the second argument to wireless_core_reset controls the value of phy-&gt;connected at exit.
+This behavior is missing in the original b43legacy (and in b43). For b43, it seems to have no
+consequence, but for the early PHYs, phy-&gt;connected controls when certain registers can be
+read/written and affects the program flow through the phy and radio initialization. The lack of the
+ability to toggle gmode is what leads to the register errors, and this is what my change restores.
+The name could be changed, but that seems more intrusive than necessary.
+
+Larry
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002410.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+	<LI>Next message: <A HREF="002412.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2411">[ date ]</a>
+              <a href="thread.html#2411">[ thread ]</a>
+              <a href="subject.html#2411">[ subject ]</a>
+              <a href="author.html#2411">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

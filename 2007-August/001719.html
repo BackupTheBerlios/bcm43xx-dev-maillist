@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx-mac80211: Provide information to allow	transmission rate decreases
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx-mac80211%3A%20Provide%20information%20to%20allow%0A%09transmission%20rate%20decreases&In-Reply-To=%3C46b24304.DLuGdus4YPRFspUn%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001743.html">
+   <LINK REL="Next"  HREF="001730.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx-mac80211: Provide information to allow	transmission rate decreases</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx-mac80211%3A%20Provide%20information%20to%20allow%0A%09transmission%20rate%20decreases&In-Reply-To=%3C46b24304.DLuGdus4YPRFspUn%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] bcm43xx-mac80211: Provide information to allow	transmission rate decreases">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Thu Aug  2 22:48:04 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001743.html">I will switch to quilt based development
+</A></li>
+        <LI>Next message: <A HREF="001730.html">[PATCH] bcm43xx-mac80211: Provide information to allow	transmission rate decreases
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1719">[ date ]</a>
+              <a href="thread.html#1719">[ thread ]</a>
+              <a href="subject.html#1719">[ subject ]</a>
+              <a href="author.html#1719">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>In bcm43xx-mac80211, the mechanism for decreasing the transmit rate cannot
+be triggered. This may be shown by walking away from the AP with a laptop.
+At some distance, communications will be lost and never recovered because
+the rate decreasing mechanism of rc80211_simple needs to see excessive_retries
+set in the ieee80211_tx_status struct. With this patch, the transmit rate
+will decrease until communications restart.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John and Michael,
+
+This is based on the wireless-dev tree.
+
+Larry
+
+ bcm43xx_dma.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_dma.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_dma.c
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_dma.c
+@@ -1311,6 +1311,9 @@ void bcm43xx_dma_handle_txstatus(struct 
+ 			 */
+ 			if (status-&gt;acked)
+ 				meta-&gt;txstat.flags |= IEEE80211_TX_STATUS_ACK;
++			else
++				if (!(meta-&gt;txstat.flags &amp; IEEE80211_TXCTL_NO_ACK))
++					meta-&gt;txstat.excessive_retries = 1;
+ 			meta-&gt;txstat.retry_count = status-&gt;frame_count - 1;
+ 			ieee80211_tx_status_irqsafe(dev-&gt;wl-&gt;hw, meta-&gt;skb, &amp;(meta-&gt;txstat));
+ 			/* skb is freed by ieee80211_tx_status_irqsafe() */
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001743.html">I will switch to quilt based development
+</A></li>
+	<LI>Next message: <A HREF="001730.html">[PATCH] bcm43xx-mac80211: Provide information to allow	transmission rate decreases
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1719">[ date ]</a>
+              <a href="thread.html#1719">[ thread ]</a>
+              <a href="subject.html#1719">[ subject ]</a>
+              <a href="author.html#1719">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,161 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> idle-tssi... source of problems
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20idle-tssi...%20source%20of%20problems&In-Reply-To=%3C462F7259.5040405%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001177.html">
+   <LINK REL="Next"  HREF="001179.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>idle-tssi... source of problems</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20idle-tssi...%20source%20of%20problems&In-Reply-To=%3C462F7259.5040405%40lwfinger.net%3E"
+       TITLE="idle-tssi... source of problems">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Wed Apr 25 17:23:05 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001177.html">idle-tssi... source of problems
+</A></li>
+        <LI>Next message: <A HREF="001179.html">idle-tssi... source of problems
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1178">[ date ]</a>
+              <a href="thread.html#1178">[ thread ]</a>
+              <a href="subject.html#1178">[ subject ]</a>
+              <a href="author.html#1178">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> Ok, Larry. I don't really get where the bug is.
+</I>&gt;<i> I think the tx_magn and tx_bias stuff you discovered (writing
+</I>&gt;<i> 0x20 to radio 0x52) is not really the cause of the problem
+</I>&gt;<i> either. I think it just papers over the real problem somewhere
+</I>&gt;<i> else.
+</I>&gt;<i> Why do I say that? Well, if I write a tx magnification value
+</I>&gt;<i> of 0x2 before we read out the itssi value, I get the correct value.
+</I>&gt;<i> But specs clearly state (and bcm43xx-sm code does) write a tx
+</I>&gt;<i> magnification value of 0 there. (It's the last value passed
+</I>&gt;<i> to set_txpower_bg).
+</I>&gt;<i> So I'm pretty much convinced that the real problem must be somewhere
+</I>&gt;<i> else.
+</I>
+I agree with you that the problem is somewhere else. The only real bug I have found is the one 
+below, which ultimately led to the value of 0xFF being written to radio register 0x52. This change 
+gets rid of the idle-tssi warning on the 4306 and the 4311, but not the 4318.
+
+
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.c
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.c
+@@ -436,6 +436,7 @@ static void lo_measure_txctl_values(stru
+   		}
+   	} else {
+   		lo-&gt;tx_magn = 0; /* unused */
++		lo-&gt;tx_bias = 0;
+   		bcm43xx_radio_write16(dev, 0x52,
+   				      bcm43xx_radio_read16(dev, 0x52)
+   				      &amp; 0xFFF0); /* TX bias == 0 */
+
+There are some other places where the PHY setting codes don't match the specs (or the sm code).
+These include the following:
+
+
+Index: wireless-mb/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
+===================================================================
+--- wireless-mb.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
++++ wireless-mb/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
+@@ -607,11 +609,11 @@ static void bcm43xx_phy_agcsetup(struct
+  	bcm43xx_phy_write(dev, 0x04A1,
+  			  (bcm43xx_phy_read(dev, 0x04A1)
+  			   &amp; 0xF0FF) | 0x0600);
+-	bcm43xx_phy_write(dev, 0x0412,
+-			  (bcm43xx_phy_read(dev, 0x0412)
++	bcm43xx_phy_write(dev, 0x04A2,
++			  (bcm43xx_phy_read(dev, 0x04A2)
+  			   &amp; 0xF0FF) | 0x0700);
+-	bcm43xx_phy_write(dev, 0x0410,
+-			  (bcm43xx_phy_read(dev, 0x0410)
++	bcm43xx_phy_write(dev, 0x04A0,
++			  (bcm43xx_phy_read(dev, 0x04A0)
+  			   &amp; 0xF0FF) | 0x0100);
+
+  	if (phy-&gt;rev == 1) {
+@@ -745,7 +747,7 @@ static void bcm43xx_phy_setupg(struct bc
+  	if (phy-&gt;rev &lt;= 2)
+  		for (i = 0; i &lt; BCM43xx_TAB_NOISESCALEG_SIZE; i++)
+  			bcm43xx_ofdmtab_write16(dev, 0x1400, i, bcm43xx_tab_noisescaleg1[i]);
+-	else if ((phy-&gt;rev == 7) &amp;&amp; (bcm43xx_phy_read(dev, 0x0449) &amp; 0x0200))
++	else if ((phy-&gt;rev &gt;= 7) &amp;&amp; (bcm43xx_phy_read(dev, 0x0449) &amp; 0x0200))
+  		for (i = 0; i &lt; BCM43xx_TAB_NOISESCALEG_SIZE; i++)
+  			bcm43xx_ofdmtab_write16(dev, 0x1400, i, bcm43xx_tab_noisescaleg3[i]);
+  	else
+@@ -755,7 +757,7 @@ static void bcm43xx_phy_setupg(struct bc
+  	if (phy-&gt;rev == 2)
+  		for (i = 0; i &lt; BCM43xx_TAB_SIGMASQR_SIZE; i++)
+  			bcm43xx_ofdmtab_write16(dev, 0x5000, i, bcm43xx_tab_sigmasqr1[i]);
+-	else if ((phy-&gt;rev &gt; 2) &amp;&amp; (phy-&gt;rev &lt;= 7))
++	else if ((phy-&gt;rev &gt; 2) &amp;&amp; (phy-&gt;rev &lt;= 8))
+  		for (i = 0; i &lt; BCM43xx_TAB_SIGMASQR_SIZE; i++)
+  			bcm43xx_ofdmtab_write16(dev, 0x5000, i, bcm43xx_tab_sigmasqr2[i]);
+
+@@ -1420,7 +1422,7 @@ static void bcm43xx_calc_loopback_gain(s
+  	}
+  	bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVER,
+  			  bcm43xx_phy_read(dev, BCM43xx_PHY_RFOVER) | 0x000C);
+-	bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVER,
++	bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVERVAL,
+  			  bcm43xx_phy_read(dev, BCM43xx_PHY_RFOVERVAL) | 0x000C);
+  	bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVER,
+  			  bcm43xx_phy_read(dev, BCM43xx_PHY_RFOVER) | 0x0030);
+
+
+One other place where there may be a problem is in 'lo_measure_txctl_values'. It looks to me as if 
+the value of lb_gain in dB is being used when hdB is in the specs, but I'm not sure about it.
+
+Another place where I have a question is in 'bcm43xx_calc_loopback_gain', where the specs call for 
+the outer loop to count down, but the code counts up.
+
+I also wonder about the masks being used for the tx_bias. The specs state that it is a 3-bit 
+quantity occupying bits 4-6 of radio register 52, but the mask for it is always a 4-bit mask. 
+Perhaps it doesn't make any difference.
+
+So far the only interface of mine that will connect at all with the mac80211 version is the 4306 
+with a PHY revision of 1, and it communicates very slowly. My 4318 and 4311 just cannot associate 
+and authenticate at all.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001177.html">idle-tssi... source of problems
+</A></li>
+	<LI>Next message: <A HREF="001179.html">idle-tssi... source of problems
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1178">[ date ]</a>
+              <a href="thread.html#1178">[ thread ]</a>
+              <a href="subject.html#1178">[ subject ]</a>
+              <a href="author.html#1178">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

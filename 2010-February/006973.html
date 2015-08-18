@@ -1,0 +1,142 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 10/11] b43: N-PHY: implement chanspec setup
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%2010/11%5D%20b43%3A%20N-PHY%3A%20implement%20chanspec%20setup&In-Reply-To=%3C1265745883-3392-11-git-send-email-zajec5%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006977.html">
+   <LINK REL="Next"  HREF="006974.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 10/11] b43: N-PHY: implement chanspec setup</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%2010/11%5D%20b43%3A%20N-PHY%3A%20implement%20chanspec%20setup&In-Reply-To=%3C1265745883-3392-11-git-send-email-zajec5%40gmail.com%3E"
+       TITLE="[PATCH 10/11] b43: N-PHY: implement chanspec setup">zajec5 at gmail.com
+       </A><BR>
+    <I>Tue Feb  9 21:04:42 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006977.html">[PATCH 09/11] b43: N-PHY: isloate 2055 radio setup
+</A></li>
+        <LI>Next message: <A HREF="006974.html">[PATCH 11/11] b43: N-PHY: switch to chanspec ops
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6973">[ date ]</a>
+              <a href="thread.html#6973">[ thread ]</a>
+              <a href="subject.html#6973">[ subject ]</a>
+              <a href="author.html#6973">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_n.c |   62 ++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 62 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 631e01f..19d4f11 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -3283,6 +3283,68 @@ int b43_phy_initn(struct b43_wldev *dev)
+ 	return 0;
+ }
+ 
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/ChanspecSetup">http://bcm-v4.sipsolutions.net/802.11/PHY/N/ChanspecSetup</A> */
++static void b43_nphy_chanspec_setup(struct b43_wldev *dev,
++				const struct b43_nphy_channeltab_entry *e,
++				struct b43_chanspec chanspec)
++{
++	struct b43_phy *phy = &amp;dev-&gt;phy;
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
++
++	u16 tmp;
++	u32 tmp32;
++
++	tmp = b43_phy_read(dev, B43_NPHY_BANDCTL) &amp; B43_NPHY_BANDCTL_5GHZ;
++	if (chanspec.b_freq == 1 &amp;&amp; tmp == 0) {
++		tmp32 = b43_read32(dev, B43_MMIO_PSM_PHY_HDR);
++		b43_write32(dev, B43_MMIO_PSM_PHY_HDR, tmp32 | 4);
++		b43_phy_set(dev, B43_PHY_B_BBCFG, 0xC000);
++		b43_write32(dev, B43_MMIO_PSM_PHY_HDR, tmp32);
++		b43_phy_set(dev, B43_NPHY_BANDCTL, B43_NPHY_BANDCTL_5GHZ);
++	} else if (chanspec.b_freq == 1) {
++		b43_phy_mask(dev, B43_NPHY_BANDCTL, ~B43_NPHY_BANDCTL_5GHZ);
++		tmp32 = b43_read32(dev, B43_MMIO_PSM_PHY_HDR);
++		b43_write32(dev, B43_MMIO_PSM_PHY_HDR, tmp32 | 4);
++		b43_phy_mask(dev, B43_PHY_B_BBCFG, (u16)~0xC000);
++		b43_write32(dev, B43_MMIO_PSM_PHY_HDR, tmp32);
++	}
++
++	b43_chantab_phy_upload(dev, e);
++
++	tmp = chanspec.channel;
++	if (chanspec.b_freq == 1)
++		tmp |= 0x0100;
++	if (chanspec.b_width == 3)
++		tmp |= 0x0200;
++	b43_bmac_write_shm(dev, 0xA0, tmp);
++
++	if (nphy-&gt;radio_chanspec.channel == 14) {
++		b43_nphy_classifier(dev, 2, 0);
++		b43_phy_set(dev, B43_PHY_B_TEST, 0x0800);
++	} else {
++		b43_nphy_classifier(dev, 2, 2);
++		if (chanspec.b_freq == 2)
++			b43_phy_mask(dev, B43_PHY_B_TEST, ~0x840);
++	}
++
++	if (nphy-&gt;txpwrctrl)
++		b43_nphy_tx_power_fix(dev);
++
++	if (dev-&gt;phy.rev &lt; 3)
++		b43_nphy_adjust_lna_gain_table(dev);
++
++	b43_nphy_tx_lp_fbw(dev);
++
++	if (dev-&gt;phy.rev &gt;= 3 &amp;&amp; 0) {
++		/* TODO */
++	}
++
++	b43_phy_write(dev, B43_NPHY_NDATAT_DUP40, 0x3830);
++
++	if (phy-&gt;rev &gt;= 3)
++		b43_nphy_spur_workaround(dev);
++}
++
+ static int b43_nphy_op_allocate(struct b43_wldev *dev)
+ {
+ 	struct b43_phy_n *nphy;
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006977.html">[PATCH 09/11] b43: N-PHY: isloate 2055 radio setup
+</A></li>
+	<LI>Next message: <A HREF="006974.html">[PATCH 11/11] b43: N-PHY: switch to chanspec ops
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6973">[ date ]</a>
+              <a href="thread.html#6973">[ thread ]</a>
+              <a href="subject.html#6973">[ subject ]</a>
+              <a href="author.html#6973">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,123 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Operation%20%22wpa_driver_wext_set_countermeasures%22%20not%20supported&In-Reply-To=%3C968046380.20071217024629%40anet.at%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003024.html">
+   <LINK REL="Next"  HREF="003071.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported</H1>
+    <B>Robert Allerstorfer</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Operation%20%22wpa_driver_wext_set_countermeasures%22%20not%20supported&In-Reply-To=%3C968046380.20071217024629%40anet.at%3E"
+       TITLE="Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported">linux-ra at anet.at
+       </A><BR>
+    <I>Mon Dec 17 02:46:29 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003024.html">Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+</A></li>
+        <LI>Next message: <A HREF="003071.html">Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3067">[ date ]</a>
+              <a href="thread.html#3067">[ thread ]</a>
+              <a href="subject.html#3067">[ subject ]</a>
+              <a href="author.html#3067">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Thu, 13 Dec 2007, 00:20 GMT+01 Michael Buesch wrote:
+
+&gt;<i> On Wednesday 12 December 2007 23:48:10 Robert Allerstorfer wrote:
+</I>&gt;&gt;<i> Before starting wpa_supplicant:
+</I>&gt;&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at localhost</A> ~]# dmesg | egrep 'b43|ssb|wlan0|wmaster0'
+</I>&gt;&gt;<i> ssb: SPROM revision 1 detected.
+</I>&gt;&gt;<i> ssb: Sonics Silicon Backplane found on PCI device 0001:10:12.0
+</I>&gt;&gt;<i> b43-phy0: Broadcom 4306 WLAN found
+</I>&gt;&gt;<i> b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 2
+</I>&gt;&gt;<i> b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+</I>&gt;&gt;<i> b43-phy0 debug: Loading firmware version 351.126 (2006-07-29 05:54:02)
+</I>&gt;&gt;<i> Registered led device: b43-phy0:tx
+</I>&gt;&gt;<i> Registered led device: b43-phy0:rx
+</I>&gt;&gt;<i> b43-phy0 debug: !WARNING! Idle-TSSI phy-&gt;cur_idle_tssi measuring failed. (cur=42, tgt=62). Disabling TX power adjustment.
+</I>
+&gt;<i> Hm, that's probably a false positive.
+</I>&gt;<i> Please locate the function b43_phy_init_pctl() inside of
+</I>&gt;<i> drivers/net/wireless/b43/phy.c
+</I>&gt;<i> Locate these lines inside of the function:
+</I>&gt;<i>                 if (B43_DEBUG) {
+</I>&gt;<i>                         /* Current-Idle-TSSI sanity check. */
+</I>&gt;<i>                         if (abs(phy-&gt;cur_idle_tssi - phy-&gt;tgt_idle_tssi) &gt;= 20) {
+</I>&gt;<i>                                 b43dbg(dev-&gt;wl,
+</I>&gt;<i>                                        &quot;!WARNING! Idle-TSSI phy-&gt;cur_idle_tssi &quot;
+</I>&gt;<i>                                        &quot;measuring failed. (cur=%d, tgt=%d). Disabling TX power &quot;
+</I>&gt;<i>                                        &quot;adjustment.\n&quot;, phy-&gt;cur_idle_tssi,
+</I>&gt;<i>                                        phy-&gt;tgt_idle_tssi);
+</I>&gt;<i>                                 phy-&gt;cur_idle_tssi = 0;
+</I>&gt;<i>                         }
+</I>&gt;<i>                 }
+</I>
+&gt;<i> Please change the
+</I>&gt;<i>                 if (B43_DEBUG) {
+</I>&gt;<i> into
+</I>&gt;<i>                 if (0) {
+</I>
+The strange thing is that the &quot;b43-phy0 debug: !WARNING!...&quot; line
+disappeared from the dmesg output after I replaced ssb.ko by a
+self-compiled version (and - of course - rebooted).
+
+All other kernel files have kept exactly the same (originating from
+kernel-2.6.23.9-90.fc8.ppc.rpm grabbed from
+<A HREF="http://koji.fedoraproject.org/">http://koji.fedoraproject.org/</A>). The original ssb.ko has been built
+without defining CONFIG_SSB_DEBUG, while I turned CONFIG_SSB_DEBUG on.
+Executing &quot;dmesg | egrep 'b43|ssb|wlan0|wmaster0'&quot; now begins with the
+following 5 additional lines:
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x04, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x05, vendor 0x4243)
+ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x02, vendor 0x4243)
+ssb: Core 3 found: V90 (cc 0x807, rev 0x02, vendor 0x4243)
+ssb: Core 4 found: PCI (cc 0x804, rev 0x09, vendor 0x4243)
+
+According to <A HREF="http://linuxwireless.org/en/users/Drivers/b43">http://linuxwireless.org/en/users/Drivers/b43</A> &quot;the full
+MAC core version is printed in the kernel logs when &quot;SSB debugging&quot; is
+enabled in KConfig and the driver finds a board.&quot; So, could someone
+please explain which of the 5 SSB debug dmesg lines prints &quot;the full
+MAC core version&quot;? I am curios about this to be sure if my system
+needs the b43 or the b43legacy driver.
+
+Thanks.
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003024.html">Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+</A></li>
+	<LI>Next message: <A HREF="003071.html">Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3067">[ date ]</a>
+              <a href="thread.html#3067">[ thread ]</a>
+              <a href="subject.html#3067">[ subject ]</a>
+              <a href="author.html#3067">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

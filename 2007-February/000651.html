@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> driver does not report association
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20driver%20does%20not%20report%20association&In-Reply-To=%3Cslrneu9dtv.69n.joerg%40alea.gnuu.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000648.html">
+   <LINK REL="Next"  HREF="000652.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>driver does not report association</H1>
+    <B>J&#246;rg Sommer</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20driver%20does%20not%20report%20association&In-Reply-To=%3Cslrneu9dtv.69n.joerg%40alea.gnuu.de%3E"
+       TITLE="driver does not report association">joerg at alea.gnuu.de
+       </A><BR>
+    <I>Tue Feb 27 23:59:11 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000648.html">driver does not report association
+</A></li>
+        <LI>Next message: <A HREF="000652.html">driver does not report association
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#651">[ date ]</a>
+              <a href="thread.html#651">[ thread ]</a>
+              <a href="subject.html#651">[ subject ]</a>
+              <a href="author.html#651">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi Larry,
+
+Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">larry.finger at lwfinger.net</A>&gt; wrote:
+&gt;<i> J&#246;rg Sommer wrote:
+</I>&gt;&gt;<i> % iwlist eth1 sc
+</I>&gt;&gt;<i>   Cell 03 - Address: 00:14:1B:60:6A:40
+</I>&gt;&gt;<i>             ESSID:&quot;802.1X&quot;
+</I>&gt;&gt;<i>             Protocol:IEEE 802.11bg
+</I>&gt;&gt;<i>             Mode:Master
+</I>&gt;&gt;<i>             Channel:13
+</I>&gt;&gt;<i>             Encryption key:on
+</I>&gt;&gt;<i>             Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 6 Mb/s; 9 Mb/s
+</I>&gt;&gt;<i>                       11 Mb/s; 12 Mb/s; 18 Mb/s; 24 Mb/s; 36 Mb/s
+</I>&gt;&gt;<i>                       48 Mb/s; 54 Mb/s
+</I>&gt;&gt;<i>             Quality=89/100  Signal level=-61 dBm  Noise level=-67 dBm
+</I>&gt;<i>
+</I>&gt;<i> The problem is not that the driver is failing to report the
+</I>&gt;<i> association, but that the driver cannot associate when the signal/noise
+</I>&gt;<i> is as low as you have. You have only 6 dBm difference in the received
+</I>&gt;<i> strength. Due to residual bugs in the PHY and radio setup, the
+</I>&gt;<i> transmitted signal/noise is even lower. To associate and authenticate,
+</I>&gt;<i> you need a stronger signal.
+</I>
+How strong it must be? What tells me the Quality value? When is it good?
+
+I took your advice and move closer to the access point. I've got this
+values:
+
+eth1      Scan completed :
+    Cell 01 - Address: 00:14:1B:60:6A:40
+              ESSID:&quot;802.1X&quot;
+              Quality=91/100  Signal level=-55 dBm  Noise level=-72 dBm
+
+but I still had problems to connect. Sometime, I've got a noise level of
+-256 dBm. Is this correct? Is this a good value?
+
+&gt;<i> since the 2.6.20 code was frozen. If you are willing to rebuild your
+</I>&gt;<i> kernel, try the fixes contained in
+</I>&gt;<i> <A HREF="ftp://lwfinger.dynalias.org/patches/combined_2.6.20.patch.">ftp://lwfinger.dynalias.org/patches/combined_2.6.20.patch.</A> Those may
+</I>&gt;<i> help you.
+</I>
+I read in the README that these are the differences between 2.6.20 and
+2.6.21-rc1. So I decided to build 2.6.21-rc1. The values above are from
+this new kernel.
+
+BTW: I saw, you didn't patch set_channelfreq() as I suggested in
+<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/003815.html">https://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/003815.html</A>
+Did you forget about it or do you have a reason not to include it?
+
+In my first mail in this thread, I've included the output from iwevent.
+There is a line &#8220;Custom driver event:authenticated.&#8221; The wpa_supplicant
+people said this is meaningless to them. Is this true? When gets this
+event send out?
+
+And I made another observation. SoftMAC sometimes report about error
+code&#160;12. Should I care about it? What does it mean?
+
+SoftMAC: Queueing Authentication Request to 00:14:1b:60:6a:40
+SoftMAC: Cannot associate without being authenticated, requested authentication
+SoftMAC: Sent Authentication Request to 00:14:1b:60:6a:40.
+SoftMAC: Open Authentication with 00:14:1b:60:6a:40 failed, error code: 12
+SoftMAC: Authentication response received from 00:12:f0:07:51:9e but no queue item exists.
+
+Sch&#246;ne Gr&#252;&#223;e, J&#246;rg.
+-- 
+Die zehn Gebote Gottes enthalten 172 W&#246;rter, die amerikanische
+Unabh&#228;ngigkeitserkl&#228;rung 300 W&#246;rter, die Verordnung der europ&#228;ischen
+Gemeinschaft &#252;ber den Import von Karamelbonbons exakt 25911 W&#246;rter.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000648.html">driver does not report association
+</A></li>
+	<LI>Next message: <A HREF="000652.html">driver does not report association
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#651">[ date ]</a>
+              <a href="thread.html#651">[ thread ]</a>
+              <a href="subject.html#651">[ subject ]</a>
+              <a href="author.html#651">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

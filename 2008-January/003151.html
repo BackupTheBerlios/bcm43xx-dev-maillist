@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix rxheader channel parsing
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20rxheader%20channel%20parsing&In-Reply-To=%3C477BDD58.9050702%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003150.html">
+   <LINK REL="Next"  HREF="003152.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix rxheader channel parsing</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20rxheader%20channel%20parsing&In-Reply-To=%3C477BDD58.9050702%40lwfinger.net%3E"
+       TITLE="[PATCH] b43: Fix rxheader channel parsing">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Wed Jan  2 19:52:08 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003150.html">[PATCH] b43: Fix rxheader channel parsing
+</A></li>
+        <LI>Next message: <A HREF="003152.html">[PATCH] b43: Fix rxheader channel parsing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3151">[ date ]</a>
+              <a href="thread.html#3151">[ thread ]</a>
+              <a href="subject.html#3151">[ subject ]</a>
+              <a href="author.html#3151">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> This patch fixes the parsing of the RX data header channel field.
+</I>&gt;<i> 
+</I>&gt;<i> The current code parses the header incorrectly and passes a wrong
+</I>&gt;<i> channel number and frequency for each frame to mac80211.
+</I>&gt;<i> The FIXMEs added by this patch don't matter for now as the code
+</I>&gt;<i> where they live won't get executed anyway. They will be fixed later.
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+</I>&gt;<i> 
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i> John, as this is a bugfix, it should go into 2.6.24 if still possible.
+</I>&gt;<i> 
+</I>&gt;<i> Index: wireless-2.6/drivers/net/wireless/b43/xmit.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-2.6.orig/drivers/net/wireless/b43/xmit.c	2007-12-30 20:30:03.000000000 +0100
+</I>&gt;<i> +++ wireless-2.6/drivers/net/wireless/b43/xmit.c	2008-01-02 18:13:15.000000000 +0100
+</I>&gt;<i> @@ -549,21 +549,32 @@ void b43_rx(struct b43_wldev *dev, struc
+</I>&gt;<i>  	switch (chanstat &amp; B43_RX_CHAN_PHYTYPE) {
+</I>&gt;<i>  	case B43_PHYTYPE_A:
+</I>&gt;<i>  		status.phymode = MODE_IEEE80211A;
+</I>&gt;<i> -		status.freq = chanid;
+</I>&gt;<i> -		status.channel = b43_freq_to_channel_a(chanid);
+</I>&gt;<i> -		break;
+</I>&gt;<i> -	case B43_PHYTYPE_B:
+</I>&gt;<i> -		status.phymode = MODE_IEEE80211B;
+</I>&gt;<i> -		status.freq = chanid + 2400;
+</I>&gt;<i> -		status.channel = b43_freq_to_channel_bg(chanid + 2400);
+</I>&gt;<i> +		B43_WARN_ON(1);
+</I>&gt;<i> +		/* FIXME: We don't really know which value the &quot;chanid&quot; contains.
+</I>&gt;<i> +		 *        So the following assignment might be wrong. */
+</I>&gt;<i> +		status.channel = chanid;
+</I>&gt;<i> +		status.freq = b43_channel_to_freq_5ghz(status.channel);
+</I>&gt;<i>  		break;
+</I>
+Shouldn't you just drop this case? No B PHY devices will ever use b43 and the default branch will
+issue the WARN_ON anyway.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003150.html">[PATCH] b43: Fix rxheader channel parsing
+</A></li>
+	<LI>Next message: <A HREF="003152.html">[PATCH] b43: Fix rxheader channel parsing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3151">[ date ]</a>
+              <a href="thread.html#3151">[ thread ]</a>
+              <a href="subject.html#3151">[ subject ]</a>
+              <a href="author.html#3151">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

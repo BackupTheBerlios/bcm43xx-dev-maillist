@@ -1,0 +1,273 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH, RFC] b44: Add fw capabilities
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%2C%20RFC%5D%20b44%3A%20Add%20fw%20capabilities&In-Reply-To=%3C200904080211.16298.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005394.html">
+   <LINK REL="Next"  HREF="005396.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH, RFC] b44: Add fw capabilities</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%2C%20RFC%5D%20b44%3A%20Add%20fw%20capabilities&In-Reply-To=%3C200904080211.16298.mb%40bu3sch.de%3E"
+       TITLE="[PATCH, RFC] b44: Add fw capabilities">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Apr  8 02:11:16 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005394.html">mac80211: changing number of queues in ops-&gt;start
+</A></li>
+        <LI>Next message: <A HREF="005396.html">[PATCH, RFC] b44: Add fw capabilities
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5395">[ date ]</a>
+              <a href="thread.html#5395">[ thread ]</a>
+              <a href="subject.html#5395">[ subject ]</a>
+              <a href="author.html#5395">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Completely untested patch to implement firmware capabilities
+and automagic QoS-disabling.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h	2009-04-07 19:52:34.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/b43.h	2009-04-08 01:57:58.000000000 +0200
+@@ -163,6 +163,7 @@ enum {
+ #define B43_SHM_SH_WLCOREREV		0x0016	/* 802.11 core revision */
+ #define B43_SHM_SH_PCTLWDPOS		0x0008
+ #define B43_SHM_SH_RXPADOFF		0x0034	/* RX Padding data offset (PIO only) */
++#define B43_SHM_SH_FWCAPA		0x0042	/* Firmware capabilities (Opensource firmware only) */
+ #define B43_SHM_SH_PHYVER		0x0050	/* PHY version */
+ #define B43_SHM_SH_PHYTYPE		0x0052	/* PHY type */
+ #define B43_SHM_SH_ANTSWAP		0x005C	/* Antenna swap threshold */
+@@ -297,6 +298,10 @@ enum {
+ #define B43_HF_MLADVW		0x001000000000ULL /* N PHY ML ADV workaround (rev &gt;= 13 only) */
+ #define B43_HF_PR45960W		0x080000000000ULL /* PR 45960 workaround (rev &gt;= 13 only) */
+ 
++/* Firmware capabilities field in SHM (Opensource firmware only) */
++#define B43_FWCAPA_HWCRYPTO	0x0001
++#define B43_FWCAPA_QOS		0x0002
++
+ /* MacFilter offsets. */
+ #define B43_MACFILTER_SELF		0x0000
+ #define B43_MACFILTER_BSSID		0x0003
+@@ -596,6 +601,13 @@ struct b43_wl {
+ 	/* Pointer to the ieee80211 hardware data structure */
+ 	struct ieee80211_hw *hw;
+ 
++	/* The number of queues that were registered with the mac80211 subsystem
++	 * initially. This is a backup copy of hw-&gt;queues in case hw-&gt;queues has
++	 * to be dynamically lowered at runtime (Firmware does not support QoS).
++	 * hw-&gt;queues has to be restored to the original value before unregistering
++	 * from the mac80211 subsystem. */
++	u16 mac80211_initially_registered_queues;
++
+ 	struct mutex mutex;
+ 	spinlock_t irq_lock;
+ 	/* R/W lock for data transmission.
+@@ -752,6 +764,8 @@ struct b43_wldev {
+ 	bool dfq_valid;		/* Directed frame queue valid (IBSS PS mode, ATIM) */
+ 	bool radio_hw_enable;	/* saved state of radio hardware enabled state */
+ 	bool suspend_in_progress;	/* TRUE, if we are in a suspend/resume cycle */
++	bool qos_enabled;		/* TRUE, if QoS is used. */
++	bool hwcrypto_enabled;		/* TRUE, if HW crypto acceleration is enabled. */
+ 
+ 	/* PHY/Radio device. */
+ 	struct b43_phy phy;
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-04-07 19:58:22.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-04-08 01:53:56.000000000 +0200
+@@ -1285,7 +1285,7 @@ static struct b43_dmaring *select_ring_b
+ {
+ 	struct b43_dmaring *ring;
+ 
+-	if (b43_modparam_qos) {
++	if (dev-&gt;qos_enabled) {
+ 		/* 0 = highest priority */
+ 		switch (queue_prio) {
+ 		default:
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2009-04-07 19:55:03.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2009-04-08 02:02:19.000000000 +0200
+@@ -80,8 +80,8 @@ static int modparam_nohwcrypt;
+ module_param_named(nohwcrypt, modparam_nohwcrypt, int, 0444);
+ MODULE_PARM_DESC(nohwcrypt, &quot;Disable hardware encryption.&quot;);
+ 
+-int b43_modparam_qos = 1;
+-module_param_named(qos, b43_modparam_qos, int, 0444);
++static int modparam_qos = 1;
++module_param_named(qos, modparam_qos, int, 0444);
+ MODULE_PARM_DESC(qos, &quot;Enable QOS support (default on)&quot;);
+ 
+ static int modparam_btcoex = 1;
+@@ -538,6 +538,13 @@ void b43_hf_write(struct b43_wldev *dev,
+ 	b43_shm_write16(dev, B43_SHM_SHARED, B43_SHM_SH_HOSTFHI, hi);
+ }
+ 
++/* Read the firmware capabilities bitmask (Opensource firmware only) */
++static u16 b43_fwcapa_read(struct b43_wldev *dev)
++{
++	B43_WARN_ON(!dev-&gt;fw.opensource);
++	return b43_shm_read16(dev, B43_SHM_SHARED, B43_SHM_SH_FWCAPA);
++}
++
+ void b43_tsf_read(struct b43_wldev *dev, u64 *tsf)
+ {
+ 	u32 low, high;
+@@ -2330,12 +2337,34 @@ static int b43_upload_microcode(struct b
+ 	dev-&gt;fw.patch = fwpatch;
+ 	dev-&gt;fw.opensource = (fwdate == 0xFFFF);
+ 
++	/* Default to use-all-queues. */
++	dev-&gt;wl-&gt;hw-&gt;queues = dev-&gt;wl-&gt;mac80211_initially_registered_queues;
++	dev-&gt;qos_enabled = !!modparam_qos;
++	/* Default to firmware/hardware crypto acceleration. */
++	dev-&gt;hwcrypto_enabled = 1;
++
+ 	if (dev-&gt;fw.opensource) {
++		u16 fwcapa;
++
+ 		/* Patchlevel info is encoded in the &quot;time&quot; field. */
+ 		dev-&gt;fw.patch = fwtime;
+-		b43info(dev-&gt;wl, &quot;Loading OpenSource firmware version %u.%u%s\n&quot;,
+-			dev-&gt;fw.rev, dev-&gt;fw.patch,
+-			dev-&gt;fw.pcm_request_failed ? &quot; (Hardware crypto not supported)&quot; : &quot;&quot;);
++		b43info(dev-&gt;wl, &quot;Loading OpenSource firmware version %u.%u\n&quot;,
++			dev-&gt;fw.rev, dev-&gt;fw.patch);
++
++		fwcapa = b43_fwcapa_read(dev);
++		if (!(fwcapa &amp; B43_FWCAPA_HWCRYPTO) || dev-&gt;fw.pcm_request_failed) {
++			b43info(dev-&gt;wl, &quot;Hardware crypto acceleration not supported by firmware\n&quot;);
++			/* Disable hardware crypto and fall back to software crypto. */
++			dev-&gt;hwcrypto_enabled = 0;
++		}
++		if (!(fwcapa &amp; B43_FWCAPA_QOS)) {
++			b43info(dev-&gt;wl, &quot;QoS not supported by firmware\n&quot;);
++			/* Disable QoS. Tweak hw-&gt;queues to 1. It will be restored before
++			 * ieee80211_unregister to make sure the networking core can
++			 * properly free possible resources. */
++			dev-&gt;wl-&gt;hw-&gt;queues = 1;
++			dev-&gt;qos_enabled = 0;
++		}
+ 	} else {
+ 		b43info(dev-&gt;wl, &quot;Loading firmware version %u.%u &quot;
+ 			&quot;(20%.2i-%.2i-%.2i %.2i:%.2i:%.2i)\n&quot;,
+@@ -3626,7 +3655,7 @@ static int b43_op_set_key(struct ieee802
+ 	if (!dev || b43_status(dev) &lt; B43_STAT_INITIALIZED)
+ 		goto out_unlock;
+ 
+-	if (dev-&gt;fw.pcm_request_failed) {
++	if (dev-&gt;fw.pcm_request_failed || !dev-&gt;hwcrypto_enabled) {
+ 		/* We don't have firmware for the crypto engine.
+ 		 * Must use software-crypto. */
+ 		err = -EOPNOTSUPP;
+@@ -4770,6 +4799,7 @@ static int b43_wireless_init(struct ssb_
+ 		b43err(NULL, &quot;Could not allocate ieee80211 device\n&quot;);
+ 		goto out;
+ 	}
++	wl = hw_to_b43_wl(hw);
+ 
+ 	/* fill hw info */
+ 	hw-&gt;flags = IEEE80211_HW_RX_INCLUDES_FCS |
+@@ -4783,7 +4813,8 @@ static int b43_wireless_init(struct ssb_
+ 		BIT(NL80211_IFTYPE_WDS) |
+ 		BIT(NL80211_IFTYPE_ADHOC);
+ 
+-	hw-&gt;queues = b43_modparam_qos ? 4 : 1;
++	hw-&gt;queues = modparam_qos ? 4 : 1;
++	wl-&gt;mac80211_initially_registered_queues = hw-&gt;queues;
+ 	hw-&gt;max_rates = 2;
+ 	SET_IEEE80211_DEV(hw, dev-&gt;dev);
+ 	if (is_valid_ether_addr(sprom-&gt;et1mac))
+@@ -4791,9 +4822,7 @@ static int b43_wireless_init(struct ssb_
+ 	else
+ 		SET_IEEE80211_PERM_ADDR(hw, sprom-&gt;il0mac);
+ 
+-	/* Get and initialize struct b43_wl */
+-	wl = hw_to_b43_wl(hw);
+-	memset(wl, 0, sizeof(*wl));
++	/* Initialize struct b43_wl */
+ 	wl-&gt;hw = hw;
+ 	spin_lock_init(&amp;wl-&gt;irq_lock);
+ 	rwlock_init(&amp;wl-&gt;tx_lock);
+@@ -4859,8 +4888,13 @@ static void b43_remove(struct ssb_device
+ 	cancel_work_sync(&amp;wldev-&gt;restart_work);
+ 
+ 	B43_WARN_ON(!wl);
+-	if (wl-&gt;current_dev == wldev)
++	if (wl-&gt;current_dev == wldev) {
++		/* Restore the queues count before unregistering, because firmware detect
++		 * might have modified it. Restoring is important, so the networking
++		 * stack can properly free resources. */
++		wl-&gt;hw-&gt;queues = wl-&gt;mac80211_initially_registered_queues;
+ 		ieee80211_unregister_hw(wl-&gt;hw);
++	}
+ 
+ 	b43_one_core_detach(dev);
+ 
+Index: wireless-testing/drivers/net/wireless/b43/main.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.h	2009-04-08 01:53:15.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.h	2009-04-08 01:53:20.000000000 +0200
+@@ -39,7 +39,6 @@
+ #define PAD_BYTES(nr_bytes)		P4D_BYTES( __LINE__ , (nr_bytes))
+ 
+ 
+-extern int b43_modparam_qos;
+ extern int b43_modparam_verbose;
+ 
+ /* Logmessage verbosity levels. Update the b43_modparam_verbose helptext, if
+Index: wireless-testing/drivers/net/wireless/b43/pio.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/pio.c	2009-04-08 02:10:23.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/pio.c	2009-04-08 02:10:38.000000000 +0200
+@@ -313,7 +313,7 @@ static struct b43_pio_txqueue *select_qu
+ {
+ 	struct b43_pio_txqueue *q;
+ 
+-	if (b43_modparam_qos) {
++	if (dev-&gt;qos_enabled) {
+ 		/* 0 = highest priority */
+ 		switch (queue_prio) {
+ 		default:
+
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005394.html">mac80211: changing number of queues in ops-&gt;start
+</A></li>
+	<LI>Next message: <A HREF="005396.html">[PATCH, RFC] b44: Add fw capabilities
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5395">[ date ]</a>
+              <a href="thread.html#5395">[ thread ]</a>
+              <a href="subject.html#5395">[ subject ]</a>
+              <a href="author.html#5395">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

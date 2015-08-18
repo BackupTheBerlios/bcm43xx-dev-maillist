@@ -1,0 +1,185 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 fatal DMA errors
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20fatal%20DMA%20errors&In-Reply-To=%3C69e28c910910251130v45acce96sd86dc4fd2052a707%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006241.html">
+   <LINK REL="Next"  HREF="006244.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 fatal DMA errors</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20fatal%20DMA%20errors&In-Reply-To=%3C69e28c910910251130v45acce96sd86dc4fd2052a707%40mail.gmail.com%3E"
+       TITLE="b43 fatal DMA errors">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Sun Oct 25 19:30:56 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006241.html">b43 driver disconects after a few minutes with airport extreme
+</A></li>
+        <LI>Next message: <A HREF="006244.html">b43 fatal DMA errors
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6242">[ date ]</a>
+              <a href="thread.html#6242">[ thread ]</a>
+              <a href="subject.html#6242">[ subject ]</a>
+              <a href="author.html#6242">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sun, Oct 25, 2009 at 7:17 PM, Linus Torvalds
+&lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">torvalds at linux-foundation.org</A>&gt; wrote:
+&gt;<i>
+</I>&gt;<i> Ok, so I got myself (or rather, Patricia) a new Dell 11 inspiron laptop,
+</I>&gt;<i> and everything seems to work, except for the wireless. It's a Broadcom
+</I>&gt;<i> BCM4312b/g LP-PHY.
+</I>&gt;<i>
+</I>&gt;<i> In fact, even the wireless works at least to _some_ degree, because I saw
+</I>&gt;<i> the wireless networks listed once (but I can't seem to recreate that now),
+</I>&gt;<i> but:
+</I>&gt;<i>
+</I>&gt;<i> &#160;- I get a _lot_ of noise in dmesg:
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0: Controller RESET (DMA error) ...
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0: Loading firmware version 478.104 (2008-07-01 00:50:23)
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0: Controller restarted
+</I>&gt;<i>
+</I>&gt;<i> &#160;- the 'phy0' kernel thread seems to spend all its time presumably doing
+</I>&gt;<i> &#160; that firmware reloading (looks like 20% CPU time in top)
+</I>&gt;<i>
+</I>&gt;<i> &#160;- the wireless doesn't seem to actually ever succeed in connecting even
+</I>&gt;<i> &#160; the one time it saw something, and 'rmmod b43' just hangs.
+</I>&gt;<i>
+</I>&gt;<i> The network I'm trying to connect to is just a random 128-bit WEP thing.
+</I>&gt;<i> But while I once got far enough to see it (I think that was with the
+</I>&gt;<i> 4.150.10.5 firmware - I started out using the wrong one by mistake), now I
+</I>&gt;<i> can't even see the networks, so I doubt that matters.
+</I>&gt;<i>
+</I>&gt;<i> Maybe it's all as simple as me just having the wrong firmware version or
+</I>&gt;<i> something. But it's the version documented at
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;<A HREF="http://linuxwireless.org/en/users/Drivers/b43">http://linuxwireless.org/en/users/Drivers/b43</A>
+</I>&gt;<i>
+</I>&gt;<i> for the LP-PHY case.
+</I>&gt;<i>
+</I>&gt;<i> This is with current -git (v2.6.32-rc5-81-g964fe08), and lspci reports
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;08:00.0 0280: 14e4:4315 (rev 01)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;Subsystem: 1028:000c
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR- INTx-
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;Latency: 0, Cache Line Size: 64 bytes
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;Interrupt: pin A routed to IRQ 17
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;Region 0: Memory at f0600000 (64-bit, non-prefetchable) [size=16K]
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;Capabilities: &lt;access denied&gt;
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;Kernel driver in use: b43-pci-bridge
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;Kernel modules: ssb
+</I>&gt;<i> &#160; &#160; &#160; &#160;00: e4 14 15 43 06 00 10 00 01 00 80 02 10 00 00 00
+</I>&gt;<i> &#160; &#160; &#160; &#160;10: 04 00 60 f0 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> &#160; &#160; &#160; &#160;20: 00 00 00 00 00 00 00 00 00 00 00 00 28 10 0c 00
+</I>&gt;<i> &#160; &#160; &#160; &#160;30: 00 00 00 00 40 00 00 00 00 00 00 00 0a 01 00 00
+</I>&gt;<i>
+</I>&gt;<i> with dmesg saying
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-pci-bridge 0000:08:00.0: PCI INT A -&gt; GSI 17 (level, low) -&gt; IRQ 17
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-pci-bridge 0000:08:00.0: setting latency timer to 64
+</I>&gt;<i> &#160; &#160; &#160; &#160;...
+</I>&gt;<i> &#160; &#160; &#160; &#160;cfg80211: Calling CRDA to update world regulatory domain
+</I>&gt;<i> &#160; &#160; &#160; &#160;...
+</I>&gt;<i> &#160; &#160; &#160; &#160;cfg80211: World regulatory domain updated:
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;(start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;(2402000 KHz - 2472000 KHz @ 40000 KHz), (300 mBi, 2000 mBm)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;(2457000 KHz - 2482000 KHz @ 20000 KHz), (300 mBi, 2000 mBm)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;(2474000 KHz - 2494000 KHz @ 20000 KHz), (300 mBi, 2000 mBm)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;(5170000 KHz - 5250000 KHz @ 40000 KHz), (300 mBi, 2000 mBm)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;(5735000 KHz - 5835000 KHz @ 40000 KHz), (300 mBi, 2000 mBm)
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0: Broadcom 4312 WLAN found (core revision 15)
+</I>&gt;<i> &#160; &#160; &#160; &#160;...
+</I>&gt;<i> &#160; &#160; &#160; &#160;phy0: Selected rate control algorithm 'minstrel'
+</I>&gt;<i> &#160; &#160; &#160; &#160;Registered led device: b43-phy0::tx
+</I>&gt;<i> &#160; &#160; &#160; &#160;Registered led device: b43-phy0::rx
+</I>&gt;<i> &#160; &#160; &#160; &#160;Registered led device: b43-phy0::radio
+</I>&gt;<i> &#160; &#160; &#160; &#160;Broadcom 43xx driver loaded [ Features: PML, Firmware-ID: FW13 ]
+</I>&gt;<i> &#160; &#160; &#160; &#160;...
+</I>&gt;<i> &#160; &#160; &#160; &#160;cfg80211: Calling CRDA for country: US
+</I>&gt;<i> &#160; &#160; &#160; &#160;cfg80211: Regulatory domain changed to country: US
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;(start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;(2402000 KHz - 2472000 KHz @ 40000 KHz), (300 mBi, 2700 mBm)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;(5170000 KHz - 5250000 KHz @ 40000 KHz), (300 mBi, 1700 mBm)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;(5250000 KHz - 5330000 KHz @ 40000 KHz), (300 mBi, 2000 mBm)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;(5490000 KHz - 5710000 KHz @ 40000 KHz), (300 mBi, 2000 mBm)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;(5735000 KHz - 5835000 KHz @ 40000 KHz), (300 mBi, 3000 mBm)
+</I>&gt;<i> &#160; &#160; &#160; &#160;...
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43 ssb0:0: firmware: requesting b43/ucode15.fw
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43 ssb0:0: firmware: requesting b43/lp0initvals15.fw
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43 ssb0:0: firmware: requesting b43/lp0bsinitvals15.fw
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0: Loading firmware version 478.104 (2008-07-01 00:50:23)
+</I>&gt;<i> &#160; &#160; &#160; &#160;...
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0: Controller RESET (DMA error) ...
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0: Loading firmware version 478.104 (2008-07-01 00:50:23)
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0 ERROR:
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0: Fatal DMA error: 0x00000400, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0: Controller RESET (DMA error) ...
+</I>&gt;<i> &#160; &#160; &#160; &#160;Controller restarted
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0: Controller RESET (DMA error) ...
+</I>&gt;<i>
+</I>&gt;<i> with that &quot;b43-phy0&quot; mess then going on forever (happily at least
+</I>&gt;<i> ratelimited).
+</I>&gt;<i>
+</I>&gt;<i> I can obviously test patches etc.
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;Linus
+</I>&gt;<i>
+</I>
+Hello,
+
+Could you please test the tag &quot;master-2009-08-26&quot; from
+wireless-testing? That one was the first version that worked, and in
+that specific build, my card (exactly the same as yours) worked
+perfectly, leading me to suspect a regression (probably not in the b43
+driver, but in something else interfering with b43). Also try apic=off
+&amp; acpi=off (IIRC another DMA error victim, but with error code
+0x00000800 had ACPI clobbering his DMA).
+
+Also, is there any reference to a failed channel switch in the log?
+
+Thanks,
+G&#225;bor
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006241.html">b43 driver disconects after a few minutes with airport extreme
+</A></li>
+	<LI>Next message: <A HREF="006244.html">b43 fatal DMA errors
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6242">[ date ]</a>
+              <a href="thread.html#6242">[ thread ]</a>
+              <a href="subject.html#6242">[ subject ]</a>
+              <a href="author.html#6242">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

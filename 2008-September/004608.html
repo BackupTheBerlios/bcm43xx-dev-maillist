@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] Fix hardware power control init
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20Fix%20hardware%20power%20control%20init&In-Reply-To=%3C6bc534830809071117h624fc9a9y92935bdd6d3be862%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004606.html">
+   <LINK REL="Next"  HREF="004609.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] Fix hardware power control init</H1>
+    <B>Artem Antonov</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20Fix%20hardware%20power%20control%20init&In-Reply-To=%3C6bc534830809071117h624fc9a9y92935bdd6d3be862%40mail.gmail.com%3E"
+       TITLE="[PATCH] Fix hardware power control init">artem.v.antonov at gmail.com
+       </A><BR>
+    <I>Sun Sep  7 20:17:38 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004606.html">[PATCH] Fix hardware power control init
+</A></li>
+        <LI>Next message: <A HREF="004609.html">[PATCH V2] b43legacy: Fix failure in rate-adjustment mechanism
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4608">[ date ]</a>
+              <a href="thread.html#4608">[ thread ]</a>
+              <a href="subject.html#4608">[ subject ]</a>
+              <a href="author.html#4608">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>ok. Than this patch fixes the existing code of it :)
+With &quot;hwpctl=1&quot; driver works more stable, than without this patch.
+just synced code to specs )
+
+2008/9/7, Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;:
+&gt;<i> On Sunday 07 September 2008 19:58:52 Artem Antonov wrote:
+</I>&gt;<i>  &gt; Hi!
+</I>&gt;<i>  &gt; This patch fixes hardware power control init. Now it works better :)
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Hardware power control cannot work, as we don't implement major parts of it.
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>  &gt; --- linux-2.6.27/drivers/net/wireless/b43/phy_g.c     2008-09-07
+</I>&gt;<i>  &gt; 20:16:35.000000000 +0400
+</I>&gt;<i>  &gt; +++ linux-2.6.27/drivers/net/wireless/b43/phy_g.c     2008-09-07
+</I>&gt;<i>  &gt; 20:18:22.000000000 +0400
+</I>&gt;<i>  &gt; @@ -275,9 +275,9 @@
+</I>&gt;<i>  &gt;       u16 value;
+</I>&gt;<i>  &gt;
+</I>&gt;<i>  &gt;       for (i = 0; i &lt; 32; i++)
+</I>&gt;<i>  &gt; -             b43_ofdmtab_write16(dev, 0x3C20, i, gphy-&gt;tssi2dbm[i]);
+</I>&gt;<i>  &gt; +             b43_ofdmtab_write16(dev, B43_OFDMTAB_TSSI, i + 32, gphy-&gt;tssi2dbm[i]);
+</I>&gt;<i>  &gt;       for (i = 32; i &lt; 64; i++)
+</I>&gt;<i>  &gt; -             b43_ofdmtab_write16(dev, 0x3C00, i - 32, gphy-&gt;tssi2dbm[i]);
+</I>&gt;<i>  &gt; +             b43_ofdmtab_write16(dev, B43_OFDMTAB_TSSI, i - 32, gphy-&gt;tssi2dbm[i]);
+</I>&gt;<i>  &gt;       for (i = 0; i &lt; 64; i += 2) {
+</I>&gt;<i>  &gt;               value = (u16) gphy-&gt;tssi2dbm[i];
+</I>&gt;<i>  &gt;               value |= ((u16) gphy-&gt;tssi2dbm[i + 1]) &lt;&lt; 8;
+</I>&gt;<i>  &gt; @@ -302,9 +302,9 @@
+</I>&gt;<i>  &gt;                       tmp = lo-&gt;bbatt_list.list[bb].att;
+</I>&gt;<i>  &gt;                       tmp &lt;&lt;= 8;
+</I>&gt;<i>  &gt;                       if (phy-&gt;radio_rev == 8)
+</I>&gt;<i>  &gt; -                             tmp |= 0x50;
+</I>&gt;<i>  &gt; -                     else
+</I>&gt;<i>  &gt;                               tmp |= 0x40;
+</I>&gt;<i>  &gt; +                     else
+</I>&gt;<i>  &gt; +                             tmp |= 0x50;
+</I>&gt;<i>  &gt;                       tmp |= lo-&gt;rfatt_list.list[rf].att;
+</I>&gt;<i>  &gt;                       b43_phy_write(dev, 0x3C0 + nr_written, tmp);
+</I>&gt;<i>  &gt;                       nr_written++;
+</I>&gt;<i>  &gt; @@ -2053,7 +2053,7 @@
+</I>&gt;<i>  &gt;       if (phy-&gt;radio_ver == 0x2050 &amp;&amp; phy-&gt;radio_rev == 8) {
+</I>&gt;<i>  &gt;               b43_phy_write(dev, 0x047A, (b43_phy_read(dev, 0x047A)
+</I>&gt;<i>  &gt;                                           &amp; 0xFF0F) | 0x0010);
+</I>&gt;<i>  &gt; -             b43_phy_write(dev, 0x005D, b43_phy_read(dev, 0x005D)
+</I>&gt;<i>  &gt; +             b43_phy_write(dev, 0x004D, b43_phy_read(dev, 0x004D)
+</I>&gt;<i>  &gt;                             | 0x8000);
+</I>&gt;<i>  &gt;               b43_phy_write(dev, 0x004E, (b43_phy_read(dev, 0x004E)
+</I>&gt;<i>  &gt;                                           &amp; 0xFFC0) | 0x0010);
+</I>&gt;<i>  &gt;
+</I>&gt;<i>  &gt; Best regards.
+</I>&gt;<i>  &gt;
+</I>&gt;<i>  &gt;
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i>  Greetings Michael.
+</I>&gt;<i>
+</I>
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004606.html">[PATCH] Fix hardware power control init
+</A></li>
+	<LI>Next message: <A HREF="004609.html">[PATCH V2] b43legacy: Fix failure in rate-adjustment mechanism
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4608">[ date ]</a>
+              <a href="thread.html#4608">[ thread ]</a>
+              <a href="subject.html#4608">[ subject ]</a>
+              <a href="author.html#4608">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

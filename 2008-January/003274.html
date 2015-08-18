@@ -1,0 +1,305 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Drop packets that we are not able to encrypt
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Drop%20packets%20that%20we%20are%20not%20able%20to%20encrypt&In-Reply-To=%3C200801232144.15455.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003272.html">
+   <LINK REL="Next"  HREF="003278.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Drop packets that we are not able to encrypt</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Drop%20packets%20that%20we%20are%20not%20able%20to%20encrypt&In-Reply-To=%3C200801232144.15455.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Drop packets that we are not able to encrypt">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Jan 23 21:44:15 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003272.html">[PATCH] b43: Fix suspend/resume
+</A></li>
+        <LI>Next message: <A HREF="003278.html">[PATCH -mm 0/5] b43: Fix suspend/resume deadlock
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3274">[ date ]</a>
+              <a href="thread.html#3274">[ thread ]</a>
+              <a href="subject.html#3274">[ subject ]</a>
+              <a href="author.html#3274">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>We must not transmit packets we're not able to encrypt.
+
+This fixes a bug where in a tiny timeframe after machine resume
+packets can get sent unencrypted and might leak information.
+
+This also fixes three small resource leakages I spotted while fixing
+the security problem. Properly deallocate the DMA slots in any DMA
+allocation error path.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+This is _not_ only a theoretical problem. I saw a few packets hitting
+this race condition.
+
+John, please try to push for 2.6.24, as this is a security fix.
+
+Stefano, this might need porting to legacy.
+
+
+Index: wireless-2.6/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/dma.c	2008-01-22 18:43:47.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/dma.c	2008-01-23 21:34:42.000000000 +0100
+@@ -1111,38 +1111,49 @@ struct b43_dmaring *parse_cookie(struct 
+ static int dma_tx_fragment(struct b43_dmaring *ring,
+ 			   struct sk_buff *skb,
+ 			   struct ieee80211_tx_control *ctl)
+ {
+ 	const struct b43_dma_ops *ops = ring-&gt;ops;
+ 	u8 *header;
+-	int slot;
++	int slot, old_top_slot, old_used_slots;
+ 	int err;
+ 	struct b43_dmadesc_generic *desc;
+ 	struct b43_dmadesc_meta *meta;
+ 	struct b43_dmadesc_meta *meta_hdr;
+ 	struct sk_buff *bounce_skb;
+ 	u16 cookie;
+ 	size_t hdrsize = b43_txhdr_size(ring-&gt;dev);
+ 
+ #define SLOTS_PER_PACKET  2
+ 	B43_WARN_ON(skb_shinfo(skb)-&gt;nr_frags);
+ 
++	old_top_slot = ring-&gt;current_slot;
++	old_used_slots = ring-&gt;used_slots;
++
+ 	/* Get a slot for the header. */
+ 	slot = request_slot(ring);
+ 	desc = ops-&gt;idx2desc(ring, slot, &amp;meta_hdr);
+ 	memset(meta_hdr, 0, sizeof(*meta_hdr));
+ 
+ 	header = &amp;(ring-&gt;txhdr_cache[slot * hdrsize]);
+ 	cookie = generate_cookie(ring, slot);
+-	b43_generate_txhdr(ring-&gt;dev, header,
+-			   skb-&gt;data, skb-&gt;len, ctl, cookie);
++	err = b43_generate_txhdr(ring-&gt;dev, header,
++				 skb-&gt;data, skb-&gt;len, ctl, cookie);
++	if (unlikely(err)) {
++		ring-&gt;current_slot = old_top_slot;
++		ring-&gt;used_slots = old_used_slots;
++		return err;
++	}
+ 
+ 	meta_hdr-&gt;dmaaddr = map_descbuffer(ring, (unsigned char *)header,
+ 					   hdrsize, 1);
+-	if (dma_mapping_error(meta_hdr-&gt;dmaaddr))
++	if (dma_mapping_error(meta_hdr-&gt;dmaaddr)) {
++		ring-&gt;current_slot = old_top_slot;
++		ring-&gt;used_slots = old_used_slots;
+ 		return -EIO;
++	}
+ 	ops-&gt;fill_descriptor(ring, desc, meta_hdr-&gt;dmaaddr,
+ 			     hdrsize, 1, 0, 0);
+ 
+ 	/* Get a slot for the payload. */
+ 	slot = request_slot(ring);
+ 	desc = ops-&gt;idx2desc(ring, slot, &amp;meta);
+@@ -1154,22 +1165,26 @@ static int dma_tx_fragment(struct b43_dm
+ 
+ 	meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+ 	/* create a bounce buffer in zone_dma on mapping failure. */
+ 	if (dma_mapping_error(meta-&gt;dmaaddr)) {
+ 		bounce_skb = __dev_alloc_skb(skb-&gt;len, GFP_ATOMIC | GFP_DMA);
+ 		if (!bounce_skb) {
++			ring-&gt;current_slot = old_top_slot;
++			ring-&gt;used_slots = old_used_slots;
+ 			err = -ENOMEM;
+ 			goto out_unmap_hdr;
+ 		}
+ 
+ 		memcpy(skb_put(bounce_skb, skb-&gt;len), skb-&gt;data, skb-&gt;len);
+ 		dev_kfree_skb_any(skb);
+ 		skb = bounce_skb;
+ 		meta-&gt;skb = skb;
+ 		meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+ 		if (dma_mapping_error(meta-&gt;dmaaddr)) {
++			ring-&gt;current_slot = old_top_slot;
++			ring-&gt;used_slots = old_used_slots;
+ 			err = -EIO;
+ 			goto out_free_bounce;
+ 		}
+ 	}
+ 
+ 	ops-&gt;fill_descriptor(ring, desc, meta-&gt;dmaaddr, skb-&gt;len, 0, 1, 1);
+@@ -1249,12 +1264,19 @@ int b43_dma_tx(struct b43_wldev *dev,
+ 	/* Check if the queue was stopped in mac80211,
+ 	 * but we got called nevertheless.
+ 	 * That would be a mac80211 bug. */
+ 	B43_WARN_ON(ring-&gt;stopped);
+ 
+ 	err = dma_tx_fragment(ring, skb, ctl);
++	if (unlikely(err == -ENOKEY)) {
++		/* Drop this packet, as we don't have the encryption key
++		 * anymore and must not transmit it unencrypted. */
++		dev_kfree_skb_any(skb);
++		err = 0;
++		goto out_unlock;
++	}
+ 	if (unlikely(err)) {
+ 		b43err(dev-&gt;wl, &quot;DMA tx mapping failure\n&quot;);
+ 		goto out_unlock;
+ 	}
+ 	ring-&gt;nr_tx_packets++;
+ 	if ((free_slots(ring) &lt; SLOTS_PER_PACKET) ||
+Index: wireless-2.6/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/xmit.c	2008-01-23 21:02:16.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/xmit.c	2008-01-23 21:34:53.000000000 +0100
+@@ -175,18 +175,18 @@ static u8 b43_calc_fallback_rate(u8 bitr
+ 	}
+ 	B43_WARN_ON(1);
+ 	return 0;
+ }
+ 
+ /* Generate a TX data header. */
+-void b43_generate_txhdr(struct b43_wldev *dev,
+-			u8 *_txhdr,
+-			const unsigned char *fragment_data,
+-			unsigned int fragment_len,
+-			const struct ieee80211_tx_control *txctl,
+-			u16 cookie)
++int b43_generate_txhdr(struct b43_wldev *dev,
++		       u8 *_txhdr,
++		       const unsigned char *fragment_data,
++		       unsigned int fragment_len,
++		       const struct ieee80211_tx_control *txctl,
++		       u16 cookie)
+ {
+ 	struct b43_txhdr *txhdr = (struct b43_txhdr *)_txhdr;
+ 	const struct b43_phy *phy = &amp;dev-&gt;phy;
+ 	const struct ieee80211_hdr *wlhdr =
+ 	    (const struct ieee80211_hdr *)fragment_data;
+ 	int use_encryption = (!(txctl-&gt;flags &amp; IEEE80211_TXCTL_DO_NOT_ENCRYPT));
+@@ -235,28 +235,33 @@ void b43_generate_txhdr(struct b43_wldev
+ 		int wlhdr_len;
+ 		size_t iv_len;
+ 
+ 		B43_WARN_ON(key_idx &gt;= dev-&gt;max_nr_keys);
+ 		key = &amp;(dev-&gt;key[key_idx]);
+ 
+-		if (likely(key-&gt;keyconf)) {
+-			/* This key is valid. Use it for encryption. */
++		if (unlikely(!key-&gt;keyconf)) {
++			/* This key is invalid. This might only happen
++			 * in a short timeframe after machine resume before
++			 * we were able to reconfigure keys.
++			 * Drop this packet completely. Do not transmit it
++			 * unencrypted to avoid leaking information. */
++			return -ENOKEY;
++		}
+ 
+-			/* Hardware appends ICV. */
+-			plcp_fragment_len += txctl-&gt;icv_len;
++		/* Hardware appends ICV. */
++		plcp_fragment_len += txctl-&gt;icv_len;
+ 
+-			key_idx = b43_kidx_to_fw(dev, key_idx);
+-			mac_ctl |= (key_idx &lt;&lt; B43_TXH_MAC_KEYIDX_SHIFT) &amp;
+-				   B43_TXH_MAC_KEYIDX;
+-			mac_ctl |= (key-&gt;algorithm &lt;&lt; B43_TXH_MAC_KEYALG_SHIFT) &amp;
+-				   B43_TXH_MAC_KEYALG;
+-			wlhdr_len = ieee80211_get_hdrlen(fctl);
+-			iv_len = min((size_t) txctl-&gt;iv_len,
+-				     ARRAY_SIZE(txhdr-&gt;iv));
+-			memcpy(txhdr-&gt;iv, ((u8 *) wlhdr) + wlhdr_len, iv_len);
+-		}
++		key_idx = b43_kidx_to_fw(dev, key_idx);
++		mac_ctl |= (key_idx &lt;&lt; B43_TXH_MAC_KEYIDX_SHIFT) &amp;
++			   B43_TXH_MAC_KEYIDX;
++		mac_ctl |= (key-&gt;algorithm &lt;&lt; B43_TXH_MAC_KEYALG_SHIFT) &amp;
++			   B43_TXH_MAC_KEYALG;
++		wlhdr_len = ieee80211_get_hdrlen(fctl);
++		iv_len = min((size_t) txctl-&gt;iv_len,
++			     ARRAY_SIZE(txhdr-&gt;iv));
++		memcpy(txhdr-&gt;iv, ((u8 *) wlhdr) + wlhdr_len, iv_len);
+ 	}
+ 	if (b43_is_old_txhdr_format(dev)) {
+ 		b43_generate_plcp_hdr((struct b43_plcp_hdr4 *)(&amp;txhdr-&gt;old_format.plcp),
+ 				      plcp_fragment_len, rate);
+ 	} else {
+ 		b43_generate_plcp_hdr((struct b43_plcp_hdr4 *)(&amp;txhdr-&gt;new_format.plcp),
+@@ -408,12 +413,13 @@ void b43_generate_txhdr(struct b43_wldev
+ 
+ 	/* Apply the bitfields */
+ 	txhdr-&gt;mac_ctl = cpu_to_le32(mac_ctl);
+ 	txhdr-&gt;phy_ctl = cpu_to_le16(phy_ctl);
+ 	txhdr-&gt;extra_ft = extra_ft;
+ 
++	return 0;
+ }
+ 
+ static s8 b43_rssi_postprocess(struct b43_wldev *dev,
+ 			       u8 in_rssi, int ofdm,
+ 			       int adjust_2053, int adjust_2050)
+ {
+Index: wireless-2.6/drivers/net/wireless/b43/xmit.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/xmit.h	2008-01-23 12:38:42.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/xmit.h	2008-01-23 21:13:02.000000000 +0100
+@@ -171,17 +171,17 @@ size_t b43_txhdr_size(struct b43_wldev *
+ 	if (b43_is_old_txhdr_format(dev))
+ 		return 100 + sizeof(struct b43_plcp_hdr6);
+ 	return 104 + sizeof(struct b43_plcp_hdr6);
+ }
+ 
+ 
+-void b43_generate_txhdr(struct b43_wldev *dev,
+-			u8 * txhdr,
+-			const unsigned char *fragment_data,
+-			unsigned int fragment_len,
+-			const struct ieee80211_tx_control *txctl, u16 cookie);
++int b43_generate_txhdr(struct b43_wldev *dev,
++		       u8 * txhdr,
++		       const unsigned char *fragment_data,
++		       unsigned int fragment_len,
++		       const struct ieee80211_tx_control *txctl, u16 cookie);
+ 
+ /* Transmit Status */
+ struct b43_txstatus {
+ 	u16 cookie;		/* The cookie from the txhdr */
+ 	u16 seq;		/* Sequence number */
+ 	u8 phy_stat;		/* PHY TX status */
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003272.html">[PATCH] b43: Fix suspend/resume
+</A></li>
+	<LI>Next message: <A HREF="003278.html">[PATCH -mm 0/5] b43: Fix suspend/resume deadlock
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3274">[ date ]</a>
+              <a href="thread.html#3274">[ thread ]</a>
+              <a href="subject.html#3274">[ subject ]</a>
+              <a href="author.html#3274">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Regression%20in%202.6.27-rcX%20caused%20by%20commit%0A%09bc19d6e0b74ef03a3baf035412c95192b54dfc6f&In-Reply-To=%3C48D01FFB.1010302%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004665.html">
+   <LINK REL="Next"  HREF="004659.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Regression%20in%202.6.27-rcX%20caused%20by%20commit%0A%09bc19d6e0b74ef03a3baf035412c95192b54dfc6f&In-Reply-To=%3C48D01FFB.1010302%40lwfinger.net%3E"
+       TITLE="Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Tue Sep 16 23:07:07 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004665.html">Regression in 2.6.27-rcX caused by commit 	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+        <LI>Next message: <A HREF="004659.html">Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4666">[ date ]</a>
+              <a href="thread.html#4666">[ thread ]</a>
+              <a href="subject.html#4666">[ subject ]</a>
+              <a href="author.html#4666">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Carlos Corbacho wrote:
+&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/rfkill.c
+</I>&gt;&gt;<i> b/drivers/net/wireless/b43/rfkill.c
+</I>&gt;&gt;<i> index fec5645..e8b2acb 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/rfkill.c
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/rfkill.c
+</I>&gt;&gt;<i> @@ -49,21 +49,18 @@ static void b43_rfkill_update_state(struct b43_wldev
+</I>&gt;&gt;<i> *dev)
+</I>&gt;&gt;<i>  	struct b43_rfkill *rfk = &amp;(dev-&gt;wl-&gt;rfkill);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>  	if (!dev-&gt;radio_hw_enable) {
+</I>&gt;&gt;<i> -		rfk-&gt;rfkill-&gt;state = RFKILL_STATE_HARD_BLOCKED;
+</I>&gt;&gt;<i> +		rfkill_force_state(rfk-&gt;rfkill, RFKILL_STATE_HARD_BLOCKED);
+</I>&gt;&gt;<i>  		return;
+</I>&gt;&gt;<i>  	}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>  	if (!dev-&gt;phy.radio_on)
+</I>&gt;&gt;<i> -		rfk-&gt;rfkill-&gt;state = RFKILL_STATE_SOFT_BLOCKED;
+</I>&gt;&gt;<i> +		rfkill_force_state(rfk-&gt;rfkill, RFKILL_STATE_SOFT_BLOCKED);
+</I>&gt;&gt;<i>  	else
+</I>&gt;&gt;<i> -		rfk-&gt;rfkill-&gt;state = RFKILL_STATE_UNBLOCKED;
+</I>&gt;&gt;<i> -
+</I>&gt;&gt;<i> +		rfkill_force_state(rfk-&gt;rfkill, RFKILL_STATE_UNBLOCKED);
+</I>&gt;&gt;<i>  }
+</I>&gt;<i> 
+</I>&gt;<i> Just this should be enough to fix the regression for 2.6.27 (and should be
+</I>&gt;<i> trivial to port to b43legacy) in the immediate term (I was planning to
+</I>&gt;<i> send something similar).
+</I>&gt;<i> 
+</I>&gt;<i> The rest of the patch is out-of-scope for 2.6.27, but is definitely along
+</I>&gt;<i> he right lines, IMHO (and it would be good if we can get a working version
+</I>&gt;<i> of it in to 2.6.28). I may try and look at it later, as I do have my b43
+</I>&gt;<i> hardware handy.
+</I>
+This one doesn't crash, but it doesn't turn the light off.
+
+I'm done testing for now!
+
+John,
+
+Revert the patch until the rfkill guys get their house in order.
+
+Larry
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004665.html">Regression in 2.6.27-rcX caused by commit 	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+	<LI>Next message: <A HREF="004659.html">Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4666">[ date ]</a>
+              <a href="thread.html#4666">[ thread ]</a>
+              <a href="subject.html#4666">[ subject ]</a>
+              <a href="author.html#4666">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

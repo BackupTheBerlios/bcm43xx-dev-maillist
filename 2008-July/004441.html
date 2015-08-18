@@ -1,0 +1,292 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm4306 with 2.6.25 on Fedora
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4306%20with%202.6.25%20on%20Fedora&In-Reply-To=%3C20080727055948.GA12008%40sdf.freeshell.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004446.html">
+   <LINK REL="Next"  HREF="004442.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm4306 with 2.6.25 on Fedora</H1>
+    <B>Greg Matheson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4306%20with%202.6.25%20on%20Fedora&In-Reply-To=%3C20080727055948.GA12008%40sdf.freeshell.org%3E"
+       TITLE="bcm4306 with 2.6.25 on Fedora">drbean at freeshell.org
+       </A><BR>
+    <I>Sun Jul 27 07:59:48 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004446.html">[PATCH RFC/RFT] b43: Rewrite TX power adjustment
+</A></li>
+        <LI>Next message: <A HREF="004442.html">bcm4306 with 2.6.25 on Fedora
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4441">[ date ]</a>
+              <a href="thread.html#4441">[ thread ]</a>
+              <a href="subject.html#4441">[ subject ]</a>
+              <a href="author.html#4441">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I sent this earlier before being subscribed. I am sending a 
+revised version again with latest developments.
+
+I said:
+
+I seem to be only able to get a bcm4306 chip to work when I power
+on, but powering on does not seem to be a sufficient condition
+for it to work. I am wondering if powering on after some time off
+is necessary and sufficient?
+
+This is with 2.6.25-14.fc9.i686  or 2.6.25.10-86.fc9.i686.
+
+And I can only get this result with 4.150.10.5 firmware.
+With 3.130.20.0 firmware, ie b43legacy. after associating with
+the AP, it disassociates with reason=3. That is, it
+disassociates of its own accord.
+
+That is, I haven't been able to get it working with 3.130.20.0.
+
+I wasn't able to get 4.80.53.0 working either, though I haven't
+tried as much.
+
+Actually, I think b43legacy is the track this chip should be
+working with, rather than b43, because I think it has a 'MAC core
+revision' of 2, ie less than 4.
+
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050,
+Revision 2
+
+Is this a regression with 2.6.25? 
+
+I'm going to show you the [relevant] output of dmesg after the successful session, and then an unsuccessful session immediately afterwards, after releasing the dhcp lease.
+
+I will show you the output with the b43legacy driver if you want to see it.
+
+The successful session with bcm4306 (note this is 1 of 3
+successful sessions over 18 hours of struggling with it. All of
+the above statements I am unconfident about :)
+
+After powering on:
+
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at pl757</A> ~]# ifconfig wlan0 up
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at pl757</A> ~]# iwconfig wlan0 essid 3100SV-297B9E
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at pl757</A> ~]# dhclient wlan0 -v
+Internet Systems Consortium DHCP Client 4.0.0
+Copyright 2004-2007 Internet Systems Consortium.
+All rights reserved.
+For info, please visit <A HREF="http://www.isc.org/sw/dhcp/">http://www.isc.org/sw/dhcp/</A>
+
+Listening on LPF/wlan0/00:07:40:c4:f5:d6
+Sending on   LPF/wlan0/00:07:40:c4:f5:d6
+Sending on   Socket/fallback
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 8
+DHCPOFFER from 192.168.1.1
+DHCPREQUEST on wlan0 to 255.255.255.255 port 67
+DHCPACK from 192.168.1.1
+bound to 192.168.1.3 -- renewal in 1651 seconds.
+
+The [relevant] output of dmesg [for the successful session]:
+
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at pl757</A> ~]# dmesg
+
+b43-phy0: Broadcom 4306 WLAN found
+b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 2
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+phy0: Selected rate control algorithm 'pid'
+
+Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID: FW13 ]
+
+input: b43-phy0 as /devices/virtual/input/input6
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 30-bit DMA initialized
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+wlan0: authenticate with AP 00:0b:a2:29:7b:9e
+wlan0: authenticated
+wlan0: associate with AP 00:0b:a2:29:7b:9e
+wlan0: RX AssocResp from 00:0b:a2:29:7b:9e (capab=0x421 status=0 aid=1)
+wlan0: associated
+ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+wlan0: no IPv6 routers present
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at pl757</A> ~]#
+
+The output of uname -a:
+
+Linux pl757.nas921.nara.nttpc.ne.jp 2.6.25.10-86.fc9.i686 #1 SMP Mon Jul 7 20:46:03 EDT 2008 i686 i686 i386 GNU/Linux
+
+The b43 section of lspci --vvn
+
+
+03:01.0 0280: 14e4:4320 (rev 03)
+        Subsystem: 1154:0325
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR- INTx-
+        Latency: 64
+        Interrupt: pin A routed to IRQ 18
+        Region 0: Memory at febfe000 (32-bit, non-prefetchable) [size=8K]
+        Kernel driver in use: b43-pci-bridge
+        Kernel modules: ssb
+
+
+Then the unsuccessful session immediately afterwards:
+
+The output of dmesg appears to say it successfully associates
+with the AP, as before, but then right at the end, Interface
+type 2 is removed and the Wireless interface stopped.
+
+But read on!
+
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at pl757</A> ~]#
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at pl757</A> ~]# dhclient wlan0 -r
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at pl757</A> ~]# dhclient wlan0 -v
+Internet Systems Consortium DHCP Client 4.0.0
+Copyright 2004-2007 Internet Systems Consortium.
+All rights reserved.
+For info, please visit <A HREF="http://www.isc.org/sw/dhcp/">http://www.isc.org/sw/dhcp/</A>
+
+Listening on LPF/wlan0/00:07:40:c4:f5:d6
+Sending on   LPF/wlan0/00:07:40:c4:f5:d6
+Sending on   Socket/fallback
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 7
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 10
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 11
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 21
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 12
+No DHCPOFFERS received.
+No working leases in persistent database - sleeping.
+
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at pl757</A> ~]# dmesg
+
+b43-phy0: Broadcom 4306 WLAN found
+b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 2
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+phy0: Selected rate control algorithm 'pid'
+
+Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID: FW13 ]
+
+input: b43-phy0 as /devices/virtual/input/input6
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 30-bit DMA initialized
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+wlan0: authenticate with AP 00:0b:a2:29:7b:9e
+wlan0: authenticated
+wlan0: associate with AP 00:0b:a2:29:7b:9e
+wlan0: RX AssocResp from 00:0b:a2:29:7b:9e (capab=0x421 status=0 aid=1)
+wlan0: associated
+ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+wlan0: no IPv6 routers present
+b43-phy0 debug: Removing Interface type 2
+b43-phy0 debug: Wireless interface stopped
+b43-phy0 debug: DMA-30 rx_ring: Used slots 2/64, Failed frames 0/0 = 0.0%, Average tries 0.00
+b43-phy0 debug: DMA-30 tx_ring_AC_BK: Used slots 0/128, Failed frames 0/0 = 0.0%, Average tries 0.00
+b43-phy0 debug: DMA-30 tx_ring_AC_BE: Used slots 0/128, Failed frames 0/0 = 0.0%, Average tries 0.00
+b43-phy0 debug: DMA-30 tx_ring_AC_VI: Used slots 0/128, Failed frames 0/0 = 0.0%, Average tries 0.00
+b43-phy0 debug: DMA-30 tx_ring_AC_VO: Used slots 6/128, Failed frames 0/901 = 0.0%, Average tries 1.03
+b43-phy0 debug: DMA-30 tx_ring_mcast: Used slots 0/128, Failed frames 0/0 = 0.0%, Average tries 0.00
+input: b43-phy0 as /devices/virtual/input/input7
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 30-bit DMA initialized
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+
+The output of uname -a and lspci -vvn are th e same for this
+unsuccessful session as for the successful session.
+
+Subsequent to writing this I read 
+<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/007647.html">https://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/007647.html</A>
+about problems with dhclient.
+
+I am now using a fixed IP address, and I also turned off Fedora's 
+NetworkManager.
+
+But I don't have b43legacy driver installed. (I believe if I delete 
+/lib/firmware/b43legacy and rmmod b43legacy, the b43legacy driver 
+will not be installed.)
+
+Now I can bring the wireless card up at will.
+
+The releavant parts of dmesg are:
+
+b43-phy0: Broadcom 4306 WLAN found
+b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 2
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, 
+Revision 2
+phy0: Selected rate control algorithm 'pid'
+Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID: FW13 ]
+
+input: b43-phy0 as /devices/virtual/input/input6
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 30-bit DMA initialized
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+wlan0: authenticate with AP 00:0b:a2:29:7b:9e
+wlan0: authenticated
+wlan0: associate with AP 00:0b:a2:29:7b:9e
+wlan0: RX AssocResp from 00:0b:a2:29:7b:9e (capab=0x421 status=0 aid=1)
+wlan0: associated
+ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+
+This ouput is the same as the successful session with dhclient 
+after first boot in the morning.
+
+I am using this wireless card on a non-roaming desktop with no 
+other machines on the LAN, so I am happy with using a fixed 
+address and not using NetworkManager.
+
+-- 
+Greg Matheson                All teaching is teaching 
+                             under difficult circumstances.
+                             --Dr Bean
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004446.html">[PATCH RFC/RFT] b43: Rewrite TX power adjustment
+</A></li>
+	<LI>Next message: <A HREF="004442.html">bcm4306 with 2.6.25 on Fedora
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4441">[ date ]</a>
+              <a href="thread.html#4441">[ thread ]</a>
+              <a href="subject.html#4441">[ subject ]</a>
+              <a href="author.html#4441">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

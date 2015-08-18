@@ -1,0 +1,472 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix firmware caching
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20firmware%20caching&In-Reply-To=%3C200801211955.09594.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003265.html">
+   <LINK REL="Next"  HREF="003266.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix firmware caching</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20firmware%20caching&In-Reply-To=%3C200801211955.09594.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix firmware caching">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Jan 21 19:55:09 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003265.html">b43_suspend problem
+</A></li>
+        <LI>Next message: <A HREF="003266.html">[PATCH] b43: Fix MAC control and microcode init
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3263">[ date ]</a>
+              <a href="thread.html#3263">[ thread ]</a>
+              <a href="subject.html#3263">[ subject ]</a>
+              <a href="author.html#3263">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>We must also store the ID string (filename) for the cached firmware blobs
+and verify that we really have the right firmware cached before using it.
+If we don't have the right fw cached, we must free it and request the
+correct blobs.
+
+This fixes bandswitch on A/B/G multi-PHY devices.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, as we don't support A-PHY operation, yet, we don't need to
+apply this patch to 2.6.24. Please queue this patch for 2.6.25.
+
+
+
+Index: wireless-2.6/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/b43.h	2008-01-16 23:26:30.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/b43.h	2008-01-21 18:38:33.000000000 +0100
+@@ -663,22 +663,29 @@ struct b43_wl {
+ 	 * This beacon stuff is protected by the irq_lock. */
+ 	struct sk_buff *current_beacon;
+ 	bool beacon0_uploaded;
+ 	bool beacon1_uploaded;
+ };
+ 
++/* In-memory representation of a cached microcode file. */
++struct b43_firmware_file {
++	const char *filename;
++	const struct firmware *data;
++};
++
+ /* Pointers to the firmware data and meta information about it. */
+ struct b43_firmware {
+ 	/* Microcode */
+-	const struct firmware *ucode;
++	struct b43_firmware_file ucode;
+ 	/* PCM code */
+-	const struct firmware *pcm;
++	struct b43_firmware_file pcm;
+ 	/* Initial MMIO values for the firmware */
+-	const struct firmware *initvals;
++	struct b43_firmware_file initvals;
+ 	/* Initial MMIO values for the firmware, band-specific */
+-	const struct firmware *initvals_band;
++	struct b43_firmware_file initvals_band;
++
+ 	/* Firmware revision */
+ 	u16 rev;
+ 	/* Firmware patchlevel */
+ 	u16 patch;
+ };
+ 
+Index: wireless-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/main.c	2008-01-21 18:28:36.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/main.c	2008-01-21 19:42:15.000000000 +0100
+@@ -1554,22 +1554,25 @@ static irqreturn_t b43_interrupt_handler
+ 	mmiowb();
+ 	spin_unlock(&amp;dev-&gt;wl-&gt;irq_lock);
+ 
+ 	return ret;
+ }
+ 
++static void do_release_fw(struct b43_firmware_file *fw)
++{
++	release_firmware(fw-&gt;data);
++	fw-&gt;data = NULL;
++	fw-&gt;filename = NULL;
++}
++
+ static void b43_release_firmware(struct b43_wldev *dev)
+ {
+-	release_firmware(dev-&gt;fw.ucode);
+-	dev-&gt;fw.ucode = NULL;
+-	release_firmware(dev-&gt;fw.pcm);
+-	dev-&gt;fw.pcm = NULL;
+-	release_firmware(dev-&gt;fw.initvals);
+-	dev-&gt;fw.initvals = NULL;
+-	release_firmware(dev-&gt;fw.initvals_band);
+-	dev-&gt;fw.initvals_band = NULL;
++	do_release_fw(&amp;dev-&gt;fw.ucode);
++	do_release_fw(&amp;dev-&gt;fw.pcm);
++	do_release_fw(&amp;dev-&gt;fw.initvals);
++	do_release_fw(&amp;dev-&gt;fw.initvals_band);
+ }
+ 
+ static void b43_print_fw_helptext(struct b43_wl *wl, bool error)
+ {
+ 	const char *text;
+ 
+@@ -1581,155 +1584,169 @@ static void b43_print_fw_helptext(struct
+ 	else
+ 		b43warn(wl, text);
+ }
+ 
+ static int do_request_fw(struct b43_wldev *dev,
+ 			 const char *name,
+-			 const struct firmware **fw)
++			 struct b43_firmware_file *fw)
+ {
+ 	char path[sizeof(modparam_fwpostfix) + 32];
++	const struct firmware *blob;
+ 	struct b43_fw_header *hdr;
+ 	u32 size;
+ 	int err;
+ 
+-	if (!name)
++	if (!name) {
++		/* Don't fetch anything. Free possibly cached firmware. */
++		do_release_fw(fw);
+ 		return 0;
++	}
++	if (fw-&gt;filename) {
++		if (strcmp(fw-&gt;filename, name) == 0)
++			return 0; /* Already have this fw. */
++		/* Free the cached firmware first. */
++		do_release_fw(fw);
++	}
+ 
+ 	snprintf(path, ARRAY_SIZE(path),
+ 		 &quot;b43%s/%s.fw&quot;,
+ 		 modparam_fwpostfix, name);
+-	err = request_firmware(fw, path, dev-&gt;dev-&gt;dev);
++	err = request_firmware(&amp;blob, path, dev-&gt;dev-&gt;dev);
+ 	if (err) {
+ 		b43err(dev-&gt;wl, &quot;Firmware file \&quot;%s\&quot; not found &quot;
+ 		       &quot;or load failed.\n&quot;, path);
+ 		return err;
+ 	}
+-	if ((*fw)-&gt;size &lt; sizeof(struct b43_fw_header))
++	if (blob-&gt;size &lt; sizeof(struct b43_fw_header))
+ 		goto err_format;
+-	hdr = (struct b43_fw_header *)((*fw)-&gt;data);
++	hdr = (struct b43_fw_header *)(blob-&gt;data);
+ 	switch (hdr-&gt;type) {
+ 	case B43_FW_TYPE_UCODE:
+ 	case B43_FW_TYPE_PCM:
+ 		size = be32_to_cpu(hdr-&gt;size);
+-		if (size != (*fw)-&gt;size - sizeof(struct b43_fw_header))
++		if (size != blob-&gt;size - sizeof(struct b43_fw_header))
+ 			goto err_format;
+ 		/* fallthrough */
+ 	case B43_FW_TYPE_IV:
+ 		if (hdr-&gt;ver != 1)
+ 			goto err_format;
+ 		break;
+ 	default:
+ 		goto err_format;
+ 	}
+ 
+-	return err;
++	fw-&gt;data = blob;
++	fw-&gt;filename = name;
++
++	return 0;
+ 
+ err_format:
+ 	b43err(dev-&gt;wl, &quot;Firmware file \&quot;%s\&quot; format error.\n&quot;, path);
++	release_firmware(blob);
++
+ 	return -EPROTO;
+ }
+ 
+ static int b43_request_firmware(struct b43_wldev *dev)
+ {
+ 	struct b43_firmware *fw = &amp;dev-&gt;fw;
+ 	const u8 rev = dev-&gt;dev-&gt;id.revision;
+ 	const char *filename;
+ 	u32 tmshigh;
+ 	int err;
+ 
++	/* Get microcode */
+ 	tmshigh = ssb_read32(dev-&gt;dev, SSB_TMSHIGH);
+-	if (!fw-&gt;ucode) {
++	if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10))
++		filename = &quot;ucode5&quot;;
++	else if ((rev &gt;= 11) &amp;&amp; (rev &lt;= 12))
++		filename = &quot;ucode11&quot;;
++	else if (rev &gt;= 13)
++		filename = &quot;ucode13&quot;;
++	else
++		goto err_no_ucode;
++	err = do_request_fw(dev, filename, &amp;fw-&gt;ucode);
++	if (err)
++		goto err_load;
++
++	/* Get PCM code */
++	if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10))
++		filename = &quot;pcm5&quot;;
++	else if (rev &gt;= 11)
++		filename = NULL;
++	else
++		goto err_no_pcm;
++	err = do_request_fw(dev, filename, &amp;fw-&gt;pcm);
++	if (err)
++		goto err_load;
++
++	/* Get initvals */
++	switch (dev-&gt;phy.type) {
++	case B43_PHYTYPE_A:
++		if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10)) {
++			if (tmshigh &amp; B43_TMSHIGH_HAVE_2GHZ_PHY)
++				filename = &quot;a0g1initvals5&quot;;
++			else
++				filename = &quot;a0g0initvals5&quot;;
++		} else
++			goto err_no_initvals;
++		break;
++	case B43_PHYTYPE_G:
+ 		if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10))
+-			filename = &quot;ucode5&quot;;
+-		else if ((rev &gt;= 11) &amp;&amp; (rev &lt;= 12))
+-			filename = &quot;ucode11&quot;;
++			filename = &quot;b0g0initvals5&quot;;
+ 		else if (rev &gt;= 13)
+-			filename = &quot;ucode13&quot;;
++			filename = &quot;lp0initvals13&quot;;
+ 		else
+-			goto err_no_ucode;
+-		err = do_request_fw(dev, filename, &amp;fw-&gt;ucode);
+-		if (err)
+-			goto err_load;
++			goto err_no_initvals;
++		break;
++	case B43_PHYTYPE_N:
++		if ((rev &gt;= 11) &amp;&amp; (rev &lt;= 12))
++			filename = &quot;n0initvals11&quot;;
++		else
++			goto err_no_initvals;
++		break;
++	default:
++		goto err_no_initvals;
+ 	}
+-	if (!fw-&gt;pcm) {
++	err = do_request_fw(dev, filename, &amp;fw-&gt;initvals);
++	if (err)
++		goto err_load;
++
++	/* Get bandswitch initvals */
++	switch (dev-&gt;phy.type) {
++	case B43_PHYTYPE_A:
++		if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10)) {
++			if (tmshigh &amp; B43_TMSHIGH_HAVE_2GHZ_PHY)
++				filename = &quot;a0g1bsinitvals5&quot;;
++			else
++				filename = &quot;a0g0bsinitvals5&quot;;
++		} else if (rev &gt;= 11)
++			filename = NULL;
++		else
++			goto err_no_initvals;
++		break;
++	case B43_PHYTYPE_G:
+ 		if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10))
+-			filename = &quot;pcm5&quot;;
++			filename = &quot;b0g0bsinitvals5&quot;;
+ 		else if (rev &gt;= 11)
+ 			filename = NULL;
+ 		else
+-			goto err_no_pcm;
+-		err = do_request_fw(dev, filename, &amp;fw-&gt;pcm);
+-		if (err)
+-			goto err_load;
+-	}
+-	if (!fw-&gt;initvals) {
+-		switch (dev-&gt;phy.type) {
+-		case B43_PHYTYPE_A:
+-			if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10)) {
+-				if (tmshigh &amp; B43_TMSHIGH_HAVE_2GHZ_PHY)
+-					filename = &quot;a0g1initvals5&quot;;
+-				else
+-					filename = &quot;a0g0initvals5&quot;;
+-			} else
+-				goto err_no_initvals;
+-			break;
+-		case B43_PHYTYPE_G:
+-			if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10))
+-				filename = &quot;b0g0initvals5&quot;;
+-			else if (rev &gt;= 13)
+-				filename = &quot;lp0initvals13&quot;;
+-			else
+-				goto err_no_initvals;
+-			break;
+-		case B43_PHYTYPE_N:
+-			if ((rev &gt;= 11) &amp;&amp; (rev &lt;= 12))
+-				filename = &quot;n0initvals11&quot;;
+-			else
+-				goto err_no_initvals;
+-			break;
+-		default:
+ 			goto err_no_initvals;
+-		}
+-		err = do_request_fw(dev, filename, &amp;fw-&gt;initvals);
+-		if (err)
+-			goto err_load;
+-	}
+-	if (!fw-&gt;initvals_band) {
+-		switch (dev-&gt;phy.type) {
+-		case B43_PHYTYPE_A:
+-			if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10)) {
+-				if (tmshigh &amp; B43_TMSHIGH_HAVE_2GHZ_PHY)
+-					filename = &quot;a0g1bsinitvals5&quot;;
+-				else
+-					filename = &quot;a0g0bsinitvals5&quot;;
+-			} else if (rev &gt;= 11)
+-				filename = NULL;
+-			else
+-				goto err_no_initvals;
+-			break;
+-		case B43_PHYTYPE_G:
+-			if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10))
+-				filename = &quot;b0g0bsinitvals5&quot;;
+-			else if (rev &gt;= 11)
+-				filename = NULL;
+-			else
+-				goto err_no_initvals;
+-			break;
+-		case B43_PHYTYPE_N:
+-			if ((rev &gt;= 11) &amp;&amp; (rev &lt;= 12))
+-				filename = &quot;n0bsinitvals11&quot;;
+-			else
+-				goto err_no_initvals;
+-			break;
+-		default:
++		break;
++	case B43_PHYTYPE_N:
++		if ((rev &gt;= 11) &amp;&amp; (rev &lt;= 12))
++			filename = &quot;n0bsinitvals11&quot;;
++		else
+ 			goto err_no_initvals;
+-		}
+-		err = do_request_fw(dev, filename, &amp;fw-&gt;initvals_band);
+-		if (err)
+-			goto err_load;
++		break;
++	default:
++		goto err_no_initvals;
+ 	}
++	err = do_request_fw(dev, filename, &amp;fw-&gt;initvals_band);
++	if (err)
++		goto err_load;
+ 
+ 	return 0;
+ 
+ err_load:
+ 	b43_print_fw_helptext(dev-&gt;wl, 1);
+ 	goto error;
+@@ -1762,24 +1779,24 @@ static int b43_upload_microcode(struct b
+ 	unsigned int i, len;
+ 	u16 fwrev, fwpatch, fwdate, fwtime;
+ 	u32 tmp;
+ 	int err = 0;
+ 
+ 	/* Upload Microcode. */
+-	data = (__be32 *) (dev-&gt;fw.ucode-&gt;data + hdr_len);
+-	len = (dev-&gt;fw.ucode-&gt;size - hdr_len) / sizeof(__be32);
++	data = (__be32 *) (dev-&gt;fw.ucode.data-&gt;data + hdr_len);
++	len = (dev-&gt;fw.ucode.data-&gt;size - hdr_len) / sizeof(__be32);
+ 	b43_shm_control_word(dev, B43_SHM_UCODE | B43_SHM_AUTOINC_W, 0x0000);
+ 	for (i = 0; i &lt; len; i++) {
+ 		b43_write32(dev, B43_MMIO_SHM_DATA, be32_to_cpu(data[i]));
+ 		udelay(10);
+ 	}
+ 
+-	if (dev-&gt;fw.pcm) {
++	if (dev-&gt;fw.pcm.data) {
+ 		/* Upload PCM data. */
+-		data = (__be32 *) (dev-&gt;fw.pcm-&gt;data + hdr_len);
+-		len = (dev-&gt;fw.pcm-&gt;size - hdr_len) / sizeof(__be32);
++		data = (__be32 *) (dev-&gt;fw.pcm.data-&gt;data + hdr_len);
++		len = (dev-&gt;fw.pcm.data-&gt;size - hdr_len) / sizeof(__be32);
+ 		b43_shm_control_word(dev, B43_SHM_HW, 0x01EA);
+ 		b43_write32(dev, B43_MMIO_SHM_DATA, 0x00004000);
+ 		/* No need for autoinc bit in SHM_HW */
+ 		b43_shm_control_word(dev, B43_SHM_HW, 0x01EB);
+ 		for (i = 0; i &lt; len; i++) {
+ 			b43_write32(dev, B43_MMIO_SHM_DATA, be32_to_cpu(data[i]));
+@@ -1910,25 +1927,25 @@ static int b43_upload_initvals(struct b4
+ 	const struct b43_fw_header *hdr;
+ 	struct b43_firmware *fw = &amp;dev-&gt;fw;
+ 	const struct b43_iv *ivals;
+ 	size_t count;
+ 	int err;
+ 
+-	hdr = (const struct b43_fw_header *)(fw-&gt;initvals-&gt;data);
+-	ivals = (const struct b43_iv *)(fw-&gt;initvals-&gt;data + hdr_len);
++	hdr = (const struct b43_fw_header *)(fw-&gt;initvals.data-&gt;data);
++	ivals = (const struct b43_iv *)(fw-&gt;initvals.data-&gt;data + hdr_len);
+ 	count = be32_to_cpu(hdr-&gt;size);
+ 	err = b43_write_initvals(dev, ivals, count,
+-				 fw-&gt;initvals-&gt;size - hdr_len);
++				 fw-&gt;initvals.data-&gt;size - hdr_len);
+ 	if (err)
+ 		goto out;
+-	if (fw-&gt;initvals_band) {
+-		hdr = (const struct b43_fw_header *)(fw-&gt;initvals_band-&gt;data);
+-		ivals = (const struct b43_iv *)(fw-&gt;initvals_band-&gt;data + hdr_len);
++	if (fw-&gt;initvals_band.data) {
++		hdr = (const struct b43_fw_header *)(fw-&gt;initvals_band.data-&gt;data);
++		ivals = (const struct b43_iv *)(fw-&gt;initvals_band.data-&gt;data + hdr_len);
+ 		count = be32_to_cpu(hdr-&gt;size);
+ 		err = b43_write_initvals(dev, ivals, count,
+-					 fw-&gt;initvals_band-&gt;size - hdr_len);
++					 fw-&gt;initvals_band.data-&gt;size - hdr_len);
+ 		if (err)
+ 			goto out;
+ 	}
+ out:
+ 
+ 	return err;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003265.html">b43_suspend problem
+</A></li>
+	<LI>Next message: <A HREF="003266.html">[PATCH] b43: Fix MAC control and microcode init
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3263">[ date ]</a>
+              <a href="thread.html#3263">[ thread ]</a>
+              <a href="subject.html#3263">[ subject ]</a>
+              <a href="author.html#3263">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

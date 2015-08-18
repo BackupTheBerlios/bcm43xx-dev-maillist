@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Fix setting TX power control mode during	RC	calibration
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Fix%20setting%20TX%20power%20control%20mode%20during%0A%09RC%09calibration&In-Reply-To=%3C4A85CC6C.1030005%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005811.html">
+   <LINK REL="Next"  HREF="005820.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Fix setting TX power control mode during	RC	calibration</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Fix%20setting%20TX%20power%20control%20mode%20during%0A%09RC%09calibration&In-Reply-To=%3C4A85CC6C.1030005%40lwfinger.net%3E"
+       TITLE="[PATCH] b43: LP-PHY: Fix setting TX power control mode during	RC	calibration">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Aug 14 22:43:24 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005811.html">[PATCH] b43: LP-PHY: Fix setting TX power control mode during RC	calibration
+</A></li>
+        <LI>Next message: <A HREF="005820.html">[PATCH] b43: LP-PHY: Fix setting TX power control mode during RC 	calibration
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5819">[ date ]</a>
+              <a href="thread.html#5819">[ thread ]</a>
+              <a href="subject.html#5819">[ subject ]</a>
+              <a href="author.html#5819">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>G&#225;bor Stefanik wrote:
+&gt;<i> Call set_tx_power_control with a LPPHY_TXPCTL rather than an
+</I>&gt;<i> LPPHY_TX_PWR_CTL_CMD_MODE.
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i> This should fix the WARN_ON testers were seeing during init.
+</I>&gt;<i> 
+</I>&gt;<i>  drivers/net/wireless/b43/phy_lp.c |    2 +-
+</I>&gt;<i>  1 files changed, 1 insertions(+), 1 deletions(-)
+</I>&gt;<i> 
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> index adfa7bf..558224b 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> @@ -1080,7 +1080,7 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev *dev)
+</I>&gt;<i>  	old_txpctl = b43_phy_read(dev, B43_LPPHY_TX_PWR_CTL_CMD) &amp;
+</I>&gt;<i>  					B43_LPPHY_TX_PWR_CTL_CMD_MODE;
+</I>&gt;<i>  
+</I>&gt;<i> -	lpphy_set_tx_power_control(dev, B43_LPPHY_TX_PWR_CTL_CMD_MODE_OFF);
+</I>&gt;<i> +	lpphy_set_tx_power_control(dev, B43_LPPHY_TXPCTL_OFF);
+</I>&gt;<i>  	lpphy_disable_crs(dev);
+</I>&gt;<i>  	loopback = lpphy_loopback(dev);
+</I>&gt;<i>  	if (loopback == -1)
+</I>
+
+With this one, I still get WARNING: at
+drivers/net/wireless/b43/phy_lp.c:1006
+lpphy_set_tx_power_control+0xbf/0xdd [b43]().
+
+To get rid of them, I need to modify the enum b43_lpphy_txpctl_mode{}
+as I wrote earlier.
+
+I'm also seeing the interface stopped and restarted. I'll try to track
+that down.
+
+Larry
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005811.html">[PATCH] b43: LP-PHY: Fix setting TX power control mode during RC	calibration
+</A></li>
+	<LI>Next message: <A HREF="005820.html">[PATCH] b43: LP-PHY: Fix setting TX power control mode during RC 	calibration
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5819">[ date ]</a>
+              <a href="thread.html#5819">[ thread ]</a>
+              <a href="subject.html#5819">[ subject ]</a>
+              <a href="author.html#5819">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

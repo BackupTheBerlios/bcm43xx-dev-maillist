@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.24-rc5 the LED does not come on after a switch-off switch-on
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.24-rc5%20the%20LED%20does%20not%20come%20on%20after%20a%20switch-off%20switch-on&In-Reply-To=%3C4768082A.1050005%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003114.html">
+   <LINK REL="Next"  HREF="003110.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.24-rc5 the LED does not come on after a switch-off switch-on</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.24-rc5%20the%20LED%20does%20not%20come%20on%20after%20a%20switch-off%20switch-on&In-Reply-To=%3C4768082A.1050005%40lwfinger.net%3E"
+       TITLE="2.6.24-rc5 the LED does not come on after a switch-off switch-on">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Tue Dec 18 18:49:30 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003114.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+        <LI>Next message: <A HREF="003110.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3108">[ date ]</a>
+              <a href="thread.html#3108">[ thread ]</a>
+              <a href="subject.html#3108">[ subject ]</a>
+              <a href="author.html#3108">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Ehud Gavron wrote:
+&gt;<i> I've trimmed some of this.
+</I>&gt;<i> 
+</I>&gt;<i> Michael Buesch wrote:
+</I>&gt;&gt;&gt;&gt;<i> I have no idea. But I don't understand why waiting a random time up
+</I>&gt;&gt;&gt;&gt;<i> to 1000ms fails
+</I>&gt;&gt;&gt;&gt;<i> and a random time up to 1000ms + 1ms succeeds.
+</I>&gt;&gt;&gt;&gt;<i>   
+</I>&gt;<i> The patch I submitted had a newbie-error.  Right before making the patch
+</I>&gt;<i> I removed the debug messages.  As it turns out it's not the msleep that
+</I>&gt;<i> makes the difference.  It's having TWO debug messages AND the msleep.
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> Yes, I know that sounds stupid.  Here are the kernels I built to test
+</I>&gt;<i> this stupid theory:
+</I>&gt;<i> /boot/vmlinuz-2.6.24-rc5-1dm
+</I>&gt;<i> /boot/vmlinuz-2.6.24-rc5-m1.dm
+</I>&gt;<i> /boot/vmlinuz-2.6.24-rc5-dm.dm
+</I>&gt;<i> /boot/vmlinuz-2.6.24-rc5-dm.m1
+</I>&gt;<i> /boot/vmlinuz-2.6.24-rc5-duh
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> DM=display message
+</I>&gt;<i> M1=msleep(1)
+</I>&gt;<i> DUH=go back to square one, display message; msleep(1) ; display message.
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> This DOES WORK and DOES TURN ON THE LED.  However...
+</I>&gt;<i> Here's the really funny thing.  Here are the messages:
+</I>&gt;<i> 
+</I>&gt;<i> b43-phy0: Radio hardware status changed to ENABLED
+</I>&gt;<i> b43-phy0: EHUD: LED coming on
+</I>&gt;<i> 
+</I>&gt;<i> And here's the code:
+</I>&gt;<i> 
+</I>&gt;<i>        if (unlikely(report_change)) {
+</I>&gt;<i>                b43info(wl,&quot;EHUD: sleeping\n&quot;);
+</I>&gt;<i>                msleep(1);
+</I>&gt;<i>                b43info(wl,&quot;EHUD: LED coming on\n);
+</I>&gt;<i>                input_report_key(poll_dev-&gt;input, KEY_WLAN, 1);
+</I>&gt;<i>                input_report_key(poll_dev-&gt;input, KEY_WLAN, 0);
+</I>&gt;<i>        }
+</I>&gt;<i> 
+</I>&gt;<i> So my question (other than why do I need two messages and one msleep to
+</I>&gt;<i> get my LED lit) is... what happened to the &quot;EHUD: sleeping&quot; debug
+</I>&gt;<i> message?  It never showed up on the console.  I did this several times. 
+</I>&gt;<i> The full dmesg is attached.
+</I>
+I do not understand the disappearance of the &quot;sleeping&quot; message.
+
+I have some questions. In the following excerpt from your dmesg, why do you get the USB disconnect
+and reconnect? Is that part of the Bluetooth hardware? If you remove the debug messages and increase
+the msleep delay to 10, does it work?
+
+ADDRCONF(NETDEV_UP): eth0: link is not ready
+input: b43-phy0 as /class/input/input11
+Registered led device: b43-phy0:tx
+Registered led device: b43-phy0:rx
+Registered led device: b43-phy0:radio
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+b43-phy0: Radio hardware status changed to DISABLED
+b43-phy0: EHUD: LED coming on
+usb 1-2.4: USB disconnect, address 4
+usb 1-2.4: new full speed USB device using ehci_hcd and address 6
+usb 1-2.4: configuration #1 chosen from 1 choice
+b43-phy0: Radio hardware status changed to ENABLED
+b43-phy0: EHUD: LED coming on
+usb 1-2.4: USB disconnect, address 6
+b43-phy0: Radio hardware status changed to DISABLED
+b43-phy0: EHUD: LED coming on
+usb 1-2.4: new full speed USB device using ehci_hcd and address 7
+usb 1-2.4: configuration #1 chosen from 1 choice
+b43-phy0: Radio hardware status changed to ENABLED
+b43-phy0: EHUD: LED coming on
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003114.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+	<LI>Next message: <A HREF="003110.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3108">[ date ]</a>
+              <a href="thread.html#3108">[ thread ]</a>
+              <a href="subject.html#3108">[ subject ]</a>
+              <a href="author.html#3108">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

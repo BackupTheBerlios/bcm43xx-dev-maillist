@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH stable 3/3] b43: Fix dma-slot resource leakage
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20stable%203/3%5D%20b43%3A%20Fix%20dma-slot%20resource%20leakage&In-Reply-To=%3C200801251220.20332.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003285.html">
+   <LINK REL="Next"  HREF="003289.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH stable 3/3] b43: Fix dma-slot resource leakage</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20stable%203/3%5D%20b43%3A%20Fix%20dma-slot%20resource%20leakage&In-Reply-To=%3C200801251220.20332.mb%40bu3sch.de%3E"
+       TITLE="[PATCH stable 3/3] b43: Fix dma-slot resource leakage">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jan 25 12:20:20 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003285.html">[PATCH stable 2/3] b43: Drop packets we are not able to encrypt
+</A></li>
+        <LI>Next message: <A HREF="003289.html">[PATCH stable 1/4] b43legacy: fix PIO crash
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3287">[ date ]</a>
+              <a href="thread.html#3287">[ thread ]</a>
+              <a href="subject.html#3287">[ subject ]</a>
+              <a href="author.html#3287">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes four resource leakages.
+In any error path we must deallocate the DMA frame slots we
+previously allocated by request_slot().
+This is done by storing the ring pointers before doing any ring
+allocation and restoring the old pointers in case of an error.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+This patch is upstream inside of the netdev tree.
+
+
+Index: linux-2.6.24/drivers/net/wireless/b43/dma.c
+===================================================================
+--- linux-2.6.24.orig/drivers/net/wireless/b43/dma.c	2008-01-25 11:48:31.000000000 +0100
++++ linux-2.6.24/drivers/net/wireless/b43/dma.c	2008-01-25 11:48:34.000000000 +0100
+@@ -1106,7 +1106,7 @@ static int dma_tx_fragment(struct b43_dm
+ {
+ 	const struct b43_dma_ops *ops = ring-&gt;ops;
+ 	u8 *header;
+-	int slot;
++	int slot, old_top_slot, old_used_slots;
+ 	int err;
+ 	struct b43_dmadesc_generic *desc;
+ 	struct b43_dmadesc_meta *meta;
+@@ -1116,6 +1116,9 @@ static int dma_tx_fragment(struct b43_dm
+ #define SLOTS_PER_PACKET  2
+ 	B43_WARN_ON(skb_shinfo(skb)-&gt;nr_frags);
+ 
++	old_top_slot = ring-&gt;current_slot;
++	old_used_slots = ring-&gt;used_slots;
++
+ 	/* Get a slot for the header. */
+ 	slot = request_slot(ring);
+ 	desc = ops-&gt;idx2desc(ring, slot, &amp;meta_hdr);
+@@ -1125,13 +1128,19 @@ static int dma_tx_fragment(struct b43_dm
+ 	err = b43_generate_txhdr(ring-&gt;dev, header,
+ 			   skb-&gt;data, skb-&gt;len, ctl,
+ 			   generate_cookie(ring, slot));
+-	if (unlikely(err))
++	if (unlikely(err)) {
++		ring-&gt;current_slot = old_top_slot;
++		ring-&gt;used_slots = old_used_slots;
+ 		return err;
++	}
+ 
+ 	meta_hdr-&gt;dmaaddr = map_descbuffer(ring, (unsigned char *)header,
+ 					   sizeof(struct b43_txhdr_fw4), 1);
+-	if (dma_mapping_error(meta_hdr-&gt;dmaaddr))
++	if (dma_mapping_error(meta_hdr-&gt;dmaaddr)) {
++		ring-&gt;current_slot = old_top_slot;
++		ring-&gt;used_slots = old_used_slots;
+ 		return -EIO;
++	}
+ 	ops-&gt;fill_descriptor(ring, desc, meta_hdr-&gt;dmaaddr,
+ 			     sizeof(struct b43_txhdr_fw4), 1, 0, 0);
+ 
+@@ -1149,6 +1158,8 @@ static int dma_tx_fragment(struct b43_dm
+ 	if (dma_mapping_error(meta-&gt;dmaaddr)) {
+ 		bounce_skb = __dev_alloc_skb(skb-&gt;len, GFP_ATOMIC | GFP_DMA);
+ 		if (!bounce_skb) {
++			ring-&gt;current_slot = old_top_slot;
++			ring-&gt;used_slots = old_used_slots;
+ 			err = -ENOMEM;
+ 			goto out_unmap_hdr;
+ 		}
+@@ -1159,6 +1170,8 @@ static int dma_tx_fragment(struct b43_dm
+ 		meta-&gt;skb = skb;
+ 		meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+ 		if (dma_mapping_error(meta-&gt;dmaaddr)) {
++			ring-&gt;current_slot = old_top_slot;
++			ring-&gt;used_slots = old_used_slots;
+ 			err = -EIO;
+ 			goto out_free_bounce;
+ 		}
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003285.html">[PATCH stable 2/3] b43: Drop packets we are not able to encrypt
+</A></li>
+	<LI>Next message: <A HREF="003289.html">[PATCH stable 1/4] b43legacy: fix PIO crash
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3287">[ date ]</a>
+              <a href="thread.html#3287">[ thread ]</a>
+              <a href="subject.html#3287">[ subject ]</a>
+              <a href="author.html#3287">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

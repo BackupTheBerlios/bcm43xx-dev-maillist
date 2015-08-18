@@ -1,0 +1,222 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43-phy0 ERROR: Fatal DMA error: 0x00000400
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43-phy0%20ERROR%3A%20Fatal%20DMA%20error%3A%200x00000400&In-Reply-To=%3C4AFC853E.1030301%40polymtl.ca%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006303.html">
+   <LINK REL="Next"  HREF="006305.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43-phy0 ERROR: Fatal DMA error: 0x00000400</H1>
+    <B>William Bourque</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43-phy0%20ERROR%3A%20Fatal%20DMA%20error%3A%200x00000400&In-Reply-To=%3C4AFC853E.1030301%40polymtl.ca%3E"
+       TITLE="b43-phy0 ERROR: Fatal DMA error: 0x00000400">william.bourque at polymtl.ca
+       </A><BR>
+    <I>Thu Nov 12 22:59:26 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006303.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+        <LI>Next message: <A HREF="006305.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6304">[ date ]</a>
+              <a href="thread.html#6304">[ thread ]</a>
+              <a href="subject.html#6304">[ subject ]</a>
+              <a href="author.html#6304">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> On Thursday 12 November 2009 22:34:00 William Bourque wrote:
+</I>&gt;&gt;<i> Michael Buesch wrote:
+</I>&gt;&gt;&gt;<i> On Thursday 12 November 2009 20:32:32 William Bourque wrote:
+</I>&gt;&gt;&gt;&gt;<i> Sorry for the late reply... I seem to have the exact same bug here. Do 
+</I>&gt;&gt;&gt;&gt;<i> you need more people to run the diagnostic patch?
+</I>&gt;&gt;&gt;<i> Well, it doesn't hurt.
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;<i> Here we go.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> I think we can observe the same problem :
+</I>&gt;&gt;<i> [  109.273027] b43: Descr.  0: 0x10000000 0x930 0x26296020 0x80000000
+</I>&gt;&gt;<i> [  109.273038] b43: Descr.  1: 0x0 0x930 0x26295020 0x80000000
+</I>&gt;&gt;<i> [  109.273047] b43: Descr.  2: 0x0 0x930 0x26294020 0x80000000
+</I>&gt;&gt;<i> ...
+</I>&gt;&gt;<i> This Decr. 0 seems weird to me.
+</I>&gt;<i> 
+</I>&gt;<i> No it looks OK to me.
+</I>&gt;<i> descr0 most likely is the last descriptor in your RX ring, so it has
+</I>&gt;<i> the descriptor-table-end bit set.
+</I>&gt;<i> 
+</I>&gt;&gt;<i> Note : I'm using 4kb kernel stack and SLAB (just saying, if I read 
+</I>&gt;&gt;<i> correctly the last few mails, you were suspecting something about this).
+</I>&gt;<i> 
+</I>&gt;<i> No this has nothing to do with the stack.
+</I>&gt;<i> 
+</I>&gt;&gt;<i> I will try with Michael's patch and see what it does.
+</I>&gt;<i> 
+</I>&gt;<i> Yeah, please do so.
+</I>&gt;<i> 
+</I>
+It just finished compiling. Note that I applied the new patch over the 
+previous diagnostic patch, not sure if it can cause a problem somehow.
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at mini</A> ~ # uname -a
+Linux mini 2.6.32-rc6-wl-wireless-testing-b43-DMA-41742-g3e14c6f-dirty 
+#2 SMP PREEMPT Thu Nov 12 16:37:26 EST 2009 i686 GNU/Linux
+
+Here is the output of dmesg. Look like it didn't has any effect in my case :
+
+[    7.512335] ACPI: WMI: Mapper loaded
+[    7.520213] b43-phy0: Broadcom 4312 WLAN found (core revision 15)
+[    7.620163] b43-phy0 debug: Found PHY: Analog 6, Type 5, Revision 1
+[    7.620190] b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2062, 
+Revision 2
+[    7.702892] phy0: Selected rate control algorithm 'minstrel'
+[    7.703252] Registered led device: b43-phy0::tx
+[    7.703301] Registered led device: b43-phy0::rx
+[    7.703360] Registered led device: b43-phy0::radio
+[    7.703709] Broadcom 43xx driver loaded [ Features: PLS, Firmware-ID: 
+FW13 ]
+...skipped
+[  167.140300] b43 ssb0:0: firmware: requesting b43/ucode15.fw
+[  167.155323] b43 ssb0:0: firmware: requesting b43/lp0initvals15.fw
+[  167.166946] b43 ssb0:0: firmware: requesting b43/lp0bsinitvals15.fw
+[  167.320293] b43-phy0: Loading firmware version 410.2160 (2007-05-26 
+15:32:10)
+[  167.322759] b43-phy0 debug: b2062: Using crystal tab entry 19200 kHz.
+[  181.210227] b43-phy0 debug: Chip initialized
+[  181.210588] b43-phy0 debug: 64-bit DMA initialized
+[  181.210719] b43-phy0 debug: QoS enabled
+[  181.251102] b43-phy0 debug: Wireless interface started
+[  181.251113] b43-phy0 debug: Adding Interface type 2
+[  181.270285] b43-phy0 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 
+0x00000000, 0x00000000, 0x00000000, 0x00000000
+[  181.270321] b43-phy0: Controller RESET (DMA error) ...
+[  181.270334] b43: Dump of last 20 DMA descriptors
+[  181.270345] b43: Descr.  0: 0x10000000 0x930 0x2FABC020 0x80000000
+[  181.270355] b43: Descr.  1: 0x0 0x930 0x2FABB020 0x80000000
+[  181.270365] b43: Descr.  2: 0x0 0x930 0x2FABA020 0x80000000
+[  181.270374] b43: Descr.  3: 0x0 0x930 0x2FAB9020 0x80000000
+[  181.270384] b43: Descr.  4: 0x0 0x930 0x2FAB8020 0x80000000
+[  181.270393] b43: Descr.  5: 0x0 0x930 0x2FA3F020 0x80000000
+[  181.270403] b43: Descr.  6: 0x0 0x930 0x2FA3E020 0x80000000
+[  181.270413] b43: Descr.  7: 0x0 0x930 0x2FA3D020 0x80000000
+[  181.270422] b43: Descr.  8: 0x0 0x930 0x2FA3C020 0x80000000
+[  181.270432] b43: Descr.  9: 0x0 0x930 0x2FA2F020 0x80000000
+[  181.270442] b43: Descr. 10: 0x0 0x930 0x2FA2E020 0x80000000
+[  181.270451] b43: Descr. 11: 0x0 0x930 0x2FA2D020 0x80000000
+[  181.270469] b43: Descr. 12: 0x0 0x930 0x2FA2C020 0x80000000
+[  181.270474] b43: Descr. 13: 0x0 0x930 0x2FA03020 0x80000000
+[  181.270479] b43: Descr. 14: 0x0 0x930 0x2FA02020 0x80000000
+[  181.270484] b43: Descr. 15: 0x0 0x930 0x2FA01020 0x80000000
+[  181.270489] b43: Descr. 16: 0x0 0x930 0x2FA00020 0x80000000
+[  181.270493] b43: Descr. 17: 0x0 0x930 0x2FAAB020 0x80000000
+[  181.270498] b43: Descr. 18: 0x0 0x930 0x2FAAA020 0x80000000
+[  181.270503] b43: Descr. 19: 0x0 0x930 0x2FAA9020 0x80000000
+[  181.270509] b43-phy0 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 
+0x00000000, 0x00000000, 0x00000000, 0x00000000
+[  181.270516] b43-phy0: Controller RESET (DMA error) ...
+[  181.270691] b43-phy0 debug: Wireless interface stopped
+[  181.270702] b43-phy0 debug: DMA-64 rx_ring: Used slots 0/64, Failed 
+frames 0/0 = 0.0%, Average tries 0.00
+[  181.270770] b43-phy0 debug: DMA-64 tx_ring_AC_BK: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  181.290238] b43-phy0 debug: DMA-64 tx_ring_AC_BE: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  181.310140] b43-phy0 debug: DMA-64 tx_ring_AC_VI: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  181.330094] b43-phy0 debug: DMA-64 tx_ring_AC_VO: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  181.352749] b43-phy0 debug: DMA-64 tx_ring_mcast: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  181.612618] b43-phy0: Loading firmware version 410.2160 (2007-05-26 
+15:32:10)
+[  181.615032] b43-phy0 debug: b2062: Using crystal tab entry 19200 kHz.
+[  195.370265] b43-phy0 debug: Chip initialized
+[  195.370586] b43-phy0 debug: 64-bit DMA initialized
+[  195.370719] b43-phy0 debug: QoS enabled
+[  195.413578] b43-phy0 debug: Wireless interface started
+[  195.413592] b43-phy0: Controller restarted
+[  195.433402] b43-phy0 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 
+0x00000000, 0x00000000, 0x00000000, 0x00000000
+[  195.433418] b43-phy0: Controller RESET (DMA error) ...
+[  195.433428] b43-phy0 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 
+0x00000000, 0x00000000, 0x00000000, 0x00000000
+[  195.433438] b43-phy0: Controller RESET (DMA error) ...
+[  195.433632] b43-phy0 debug: Wireless interface stopped
+[  195.433645] b43-phy0 debug: DMA-64 rx_ring: Used slots 0/64, Failed 
+frames 0/0 = 0.0%, Average tries 0.00
+[  195.433725] b43-phy0 debug: DMA-64 tx_ring_AC_BK: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  195.433917] ADDRCONF(NETDEV_UP): wlan0: link is not ready
+[  195.460256] b43-phy0 debug: DMA-64 tx_ring_AC_BE: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  195.492477] b43-phy0 debug: DMA-64 tx_ring_AC_VI: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  195.510085] b43-phy0 debug: DMA-64 tx_ring_AC_VO: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  195.530153] b43-phy0 debug: DMA-64 tx_ring_mcast: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  195.790121] b43-phy0: Loading firmware version 410.2160 (2007-05-26 
+15:32:10)
+[  195.792533] b43-phy0 debug: b2062: Using crystal tab entry 19200 kHz.
+[  209.552720] b43-phy0 debug: Chip initialized
+[  209.553033] b43-phy0 debug: 64-bit DMA initialized
+[  209.553167] b43-phy0 debug: QoS enabled
+[  209.593415] b43-phy0 debug: Wireless interface started
+[  209.593562] b43-phy0 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 
+0x00000000, 0x00000000, 0x00000000, 0x00000000
+[  209.593574] b43-phy0: Controller RESET (DMA error) ...
+[  209.593701] b43-phy0: Controller restarted
+[  209.613011] b43-phy0 debug: Wireless interface stopped
+[  209.613024] b43-phy0 debug: DMA-64 rx_ring: Used slots 0/64, Failed 
+frames 0/0 = 0.0%, Average tries 0.00
+[  209.613091] b43-phy0 debug: DMA-64 tx_ring_AC_BK: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  209.640206] b43-phy0 debug: DMA-64 tx_ring_AC_BE: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  209.650219] b43-phy0 debug: DMA-64 tx_ring_AC_VI: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  209.670109] b43-phy0 debug: DMA-64 tx_ring_AC_VO: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  209.690103] b43-phy0 debug: DMA-64 tx_ring_mcast: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  209.940291] b43-phy0: Loading firmware version 410.2160 (2007-05-26 
+15:32:10)
+[  209.942759] b43-phy0 debug: b2062: Using crystal tab entry 19200 kHz.
+[  223.722850] b43-phy0 debug: Chip initialized
+
+- William
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006303.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+	<LI>Next message: <A HREF="006305.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6304">[ date ]</a>
+              <a href="thread.html#6304">[ thread ]</a>
+              <a href="subject.html#6304">[ subject ]</a>
+              <a href="author.html#6304">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

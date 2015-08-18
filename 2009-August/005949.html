@@ -1,0 +1,108 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH v2] b43: LP-PHY: Begin implementing calibration &amp; software	RFKILL support
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20v2%5D%20b43%3A%20LP-PHY%3A%20Begin%20implementing%20calibration%20%26%20software%0A%09RFKILL%20support&In-Reply-To=%3C200908301228.16845.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005948.html">
+   <LINK REL="Next"  HREF="005950.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH v2] b43: LP-PHY: Begin implementing calibration &amp; software	RFKILL support</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20v2%5D%20b43%3A%20LP-PHY%3A%20Begin%20implementing%20calibration%20%26%20software%0A%09RFKILL%20support&In-Reply-To=%3C200908301228.16845.mb%40bu3sch.de%3E"
+       TITLE="[PATCH v2] b43: LP-PHY: Begin implementing calibration &amp; software	RFKILL support">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Aug 30 12:28:15 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005948.html">[PATCH v2] b43: LP-PHY: Begin implementing calibration &amp; software	RFKILL support
+</A></li>
+        <LI>Next message: <A HREF="005950.html">[PATCH v2] b43: LP-PHY: Begin implementing calibration &amp; software	RFKILL support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5949">[ date ]</a>
+              <a href="thread.html#5949">[ thread ]</a>
+              <a href="subject.html#5949">[ subject ]</a>
+              <a href="author.html#5949">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday 30 August 2009 02:15:55 G&#225;bor Stefanik wrote:
+&gt;<i>  static void lpphy_pr41573_workaround(struct b43_wldev *dev)
+</I>&gt;<i>  {
+</I>&gt;<i>  	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+</I>&gt;<i> @@ -1357,28 +1488,440 @@ static void lpphy_pr41573_workaround(struct b43_wldev *dev)
+</I>&gt;<i>  		b43_lptab_read_bulk(dev, B43_LPTAB32(7, 0x140),
+</I>&gt;<i>  				    saved_tab_size, saved_tab);
+</I>&gt;<i>  	}
+</I>&gt;<i> +	b43_put_phy_into_reset(dev);
+</I>
+Are you sure you really want this?
+This function completely disables the PHY on the backplane and keeps the physical
+PHY reset pin asserted (even after return from the function).
+So the PHY will physically be powered down from this point on. The following
+PHY accesses could even hang the machine, because the PHY won't respond to
+register accesses anymore.
+
+We currently only use this function on A/G Multi-PHY devices to permanently
+hard-disable the PHY that's not used.
+
+&gt;<i> +	b43_phy_mask(dev, B43_LPPHY_AFE_CTL_OVR, 0xFFF8);
+</I>&gt;<i> +	lpphy_table_init(dev); //FIXME is table init needed?
+</I>&gt;<i> +	lpphy_baseband_init(dev);
+</I>&gt;<i> +	b43_lpphy_op_software_rfkill(dev, false);
+</I>&gt;<i> +	lpphy_set_tx_power_control(dev, B43_LPPHY_TXPCTL_OFF);
+</I>&gt;<i> +	if (dev-&gt;phy.rev &lt; 2) {
+</I>&gt;<i> +		b43_lptab_write_bulk(dev, B43_LPTAB32(10, 0x140),
+</I>&gt;<i> +				     saved_tab_size, saved_tab);
+</I>&gt;<i> +	} else {
+</I>&gt;<i> +		b43_lptab_write_bulk(dev, B43_LPTAB32(7, 0x140),
+</I>&gt;<i> +				     saved_tab_size, saved_tab);
+</I>&gt;<i> +	}
+</I>&gt;<i> +	b43_write16(dev, B43_MMIO_CHANNEL, lpphy-&gt;channel);
+</I>&gt;<i> +	lpphy-&gt;tssi_npt = tssi_npt;
+</I>&gt;<i> +	lpphy-&gt;tssi_idx = tssi_idx;
+</I>&gt;<i> +	lpphy_set_analog_filter(dev, lpphy-&gt;channel);
+</I>&gt;<i> +	if (tx_pwr_idx_over != -1)
+</I>&gt;<i> +		lpphy_set_tx_power_by_index(dev, tx_pwr_idx_over);
+</I>&gt;<i> +	if (lpphy-&gt;rc_cap)
+</I>&gt;<i> +		lpphy_set_rc_cap(dev);
+</I>&gt;<i> +	b43_lpphy_op_set_rx_antenna(dev, lpphy-&gt;antenna);
+</I>&gt;<i> +	lpphy_set_tx_power_control(dev, txpctl_mode);
+</I>&gt;<i> +	kfree(saved_tab);
+</I>&gt;<i> +}
+</I>
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005948.html">[PATCH v2] b43: LP-PHY: Begin implementing calibration &amp; software	RFKILL support
+</A></li>
+	<LI>Next message: <A HREF="005950.html">[PATCH v2] b43: LP-PHY: Begin implementing calibration &amp; software	RFKILL support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5949">[ date ]</a>
+              <a href="thread.html#5949">[ thread ]</a>
+              <a href="subject.html#5949">[ subject ]</a>
+              <a href="author.html#5949">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

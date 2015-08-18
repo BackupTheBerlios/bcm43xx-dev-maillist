@@ -1,0 +1,1490 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH RFC/RFT] b43: Rewrite TX power adjustment
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RFC/RFT%5D%20b43%3A%20Rewrite%20TX%20power%20adjustment&In-Reply-To=%3C200807261726.53279.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004438.html">
+   <LINK REL="Next"  HREF="004444.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH RFC/RFT] b43: Rewrite TX power adjustment</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RFC/RFT%5D%20b43%3A%20Rewrite%20TX%20power%20adjustment&In-Reply-To=%3C200807261726.53279.mb%40bu3sch.de%3E"
+       TITLE="[PATCH RFC/RFT] b43: Rewrite TX power adjustment">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Jul 26 17:26:52 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004438.html">bcm 4310
+</A></li>
+        <LI>Next message: <A HREF="004444.html">[PATCH RFC/RFT] b43: Rewrite TX power adjustment
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4440">[ date ]</a>
+              <a href="thread.html#4440">[ thread ]</a>
+              <a href="subject.html#4440">[ subject ]</a>
+              <a href="author.html#4440">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This is an experimental attempt for fixing the currently-not-so-good
+TX power adjustment.
+
+This patch rewrites the algorithms to scale better. If there's no
+TX traffic, the power will be checked against the desired values
+every 15 seconds (can probably be lowered to 30 or 60 seconds now).
+If there is TX traffic, the check is redone every 2 seconds. This improves
+the reaction times a lot and confuses the rate control less.
+
+If you want to test this, please apply to latest wireless-testing.git
+and compile b43 with debugging support.
+After loading the driver, mount debugfs and do
+	echo 1 &gt;/debug/b43/phy*/debug_xmitpower
+to enable TX power calculation debugging. This will print a lot of useful messages
+in the kernel log.
+
+This patch is only tested on a 4306 card.
+Have fun.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h	2008-07-24 12:10:45.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/b43.h	2008-07-26 01:04:26.000000000 +0200
+@@ -170,12 +170,17 @@ enum {
+ #define B43_SHM_SH_RADAR		0x0066	/* Radar register */
+ #define B43_SHM_SH_PHYTXNOI		0x006E	/* PHY noise directly after TX (lower 8bit only) */
+ #define B43_SHM_SH_RFRXSP1		0x0072	/* RF RX SP Register 1 */
+ #define B43_SHM_SH_CHAN			0x00A0	/* Current channel (low 8bit only) */
+ #define  B43_SHM_SH_CHAN_5GHZ		0x0100	/* Bit set, if 5Ghz channel */
+ #define B43_SHM_SH_BCMCFIFOID		0x0108	/* Last posted cookie to the bcast/mcast FIFO */
++/* TSSI information */
++#define B43_SHM_SH_TSSI_CCK		0x0058	/* TSSI for last 4 CCK frames (32bit) */
++#define B43_SHM_SH_TSSI_OFDM_A		0x0068	/* TSSI for last 4 OFDM frames (32bit) */
++#define B43_SHM_SH_TSSI_OFDM_G		0x0070	/* TSSI for last 4 OFDM frames (32bit) */
++#define  B43_TSSI_MAX			0x7F	/* Max value for one TSSI value */
+ /* SHM_SHARED TX FIFO variables */
+ #define B43_SHM_SH_SIZE01		0x0098	/* TX FIFO size for FIFO 0 (low) and 1 (high) */
+ #define B43_SHM_SH_SIZE23		0x009A	/* TX FIFO size for FIFO 2 and 3 */
+ #define B43_SHM_SH_SIZE45		0x009C	/* TX FIFO size for FIFO 4 and 5 */
+ #define B43_SHM_SH_SIZE67		0x009E	/* TX FIFO size for FIFO 6 and 7 */
+ /* SHM_SHARED background noise */
+@@ -505,12 +510,51 @@ struct b43_iv {
+ 		__be16 d16;
+ 		__be32 d32;
+ 	} data __attribute__((__packed__));
+ } __attribute__((__packed__));
+ 
+ 
++/* Transmission Power values.
++ * (Almost) everything related to and required for TX-power adjustment
++ * is stored in this structure. */
++struct b43_txpower_context {
++	/* Pointer to the table used to convert a
++	 * TSSI value to dBm-Q5.2 */
++	const s8 *tssi2dbm;
++	/* tssi2dbm is kmalloc()ed. Only used for free()ing. */
++	bool dyn_tssi_tbl;
++	/* Target idle TSSI */
++	int tgt_idle_tssi;
++	/* Current idle TSSI */
++	int cur_idle_tssi;
++	/* The current average TSSI.
++	 * Needs irq_lock, as it's updated in the IRQ path. */
++	u8 average_tssi;
++	/* jiffies when the next TSSI read (from SHM) is required.
++	 * Needs irq_lock, as it's updated in the IRQ path. */
++	unsigned long next_tssi_average;
++	/* User-desired TX power level (in dBm). */
++	u8 desired_power;
++
++	/* A-PHY TX Power control value. */
++	u16 txpwr_offset;
++
++	/* Current TX power level attenuation control values */
++	struct b43_bbatt bbatt;
++	struct b43_rfatt rfatt;
++	u8 tx_control;		/* B43_TXCTL_XXX */
++
++	/* The calculated attenuation deltas that are used later
++	 * when adjusting the actual power output. */
++	int bbatt_delta;
++	int rfatt_delta;
++
++	/* Hardware Power Control enabled? */
++	bool hardware_power_control;
++};
++
+ struct b43_phy {
+ 	/* Band support flags. */
+ 	bool supports_2ghz;
+ 	bool supports_5ghz;
+ 
+ 	/* GMODE bit enabled? */
+@@ -525,14 +569,12 @@ struct b43_phy {
+ 
+ 	/* Radio versioning */
+ 	u16 radio_manuf;	/* Radio manufacturer */
+ 	u16 radio_ver;		/* Radio version */
+ 	u8 radio_rev;		/* Radio revision */
+ 
+-	bool dyn_tssi_tbl;	/* tssi2dbm is kmalloc()ed. */
+-
+ 	/* ACI (adjacent channel interference) flags. */
+ 	bool aci_enable;
+ 	bool aci_wlan_automatic;
+ 	bool aci_hw_rssi;
+ 
+ 	/* Radio switched on/off */
+@@ -545,41 +587,23 @@ struct b43_phy {
+ 		u16 rfoverval;
+ 	} radio_off_context;
+ 
+ 	u16 minlowsig[2];
+ 	u16 minlowsigpos[2];
+ 
+-	/* TSSI to dBm table in use */
+-	const s8 *tssi2dbm;
+-	/* Target idle TSSI */
+-	int tgt_idle_tssi;
+-	/* Current idle TSSI */
+-	int cur_idle_tssi;
+-
+ 	/* LocalOscillator control values. */
+ 	struct b43_txpower_lo_control *lo_control;
+ 	/* Values from b43_calc_loopback_gain() */
+ 	s16 max_lb_gain;	/* Maximum Loopback gain in hdB */
+ 	s16 trsw_rx_gain;	/* TRSW RX gain in hdB */
+ 	s16 lna_lod_gain;	/* LNA lod */
+ 	s16 lna_gain;		/* LNA */
+ 	s16 pga_gain;		/* PGA */
+ 
+-	/* Desired TX power level (in dBm).
+-	 * This is set by the user and adjusted in b43_phy_xmitpower(). */
+-	u8 power_level;
+-	/* A-PHY TX Power control value. */
+-	u16 txpwr_offset;
+-
+-	/* Current TX power level attenuation control values */
+-	struct b43_bbatt bbatt;
+-	struct b43_rfatt rfatt;
+-	u8 tx_control;		/* B43_TXCTL_XXX */
+-
+-	/* Hardware Power Control enabled? */
+-	bool hardware_power_control;
++	/* (Almost) everything related to TX power is stored here. */
++	struct b43_txpower_context txpwr;
+ 
+ 	/* Current Interference Mitigation mode */
+ 	int interfmode;
+ 	/* Stack of saved values from the Interference Mitigation code.
+ 	 * Each value in the stack is layed out as follows:
+ 	 * bit 0-11:  offset
+@@ -761,12 +785,17 @@ struct b43_wl {
+ 
+ 	/* The current QOS parameters for the 4 queues.
+ 	 * This is protected by the irq_lock. */
+ 	struct b43_qos_params qos_params[4];
+ 	/* Workqueue for updating QOS parameters in hardware. */
+ 	struct work_struct qos_update_work;
++
++	/* Work for adjustment of the transmission power.
++	 * This is scheduled when we determine that the actual TX output
++	 * power doesn't match what we want. */
++	struct work_struct txpower_adjust_work;
+ };
+ 
+ /* In-memory representation of a cached microcode file. */
+ struct b43_firmware_file {
+ 	const char *filename;
+ 	const struct firmware *data;
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-07-26 01:03:26.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-07-26 17:06:17.000000000 +0200
+@@ -2866,13 +2866,15 @@ static void b43_periodic_every15sec(stru
+ 			b43_mac_enable(dev);
+ 		} else if (phy-&gt;interfmode == B43_INTERFMODE_NONWLAN &amp;&amp;
+ 			   phy-&gt;rev == 1) {
+ 			//TODO: implement rev1 workaround
+ 		}
+ 	}
+-	b43_phy_xmitpower(dev);	//FIXME: unless scanning?
++	spin_lock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
++	b43_phy_txpower_check(dev, B43_TXPWR_IGNORE_TIME);
++	spin_unlock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+ 	b43_lo_g_maintanance_work(dev);
+ 	//TODO for APHY (temperature?)
+ 
+ 	atomic_set(&amp;phy-&gt;txerr_cnt, B43_PHY_TX_BADNESS_LIMIT);
+ 	wmb();
+ }
+@@ -3448,16 +3450,19 @@ static int b43_op_config(struct ieee8021
+ 	}
+ 
+ 	dev-&gt;wl-&gt;radiotap_enabled = !!(conf-&gt;flags &amp; IEEE80211_CONF_RADIOTAP);
+ 
+ 	/* Adjust the desired TX power level. */
+ 	if (conf-&gt;power_level != 0) {
+-		if (conf-&gt;power_level != phy-&gt;power_level) {
+-			phy-&gt;power_level = conf-&gt;power_level;
+-			b43_phy_xmitpower(dev);
++		spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
++		if (conf-&gt;power_level != phy-&gt;txpwr.desired_power) {
++			phy-&gt;txpwr.desired_power = conf-&gt;power_level;
++			b43_phy_txpower_check(dev, B43_TXPWR_IGNORE_TIME |
++						   B43_TXPWR_IGNORE_TSSI);
+ 		}
++		spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 	}
+ 
+ 	/* Antennas for RX and management frame TX. */
+ 	antenna = b43_antenna_from_ieee80211(dev, conf-&gt;antenna_sel_tx);
+ 	b43_mgmtframe_txantenna(dev, antenna);
+ 	antenna = b43_antenna_from_ieee80211(dev, conf-&gt;antenna_sel_rx);
+@@ -3861,21 +3866,24 @@ static void setup_struct_phy_for_init(st
+ 	phy-&gt;aci_enable = 0;
+ 	phy-&gt;aci_wlan_automatic = 0;
+ 	phy-&gt;aci_hw_rssi = 0;
+ 
+ 	phy-&gt;radio_off_context.valid = 0;
+ 
++	memset(&amp;phy-&gt;txpwr, 0, sizeof(phy-&gt;txpwr));
++	phy-&gt;txpwr.next_tssi_average = jiffies;
++	phy-&gt;txpwr.hardware_power_control = !!modparam_hwpctl;
++
+ 	lo = phy-&gt;lo_control;
+ 	if (lo) {
+ 		memset(lo, 0, sizeof(*(phy-&gt;lo_control)));
+ 		lo-&gt;tx_bias = 0xFF;
+ 		INIT_LIST_HEAD(&amp;lo-&gt;calib_list);
+ 	}
+ 	phy-&gt;max_lb_gain = 0;
+ 	phy-&gt;trsw_rx_gain = 0;
+-	phy-&gt;txpwr_offset = 0;
+ 
+ 	/* NRSSI */
+ 	phy-&gt;nrssislope = 0;
+ 	for (i = 0; i &lt; ARRAY_SIZE(phy-&gt;nrssi); i++)
+ 		phy-&gt;nrssi[i] = -1000;
+ 	for (i = 0; i &lt; ARRAY_SIZE(phy-&gt;nrssi_lt); i++)
+@@ -3884,14 +3892,12 @@ static void setup_struct_phy_for_init(st
+ 	phy-&gt;lofcal = 0xFFFF;
+ 	phy-&gt;initval = 0xFFFF;
+ 
+ 	phy-&gt;interfmode = B43_INTERFMODE_NONE;
+ 	phy-&gt;channel = 0xFF;
+ 
+-	phy-&gt;hardware_power_control = !!modparam_hwpctl;
+-
+ 	/* PHY TX errors counter. */
+ 	atomic_set(&amp;phy-&gt;txerr_cnt, B43_PHY_TX_BADNESS_LIMIT);
+ 
+ 	/* OFDM-table address caching. */
+ 	phy-&gt;ofdmtab_addr_direction = B43_OFDMTAB_DIRECTION_UNKNOWN;
+ }
+@@ -4049,14 +4055,14 @@ static void b43_wireless_core_exit(struc
+ 	}
+ 	b43_dma_free(dev);
+ 	b43_pio_free(dev);
+ 	b43_chip_exit(dev);
+ 	b43_radio_turn_off(dev, 1);
+ 	b43_switch_analog(dev, 0);
+-	if (phy-&gt;dyn_tssi_tbl)
+-		kfree(phy-&gt;tssi2dbm);
++	if (phy-&gt;txpwr.dyn_tssi_tbl)
++		kfree(phy-&gt;txpwr.tssi2dbm);
+ 	kfree(phy-&gt;lo_control);
+ 	phy-&gt;lo_control = NULL;
+ 	if (dev-&gt;wl-&gt;current_beacon) {
+ 		dev_kfree_skb_any(dev-&gt;wl-&gt;current_beacon);
+ 		dev-&gt;wl-&gt;current_beacon = NULL;
+ 	}
+@@ -4174,14 +4180,14 @@ static int b43_wireless_core_init(struct
+ out:
+ 	return err;
+ 
+       err_chip_exit:
+ 	b43_chip_exit(dev);
+       err_kfree_tssitbl:
+-	if (phy-&gt;dyn_tssi_tbl)
+-		kfree(phy-&gt;tssi2dbm);
++	if (phy-&gt;txpwr.dyn_tssi_tbl)
++		kfree(phy-&gt;txpwr.tssi2dbm);
+       err_kfree_lo_control:
+ 	kfree(phy-&gt;lo_control);
+ 	phy-&gt;lo_control = NULL;
+       err_busdown:
+ 	ssb_bus_may_powerdown(bus);
+ 	B43_WARN_ON(b43_status(dev) != B43_STAT_UNINIT);
+@@ -4322,12 +4328,14 @@ static void b43_op_stop(struct ieee80211
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 	if (b43_status(dev) &gt;= B43_STAT_STARTED)
+ 		b43_wireless_core_stop(dev);
+ 	b43_wireless_core_exit(dev);
+ 	mutex_unlock(&amp;wl-&gt;mutex);
++
++	cancel_work_sync(&amp;(wl-&gt;txpower_adjust_work));
+ }
+ 
+ static int b43_op_set_retry_limit(struct ieee80211_hw *hw,
+ 				  u32 short_retry_limit, u32 long_retry_limit)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+@@ -4699,12 +4707,13 @@ static int b43_wireless_init(struct ssb_
+ 	spin_lock_init(&amp;wl-&gt;leds_lock);
+ 	spin_lock_init(&amp;wl-&gt;shm_lock);
+ 	mutex_init(&amp;wl-&gt;mutex);
+ 	INIT_LIST_HEAD(&amp;wl-&gt;devlist);
+ 	INIT_WORK(&amp;wl-&gt;qos_update_work, b43_qos_update_work);
+ 	INIT_WORK(&amp;wl-&gt;beacon_update_trigger, b43_beacon_update_trigger_work);
++	INIT_WORK(&amp;wl-&gt;txpower_adjust_work, b43_phy_txpower_adjust_work);
+ 
+ 	ssb_set_devtypedata(dev, wl);
+ 	b43info(wl, &quot;Broadcom %04X WLAN found\n&quot;, dev-&gt;bus-&gt;chip_id);
+ 	err = 0;
+       out:
+ 	return err;
+Index: wireless-testing/drivers/net/wireless/b43/phy.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy.c	2008-06-12 11:42:15.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy.c	2008-07-26 17:10:47.000000000 +0200
+@@ -173,13 +173,13 @@ static void generate_bbatt_list(struct b
+ 	list-&gt;min_val = 0;
+ 	list-&gt;max_val = 8;
+ }
+ 
+ bool b43_has_hardware_pctl(struct b43_phy *phy)
+ {
+-	if (!phy-&gt;hardware_power_control)
++	if (!phy-&gt;txpwr.hardware_power_control)
+ 		return 0;
+ 	switch (phy-&gt;type) {
+ 	case B43_PHYTYPE_A:
+ 		if (phy-&gt;rev &gt;= 5)
+ 			return 1;
+ 		break;
+@@ -325,16 +325,16 @@ void b43_set_txpower_g(struct b43_wldev 
+ 	tx_bias = lo-&gt;tx_bias;
+ 	tx_magn = lo-&gt;tx_magn;
+ 	if (unlikely(tx_bias == 0xFF))
+ 		tx_bias = 0;
+ 
+ 	/* Save the values for later */
+-	phy-&gt;tx_control = tx_control;
+-	memcpy(&amp;phy-&gt;rfatt, rfatt, sizeof(*rfatt));
+-	phy-&gt;rfatt.with_padmix = !!(tx_control &amp; B43_TXCTL_TXMIX);
+-	memcpy(&amp;phy-&gt;bbatt, bbatt, sizeof(*bbatt));
++	phy-&gt;txpwr.tx_control = tx_control;
++	memcpy(&amp;phy-&gt;txpwr.rfatt, rfatt, sizeof(*rfatt));
++	phy-&gt;txpwr.rfatt.with_padmix = !!(tx_control &amp; B43_TXCTL_TXMIX);
++	memcpy(&amp;phy-&gt;txpwr.bbatt, bbatt, sizeof(*bbatt));
+ 
+ 	if (b43_debug(dev, B43_DBG_XMITPOWER)) {
+ 		b43dbg(dev-&gt;wl, &quot;Tuning TX-power to bbatt(%u), &quot;
+ 		       &quot;rfatt(%u), tx_control(0x%02X), &quot;
+ 		       &quot;tx_bias(0x%02X), tx_magn(0x%02X)\n&quot;,
+ 		       bb, rf, tx_control, tx_bias, tx_magn);
+@@ -492,15 +492,15 @@ static u16 default_tx_control(struct b43
+ /* This func is called &quot;PHY calibrate&quot; in the specs... */
+ void b43_phy_early_init(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 	struct b43_txpower_lo_control *lo = phy-&gt;lo_control;
+ 
+-	default_baseband_attenuation(dev, &amp;phy-&gt;bbatt);
+-	default_radio_attenuation(dev, &amp;phy-&gt;rfatt);
+-	phy-&gt;tx_control = (default_tx_control(dev) &lt;&lt; 4);
++	default_baseband_attenuation(dev, &amp;phy-&gt;txpwr.bbatt);
++	default_radio_attenuation(dev, &amp;phy-&gt;txpwr.rfatt);
++	phy-&gt;txpwr.tx_control = (default_tx_control(dev) &lt;&lt; 4);
+ 
+ 	/* Commit previous writes */
+ 	b43_read32(dev, B43_MMIO_MACCTL);
+ 
+ 	if (phy-&gt;type == B43_PHYTYPE_B || phy-&gt;type == B43_PHYTYPE_G) {
+ 		generate_rfatt_list(dev, &amp;lo-&gt;rfatt_list);
+@@ -521,19 +521,23 @@ void b43_phy_early_init(struct b43_wldev
+ static void b43_gphy_tssi_power_lt_init(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 	int i;
+ 	u16 value;
+ 
+-	for (i = 0; i &lt; 32; i++)
+-		b43_ofdmtab_write16(dev, 0x3C20, i, phy-&gt;tssi2dbm[i]);
+-	for (i = 32; i &lt; 64; i++)
+-		b43_ofdmtab_write16(dev, 0x3C00, i - 32, phy-&gt;tssi2dbm[i]);
++	for (i = 0; i &lt; 32; i++) {
++		b43_ofdmtab_write16(dev, 0x3C20, i,
++				    phy-&gt;txpwr.tssi2dbm[i]);
++	}
++	for (i = 32; i &lt; 64; i++) {
++		b43_ofdmtab_write16(dev, 0x3C00, i - 32,
++				    phy-&gt;txpwr.tssi2dbm[i]);
++	}
+ 	for (i = 0; i &lt; 64; i += 2) {
+-		value = (u16) phy-&gt;tssi2dbm[i];
+-		value |= ((u16) phy-&gt;tssi2dbm[i + 1]) &lt;&lt; 8;
++		value = (u16) phy-&gt;txpwr.tssi2dbm[i];
++		value |= ((u16) phy-&gt;txpwr.tssi2dbm[i + 1]) &lt;&lt; 8;
+ 		b43_phy_write(dev, 0x380 + (i / 2), value);
+ 	}
+ }
+ 
+ /* GPHY_Gain_Lookup_Table_Init */
+ static void b43_gphy_gain_lt_init(struct b43_wldev *dev)
+@@ -568,15 +572,15 @@ static void hardware_pctl_init_aphy(stru
+ 
+ static void hardware_pctl_init_gphy(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 
+ 	b43_phy_write(dev, 0x0036, (b43_phy_read(dev, 0x0036) &amp; 0xFFC0)
+-		      | (phy-&gt;tgt_idle_tssi - phy-&gt;cur_idle_tssi));
++		      | (phy-&gt;txpwr.tgt_idle_tssi - phy-&gt;txpwr.cur_idle_tssi));
+ 	b43_phy_write(dev, 0x0478, (b43_phy_read(dev, 0x0478) &amp; 0xFF00)
+-		      | (phy-&gt;tgt_idle_tssi - phy-&gt;cur_idle_tssi));
++		      | (phy-&gt;txpwr.tgt_idle_tssi - phy-&gt;txpwr.cur_idle_tssi));
+ 	b43_gphy_tssi_power_lt_init(dev);
+ 	b43_gphy_gain_lt_init(dev);
+ 	b43_phy_write(dev, 0x0060, b43_phy_read(dev, 0x0060) &amp; 0xFFBF);
+ 	b43_phy_write(dev, 0x0014, 0x0000);
+ 
+ 	B43_WARN_ON(phy-&gt;rev &lt; 6);
+@@ -676,47 +680,44 @@ static void b43_phy_init_pctl(struct b43
+ 	b43_write16(dev, B43_MMIO_PHY0, b43_read16(dev, B43_MMIO_PHY0)
+ 		    &amp; 0xFFDF);
+ 
+ 	if (phy-&gt;type == B43_PHYTYPE_G &amp;&amp; !phy-&gt;gmode)
+ 		return;
+ 	b43_hardware_pctl_early_init(dev);
+-	if (phy-&gt;cur_idle_tssi == 0) {
++	if (phy-&gt;txpwr.cur_idle_tssi == 0) {
+ 		if (phy-&gt;radio_ver == 0x2050 &amp;&amp; phy-&gt;analog == 0) {
+ 			b43_radio_write16(dev, 0x0076,
+ 					  (b43_radio_read16(dev, 0x0076)
+ 					   &amp; 0x00F7) | 0x0084);
+ 		} else {
+ 			struct b43_rfatt rfatt;
+ 			struct b43_bbatt bbatt;
+ 
+-			memcpy(&amp;old_rfatt, &amp;phy-&gt;rfatt, sizeof(old_rfatt));
+-			memcpy(&amp;old_bbatt, &amp;phy-&gt;bbatt, sizeof(old_bbatt));
+-			old_tx_control = phy-&gt;tx_control;
++			memcpy(&amp;old_rfatt, &amp;phy-&gt;txpwr.rfatt, sizeof(old_rfatt));
++			memcpy(&amp;old_bbatt, &amp;phy-&gt;txpwr.bbatt, sizeof(old_bbatt));
++			old_tx_control = phy-&gt;txpwr.tx_control;
+ 
+ 			bbatt.att = 11;
+ 			if (phy-&gt;radio_rev == 8) {
+ 				rfatt.att = 15;
+ 				rfatt.with_padmix = 1;
+ 			} else {
+ 				rfatt.att = 9;
+ 				rfatt.with_padmix = 0;
+ 			}
+ 			b43_set_txpower_g(dev, &amp;bbatt, &amp;rfatt, 0);
+ 		}
+ 		b43_dummy_transmission(dev);
+-		phy-&gt;cur_idle_tssi = b43_phy_read(dev, B43_PHY_ITSSI);
+-		if (B43_DEBUG) {
+-			/* Current-Idle-TSSI sanity check. */
+-			if (abs(phy-&gt;cur_idle_tssi - phy-&gt;tgt_idle_tssi) &gt;= 20) {
+-				b43dbg(dev-&gt;wl,
+-				       &quot;!WARNING! Idle-TSSI phy-&gt;cur_idle_tssi &quot;
+-				       &quot;measuring failed. (cur=%d, tgt=%d). Disabling TX power &quot;
+-				       &quot;adjustment.\n&quot;, phy-&gt;cur_idle_tssi,
+-				       phy-&gt;tgt_idle_tssi);
+-				phy-&gt;cur_idle_tssi = 0;
+-			}
++		phy-&gt;txpwr.cur_idle_tssi = b43_phy_read(dev, B43_PHY_ITSSI);
++		/* Current-Idle-TSSI sanity check. */
++		if (abs(phy-&gt;txpwr.cur_idle_tssi - phy-&gt;txpwr.tgt_idle_tssi) &gt;= 30) {
++			b43dbg(dev-&gt;wl,
++			       &quot;!WARNING! Idle-TSSI phy-&gt;cur_idle_tssi &quot;
++			       &quot;measuring failed. (cur=%d, tgt=%d).\n&quot;,
++			       phy-&gt;txpwr.cur_idle_tssi,
++			       phy-&gt;txpwr.tgt_idle_tssi);
+ 		}
+ 		if (phy-&gt;radio_ver == 0x2050 &amp;&amp; phy-&gt;analog == 0) {
+ 			b43_radio_write16(dev, 0x0076,
+ 					  b43_radio_read16(dev, 0x0076)
+ 					  &amp; 0xFF7B);
+ 		} else {
+@@ -973,13 +974,14 @@ static void b43_phy_initb5(struct b43_wl
+ 	b43_radio_selectchannel(dev, old_channel, 0);
+ 
+ 	b43_phy_write(dev, 0x0014, 0x0080);
+ 	b43_phy_write(dev, 0x0032, 0x00CA);
+ 	b43_phy_write(dev, 0x002A, 0x88A3);
+ 
+-	b43_set_txpower_g(dev, &amp;phy-&gt;bbatt, &amp;phy-&gt;rfatt, phy-&gt;tx_control);
++	b43_set_txpower_g(dev, &amp;phy-&gt;txpwr.bbatt,
++			  &amp;phy-&gt;txpwr.rfatt, phy-&gt;txpwr.tx_control);
+ 
+ 	if (phy-&gt;radio_ver == 0x2050)
+ 		b43_radio_write16(dev, 0x005D, 0x000D);
+ 
+ 	b43_write16(dev, 0x03E4, (b43_read16(dev, 0x03E4) &amp; 0xFFC0) | 0x0004);
+ }
+@@ -1081,13 +1083,14 @@ static void b43_phy_initb6(struct b43_wl
+ 	b43_phy_write(dev, 0x0014, 0x0200);
+ 	if (phy-&gt;radio_rev &gt;= 6)
+ 		b43_phy_write(dev, 0x2A, 0x88C2);
+ 	else
+ 		b43_phy_write(dev, 0x2A, 0x8AC0);
+ 	b43_phy_write(dev, 0x0038, 0x0668);
+-	b43_set_txpower_g(dev, &amp;phy-&gt;bbatt, &amp;phy-&gt;rfatt, phy-&gt;tx_control);
++	b43_set_txpower_g(dev, &amp;phy-&gt;txpwr.bbatt,
++			  &amp;phy-&gt;txpwr.rfatt, phy-&gt;txpwr.tx_control);
+ 	if (phy-&gt;radio_rev &lt;= 5) {
+ 		b43_phy_write(dev, 0x5D, (b43_phy_read(dev, 0x5D)
+ 					  &amp; 0xFF80) | 0x0003);
+ 	}
+ 	if (phy-&gt;radio_rev &lt;= 2)
+ 		b43_radio_write16(dev, 0x005D, 0x000D);
+@@ -1131,13 +1134,13 @@ static void b43_calc_loopback_gain(struc
+ 	backup_phy[10] = b43_phy_read(dev, B43_PHY_CCK(0x03));
+ 	backup_phy[11] = b43_phy_read(dev, B43_PHY_LO_MASK);
+ 	backup_phy[12] = b43_phy_read(dev, B43_PHY_LO_CTL);
+ 	backup_phy[13] = b43_phy_read(dev, B43_PHY_CCK(0x2B));
+ 	backup_phy[14] = b43_phy_read(dev, B43_PHY_PGACTL);
+ 	backup_phy[15] = b43_phy_read(dev, B43_PHY_LO_LEAKAGE);
+-	backup_bband = phy-&gt;bbatt.att;
++	backup_bband = phy-&gt;txpwr.bbatt.att;
+ 	backup_radio[0] = b43_radio_read16(dev, 0x52);
+ 	backup_radio[1] = b43_radio_read16(dev, 0x43);
+ 	backup_radio[2] = b43_radio_read16(dev, 0x7A);
+ 
+ 	b43_phy_write(dev, B43_PHY_CRS0,
+ 		      b43_phy_read(dev, B43_PHY_CRS0) &amp; 0x3FFF);
+@@ -1454,25 +1457,25 @@ void b43_phy_set_baseband_attenuation(st
+ static s8 b43_phy_estimate_power_out(struct b43_wldev *dev, s8 tssi)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 	s8 dbm = 0;
+ 	s32 tmp;
+ 
+-	tmp = (phy-&gt;tgt_idle_tssi - phy-&gt;cur_idle_tssi + tssi);
++	tmp = (phy-&gt;txpwr.tgt_idle_tssi - phy-&gt;txpwr.cur_idle_tssi + tssi);
+ 
+ 	switch (phy-&gt;type) {
+ 	case B43_PHYTYPE_A:
+ 		tmp += 0x80;
+ 		tmp = clamp_val(tmp, 0x00, 0xFF);
+-		dbm = phy-&gt;tssi2dbm[tmp];
++		dbm = phy-&gt;txpwr.tssi2dbm[tmp];
+ 		//TODO: There's a FIXME on the specs
+ 		break;
+ 	case B43_PHYTYPE_B:
+ 	case B43_PHYTYPE_G:
+ 		tmp = clamp_val(tmp, 0x00, 0x3F);
+-		dbm = phy-&gt;tssi2dbm[tmp];
++		dbm = phy-&gt;txpwr.tssi2dbm[tmp];
+ 		break;
+ 	default:
+ 		B43_WARN_ON(1);
+ 	}
+ 
+ 	return dbm;
+@@ -1528,187 +1531,363 @@ void b43_put_attenuation_into_ranges(str
+ 	}
+ 
+ 	*_rfatt = clamp_val(rfatt, rf_min, rf_max);
+ 	*_bbatt = clamp_val(bbatt, bb_min, bb_max);
+ }
+ 
+-/* <A HREF="http://bcm-specs.sipsolutions.net/RecalculateTransmissionPower">http://bcm-specs.sipsolutions.net/RecalculateTransmissionPower</A> */
+-void b43_phy_xmitpower(struct b43_wldev *dev)
++static void b43_adjust_txpwr_aphy(struct b43_wldev *dev,
++				  const struct b43_txpower_context *ctx)
++{//TODO
++	B43_WARN_ON(1);
++}
++
++static void b43_adjust_txpwr_bgphy(struct b43_wldev *dev,
++				   const struct b43_txpower_context *ctx)
++{//TODO
++	struct b43_phy *phy = &amp;dev-&gt;phy;
++	int rfatt, bbatt;
++	u8 tx_control;
++
++	/* Calculate the new attenuation values. */
++	bbatt = ctx-&gt;bbatt.att;
++	bbatt += ctx-&gt;bbatt_delta;
++	rfatt = ctx-&gt;rfatt.att;
++	rfatt += ctx-&gt;rfatt_delta;
++
++	b43_put_attenuation_into_ranges(dev, &amp;bbatt, &amp;rfatt);
++	tx_control = ctx-&gt;tx_control;
++	if ((phy-&gt;radio_ver == 0x2050) &amp;&amp; (phy-&gt;radio_rev == 2)) {
++		if (rfatt &lt;= 1) {
++			if (tx_control == 0) {
++				tx_control =
++				    B43_TXCTL_PA2DB |
++				    B43_TXCTL_TXMIX;
++				rfatt += 2;
++				bbatt += 2;
++			} else if (dev-&gt;dev-&gt;bus-&gt;sprom.
++				   boardflags_lo &amp;
++				   B43_BFL_PACTRL) {
++				bbatt += 4 * (rfatt - 2);
++				rfatt = 2;
++			}
++		} else if (rfatt &gt; 4 &amp;&amp; tx_control) {
++			tx_control = 0;
++			if (bbatt &lt; 3) {
++				rfatt -= 3;
++				bbatt += 2;
++			} else {
++				rfatt -= 2;
++				bbatt -= 2;
++			}
++		}
++	}
++	/* Save the control values */
++	//FIXME lock?
++	phy-&gt;txpwr.tx_control = tx_control;
++	b43_put_attenuation_into_ranges(dev, &amp;bbatt, &amp;rfatt);
++	phy-&gt;txpwr.rfatt.att = rfatt;
++	phy-&gt;txpwr.bbatt.att = bbatt;
++
++	/* Adjust the hardware */
++	b43_phy_lock(dev);
++	b43_radio_lock(dev);
++	b43_set_txpower_g(dev, &amp;phy-&gt;txpwr.bbatt, &amp;phy-&gt;txpwr.rfatt,
++			  phy-&gt;txpwr.tx_control);
++	b43_radio_unlock(dev);
++	b43_phy_unlock(dev);
++printk(&quot;Adjusted power\n&quot;);
++}
++
++/* Adjust the power output, if needed. */
++static void b43_adjust_tx_output_power(struct b43_wldev *dev,
++				       const struct b43_txpower_context *ctx)
+ {
+-	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 
+-	if (phy-&gt;cur_idle_tssi == 0)
+-		return;
++	switch (phy-&gt;type) {
++	case B43_PHYTYPE_A:
++		b43_adjust_txpwr_aphy(dev, ctx);
++		break;
++	case B43_PHYTYPE_B:
++	case B43_PHYTYPE_G:
++		b43_adjust_txpwr_bgphy(dev, ctx);
++		break;
++	case B43_PHYTYPE_N:
++//TODO		b43_adjust_txpwr_nphy(dev, ctx);
++		B43_WARN_ON(1);
++		break;
++	default:
++		B43_WARN_ON(1);
++	}
++}
++
++static bool b43_recalculate_txpower_aphy(struct b43_wldev *dev,
++					 u8 average_tssi)
++{/* TODO */
++	B43_WARN_ON(1);
++	return 0;
++}
++
++static bool b43_recalculate_txpower_bgphy(struct b43_wldev *dev,
++					  u8 average_tssi)
++{
++	struct b43_phy *phy = &amp;dev-&gt;phy;
++	int estimated_pwr, desired_pwr, pwr_adjust;
++	int rfatt_delta, bbatt_delta;
++	unsigned int max_pwr;
++
++	estimated_pwr = b43_phy_estimate_power_out(dev, average_tssi);
++
++	B43_WARN_ON(phy-&gt;type != B43_PHYTYPE_G);
++	max_pwr = dev-&gt;dev-&gt;bus-&gt;sprom.maxpwr_bg;
++	if (dev-&gt;dev-&gt;bus-&gt;sprom.boardflags_lo &amp; B43_BFL_PACTRL)
++		max_pwr -= 3; /* minus 0.75 */
++	if (unlikely(max_pwr &gt;= INT_TO_Q52(30/*dBm*/))) {
++		b43warn(dev-&gt;wl,
++			&quot;Invalid max-TX-power value in SPROM.\n&quot;);
++		max_pwr = INT_TO_Q52(15); /* fake it */
++		dev-&gt;dev-&gt;bus-&gt;sprom.maxpwr_bg = max_pwr;
++	}
++
++	/* Get desired power (in Q5.2) */
++	desired_pwr = INT_TO_Q52(phy-&gt;txpwr.desired_power);
++	/* And limit it. max_pwr already is Q5.2 */
++	desired_pwr = clamp_val(desired_pwr, 0, max_pwr);
++	if (b43_debug(dev, B43_DBG_XMITPOWER)) {
++		b43dbg(dev-&gt;wl,
++		       &quot;[TX power]  current = &quot; Q52_FMT
++		       &quot; dBm,  desired = &quot; Q52_FMT
++		       &quot; dBm,  max = &quot; Q52_FMT &quot;\n&quot;,
++		       Q52_ARG(estimated_pwr),
++		       Q52_ARG(desired_pwr),
++		       Q52_ARG(max_pwr));
++	}
++
++	/* Calculate the adjustment delta. */
++	pwr_adjust = desired_pwr - estimated_pwr;
++	if (pwr_adjust == 0)
++		goto no_adjustment_needed;
++/*	if (pwr_adjust == -1) {
++XXX b43info(dev-&gt;wl, &quot;Ignoring power adjust of minus 0.25 dBm\n&quot;);
++		goto no_adjustment_needed;
++	}*/
++
++	/* RF attenuation delta. */
++	rfatt_delta = ((pwr_adjust + 7) / 8);
++	/* Lower attenuation =&gt; Bigger power output. Negate it. */
++	rfatt_delta = -rfatt_delta;
++
++	/* Baseband attenuation delta. */
++	bbatt_delta = pwr_adjust / 2;
++	/* Lower attenuation =&gt; Bigger power output. Negate it. */
++	bbatt_delta = -bbatt_delta;
++	/* RF att affects power level 4 times as much as
++	 * Baseband attennuation. Subtract it. */
++	bbatt_delta -= 4 * rfatt_delta;
++
++	if (b43_debug(dev, B43_DBG_XMITPOWER)) {
++		int dbm = pwr_adjust &lt; 0 ? -pwr_adjust : pwr_adjust;
++		b43dbg(dev-&gt;wl,
++		       &quot;[TX power deltas]  %s&quot; Q52_FMT &quot; dBm   =&gt;   &quot;
++		       &quot;bbatt-delta = %d,  rfatt-delta = %d\n&quot;,
++		       (pwr_adjust &lt; 0 ? &quot;-&quot; : &quot;&quot;), Q52_ARG(dbm),
++		       bbatt_delta, rfatt_delta);
++	}
++	/* So do we finally need to adjust something in hardware? */
++	if ((rfatt_delta == 0) &amp;&amp; (bbatt_delta == 0))
++		goto no_adjustment_needed;
++
++	/* Save the deltas for later when we adjust the power. */
++	phy-&gt;txpwr.bbatt_delta = bbatt_delta;
++	phy-&gt;txpwr.rfatt_delta = rfatt_delta;
++
++	/* We need to adjust the TX power on the device. */
++	return 1;
++
++no_adjustment_needed:
++	return 0;
++}
++
++/**
++ * b43_recalculate_txpower - Recalculate the hardware attenuation settings.
++ *
++ * This recalculates the hardware attenuation settings based on the
++ * passed average_tssi value.
++ * Returns 1, if the hardware needs adjustment. Returns 0, if no hardware
++ * adjustment is needed.
++ *
++ * Requires wl-&gt;irq_lock
++ */
++static bool b43_recalculate_txpower(struct b43_wldev *dev,
++				    u8 average_tssi)
++{
++	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
++
+ 	if ((bus-&gt;boardinfo.vendor == SSB_BOARDVENDOR_BCM) &amp;&amp;
+ 	    (bus-&gt;boardinfo.type == SSB_BOARD_BU4306))
+-		return;
++		return 0;
+ #ifdef CONFIG_B43_DEBUG
+-	if (phy-&gt;manual_txpower_control)
+-		return;
++	if (dev-&gt;phy.manual_txpower_control)
++		return 0;
+ #endif
+ 
+-	switch (phy-&gt;type) {
+-	case B43_PHYTYPE_A:{
+-
+-			//TODO: Nothing for A PHYs yet :-/
+-
+-			break;
+-		}
++	switch (dev-&gt;phy.type) {
++	case B43_PHYTYPE_A:
++		return b43_recalculate_txpower_aphy(dev, average_tssi);
+ 	case B43_PHYTYPE_B:
+-	case B43_PHYTYPE_G:{
+-			u16 tmp;
+-			s8 v0, v1, v2, v3;
+-			s8 average;
+-			int max_pwr;
+-			int desired_pwr, estimated_pwr, pwr_adjust;
+-			int rfatt_delta, bbatt_delta;
+-			int rfatt, bbatt;
+-			u8 tx_control;
+-
+-			tmp = b43_shm_read16(dev, B43_SHM_SHARED, 0x0058);
+-			v0 = (s8) (tmp &amp; 0x00FF);
+-			v1 = (s8) ((tmp &amp; 0xFF00) &gt;&gt; 8);
+-			tmp = b43_shm_read16(dev, B43_SHM_SHARED, 0x005A);
+-			v2 = (s8) (tmp &amp; 0x00FF);
+-			v3 = (s8) ((tmp &amp; 0xFF00) &gt;&gt; 8);
+-			tmp = 0;
+-
+-			if (v0 == 0x7F || v1 == 0x7F || v2 == 0x7F
+-			    || v3 == 0x7F) {
+-				tmp =
+-				    b43_shm_read16(dev, B43_SHM_SHARED, 0x0070);
+-				v0 = (s8) (tmp &amp; 0x00FF);
+-				v1 = (s8) ((tmp &amp; 0xFF00) &gt;&gt; 8);
+-				tmp =
+-				    b43_shm_read16(dev, B43_SHM_SHARED, 0x0072);
+-				v2 = (s8) (tmp &amp; 0x00FF);
+-				v3 = (s8) ((tmp &amp; 0xFF00) &gt;&gt; 8);
+-				if (v0 == 0x7F || v1 == 0x7F || v2 == 0x7F
+-				    || v3 == 0x7F)
+-					return;
+-				v0 = (v0 + 0x20) &amp; 0x3F;
+-				v1 = (v1 + 0x20) &amp; 0x3F;
+-				v2 = (v2 + 0x20) &amp; 0x3F;
+-				v3 = (v3 + 0x20) &amp; 0x3F;
+-				tmp = 1;
+-			}
+-			b43_shm_clear_tssi(dev);
+-
+-			average = (v0 + v1 + v2 + v3 + 2) / 4;
+-
+-			if (tmp
+-			    &amp;&amp; (b43_shm_read16(dev, B43_SHM_SHARED, 0x005E) &amp;
+-				0x8))
+-				average -= 13;
+-
+-			estimated_pwr =
+-			    b43_phy_estimate_power_out(dev, average);
+-
+-			max_pwr = dev-&gt;dev-&gt;bus-&gt;sprom.maxpwr_bg;
+-			if ((dev-&gt;dev-&gt;bus-&gt;sprom.boardflags_lo
+-			    &amp; B43_BFL_PACTRL) &amp;&amp; (phy-&gt;type == B43_PHYTYPE_G))
+-				max_pwr -= 0x3;
+-			if (unlikely(max_pwr &lt;= 0)) {
+-				b43warn(dev-&gt;wl,
+-					&quot;Invalid max-TX-power value in SPROM.\n&quot;);
+-				max_pwr = 60;	/* fake it */
+-				dev-&gt;dev-&gt;bus-&gt;sprom.maxpwr_bg = max_pwr;
+-			}
+-
+-			/*TODO:
+-			   max_pwr = min(REG - dev-&gt;dev-&gt;bus-&gt;sprom.antennagain_bgphy - 0x6, max_pwr)
+-			   where REG is the max power as per the regulatory domain
+-			 */
++	case B43_PHYTYPE_G:
++		return b43_recalculate_txpower_bgphy(dev, average_tssi);
++	case B43_PHYTYPE_N:
++break;//TODO		return b43_recalculate_txpower_nphy(dev, average_tssi);
++	}
++	B43_WARN_ON(1);
++	return 0;
++}
+ 
+-			/* Get desired power (in Q5.2) */
+-			desired_pwr = INT_TO_Q52(phy-&gt;power_level);
+-			/* And limit it. max_pwr already is Q5.2 */
+-			desired_pwr = clamp_val(desired_pwr, 0, max_pwr);
+-			if (b43_debug(dev, B43_DBG_XMITPOWER)) {
+-				b43dbg(dev-&gt;wl,
+-				       &quot;Current TX power output: &quot; Q52_FMT
+-				       &quot; dBm, &quot; &quot;Desired TX power output: &quot;
+-				       Q52_FMT &quot; dBm\n&quot;, Q52_ARG(estimated_pwr),
+-				       Q52_ARG(desired_pwr));
+-			}
+-
+-			/* Calculate the adjustment delta. */
+-			pwr_adjust = desired_pwr - estimated_pwr;
+-
+-			/* RF attenuation delta. */
+-			rfatt_delta = ((pwr_adjust + 7) / 8);
+-			/* Lower attenuation =&gt; Bigger power output. Negate it. */
+-			rfatt_delta = -rfatt_delta;
+-
+-			/* Baseband attenuation delta. */
+-			bbatt_delta = pwr_adjust / 2;
+-			/* Lower attenuation =&gt; Bigger power output. Negate it. */
+-			bbatt_delta = -bbatt_delta;
+-			/* RF att affects power level 4 times as much as
+-			 * Baseband attennuation. Subtract it. */
+-			bbatt_delta -= 4 * rfatt_delta;
++/**
++ * b43_tssi_average_add - Read the 4 TSSI values at the SHM offset.
++ *
++ * Read the 4 TSSI values and store the average in the TX power
++ * context data structure.
++ * Returns 1, if the average value was changed (0 otherwise).
++ *
++ * Requires wl-&gt;irq_lock
++ */
++static bool b43_tssi_average_add(struct b43_wldev *dev, u16 shm_offset)
++{
++	const bool is_ofdm = (shm_offset != B43_SHM_SH_TSSI_CCK);
++	unsigned int a, b, c, d;
++	unsigned int average;
++	u32 tmp;
++
++	tmp = b43_shm_read32(dev, B43_SHM_SHARED, shm_offset);
++//printk(&quot;Reading TSSI for SHM 0x%04X  0x%08X\n&quot;, shm_offset, tmp);
++	a = tmp &amp; 0xFF;
++	b = (tmp &gt;&gt; 8) &amp; 0xFF;
++	c = (tmp &gt;&gt; 16) &amp; 0xFF;
++	d = (tmp &gt;&gt; 24) &amp; 0xFF;
++	if (a == 0 || a == B43_TSSI_MAX ||
++	    b == 0 || b == B43_TSSI_MAX ||
++	    c == 0 || c == B43_TSSI_MAX ||
++	    d == 0 || d == B43_TSSI_MAX)
++		return 0;
++	/* The values are OK. Clear them. */
++	tmp = B43_TSSI_MAX | (B43_TSSI_MAX &lt;&lt; 8) |
++	      (B43_TSSI_MAX &lt;&lt; 16) | (B43_TSSI_MAX &lt;&lt; 24);
++	b43_shm_write32(dev, B43_SHM_SHARED, shm_offset, tmp);
++
++	if (is_ofdm) {//FIXME min?
++		a = (a + 32) &amp; 0x3F;
++		b = (b + 32) &amp; 0x3F;
++		c = (c + 32) &amp; 0x3F;
++		d = (d + 32) &amp; 0x3F;
++	}
++
++	/* Get the average of the values with 0.5 added to each value. */
++	average = (a + b + c + d + 2) / 4;
++printk(&quot;Average is %u\n&quot;, average);
++	if (is_ofdm) {
++		/* Adjust for CCK-boost */
++		if (b43_shm_read16(dev, B43_SHM_SHARED, B43_SHM_SH_HOSTFLO)
++		    &amp; B43_HF_CCKBOOST) //FIXME
++			average = (average &gt;= 13) ? (average - 13) : 0;
++	}
++	/* And finally add it to the stored average value for later
++	 * use by the hardware adjustment routines. */
++	if (likely(dev-&gt;phy.txpwr.average_tssi))
++		average = (average + dev-&gt;phy.txpwr.average_tssi) / 2;
++	dev-&gt;phy.txpwr.average_tssi = average;
++	B43_WARN_ON(average &gt;= B43_TSSI_MAX);
++
++	return 1;
++}
++
++/**
++ * b43_phy_txpower_check - Check if a TX power adjustment is needed.
++ *
++ * This function will check if a TX power adjustment is needed and
++ * recalculate the attenuation values, if it's the case.
++ * The TX power adjust workqueue is scheduled afterwards to do the
++ * adjustment in hardware.
++ *
++ * Requires wl-&gt;irq_lock
++ */
++void b43_phy_txpower_check(struct b43_wldev *dev, unsigned int flags)
++{
++	struct b43_phy *phy = &amp;dev-&gt;phy;
++	unsigned long now = jiffies;
++	bool avg_changed = 0, need_hw_adjust;
+ 
+-			/* So do we finally need to adjust something? */
+-			if ((rfatt_delta == 0) &amp;&amp; (bbatt_delta == 0))
+-				return;
++	if (!(flags &amp; B43_TXPWR_IGNORE_TIME)) {
++		/* Check if it's time for a TXpower check. */
++		if (time_before(now, phy-&gt;txpwr.next_tssi_average))
++			return; /* Not yet */
++	}
++	/* The next check will be needed in two seconds, or later. */
++	phy-&gt;txpwr.next_tssi_average = round_jiffies(now + (HZ * 2));
+ 
+-			/* Calculate the new attenuation values. */
+-			bbatt = phy-&gt;bbatt.att;
+-			bbatt += bbatt_delta;
+-			rfatt = phy-&gt;rfatt.att;
+-			rfatt += rfatt_delta;
+-
+-			b43_put_attenuation_into_ranges(dev, &amp;bbatt, &amp;rfatt);
+-			tx_control = phy-&gt;tx_control;
+-			if ((phy-&gt;radio_ver == 0x2050) &amp;&amp; (phy-&gt;radio_rev == 2)) {
+-				if (rfatt &lt;= 1) {
+-					if (tx_control == 0) {
+-						tx_control =
+-						    B43_TXCTL_PA2DB |
+-						    B43_TXCTL_TXMIX;
+-						rfatt += 2;
+-						bbatt += 2;
+-					} else if (dev-&gt;dev-&gt;bus-&gt;sprom.
+-						   boardflags_lo &amp;
+-						   B43_BFL_PACTRL) {
+-						bbatt += 4 * (rfatt - 2);
+-						rfatt = 2;
+-					}
+-				} else if (rfatt &gt; 4 &amp;&amp; tx_control) {
+-					tx_control = 0;
+-					if (bbatt &lt; 3) {
+-						rfatt -= 3;
+-						bbatt += 2;
+-					} else {
+-						rfatt -= 2;
+-						bbatt -= 2;
+-					}
+-				}
+-			}
+-			/* Save the control values */
+-			phy-&gt;tx_control = tx_control;
+-			b43_put_attenuation_into_ranges(dev, &amp;bbatt, &amp;rfatt);
+-			phy-&gt;rfatt.att = rfatt;
+-			phy-&gt;bbatt.att = bbatt;
+-
+-			/* Adjust the hardware */
+-			b43_phy_lock(dev);
+-			b43_radio_lock(dev);
+-			b43_set_txpower_g(dev, &amp;phy-&gt;bbatt, &amp;phy-&gt;rfatt,
+-					  phy-&gt;tx_control);
+-			b43_radio_unlock(dev);
+-			b43_phy_unlock(dev);
+-			break;
+-		}
++	switch (phy-&gt;type) {
++	case B43_PHYTYPE_A:
+ 	case B43_PHYTYPE_N:
+-		b43_nphy_xmitpower(dev);
++		avg_changed |= b43_tssi_average_add(dev,
++					B43_SHM_SH_TSSI_OFDM_A);
++		if (phy-&gt;type == B43_PHYTYPE_A)
++			break;
++		/* Fallthrough */
++	case B43_PHYTYPE_G:
++		avg_changed |= b43_tssi_average_add(dev,
++					B43_SHM_SH_TSSI_CCK);
++		avg_changed |= b43_tssi_average_add(dev,
++					B43_SHM_SH_TSSI_OFDM_G);
+ 		break;
+ 	default:
+ 		B43_WARN_ON(1);
+ 	}
++	if (!(flags &amp; B43_TXPWR_IGNORE_TSSI)) {
++		if (!avg_changed)
++			return; /* No adjustment needed */
++	}
++	need_hw_adjust = b43_recalculate_txpower(dev, phy-&gt;txpwr.average_tssi);
++	if (!need_hw_adjust)
++		return; /* No adjustment needed */
++
++	/* We must adjust the transmission power in hardware.
++	 * Schedule the work. */
++	queue_work(dev-&gt;wl-&gt;hw-&gt;workqueue, &amp;dev-&gt;wl-&gt;txpower_adjust_work);
++}
++
++/**
++ * b43_phy_txpower_adjust_work - TX power workqueue.
++ *
++ * Workqueue for updating the TX power parameters in hardware.
++ */
++void b43_phy_txpower_adjust_work(struct work_struct *work)
++{
++	struct b43_wl *wl = container_of(work, struct b43_wl,
++					 txpower_adjust_work);
++	struct b43_wldev *dev;
++	struct b43_txpower_context ctx;
++
++	mutex_lock(&amp;wl-&gt;mutex);
++	dev = wl-&gt;current_dev;
++	if (unlikely(!dev || b43_status(dev) &lt; B43_STAT_STARTED))
++		goto out_unlock;
++
++	/* We make a local copy of the TX power parameters, so we
++	 * can drop the spinlock and sleep while adjusting the
++	 * hardware. Possible races with b43_phy_txpower_check()
++	 * are harmless, because we will be called again and redo the
++	 * work if a race happened. */
++	spin_lock_irq(&amp;wl-&gt;irq_lock);
++	memcpy(&amp;ctx, &amp;dev-&gt;phy.txpwr, sizeof(ctx));
++	spin_unlock_irq(&amp;wl-&gt;irq_lock);
++
++	b43_adjust_tx_output_power(dev, &amp;ctx);
++
++out_unlock:
++	mutex_unlock(&amp;wl-&gt;mutex);
+ }
+ 
+ static inline s32 b43_tssi2dbm_ad(s32 num, s32 den)
+ {
+ 	if (num &lt; 0)
+ 		return num / den;
+@@ -1753,68 +1932,68 @@ int b43_phy_init_tssi2dbm_table(struct b
+ 		pab0 = (s16) (dev-&gt;dev-&gt;bus-&gt;sprom.pa0b0);
+ 		pab1 = (s16) (dev-&gt;dev-&gt;bus-&gt;sprom.pa0b1);
+ 		pab2 = (s16) (dev-&gt;dev-&gt;bus-&gt;sprom.pa0b2);
+ 	}
+ 
+ 	if ((dev-&gt;dev-&gt;bus-&gt;chip_id == 0x4301) &amp;&amp; (phy-&gt;radio_ver != 0x2050)) {
+-		phy-&gt;tgt_idle_tssi = 0x34;
+-		phy-&gt;tssi2dbm = b43_tssi2dbm_b_table;
++		phy-&gt;txpwr.tgt_idle_tssi = 0x34;
++		phy-&gt;txpwr.tssi2dbm = b43_tssi2dbm_b_table;
+ 		return 0;
+ 	}
+ 
+ 	if (pab0 != 0 &amp;&amp; pab1 != 0 &amp;&amp; pab2 != 0 &amp;&amp;
+ 	    pab0 != -1 &amp;&amp; pab1 != -1 &amp;&amp; pab2 != -1) {
+ 		/* The pabX values are set in SPROM. Use them. */
+ 		if (phy-&gt;type == B43_PHYTYPE_A) {
+ 			if ((s8) dev-&gt;dev-&gt;bus-&gt;sprom.itssi_a != 0 &amp;&amp;
+ 			    (s8) dev-&gt;dev-&gt;bus-&gt;sprom.itssi_a != -1)
+-				phy-&gt;tgt_idle_tssi =
++				phy-&gt;txpwr.tgt_idle_tssi =
+ 				    (s8) (dev-&gt;dev-&gt;bus-&gt;sprom.itssi_a);
+ 			else
+-				phy-&gt;tgt_idle_tssi = 62;
++				phy-&gt;txpwr.tgt_idle_tssi = 62;
+ 		} else {
+ 			if ((s8) dev-&gt;dev-&gt;bus-&gt;sprom.itssi_bg != 0 &amp;&amp;
+ 			    (s8) dev-&gt;dev-&gt;bus-&gt;sprom.itssi_bg != -1)
+-				phy-&gt;tgt_idle_tssi =
++				phy-&gt;txpwr.tgt_idle_tssi =
+ 				    (s8) (dev-&gt;dev-&gt;bus-&gt;sprom.itssi_bg);
+ 			else
+-				phy-&gt;tgt_idle_tssi = 62;
++				phy-&gt;txpwr.tgt_idle_tssi = 62;
+ 		}
+ 		dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
+ 		if (dyn_tssi2dbm == NULL) {
+ 			b43err(dev-&gt;wl, &quot;Could not allocate memory &quot;
+ 			       &quot;for tssi2dbm table\n&quot;);
+ 			return -ENOMEM;
+ 		}
+ 		for (idx = 0; idx &lt; 64; idx++)
+ 			if (b43_tssi2dbm_entry
+ 			    (dyn_tssi2dbm, idx, pab0, pab1, pab2)) {
+-				phy-&gt;tssi2dbm = NULL;
++				phy-&gt;txpwr.tssi2dbm = NULL;
+ 				b43err(dev-&gt;wl, &quot;Could not generate &quot;
+ 				       &quot;tssi2dBm table\n&quot;);
+ 				kfree(dyn_tssi2dbm);
+ 				return -ENODEV;
+ 			}
+-		phy-&gt;tssi2dbm = dyn_tssi2dbm;
+-		phy-&gt;dyn_tssi_tbl = 1;
++		phy-&gt;txpwr.tssi2dbm = dyn_tssi2dbm;
++		phy-&gt;txpwr.dyn_tssi_tbl = 1;
+ 	} else {
+ 		/* pabX values not set in SPROM. */
+ 		switch (phy-&gt;type) {
+ 		case B43_PHYTYPE_A:
+ 			/* APHY needs a generated table. */
+-			phy-&gt;tssi2dbm = NULL;
++			phy-&gt;txpwr.tssi2dbm = NULL;
+ 			b43err(dev-&gt;wl, &quot;Could not generate tssi2dBm &quot;
+ 			       &quot;table (wrong SPROM info)!\n&quot;);
+ 			return -ENODEV;
+ 		case B43_PHYTYPE_B:
+-			phy-&gt;tgt_idle_tssi = 0x34;
+-			phy-&gt;tssi2dbm = b43_tssi2dbm_b_table;
++			phy-&gt;txpwr.tgt_idle_tssi = 0x34;
++			phy-&gt;txpwr.tssi2dbm = b43_tssi2dbm_b_table;
+ 			break;
+ 		case B43_PHYTYPE_G:
+-			phy-&gt;tgt_idle_tssi = 0x34;
+-			phy-&gt;tssi2dbm = b43_tssi2dbm_g_table;
++			phy-&gt;txpwr.tgt_idle_tssi = 0x34;
++			phy-&gt;txpwr.tssi2dbm = b43_tssi2dbm_g_table;
+ 			break;
+ 		}
+ 	}
+ 
+ 	return 0;
+ }
+@@ -3684,13 +3863,15 @@ void b43_radio_set_tx_iq(struct b43_wlde
+ 	}
+ }
+ 
+ int b43_radio_selectchannel(struct b43_wldev *dev,
+ 			    u8 channel, int synthetic_pu_workaround)
+ {
++	struct b43_wl *wl = dev-&gt;wl;
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
++	unsigned long flags;
+ 	u16 r8, tmp;
+ 	u16 freq;
+ 	u16 channelcookie, savedcookie;
+ 	int err = 0;
+ 
+ 	if (channel == 0xFF) {
+@@ -3769,13 +3950,16 @@ int b43_radio_selectchannel(struct b43_w
+ 		b43_radio_write16(dev, 0x0035,
+ 				  b43_radio_read16(dev, 0x0035) &amp; 0xFFEF);
+ 		b43_radio_write16(dev, 0x0035, (b43_radio_read16(dev, 0x0035)
+ 						&amp; 0xFFEF) | 0x0010);
+ 		b43_radio_set_tx_iq(dev);
+ 		//TODO: TSSI2dbm workaround
+-		b43_phy_xmitpower(dev);	//FIXME correct?
++		spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
++		b43_phy_txpower_check(dev, B43_TXPWR_IGNORE_TIME |
++					   B43_TXPWR_IGNORE_TSSI); //FIXME correct?
++		spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 		break;
+ 	case B43_PHYTYPE_G:
+ 		if ((channel &lt; 1) || (channel &gt; 14)) {
+ 			err = -EINVAL;
+ 			goto out;
+ 		}
+Index: wireless-testing/drivers/net/wireless/b43/phy.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy.h	2008-05-02 12:19:03.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy.h	2008-07-26 17:04:20.000000000 +0200
+@@ -221,13 +221,12 @@ int b43_phy_init_tssi2dbm_table(struct b
+ 
+ void b43_phy_early_init(struct b43_wldev *dev);
+ int b43_phy_init(struct b43_wldev *dev);
+ 
+ void b43_set_rx_antenna(struct b43_wldev *dev, int antenna);
+ 
+-void b43_phy_xmitpower(struct b43_wldev *dev);
+ 
+ /* Returns the boolean whether the board has HardwarePowerControl */
+ bool b43_has_hardware_pctl(struct b43_phy *phy);
+ /* Returns the boolean whether &quot;TX Magnification&quot; is enabled. */
+ #define has_tx_magnification(phy) \
+ 	(((phy)-&gt;rev &gt;= 2) &amp;&amp;			\
+@@ -334,7 +333,23 @@ void b43_put_attenuation_into_ranges(str
+ 				     int *_bbatt, int *_rfatt);
+ 
+ void b43_set_txpower_g(struct b43_wldev *dev,
+ 		       const struct b43_bbatt *bbatt,
+ 		       const struct b43_rfatt *rfatt, u8 tx_control);
+ 
++void b43_phy_txpower_check(struct b43_wldev *dev, unsigned int flags);
++/**
++ * enum b43_phy_txpower_check_flags - Flags for b43_phy_txpower_check()
++ *
++ * @B43_TXPWR_IGNORE_TIME: Ignore the schedule time and force-redo
++ *                         the check now.
++ * @B43_TXPWR_IGNORE_TSSI: Redo the recalculation, even if the average
++ *                         TSSI did not change.
++ */
++enum b43_phy_txpower_check_flags {
++	B43_TXPWR_IGNORE_TIME		= (1 &lt;&lt; 0),
++	B43_TXPWR_IGNORE_TSSI		= (1 &lt;&lt; 1),
++};
++
++void b43_phy_txpower_adjust_work(struct work_struct *work);
++
+ #endif /* B43_PHY_H_ */
+Index: wireless-testing/drivers/net/wireless/b43/debugfs.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/debugfs.c	2008-07-24 12:10:44.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/debugfs.c	2008-07-26 17:07:30.000000000 +0200
+@@ -451,20 +451,20 @@ static ssize_t txpower_g_read_file(struc
+ 	if (dev-&gt;phy.type != B43_PHYTYPE_G) {
+ 		fappend(&quot;Device is not a G-PHY\n&quot;);
+ 		goto out;
+ 	}
+ 	fappend(&quot;Control:               %s\n&quot;, dev-&gt;phy.manual_txpower_control ?
+ 		&quot;MANUAL&quot; : &quot;AUTOMATIC&quot;);
+-	fappend(&quot;Baseband attenuation:  %u\n&quot;, dev-&gt;phy.bbatt.att);
+-	fappend(&quot;Radio attenuation:     %u\n&quot;, dev-&gt;phy.rfatt.att);
++	fappend(&quot;Baseband attenuation:  %u\n&quot;, dev-&gt;phy.txpwr.bbatt.att);
++	fappend(&quot;Radio attenuation:     %u\n&quot;, dev-&gt;phy.txpwr.rfatt.att);
+ 	fappend(&quot;TX Mixer Gain:         %s\n&quot;,
+-		(dev-&gt;phy.tx_control &amp; B43_TXCTL_TXMIX) ? &quot;ON&quot; : &quot;OFF&quot;);
++		(dev-&gt;phy.txpwr.tx_control &amp; B43_TXCTL_TXMIX) ? &quot;ON&quot; : &quot;OFF&quot;);
+ 	fappend(&quot;PA Gain 2dB:           %s\n&quot;,
+-		(dev-&gt;phy.tx_control &amp; B43_TXCTL_PA2DB) ? &quot;ON&quot; : &quot;OFF&quot;);
++		(dev-&gt;phy.txpwr.tx_control &amp; B43_TXCTL_PA2DB) ? &quot;ON&quot; : &quot;OFF&quot;);
+ 	fappend(&quot;PA Gain 3dB:           %s\n&quot;,
+-		(dev-&gt;phy.tx_control &amp; B43_TXCTL_PA3DB) ? &quot;ON&quot; : &quot;OFF&quot;);
++		(dev-&gt;phy.txpwr.tx_control &amp; B43_TXCTL_PA3DB) ? &quot;ON&quot; : &quot;OFF&quot;);
+ 	fappend(&quot;\n\n&quot;);
+ 	fappend(&quot;You can write to this file:\n&quot;);
+ 	fappend(&quot;Writing \&quot;auto\&quot; enables automatic txpower control.\n&quot;);
+ 	fappend
+ 	    (&quot;Writing the attenuation values as \&quot;bbatt rfatt txmix pa2db pa3db\&quot; &quot;
+ 	     &quot;enables manual txpower control.\n&quot;);
+@@ -480,35 +480,39 @@ static int txpower_g_write_file(struct b
+ 				const char *buf, size_t count)
+ {
+ 	if (dev-&gt;phy.type != B43_PHYTYPE_G)
+ 		return -ENODEV;
+ 	if ((count &gt;= 4) &amp;&amp; (memcmp(buf, &quot;auto&quot;, 4) == 0)) {
+ 		/* Automatic control */
++		spin_lock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+ 		dev-&gt;phy.manual_txpower_control = 0;
+-		b43_phy_xmitpower(dev);
++		b43_phy_txpower_check(dev, B43_TXPWR_IGNORE_TIME |
++					   B43_TXPWR_IGNORE_TSSI);
++		spin_unlock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+ 	} else {
+ 		int bbatt = 0, rfatt = 0, txmix = 0, pa2db = 0, pa3db = 0;
+ 		/* Manual control */
+ 		if (sscanf(buf, &quot;%d %d %d %d %d&quot;, &amp;bbatt, &amp;rfatt,
+ 			   &amp;txmix, &amp;pa2db, &amp;pa3db) != 5)
+ 			return -EINVAL;
+ 		b43_put_attenuation_into_ranges(dev, &amp;bbatt, &amp;rfatt);
+ 		dev-&gt;phy.manual_txpower_control = 1;
+-		dev-&gt;phy.bbatt.att = bbatt;
+-		dev-&gt;phy.rfatt.att = rfatt;
+-		dev-&gt;phy.tx_control = 0;
++		dev-&gt;phy.txpwr.bbatt.att = bbatt;
++		dev-&gt;phy.txpwr.rfatt.att = rfatt;
++		dev-&gt;phy.txpwr.tx_control = 0;
+ 		if (txmix)
+-			dev-&gt;phy.tx_control |= B43_TXCTL_TXMIX;
++			dev-&gt;phy.txpwr.tx_control |= B43_TXCTL_TXMIX;
+ 		if (pa2db)
+-			dev-&gt;phy.tx_control |= B43_TXCTL_PA2DB;
++			dev-&gt;phy.txpwr.tx_control |= B43_TXCTL_PA2DB;
+ 		if (pa3db)
+-			dev-&gt;phy.tx_control |= B43_TXCTL_PA3DB;
++			dev-&gt;phy.txpwr.tx_control |= B43_TXCTL_PA3DB;
+ 		b43_phy_lock(dev);
+ 		b43_radio_lock(dev);
+-		b43_set_txpower_g(dev, &amp;dev-&gt;phy.bbatt,
+-				  &amp;dev-&gt;phy.rfatt, dev-&gt;phy.tx_control);
++		b43_set_txpower_g(dev, &amp;dev-&gt;phy.txpwr.bbatt,
++				  &amp;dev-&gt;phy.txpwr.rfatt,
++				  dev-&gt;phy.txpwr.tx_control);
+ 		b43_radio_unlock(dev);
+ 		b43_phy_unlock(dev);
+ 	}
+ 
+ 	return 0;
+ }
+@@ -560,13 +564,13 @@ static ssize_t loctls_read_file(struct b
+ 		err = -ENODEV;
+ 		goto out;
+ 	}
+ 	lo = phy-&gt;lo_control;
+ 	fappend(&quot;-- Local Oscillator calibration data --\n\n&quot;);
+ 	fappend(&quot;HW-power-control enabled: %d\n&quot;,
+-		dev-&gt;phy.hardware_power_control);
++		dev-&gt;phy.txpwr.hardware_power_control);
+ 	fappend(&quot;TX Bias: 0x%02X,  TX Magn: 0x%02X  (expire in %lu sec)\n&quot;,
+ 		lo-&gt;tx_bias, lo-&gt;tx_magn,
+ 		calc_expire_secs(now, lo-&gt;txctl_measured_time,
+ 				 B43_LO_TXCTL_EXPIRE));
+ 	fappend(&quot;Power Vector: 0x%08X%08X  (expires in %lu sec)\n&quot;,
+ 		(unsigned int)((lo-&gt;power_vector &amp; 0xFFFFFFFF00000000ULL) &gt;&gt; 32),
+@@ -575,14 +579,14 @@ static ssize_t loctls_read_file(struct b
+ 				 B43_LO_PWRVEC_EXPIRE));
+ 
+ 	fappend(&quot;\nCalibrated settings:\n&quot;);
+ 	list_for_each_entry(cal, &amp;lo-&gt;calib_list, list) {
+ 		bool active;
+ 
+-		active = (b43_compare_bbatt(&amp;cal-&gt;bbatt, &amp;phy-&gt;bbatt) &amp;&amp;
+-			  b43_compare_rfatt(&amp;cal-&gt;rfatt, &amp;phy-&gt;rfatt));
++		active = (b43_compare_bbatt(&amp;cal-&gt;bbatt, &amp;phy-&gt;txpwr.bbatt) &amp;&amp;
++			  b43_compare_rfatt(&amp;cal-&gt;rfatt, &amp;phy-&gt;txpwr.rfatt));
+ 		fappend(&quot;BB(%d), RF(%d,%d)  -&gt;  I=%d, Q=%d  &quot;
+ 			&quot;(expires in %lu sec)%s\n&quot;,
+ 			cal-&gt;bbatt.att,
+ 			cal-&gt;rfatt.att, cal-&gt;rfatt.with_padmix,
+ 			cal-&gt;ctl.i, cal-&gt;ctl.q,
+ 			calc_expire_secs(now, cal-&gt;calib_time,
+Index: wireless-testing/drivers/net/wireless/b43/lo.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/lo.c	2008-06-14 22:50:12.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/lo.c	2008-07-26 01:25:07.000000000 +0200
+@@ -918,16 +918,16 @@ static inline void b43_lo_fixup_rfatt(st
+ void b43_lo_g_adjust(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 	struct b43_lo_calib *cal;
+ 	struct b43_rfatt rf;
+ 
+-	memcpy(&amp;rf, &amp;phy-&gt;rfatt, sizeof(rf));
++	memcpy(&amp;rf, &amp;phy-&gt;txpwr.rfatt, sizeof(rf));
+ 	b43_lo_fixup_rfatt(&amp;rf);
+ 
+-	cal = b43_get_calib_lo_settings(dev, &amp;phy-&gt;bbatt, &amp;rf);
++	cal = b43_get_calib_lo_settings(dev, &amp;phy-&gt;txpwr.bbatt, &amp;rf);
+ 	if (!cal)
+ 		return;
+ 	b43_lo_write(dev, &amp;cal-&gt;ctl);
+ }
+ 
+ void b43_lo_g_adjust_to(struct b43_wldev *dev,
+@@ -980,14 +980,14 @@ void b43_lo_g_maintanance_work(struct b4
+ 	 * Recalibrate the current setting, if expired. */
+ 	expire = now - B43_LO_CALIB_EXPIRE;
+ 	list_for_each_entry_safe(cal, tmp, &amp;lo-&gt;calib_list, list) {
+ 		if (!time_before(cal-&gt;calib_time, expire))
+ 			continue;
+ 		/* This item expired. */
+-		if (b43_compare_bbatt(&amp;cal-&gt;bbatt, &amp;phy-&gt;bbatt) &amp;&amp;
+-		    b43_compare_rfatt(&amp;cal-&gt;rfatt, &amp;phy-&gt;rfatt)) {
++		if (b43_compare_bbatt(&amp;cal-&gt;bbatt, &amp;phy-&gt;txpwr.bbatt) &amp;&amp;
++		    b43_compare_rfatt(&amp;cal-&gt;rfatt, &amp;phy-&gt;txpwr.rfatt)) {
+ 			B43_WARN_ON(current_item_expired);
+ 			current_item_expired = 1;
+ 		}
+ 		if (b43_debug(dev, B43_DBG_LO)) {
+ 			b43dbg(dev-&gt;wl, &quot;LO: Item BB(%u), RF(%u,%u), &quot;
+ 			       &quot;I=%d, Q=%d expired\n&quot;,
+@@ -999,13 +999,14 @@ void b43_lo_g_maintanance_work(struct b4
+ 		kfree(cal);
+ 	}
+ 	if (current_item_expired || unlikely(list_empty(&amp;lo-&gt;calib_list))) {
+ 		/* Recalibrate currently used LO setting. */
+ 		if (b43_debug(dev, B43_DBG_LO))
+ 			b43dbg(dev-&gt;wl, &quot;LO: Recalibrating current LO setting\n&quot;);
+-		cal = b43_calibrate_lo_setting(dev, &amp;phy-&gt;bbatt, &amp;phy-&gt;rfatt);
++		cal = b43_calibrate_lo_setting(dev, &amp;phy-&gt;txpwr.bbatt,
++					       &amp;phy-&gt;txpwr.rfatt);
+ 		if (cal) {
+ 			list_add(&amp;cal-&gt;list, &amp;lo-&gt;calib_list);
+ 			b43_lo_write(dev, &amp;cal-&gt;ctl);
+ 		} else
+ 			b43warn(dev-&gt;wl, &quot;Failed to recalibrate current LO setting\n&quot;);
+ 	}
+Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/xmit.c	2008-07-26 01:03:26.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/xmit.c	2008-07-26 17:06:33.000000000 +0200
+@@ -675,12 +675,14 @@ void b43_handle_txstatus(struct b43_wlde
+ 	}
+ 
+ 	if (b43_using_pio_transfers(dev))
+ 		b43_pio_handle_txstatus(dev, status);
+ 	else
+ 		b43_dma_handle_txstatus(dev, status);
++
++	b43_phy_txpower_check(dev, 0);
+ }
+ 
+ /* Fill out the mac80211 TXstatus report based on the b43-specific
+  * txstatus report data. This returns a boolean whether the frame was
+  * successfully transmitted. */
+ bool b43_fill_txstatus_report(struct ieee80211_tx_info *report,
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004438.html">bcm 4310
+</A></li>
+	<LI>Next message: <A HREF="004444.html">[PATCH RFC/RFT] b43: Rewrite TX power adjustment
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4440">[ date ]</a>
+              <a href="thread.html#4440">[ thread ]</a>
+              <a href="subject.html#4440">[ subject ]</a>
+              <a href="author.html#4440">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

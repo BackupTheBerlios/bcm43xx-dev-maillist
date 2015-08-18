@@ -1,0 +1,287 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 3/3] 802.11a LO implementation
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20802.11a%20LO%20implementation&In-Reply-To=%3C20070423203636.02967b38%40localhost%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001153.html">
+   <LINK REL="Next"  HREF="001157.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 3/3] 802.11a LO implementation</H1>
+    <B>Stefano Brivio</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20802.11a%20LO%20implementation&In-Reply-To=%3C20070423203636.02967b38%40localhost%3E"
+       TITLE="[PATCH 3/3] 802.11a LO implementation">stefano.brivio at polimi.it
+       </A><BR>
+    <I>Mon Apr 23 20:36:36 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001153.html">[PATCH 2/3] fix G LO variables and functions naming
+</A></li>
+        <LI>Next message: <A HREF="001157.html">Please pull from http://bu3sch.de/git/wireless-dev.git/ for-linville
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1156">[ date ]</a>
+              <a href="thread.html#1156">[ thread ]</a>
+              <a href="subject.html#1156">[ subject ]</a>
+              <a href="author.html#1156">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This introduces code for 802.11a LocalOscillator support.
+
+TODO: keep up to date with specs.
+
+
+Signed-off-by: Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+---
+
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo_a.c
+===================================================================
+--- /dev/null
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo_a.c
+@@ -0,0 +1,188 @@
++/*
++
++  Broadcom BCM43xx wireless driver
++
++  A PHY LO (LocalOscillator) Measuring and Control routines
++
++  Copyright (c) 2005 Martin Langer &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">martin-langer at gmx.de</A>&gt;,
++  Copyright (c) 2005, 2006 Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">st3 at riseup.net</A>&gt;
++  Copyright (c) 2005-2007 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
++  Copyright (c) 2005, 2006 Danny van Dyk &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">kugelfang at gentoo.org</A>&gt;
++  Copyright (c) 2005, 2006 Andreas Jaggi &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">andreas.jaggi at waterwave.ch</A>&gt;
++
++  This program is free software; you can redistribute it and/or modify
++  it under the terms of the GNU General Public License as published by
++  the Free Software Foundation; either version 2 of the License, or
++  (at your option) any later version.
++
++  This program is distributed in the hope that it will be useful,
++  but WITHOUT ANY WARRANTY; without even the implied warranty of
++  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++  GNU General Public License for more details.
++
++  You should have received a copy of the GNU General Public License
++  along with this program; see the file COPYING.  If not, write to
++  the Free Software Foundation, Inc., 51 Franklin Steet, Fifth Floor,
++  Boston, MA 02110-1301, USA.
++
++*/
++
++#include &quot;bcm43xx.h&quot;
++#include &quot;bcm43xx_lo.h&quot;
++#include &quot;bcm43xx_phy.h&quot;
++#include &quot;bcm43xx_main.h&quot;
++
++#include &lt;linux/delay.h&gt;
++
++static const u8 q_vos[] = {0x0, 0x4, 0x8, 0x9, 0xD,};
++static const u8 i_vos[] = {0x0, 0x1, 0x5, 0x6, 0xA,};
++
++struct lo_a_saved_values {
++	u8 channel;
++
++	u16 reg_03F4;
++
++	u16 ofdmreg_10;
++	u16 ofdmreg_11;
++	u16 ofdmreg_7A;
++	u16 ofdmreg_6E;
++	u16 ofdmreg_7C;
++	u16 ofdmreg_6B;
++
++	u16 ofdmtab_0F_07;
++	u16 ofdmtab_0F_09;
++	u16 ofdmtab_0F_0A;
++	u16 ofdmtab_0F_0B;
++	u16 ofdmtab_0C_01;
++
++	u16 radio_09;
++	u16 radio_17;
++	u16 radio_19;
++}
++
++static void lo_a_setup(struct bcm43xx_wldev *dev, struct lo_g_saved_values *sav)
++{
++	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++
++	sav-&gt;channel = phy-&gt;channel;
++	bcm43xx_radio_selectchannel(dev, 64, 0);
++	sav-&gt;reg_03F4 = bcm43xx_read16(dev, 0x03F4);
++	sav-&gt;ofdmreg_10 = bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x10));
++	sav-&gt;ofdmreg_11 = bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x11));
++	sav-&gt;ofdmtab_0F_07 = bcm43xx_ofdmtab_read16(dev, BCM43xx_OFDMTAB_UNKNOWN_APHY, 0);
++	sav-&gt;ofdmtab_0F_09 = bcm43xx_ofdmtab_read16(dev, BCM43xx_OFDMTAB_UNKNOWN_APHY, 2);
++	sav-&gt;ofdmtab_0F_0A = bcm43xx_ofdmtab_read16(dev, BCM43xx_OFDMTAB_UNKNOWN_APHY, 3);
++	sav-&gt;ofdmtab_0F_0B = bcm43xx_ofdmtab_read16(dev, BCM43xx_OFDMTAB_UNKNOWN_APHY, 4);
++	sav-&gt;radio_17 = bcm43xx_radio_read16(dev, 0x0017);
++	sav-&gt;radio_19 = bcm43xx_radio_read16(dev, 0x0019);
++	sav-&gt;radio_09 = bcm43xx_radio_read16(dev, 0x0009);
++	sav-&gt;ofdmtab_0C_01 = bcm43xx_ofdmtab_read16(dev, BCM43xx_OFDMTAB_DAC, 1);
++	bcm43xx_radio_write16(dev, 0x0009,
++		bcm43xx_radio_read16(dev, 0x0009) &amp; 0xFFBF);
++}
++
++static void find_tssi(struct bcm43xx_wldev *dev)
++{
++	s16 tmp;
++
++	bcm43xx_dummy_transmission(dev);
++	tmp = bcm43xx_phy_read(dev, BCM43xx_PHY_IDLE_TSSI) &amp; 0x00FF;
++	if (tmp &gt;= 0x80)
++		tmp -= 0x100;
++	return tmp;
++}
++
++static u16 find_vos(struct bcm43xx_wldev *dev)
++{
++	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++	int i, j;
++	u16 radioval, radiosav_i[5], radiosav_q[5], radiosav_c, curr_tssi,
++	    min_tssi = 0xFFFF;
++
++	bcm43xx_radio_write16(dev, 0x1E, 0x0000);
++	bcm43xx_phy_write(dev, BCM43xx_PHY_CRS0,
++		bcm43xx_phy_read(dev, BCM43xx_PHY_CRS0) &amp; ~BCM43xx_PHY_CRS0_EN);
++	bcm43xx_write16(dev, 0x03F4, 0x0001);
++	bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x10),
++		bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x10) | 0x0C08);
++	bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x11),
++		(bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x11)) &amp; 0xF3F7) | 0x0408);
++	bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_UNKNOWN_APHY, 0
++		bcm43xx_ofdmtab_read16(dev, BCM43xx_OFDMTAB_DC, 1));
++	bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_UNKNOWN_APHY, 2, 0x0001);
++	bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_UNKNOWN_APHY, 3, 0x0001);
++	bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_UNKNOWN_APHY, 4, 0x0001);
++	bcm43xx_phy_write(dev, BCM43xx_PHY_ADCCTL, 0xC111);
++	bcm43xx_phy_write(dev, BCM43xx_PHY_A_TEMP_SENSE, 0x0002);
++	if (phy-&gt;rev &lt;= 2)
++		bcm43xx_wa_rssi_lt(dev);
++	bcm43xx_phy_write(dev, BCM43xx_PHY_BBTXDC_BIAS, 0x0000);
++	bcm43xx_radio_write16(dev, 0x0017, 0x0026);
++	if (phy-&gt;analog == 1)
++		bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_DAC, 1
++			(bcm43xx_ofdmtab_read16(dev, BCM43xx_OFDMTAB_DAC, 1)) &amp; 0xFF87 | 0x0010);
++	else
++		bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_DAC, 1
++			(bcm43xx_ofdmtab_read16(dev, BCM43xx_OFDMTAB_DAC, 1)) &amp; 0xFFC3 | 0x0008);
++	bcm43xx_radio_write16(dev, 0x0019, 0x0060);
++
++	for (i = 0; i &lt; 5; i++) {
++		radioval = (bcm43xx_radio_read16(dev, 0x001E) &amp; 0x00F0) | i_vos[i] &lt;&lt; 4;
++		bcm43xx_radio_write16(dev, 0x001E, radioval_i);
++		curr_tssi = find_tssi(dev);
++		if (curr_tssi &lt; min_tssi) {
++			for (j = 0; j &lt; i; j++)
++				radiosav_i[j] = 0xFFFF;
++			min_tssi = curr_tssi;
++			radiosav_i[i] = radioval;
++		}
++		else if (curr_tssi == min_tssi)
++			radiosav_i[i] = radioval;
++		else if (curr_tssi &gt; min_tssi)
++			radiosav_i[i] = 0xFFFF;
++	}
++	for (i = 0; i &lt; 5; i++)
++		if (radiosav_i[i] != 0xFFFF) {
++			bcm43xx_radio_write16(dev, 0x001E, radiosav_i[i]);
++			break;
++		}
++
++	for (i = 0; i &lt; 5; i++) {
++		radioval = (bcm43xx_radio_read16(dev, 0x001E) &amp; 0x00F0) | q_vos[i];
++		bcm43xx_radio_write16(dev, 0x001E, radioval_q);
++		curr_tssi = find_tssi(dev);
++		if (curr_tssi &lt; min_tssi) {
++			for (j = 0; j &lt; i; j++)
++				radiosav_q[j] = 0xFFFF;
++			min_tssi = curr_tssi;
++			radiosav_q[i] = radioval;
++		}
++		else if (curr_tssi == min_tssi)
++			radiosav_q[i] = radioval;
++		else if (curr_tssi &gt; min_tssi)
++			radiosav_q[i] = 0xFFFF;
++	}
++	for (i = 0; i &lt; 5; i++)
++		if (radiosav_q[i] != 0xFFFF) {
++			bcm43xx_radio_write16(dev, 0x001E, radiosav_q[i]);
++			break;
++		}
++
++	min_tssi = 0xFFFF;
++	for (i = 0; i &lt; 5; i++)
++		if (radiosav_i[i] != 0xFFFF)
++			for (j = 0; j &lt; 5; j++)
++				if (radiosav_q[j] != 0xFFFF) {
++					radioval = (radiosav_q[j] &amp; 0xF) |
++						    (radiosav_i[i] &amp; 0xF0);
++					bcm43xx_radio_write16(dev, 0x001E,
++						radioval);
++					udelay(5);
++					curr_tssi = find_tssi(dev);
++					if (curr_tssi &lt; min_tssi)
++						radiosav_c = radioval;
++				}
++	bcm43xx_radio_write16(dev, 0x001E, radiosav_c);
++
++	return radiosav_c;
++}
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_wa.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_wa.c
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_wa.c
+@@ -122,7 +122,7 @@ static void bcm43xx_wa_gt(struct bcm43xx
+ 	}
+ }
+ 
+-static void bcm43xx_wa_rssi_lt(struct bcm43xx_wldev *dev) /* RSSI lookup table */
++void bcm43xx_wa_rssi_lt(struct bcm43xx_wldev *dev) /* RSSI lookup table */
+ {
+ 	int i;
+ 
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_wa.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_wa.h
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_wa.h
+@@ -2,6 +2,7 @@
+ #define BCM43xx_WA_H_
+ 
+ void bcm43xx_wa_initgains(struct bcm43xx_wldev *dev);
++void bcm43xx_wa_rssi_lt(struct bcm43xx_wldev *dev);
+ void bcm43xx_wa_all(struct bcm43xx_wldev *dev);
+ 
+ #endif /* BCM43xx_WA_H_ */
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001153.html">[PATCH 2/3] fix G LO variables and functions naming
+</A></li>
+	<LI>Next message: <A HREF="001157.html">Please pull from http://bu3sch.de/git/wireless-dev.git/ for-linville
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1156">[ date ]</a>
+              <a href="thread.html#1156">[ thread ]</a>
+              <a href="subject.html#1156">[ subject ]</a>
+              <a href="author.html#1156">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

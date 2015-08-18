@@ -1,0 +1,146 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> opensource firmware now accept version 410 frames
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20opensource%20firmware%20now%20accept%20version%20410%20frames&In-Reply-To=%3C161B4C74-B976-44AF-BF20-9012F3060EFB%40ing.unibs.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005163.html">
+   <LINK REL="Next"  HREF="005165.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>opensource firmware now accept version 410 frames</H1>
+    <B>Francesco Gringoli</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20opensource%20firmware%20now%20accept%20version%20410%20frames&In-Reply-To=%3C161B4C74-B976-44AF-BF20-9012F3060EFB%40ing.unibs.it%3E"
+       TITLE="opensource firmware now accept version 410 frames">francesco.gringoli at ing.unibs.it
+       </A><BR>
+    <I>Sun Feb  1 02:01:24 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005163.html">opensource firmware now accept version 410 frames
+</A></li>
+        <LI>Next message: <A HREF="005165.html">opensource firmware now accept version 410 frames
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5164">[ date ]</a>
+              <a href="thread.html#5164">[ thread ]</a>
+              <a href="subject.html#5164">[ subject ]</a>
+              <a href="author.html#5164">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+On Feb 1, 2009, at 12:49 AM, Michael Buesch wrote:
+
+&gt;<i> On Sunday 01 February 2009 00:47:35 Michael Buesch wrote:
+</I>&gt;&gt;<i> On Sunday 01 February 2009 00:35:01 Francesco Gringoli wrote:
+</I>&gt;&gt;&gt;<i> On Jan 30, 2009, at 10:59 PM, Michael Buesch wrote:
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i> On Friday 30 January 2009 14:22:35 Lorenzo Nava wrote:
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> I think that's rather unlikely, however. The DMA code is  
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> basically
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> unchanged
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> for months and especially the slot handling hasn't changed in  
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> years.
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;<i> Yes, but I didn't mean that the code has some bug. Let's say, for
+</I>&gt;&gt;&gt;&gt;&gt;<i> example, that all the DMA slots were filled; when the firmware  
+</I>&gt;&gt;&gt;&gt;&gt;<i> will
+</I>&gt;&gt;&gt;&gt;&gt;<i> try to report a tx status it will send the informations to the  
+</I>&gt;&gt;&gt;&gt;&gt;<i> DMA.
+</I>&gt;&gt;&gt;&gt;&gt;<i> The DMA won't have enough space to store it and so it will drop  
+</I>&gt;&gt;&gt;&gt;&gt;<i> the
+</I>&gt;&gt;&gt;&gt;&gt;<i> message. In your opinion is it possible that something like that
+</I>&gt;&gt;&gt;&gt;&gt;<i> happened?
+</I>&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i> No. TX status isn't passed through DMA in &gt;=rev5 cores.
+</I>&gt;&gt;&gt;&gt;<i> It's passed through MMIO registers which access an internal  
+</I>&gt;&gt;&gt;&gt;<i> hardware
+</I>&gt;&gt;&gt;&gt;<i> queue.
+</I>&gt;&gt;&gt;<i> Michael,
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> sorry, I have a question, there is a piece of code I do not
+</I>&gt;&gt;&gt;<i> understand. I see from specs that this queue (that is filled by the
+</I>&gt;&gt;&gt;<i> firmware to report status to host) _seems_ to be 16 positions  
+</I>&gt;&gt;&gt;<i> long. I
+</I>&gt;&gt;&gt;<i> would say that this value should be taken as an upper limit in the
+</I>&gt;&gt;&gt;<i> number of frames sent on the dma and still not acked (positively or
+</I>&gt;&gt;&gt;<i> not, depending on tx success) by the firmware. Is this correct? I  
+</I>&gt;&gt;&gt;<i> did
+</I>&gt;&gt;&gt;<i> some tests and I saw that the number of frames sent through
+</I>&gt;&gt;&gt;<i> op32_poke_tx before corresponding status being reported greatly
+</I>&gt;&gt;&gt;<i> exceeds 16.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> The driver just puts the stuff into the DMA ring. It can put as  
+</I>&gt;&gt;<i> much stuff
+</I>&gt;&gt;<i> into the ring as it wants, as it allocated the ring.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> The _firmware_ must make sure to accept new packets from dma _only_  
+</I>&gt;&gt;<i> if
+</I>&gt;&gt;<i> its buffers are not filled. That includes the tx status report  
+</I>&gt;&gt;<i> buffer.
+</I>&gt;<i>
+</I>&gt;<i> The tx-status-queue-full condition most likely is an external  
+</I>&gt;<i> condition
+</I>&gt;<i> in the firmware. Don't ask me which one, however.
+</I>Ok, this could be a problem. Will check next days how to solve. I  
+suppose now that the length of that report_tx_status queue is very  
+device dependent as mine can grow it more than one hundred elements  
+and status continues to be correctly reported.
+
+Cheers,
+-FG
+
+
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> -- 
+</I>&gt;<i> Greetings, Michael.
+</I>
+-------
+
+Francesco Gringoli, PhD - Assistant Professor
+Dept. of Electrical Engineering for Automation
+University of Brescia
+via Branze, 38
+25123 Brescia
+ITALY
+
+Ph:  ++39.030.3715843
+FAX: ++39.030.380014
+WWW: <A HREF="http://www.ing.unibs.it/~gringoli">http://www.ing.unibs.it/~gringoli</A>
+
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005163.html">opensource firmware now accept version 410 frames
+</A></li>
+	<LI>Next message: <A HREF="005165.html">opensource firmware now accept version 410 frames
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5164">[ date ]</a>
+              <a href="thread.html#5164">[ thread ]</a>
+              <a href="subject.html#5164">[ subject ]</a>
+              <a href="author.html#5164">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

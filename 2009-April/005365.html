@@ -1,0 +1,150 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Implement fullmac-mode support
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Implement%20fullmac-mode%20support&In-Reply-To=%3C200904010101.44380.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   <LINK REL="Next"  HREF="005366.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Implement fullmac-mode support</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Implement%20fullmac-mode%20support&In-Reply-To=%3C200904010101.44380.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Implement fullmac-mode support">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Apr  1 01:01:44 CEST 2009</I>
+    <P><UL>
+        
+        <LI>Next message: <A HREF="005366.html">[PATCH] b43: Implement fullmac-mode support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5365">[ date ]</a>
+              <a href="thread.html#5365">[ thread ]</a>
+              <a href="subject.html#5365">[ subject ]</a>
+              <a href="author.html#5365">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Recent work on the device firmware discovered a completely new hardware
+mode for b43 devices.
+All b43 devices have a bit in the MAC-control register to enable true
+hardware-fullMAC support. In fullmac mode the MAC and PHY is completely serviced
+by the firmware, so no driver support is required anymore.
+
+Full hardware MAC support has advantages and disadvantages:
+
+PRO:
+- The b43 driver does support _all_ devices (also 802.11n) in STA and AP mode.
+- The driver code is a lot simpler for the fullmac case. (It skips all of
+  the software MAC and PHY init).
+- People finally stop poking me to implement the N-PHY and LP-PHY code, yay.
+
+CON:
+- Packet injection is not supported in fullmac mode, yet. It's on
+  the TODO list with deadline 1.4.2010.
+
+The feature currently is disabled by default, because it isn't tested enough.
+It can be enabled at modprobe time with the &quot;fullmac=1&quot; module parameter.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, please queue this patch for 3.6.31.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h	2009-04-01 00:00:18.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/b43.h	2009-04-01 00:00:20.000000000 +0200
+@@ -347,6 +347,7 @@ enum {
+ #define B43_MACCTL_ENABLED		0x00000001	/* MAC Enabled */
+ #define B43_MACCTL_PSM_RUN		0x00000002	/* Run Microcode */
+ #define B43_MACCTL_PSM_JMP0		0x00000004	/* Microcode jump to 0 */
++#define B43_MACCTL_FULLMAC		0x00000008	/* Enable hardware full-MAC support */
+ #define B43_MACCTL_SHM_ENABLED		0x00000100	/* SHM Enabled */
+ #define B43_MACCTL_SHM_UPPER		0x00000200	/* SHM Upper */
+ #define B43_MACCTL_IHR_ENABLED		0x00000400	/* IHR Region Enabled */
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2009-04-01 00:00:18.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2009-04-01 00:00:20.000000000 +0200
+@@ -63,6 +63,10 @@ MODULE_LICENSE(&quot;GPL&quot;);
+ MODULE_FIRMWARE(B43_SUPPORTED_FIRMWARE_ID);
+ 
+ 
++static int modparam_fullmac;
++module_param_named(fullmac, modparam_fullmac, int, 0444);
++MODULE_PARM_DESC(fullmac, &quot;Switch the hardware into fullmac mode&quot;);
++
+ static int modparam_bad_frames_preempt;
+ module_param_named(bad_frames_preempt, modparam_bad_frames_preempt, int, 0444);
+ MODULE_PARM_DESC(bad_frames_preempt,
+@@ -4113,6 +4117,9 @@ static void b43_wireless_core_exit(struc
+ 		return;
+ 	b43_set_status(dev, B43_STAT_UNINIT);
+ 
++	if (modparam_fullmac)
++		goto ssb_disable;
++
+ 	/* Stop the microcode PSM. */
+ 	macctl = b43_read32(dev, B43_MMIO_MACCTL);
+ 	macctl &amp;= ~B43_MACCTL_PSM_RUN;
+@@ -4132,6 +4139,7 @@ static void b43_wireless_core_exit(struc
+ 		dev-&gt;wl-&gt;current_beacon = NULL;
+ 	}
+ 
++ssb_disable:
+ 	ssb_device_disable(dev-&gt;dev, 0);
+ 	ssb_bus_may_powerdown(dev-&gt;dev-&gt;bus);
+ }
+@@ -4157,6 +4165,14 @@ static int b43_wireless_core_init(struct
+ 		b43_wireless_core_reset(dev, tmp);
+ 	}
+ 
++	if (modparam_fullmac) {
++		b43_write32(dev, B43_MMIO_MACCTL,
++			    b43_read32(dev, B43_MMIO_MACCTL)
++			    | B43_MACCTL_FULLMAC);
++		err = 0;
++		goto out;
++	}
++
+ 	/* Reset all data structures. */
+ 	setup_struct_wldev_for_init(dev);
+ 	phy-&gt;ops-&gt;prepare_structs(dev);
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	<LI>Next message: <A HREF="005366.html">[PATCH] b43: Implement fullmac-mode support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5365">[ date ]</a>
+              <a href="thread.html#5365">[ thread ]</a>
+              <a href="subject.html#5365">[ subject ]</a>
+              <a href="author.html#5365">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

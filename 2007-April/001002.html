@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] mac80211: Report correct wireless statistics
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20mac80211%3A%20Report%20correct%20wireless%20statistics&In-Reply-To=%3C461A6092.20701%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000992.html">
+   <LINK REL="Next"  HREF="001003.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] mac80211: Report correct wireless statistics</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20mac80211%3A%20Report%20correct%20wireless%20statistics&In-Reply-To=%3C461A6092.20701%40lwfinger.net%3E"
+       TITLE="[PATCH] mac80211: Report correct wireless statistics">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Mon Apr  9 17:49:38 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000992.html">Good news on Dell Mini-PCI 1390
+</A></li>
+        <LI>Next message: <A HREF="001003.html">[PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1002">[ date ]</a>
+              <a href="thread.html#1002">[ thread ]</a>
+              <a href="subject.html#1002">[ subject ]</a>
+              <a href="author.html#1002">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Dan Williams wrote:
+&gt;<i> On Mon, 2007-04-09 at 00:43 -0400, Michael Wu wrote:
+</I>&gt;&gt;<i> Yes, I did reverse your conventions, but it makes more sense this way. (R)SSI 
+</I>&gt;&gt;<i> is always valid to assign to (struct iw_quality).level and signal ((struct 
+</I>&gt;&gt;<i> iw_quality).qual) is quite arbitrary and cannot be specified in specific 
+</I>&gt;&gt;<i> units.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Signal should be probably be renamed to qual to make it more clear that it is 
+</I>&gt;&gt;<i> arbitrary.
+</I>&gt;<i> 
+</I>&gt;<i> In WE, qual is arbitrary within a few limits:
+</I>&gt;<i> 
+</I>&gt;<i> a) qual _must_ change on a linear scale
+</I>&gt;<i> b) a valid max_qual.qual must be set
+</I>&gt;<i> c) qual must fall within the bounds of [0, max_qual.qual] inclusive
+</I>
+Note that the quantity supplied by the bcm43xx firmware (called jssi in the code) varies linearly 
+with the strength of the signal, whereas the quantity derived from it in bcm43xx_rssi_postprocess is 
+quasi logarithmic. The statement in a) above would argue against reversal of my conventions. What 
+happens in the other drivers that use mac80211?
+&gt;<i> 
+</I>&gt;<i> If you report 'level' in dBm, you must set the IW_QUAL_DBM flag.
+</I>&gt;<i> Otherwise, 'level' _may_ be assumed to be RSSI.  If 'level' is dBm,
+</I>&gt;<i> max_qual.level must be 0.  If 'level' is RSSI, max_qual.level must be
+</I>&gt;<i> greater than 0, and level must fall within the bounds of [0,
+</I>&gt;<i> max_qual.level] inclusive.  Replace 'level' with 'noise' here for the
+</I>&gt;<i> rules for noise.
+</I>&gt;<i> 
+</I>&gt;<i> I don't particularly care if level/noise is RSSI _as long as_ you give
+</I>&gt;<i> the max RSSI for your part.  Different radio parts have different max
+</I>&gt;<i> RSSI values, and if you're writing a driver you sure better know them or
+</I>&gt;<i> figure some reasonable ones out by experimentation.  RSSI is entirely
+</I>&gt;<i> vendor defined and does _not_ conform to any rules.  Therefore we need
+</I>&gt;<i> the max RSSI to get usable signal strength reports from your part.
+</I>&gt;<i> 
+</I>&gt;<i> I know that 0 dBm isn't actually the upper bound, but in practice most
+</I>&gt;<i> people aren't going to get parts that go above that.  0 dBm should be
+</I>&gt;<i> considered a _limitation_ of WEXT that we obviously fix with
+</I>&gt;<i> cfg80211/nl80211 when we bring some sanity to signal strength reporting.
+</I>
+If the IW_QUAL_DBM flag is set, the &quot;maximum&quot; for that quantity is actually interpreted as a minimum 
+and the range is interpreted as [maximum..0] using s8 arithmetic.
+
+&gt;<i> Again, if you report level in RSSI, you must provide the max RSSI for
+</I>&gt;<i> your part in max_qual.level.
+</I>
+Agreed.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000992.html">Good news on Dell Mini-PCI 1390
+</A></li>
+	<LI>Next message: <A HREF="001003.html">[PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1002">[ date ]</a>
+              <a href="thread.html#1002">[ thread ]</a>
+              <a href="subject.html#1002">[ subject ]</a>
+              <a href="author.html#1002">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

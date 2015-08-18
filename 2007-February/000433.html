@@ -1,0 +1,175 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20code%20for%20spec%20changes%20of%202/7/2007&In-Reply-To=%3C45CCB954.1080400%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000428.html">
+   <LINK REL="Next"  HREF="000430.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: Fix code for spec changes of 2/7/2007</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20code%20for%20spec%20changes%20of%202/7/2007&In-Reply-To=%3C45CCB954.1080400%40lwfinger.net%3E"
+       TITLE="[PATCH] bcm43xx: Fix code for spec changes of 2/7/2007">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Fri Feb  9 19:11:32 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000428.html">[PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
+</A></li>
+        <LI>Next message: <A HREF="000430.html">[PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#433">[ date ]</a>
+              <a href="thread.html#433">[ thread ]</a>
+              <a href="subject.html#433">[ subject ]</a>
+              <a href="author.html#433">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael,
+
+Michael Buesch wrote:
+&gt;<i> On Friday 09 February 2007 17:32, Larry Finger wrote:
+</I>&gt;&gt;<i> The specifications for the bcm43xx driver have been modified. This patch
+</I>&gt;&gt;<i> incorporates these changes in the code, which results in the BCM4311 and
+</I>&gt;&gt;<i> BCM4312 working. The name of one of the PHY parameters, previously known
+</I>&gt;&gt;<i> as &quot;version&quot;, has been changed to &quot;analog core version&quot; .
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Signed-off-by: Larry Finger&lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;&gt;<i> @@ -729,19 +729,19 @@ static void bcm43xx_phy_initb5(struct bc
+</I>&gt;&gt;<i>  	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+</I>&gt;&gt;<i>  	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
+</I>&gt;&gt;<i>  	u16 offset;
+</I>&gt;&gt;<i> +	u16 value;
+</I>&gt;&gt;<i> +	u8 old_channel;
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -	if (phy-&gt;version == 1 &amp;&amp;
+</I>&gt;&gt;<i> -	    radio-&gt;version == 0x2050) {
+</I>&gt;<i> 
+</I>&gt;<i> Why do you delete the check to radio version.
+</I>&gt;<i> It's still there in latest specs:
+</I>&gt;<i> <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/Init/B5">http://bcm-v4.sipsolutions.net/802.11/PHY/Init/B5</A>
+</I>
+As I have no real understanding of the differences between V3 and V4 firmware, I only follow the V3
+specs at <A HREF="http://bcm-specs.sipsolutions.net.">http://bcm-specs.sipsolutions.net.</A> My usage of the V4 specs is to checking if they can
+clean a point of confusion in the V3 spec. The radio version check is eliminated at the beginning of
+the phy_initb5 routine in <A HREF="http://bcm-specs.sipsolutions.net/B5PHY.">http://bcm-specs.sipsolutions.net/B5PHY.</A> As there are radio version checks
+later in the routine, I think it was meant to be removed here.
+
+&gt;&gt;<i> +	if (phy-&gt;analog == 1)
+</I>&gt;&gt;<i>  		bcm43xx_radio_write16(bcm, 0x007A,
+</I>&gt;&gt;<i>  				      bcm43xx_radio_read16(bcm, 0x007A)
+</I>&gt;&gt;<i>  				      | 0x0050);
+</I>&gt;&gt;<i> -	}
+</I>&gt;&gt;<i>  	if ((bcm-&gt;board_vendor != PCI_VENDOR_ID_BROADCOM) &amp;&amp;
+</I>&gt;&gt;<i>  	    (bcm-&gt;board_type != 0x0416)) {
+</I>&gt;&gt;<i> +		value = 0x2120;
+</I>&gt;&gt;<i>  		for (offset = 0x00A8 ; offset &lt; 0x00C7; offset++) {
+</I>&gt;&gt;<i> -			bcm43xx_phy_write(bcm, offset,
+</I>&gt;&gt;<i> -					  (bcm43xx_phy_read(bcm, offset) + 0x2020)
+</I>&gt;&gt;<i> -					  &amp; 0x3F3F);
+</I>&gt;&gt;<i> +			bcm43xx_phy_write(bcm, offset, value);
+</I>&gt;&gt;<i> +			value += 0x0202;
+</I>&gt;&gt;<i>  		}
+</I>&gt;<i> 
+</I>&gt;<i> I don't see how this matches specs.
+</I>
+See step 2 of <A HREF="http://bcm-specs.sipsolutions.net/B5PHY.">http://bcm-specs.sipsolutions.net/B5PHY.</A>
+
+&gt;&gt;<i>  	}
+</I>&gt;&gt;<i>  	bcm43xx_phy_write(bcm, 0x0035,
+</I>&gt;&gt;<i> @@ -776,7 +776,7 @@ static void bcm43xx_phy_initb5(struct bc
+</I>&gt;&gt;<i>  				  bcm43xx_phy_read(bcm, BCM43xx_PHY_RADIO_BITFIELD) | (1 &lt;&lt; 11));
+</I>&gt;&gt;<i>  	}
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -	if (phy-&gt;version == 1 &amp;&amp; radio-&gt;version == 0x2050) {
+</I>&gt;<i> 
+</I>&gt;<i> Dito.
+</I>
+Ibid Step 7.
+
+&gt;&gt;<i> +	if (phy-&gt;analog == 1) {
+</I>&gt;&gt;<i>  		bcm43xx_phy_write(bcm, 0x0026, 0xCE00);
+</I>&gt;&gt;<i>  		bcm43xx_phy_write(bcm, 0x0021, 0x3763);
+</I>&gt;&gt;<i>  		bcm43xx_phy_write(bcm, 0x0022, 0x1BC3);
+</I>&gt;&gt;<i> @@ -787,14 +787,15 @@ static void bcm43xx_phy_initb5(struct bc
+</I>&gt;&gt;<i>  	bcm43xx_phy_write(bcm, 0x0030, 0x00C6);
+</I>&gt;&gt;<i>  	bcm43xx_write16(bcm, 0x03EC, 0x3F22);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -	if (phy-&gt;version == 1 &amp;&amp; radio-&gt;version == 0x2050)
+</I>&gt;<i> 
+</I>&gt;<i> Dito.
+</I>
+Step 11.
+
+&gt;&gt;<i> +	if (phy-&gt;analog == 1)
+</I>&gt;&gt;<i>  		bcm43xx_phy_write(bcm, 0x0020, 0x3E1C);
+</I>&gt;&gt;<i>  	else
+</I>&gt;&gt;<i>  		bcm43xx_phy_write(bcm, 0x0020, 0x301C);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -	if (phy-&gt;version == 0)
+</I>&gt;&gt;<i> +	if (phy-&gt;analog == 0)
+</I>&gt;&gt;<i>  		bcm43xx_write16(bcm, 0x03E4, 0x3000);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> +	old_channel = radio-&gt;channel;
+</I>&gt;&gt;<i>  	/* Force to channel 7, even if not supported. */
+</I>&gt;&gt;<i>  	bcm43xx_radio_selectchannel(bcm, 7, 0);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> @@ -816,11 +817,11 @@ static void bcm43xx_phy_initb5(struct bc
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i>  	bcm43xx_radio_write16(bcm, 0x007A, bcm43xx_radio_read16(bcm, 0x007A) | 0x0007);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -	bcm43xx_radio_selectchannel(bcm, BCM43xx_RADIO_DEFAULT_CHANNEL_BG, 0);
+</I>&gt;&gt;<i> +	bcm43xx_radio_selectchannel(bcm, old_channel, 0);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i>  	bcm43xx_phy_write(bcm, 0x0014, 0x0080);
+</I>&gt;&gt;<i>  	bcm43xx_phy_write(bcm, 0x0032, 0x00CA);
+</I>&gt;&gt;<i> -	bcm43xx_phy_write(bcm, 0x88A3, 0x002A);
+</I>&gt;&gt;<i> +	bcm43xx_phy_write(bcm, 0x002A, 0x88A3);
+</I>&gt;<i> 
+</I>&gt;<i> Well, this seems correct, but specs are still different. From where did you get this?
+</I>
+Steps 14 - 26 of <A HREF="http://bcm-specs.sipsolutions.net/B5PHY">http://bcm-specs.sipsolutions.net/B5PHY</A>
+&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> Well, I don't review the rest until you say to which specs you did the changes. ;)
+</I>
+As I said earlier, everything came from <A HREF="http://bcm-specs.sipsolutions.net.">http://bcm-specs.sipsolutions.net.</A>
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000428.html">[PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
+</A></li>
+	<LI>Next message: <A HREF="000430.html">[PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#433">[ date ]</a>
+              <a href="thread.html#433">[ thread ]</a>
+              <a href="subject.html#433">[ subject ]</a>
+              <a href="author.html#433">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

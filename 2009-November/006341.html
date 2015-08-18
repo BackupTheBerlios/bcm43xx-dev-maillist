@@ -1,0 +1,217 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43-phy0 ERROR: Fatal DMA error: 0x00000400
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43-phy0%20ERROR%3A%20Fatal%20DMA%20error%3A%200x00000400&In-Reply-To=%3C4AFDF68C.4040804%40polymtl.ca%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006340.html">
+   <LINK REL="Next"  HREF="006343.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43-phy0 ERROR: Fatal DMA error: 0x00000400</H1>
+    <B>William Bourque</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43-phy0%20ERROR%3A%20Fatal%20DMA%20error%3A%200x00000400&In-Reply-To=%3C4AFDF68C.4040804%40polymtl.ca%3E"
+       TITLE="b43-phy0 ERROR: Fatal DMA error: 0x00000400">william.bourque at polymtl.ca
+       </A><BR>
+    <I>Sat Nov 14 01:15:08 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006340.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+        <LI>Next message: <A HREF="006343.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6341">[ date ]</a>
+              <a href="thread.html#6341">[ thread ]</a>
+              <a href="subject.html#6341">[ subject ]</a>
+              <a href="author.html#6341">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+Larry Finger wrote:
+&gt;<i> Based on a suggestion by Matthew Garrett, please try the patch below.
+</I>&gt;<i> 
+</I>&gt;<i> Thanks,
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> 
+</I>&gt;<i> =================
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/main.c
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/main.c
+</I>&gt;<i> @@ -43,6 +43,7 @@
+</I>&gt;<i>  #include &lt;linux/io.h&gt;
+</I>&gt;<i>  #include &lt;linux/dma-mapping.h&gt;
+</I>&gt;<i>  #include &lt;asm/unaligned.h&gt;
+</I>&gt;<i> +#include &lt;linux/pm_qos_params.h&gt;
+</I>&gt;<i> 
+</I>&gt;<i>  #include &quot;b43.h&quot;
+</I>&gt;<i>  #include &quot;main.h&quot;
+</I>&gt;<i> @@ -3881,6 +3882,8 @@ redo:
+</I>&gt;<i>  	if (!dev || b43_status(dev) &lt; B43_STAT_STARTED)
+</I>&gt;<i>  		return dev;
+</I>&gt;<i> 
+</I>&gt;<i> +	pm_qos_update_requirement(PM_QOS_CPU_DMA_LATENCY, &quot;b43&quot;,
+</I>&gt;<i> +				  PM_QOS_DEFAULT_VALUE);
+</I>&gt;<i>  	/* Cancel work. Unlock to avoid deadlocks. */
+</I>&gt;<i>  	mutex_unlock(&amp;wl-&gt;mutex);
+</I>&gt;<i>  	cancel_delayed_work_sync(&amp;dev-&gt;periodic_work);
+</I>&gt;<i> @@ -3963,6 +3966,9 @@ static int b43_wireless_core_start(struc
+</I>&gt;<i>  	/* We are ready to run. */
+</I>&gt;<i>  	b43_set_status(dev, B43_STAT_STARTED);
+</I>&gt;<i> 
+</I>&gt;<i> +	/* Set the maximum DMA latency */
+</I>&gt;<i> +	pm_qos_update_requirement(PM_QOS_CPU_DMA_LATENCY, &quot;b43&quot;, 200);
+</I>&gt;<i> +
+</I>&gt;<i>  	/* Start data flow (TX/RX). */
+</I>&gt;<i>  	b43_mac_enable(dev);
+</I>&gt;<i>  	b43_write32(dev, B43_MMIO_GEN_IRQ_MASK, dev-&gt;irq_mask);
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+Well, this one did not solve the problem but it certainly did help!
+
+It took me some effort to make it bug again... I worked fine for 5 
+minutes, I was able to browse the web and such. I was also 
+removed/inserted the module a few times. It finally crashed when I tried 
+to transfert a file of several MB.
+
+Maybe the 200ms delay should be less (or more?) I think I will try to 
+change it for some arbitrary number, just to see if it helps.
+
+- William
+
+
+[  393.039477] b43-phy1: Broadcom 4312 WLAN found (core revision 15)
+[  393.130317] b43-phy1 debug: Found PHY: Analog 6, Type 5, Revision 1
+[  393.130385] b43-phy1 debug: Found Radio: Manuf 0x17F, Version 0x2062, 
+Revision 2
+[  393.192506] phy1: Selected rate control algorithm 'minstrel'
+[  393.193173] Registered led device: b43-phy1::tx
+[  393.193241] Registered led device: b43-phy1::rx
+[  393.193309] Registered led device: b43-phy1::radio
+[  393.193674] Broadcom 43xx driver loaded [ Features: PLS, Firmware-ID: 
+FW13 ]
+[  421.362952] b43 ssb0:0: firmware: requesting b43/ucode15.fw
+[  421.381454] b43 ssb0:0: firmware: requesting b43/lp0initvals15.fw
+[  421.392366] b43 ssb0:0: firmware: requesting b43/lp0bsinitvals15.fw
+[  421.540362] b43-phy1: Loading firmware version 410.2160 (2007-05-26 
+15:32:10)
+[  421.542820] b43-phy1 debug: b2062: Using crystal tab entry 19200 kHz.
+[  422.222892] b43-phy1 debug: Chip initialized
+[  422.223311] b43-phy1 debug: 64-bit DMA initialized
+[  422.223442] b43-phy1 debug: QoS enabled
+[  422.261116] b43-phy1 debug: Wireless interface started
+[  422.280460] b43-phy1 debug: Adding Interface type 2
+...skipped
+[  440.655981] wlan0: associate with AP ca:fe:ca:fe:ca:fe (try 1)
+[  440.667704] wlan0: RX ReassocResp from ca:fe:ca:fe:ca:fe (capab=0x411 
+status=0 aid=193)
+[  440.667719] wlan0: invalid aid value 193; bits 15:14 not set
+[  440.667727] wlan0: associated
+[  450.040199] wlan0: no IPv6 routers present
+[  470.103377] b43-phy1 ERROR: PHY transmission error
+[  505.569818] b43-phy1 ERROR: PHY transmission error
+[  505.666591] b43-phy1 ERROR: PHY transmission error
+[  506.238169] b43-phy1 ERROR: PHY transmission error
+[  506.717960] b43-phy1 ERROR: PHY transmission error
+[  506.821628] b43-phy1 ERROR: PHY transmission error
+[  506.967619] b43-phy1 ERROR: PHY transmission error
+[  545.083221] b43-phy1 ERROR: PHY transmission error
+[  563.656362] b43-phy1 ERROR: PHY transmission error
+[  563.702653] b43-phy1 ERROR: PHY transmission error
+[  563.914893] b43-phy1 ERROR: PHY transmission error
+[  563.950189] b43-phy1 ERROR: PHY transmission error
+[  564.077438] b43-phy1 ERROR: PHY transmission error
+[  564.109533] b43-phy1 ERROR: PHY transmission error
+[  564.193257] b43-phy1 ERROR: PHY transmission error
+[  564.369051] b43-phy1 ERROR: PHY transmission error
+[  564.398540] b43-phy1 ERROR: PHY transmission error
+[  565.168589] b43: Dump of last 20 DMA descriptors
+[  565.168607] b43: Descr.  0: 0x60000000 0x68 0x3619FC74 0x80000000
+[  565.168619] b43: Descr.  1: 0x80000000 0x6E 0x36BFDEF0 0x80000000
+[  565.168629] b43: Descr.  2: 0x0 0x930 0x36B66020 0x80000000
+[  565.168639] b43: Descr.  3: 0x0 0x930 0x25989020 0x80000000
+[  565.168649] b43: Descr.  4: 0x60000000 0x68 0x25ACEC74 0x80000000
+[  565.168659] b43: Descr.  5: 0x80000000 0x6E 0x36BFDE82 0x80000000
+[  565.168669] b43: Descr.  6: 0x0 0x930 0x25806020 0x80000000
+[  565.168678] b43: Descr.  7: 0x0 0x930 0x2587B020 0x80000000
+[  565.168688] b43: Descr.  8: 0x60000000 0x68 0x36B50C74 0x80000000
+[  565.168698] b43: Descr.  9: 0x80000000 0x6E 0x36BFDE14 0x80000000
+[  565.168708] b43: Descr. 10: 0x0 0x930 0x259F3020 0x80000000
+[  565.168718] b43: Descr. 11: 0x0 0x930 0x35725020 0x80000000
+[  565.168728] b43: Descr. 12: 0x60000000 0x68 0x36045074 0x80000000
+[  565.168738] b43: Descr. 13: 0x80000000 0x6E 0x36BFDDA6 0x80000000
+[  565.168748] b43: Descr. 14: 0x0 0x930 0x36130020 0x80000000
+[  565.168758] b43: Descr. 15: 0x0 0x930 0x259B7020 0x80000000
+[  565.168768] b43: Descr. 16: 0x60000000 0x68 0x25854C74 0x80000000
+[  565.168778] b43: Descr. 17: 0x80000000 0x6E 0x36BFDD38 0x80000000
+[  565.168788] b43: Descr. 18: 0x0 0x930 0x36AA4020 0x80000000
+[  565.168798] b43: Descr. 19: 0x0 0x930 0x25925020 0x80000000
+[  565.169154] b43-phy1 debug: Wireless interface stopped
+[  565.169171] b43-phy1 debug: DMA-64 rx_ring: Used slots 2/64, Failed 
+frames 0/0 = 0.0%, Average tries 0.00
+[  565.169277] b43-phy1 debug: DMA-64 tx_ring_AC_BK: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  565.182764] b43-phy1 debug: DMA-64 tx_ring_AC_BE: Used slots 40/256, 
+Failed frames 22/1721 = 1.2%, Average tries 1.12
+[  565.202813] b43-phy1 debug: DMA-64 tx_ring_AC_VI: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  565.222753] b43-phy1 debug: DMA-64 tx_ring_AC_VO: Used slots 4/256, 
+Failed frames 0/71 = 0.0%, Average tries 1.00
+[  565.242745] b43-phy1 debug: DMA-64 tx_ring_mcast: Used slots 0/256, 
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[  565.500289] b43-phy1: Loading firmware version 410.2160 (2007-05-26 
+15:32:10)
+[  565.502746] b43-phy1 debug: b2062: Using crystal tab entry 19200 kHz.
+[  579.262745] b43-phy1 debug: Chip initialized
+[  579.263014] b43-phy1 debug: 64-bit DMA initialized
+[  579.263147] b43-phy1 debug: QoS enabled
+[  579.303401] b43-phy1 debug: Wireless interface started
+[  579.303412] __ratelimit: 7 callbacks suppressed
+[  579.303417] b43-phy1: Controller restarted
+[  579.322866] b43-phy1 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 
+0x00000000, 0x00000000, 0x00000000, 0x00000000
+[  579.322898] b43-phy1: Controller RESET (DMA error) ...
+[  579.322910] b43-phy1 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 
+0x00000000, 0x00000000, 0x00000000, 0x00000000
+[  579.322917] b43-phy1: Controller RESET (DMA error) ...
+[  579.323082] b43-phy1 debug: Wireless interface stopped
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006340.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+	<LI>Next message: <A HREF="006343.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6341">[ date ]</a>
+              <a href="thread.html#6341">[ thread ]</a>
+              <a href="subject.html#6341">[ subject ]</a>
+              <a href="author.html#6341">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

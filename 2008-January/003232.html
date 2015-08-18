@@ -1,0 +1,107 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: fix use-after-free rfkill bug
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20fix%20use-after-free%20rfkill%20bug&In-Reply-To=%3C20080113183552.17885131%40morte%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003233.html">
+   <LINK REL="Next"  HREF="003234.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: fix use-after-free rfkill bug</H1>
+    <B>Stefano Brivio</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20fix%20use-after-free%20rfkill%20bug&In-Reply-To=%3C20080113183552.17885131%40morte%3E"
+       TITLE="[PATCH] b43legacy: fix use-after-free rfkill bug">stefano.brivio at polimi.it
+       </A><BR>
+    <I>Sun Jan 13 18:35:52 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003233.html">[PATCH] b43: fix use-after-free rfkill bug
+</A></li>
+        <LI>Next message: <A HREF="003234.html">[PATCH] ssb: Add boardflags_hi field to the sprom data structure
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3232">[ date ]</a>
+              <a href="thread.html#3232">[ thread ]</a>
+              <a href="subject.html#3232">[ subject ]</a>
+              <a href="author.html#3232">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Fix rfkill code which caused a use-after-free bug. Thanks to David
+Woodhouse for spotting this out.
+
+Cc: David Woodhouse &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">dwmw2 at infradead.org</A>&gt;
+Signed-off-by: Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+---
+Index: wireless-2.6/drivers/net/wireless/b43legacy/rfkill.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/rfkill.c
++++ wireless-2.6/drivers/net/wireless/b43legacy/rfkill.c
+@@ -141,8 +141,11 @@ void b43legacy_rfkill_init(struct b43leg
+ 	rfk-&gt;rfkill-&gt;user_claim_unsupported = 1;
+ 
+ 	rfk-&gt;poll_dev = input_allocate_polled_device();
+-	if (!rfk-&gt;poll_dev)
+-		goto err_free_rfk;
++	if (!rfk-&gt;poll_dev) {
++		rfkill_free(rfk-&gt;rfkill);
++		goto err_freed_rfk;
++	}
++
+ 	rfk-&gt;poll_dev-&gt;private = dev;
+ 	rfk-&gt;poll_dev-&gt;poll = b43legacy_rfkill_poll;
+ 	rfk-&gt;poll_dev-&gt;poll_interval = 1000; /* msecs */
+@@ -178,8 +181,7 @@ err_unreg_rfk:
+ err_free_polldev:
+ 	input_free_polled_device(rfk-&gt;poll_dev);
+ 	rfk-&gt;poll_dev = NULL;
+-err_free_rfk:
+-	rfkill_free(rfk-&gt;rfkill);
++err_freed_rfk:
+ 	rfk-&gt;rfkill = NULL;
+ out_error:
+ 	rfk-&gt;registered = 0;
+@@ -198,7 +200,6 @@ void b43legacy_rfkill_exit(struct b43leg
+ 	rfkill_unregister(rfk-&gt;rfkill);
+ 	input_free_polled_device(rfk-&gt;poll_dev);
+ 	rfk-&gt;poll_dev = NULL;
+-	rfkill_free(rfk-&gt;rfkill);
+ 	rfk-&gt;rfkill = NULL;
+ }
+
+
+--
+Ciao
+Stefano
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003233.html">[PATCH] b43: fix use-after-free rfkill bug
+</A></li>
+	<LI>Next message: <A HREF="003234.html">[PATCH] ssb: Add boardflags_hi field to the sprom data structure
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3232">[ date ]</a>
+              <a href="thread.html#3232">[ thread ]</a>
+              <a href="subject.html#3232">[ subject ]</a>
+              <a href="author.html#3232">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

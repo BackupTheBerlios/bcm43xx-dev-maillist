@@ -1,0 +1,83 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb: Fix initcall ordering
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Fix%20initcall%20ordering&In-Reply-To=%3C200710271511.00404.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002605.html">
+   <LINK REL="Next"  HREF="002607.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb: Fix initcall ordering</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Fix%20initcall%20ordering&In-Reply-To=%3C200710271511.00404.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] ssb: Fix initcall ordering">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Oct 27 15:11:00 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002605.html">[PATCH] b43: Fix Kconfig for built-in
+</A></li>
+        <LI>Next message: <A HREF="002607.html">[PATCH] ssb: Fix initcall ordering
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2606">[ date ]</a>
+              <a href="thread.html#2606">[ thread ]</a>
+              <a href="subject.html#2606">[ subject ]</a>
+              <a href="author.html#2606">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>ssb must init after PCI but before the ssb drivers.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+Cc: Christian Casteyde &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">casteyde.christan at free.fr</A>&gt;
+Fixes-bug: #9219
+
+Index: wireless-2.6/drivers/ssb/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/ssb/main.c	2007-10-27 14:54:40.000000000 +0200
++++ wireless-2.6/drivers/ssb/main.c	2007-10-27 14:57:15.000000000 +0200
+@@ -1147,7 +1147,10 @@ static int __init ssb_modinit(void)
+ 
+ 	return err;
+ }
+-subsys_initcall(ssb_modinit);
++/* ssb must be initialized after PCI but before the ssb drivers.
++ * That means we must use some initcall between subsys_initcall
++ * and device_initcall. */
++fs_initcall(ssb_modinit);
+ 
+ static void __exit ssb_modexit(void)
+ {
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002605.html">[PATCH] b43: Fix Kconfig for built-in
+</A></li>
+	<LI>Next message: <A HREF="002607.html">[PATCH] ssb: Fix initcall ordering
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2606">[ date ]</a>
+              <a href="thread.html#2606">[ thread ]</a>
+              <a href="subject.html#2606">[ subject ]</a>
+              <a href="author.html#2606">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

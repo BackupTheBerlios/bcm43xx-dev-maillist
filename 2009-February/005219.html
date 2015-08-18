@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Capturing FCS error frames using b43 driver
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Capturing%20FCS%20error%20frames%20using%20b43%20driver&In-Reply-To=%3CBED723AA-2638-4E17-88ED-5B0ECD8AD2A6%40ing.unibs.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005218.html">
+   <LINK REL="Next"  HREF="005221.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Capturing FCS error frames using b43 driver</H1>
+    <B>Francesco Gringoli</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Capturing%20FCS%20error%20frames%20using%20b43%20driver&In-Reply-To=%3CBED723AA-2638-4E17-88ED-5B0ECD8AD2A6%40ing.unibs.it%3E"
+       TITLE="Capturing FCS error frames using b43 driver">francesco.gringoli at ing.unibs.it
+       </A><BR>
+    <I>Wed Feb 18 03:33:01 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005218.html">Capturing FCS error frames using b43 driver
+</A></li>
+        <LI>Next message: <A HREF="005221.html">Capturing FCS error frames using b43 driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5219">[ date ]</a>
+              <a href="thread.html#5219">[ thread ]</a>
+              <a href="subject.html#5219">[ subject ]</a>
+              <a href="author.html#5219">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Feb 18, 2009, at 12:23 AM, Michael Buesch wrote:
+
+&gt;<i> On Wednesday 18 February 2009 00:07:56 Bo Han wrote:
+</I>&gt;&gt;<i> I think I am working on the first sanity check in the driver, but  
+</I>&gt;&gt;<i> still
+</I>&gt;&gt;<i> cannot see any FCS error frames.  Is setting B43_MACCTL_KEEP_BAD  
+</I>&gt;&gt;<i> the only
+</I>&gt;&gt;<i> thing we need to do for the firmware?
+</I>&gt;<i>
+</I>&gt;<i> No. I suggest you don't touch that flag anyway and change the  
+</I>&gt;<i> corresponding
+</I>&gt;<i> mac80211 filter flag. You most likely can do that through cfg80211/ 
+</I>&gt;<i> nl80211/iw.
+</I>&gt;<i> It will take care to set the b43 flag.
+</I>
+Michael is right, the new iw interface eases all this stuff.
+
+There are however a few points that should be discussed
+
+- why b43_rx(...) (in xmit.c) does not mark the status with  
+RX_FLAG_FAILED_FCS_CRC when the firmware reports a B43_RX_MAC_FCSERR:  
+IMHO this should be done to prevent mac80211 to be corrupted and crash  
+the pc when a _very_ noisy frame arrives
+
+- is that correct to have status.rate_idx filled by functions  
+b43_plcp_get_bitrate_idx_ofdm and b43_plcp_get_bitrate_idx_cck that  
+compute those values reading the plcp? When a frame is ok, values are  
+correct and mac80211 uses them without problems. If instead the frame  
+is not ok, then mac80211 can warn a lot of message because values are  
+out of range. Should not we parse these values when FCS is bad and  
+sanitize them if out of range so that dmesg does not get filled with  
+warnings? Or probably there is another method to get those values,  
+e.g., the firmware can provide them reading from the radio instead of  
+computing them reading fields from the plcp?
+
+- I noticed that when in monitor mode and when set up to keep bad  
+frames, the radiotap header is not reporting FCS wrong for malformed  
+or corrupted frame as it should be, is that correct? Should not the  
+radiotap header be built on the status filled by first the driver then  
+mac80211?
+
+Cheers,
+-FG
+
+
+
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> -- 
+</I>&gt;<i> Greetings, Michael.
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Bcm43xx-dev mailing list
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>
+-------
+
+Francesco Gringoli, PhD - Assistant Professor
+Dept. of Electrical Engineering for Automation
+University of Brescia
+via Branze, 38
+25123 Brescia
+ITALY
+
+Ph:  ++39.030.3715843
+FAX: ++39.030.380014
+WWW: <A HREF="http://www.ing.unibs.it/~gringoli">http://www.ing.unibs.it/~gringoli</A>
+
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005218.html">Capturing FCS error frames using b43 driver
+</A></li>
+	<LI>Next message: <A HREF="005221.html">Capturing FCS error frames using b43 driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5219">[ date ]</a>
+              <a href="thread.html#5219">[ thread ]</a>
+              <a href="subject.html#5219">[ subject ]</a>
+              <a href="author.html#5219">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

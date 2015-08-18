@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> How to prevent bcm43xx from switching bit rate
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20How%20to%20prevent%20bcm43xx%20from%20switching%20bit%20rate&In-Reply-To=%3C46415D8D.1030005%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001232.html">
+   <LINK REL="Next"  HREF="001234.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>How to prevent bcm43xx from switching bit rate</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20How%20to%20prevent%20bcm43xx%20from%20switching%20bit%20rate&In-Reply-To=%3C46415D8D.1030005%40lwfinger.net%3E"
+       TITLE="How to prevent bcm43xx from switching bit rate">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Wed May  9 07:35:09 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001232.html">How to prevent bcm43xx from switching bit rate
+</A></li>
+        <LI>Next message: <A HREF="001234.html">How to prevent bcm43xx from switching bit rate
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1233">[ date ]</a>
+              <a href="thread.html#1233">[ thread ]</a>
+              <a href="subject.html#1233">[ subject ]</a>
+              <a href="author.html#1233">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Rafael J. Wysocki wrote:
+&gt;<i> Hi,
+</I>&gt;<i> 
+</I>&gt;<i> Is there any way to force bcm43xx to use specific bit rate (eg. 11 M)?
+</I>&gt;<i> 
+</I>&gt;<i> On my box it tends to automatically switch to 24 M, even if I do
+</I>&gt;<i> 
+</I>&gt;<i> # iwconfig eth1 rate 11M fixed
+</I>
+If you use git, reverting commit bb52a653eaef4aee877b2fa36de8699926f788bd will make your interface 
+always use 11 Mbs. In case you don't use git, this patch was the following:
+
+diff --git a/net/ieee80211/softmac/ieee80211softmac_module.c 
+b/net/ieee80211/softmac/ieee80211softmac_module.c
+index 256207b..770a068 100644
+--- a/net/ieee80211/softmac/ieee80211softmac_module.c
++++ b/net/ieee80211/softmac/ieee80211softmac_module.c
+@@ -265,17 +265,10 @@ void ieee80211softmac_init_bss(struct ieee80211softmac_device *mac)
+         /* Change the default txrate to the highest possible value.
+          * The txrate machine will lower it, if it is too high.
+          */
+-       /* FIXME: We don't correctly handle backing down to lower
+-          rates, so 801.11g devices start off at 11M for now. People
+-          can manually change it if they really need to, but 11M is
+-          more reliable. Note similar logic in
+-          ieee80211softmac_wx_set_rate() */
+-       if (ieee-&gt;modulation &amp; IEEE80211_CCK_MODULATION) {
++       if (ieee-&gt;modulation &amp; IEEE80211_OFDM_MODULATION)
++               txrates-&gt;user_rate = IEEE80211_OFDM_RATE_24MB;
++       else
+                 txrates-&gt;user_rate = IEEE80211_CCK_RATE_11MB;
+-       } else if (ieee-&gt;modulation &amp; IEEE80211_OFDM_MODULATION) {
+-               txrates-&gt;user_rate = IEEE80211_OFDM_RATE_54MB;
+-       } else
+-               assert(0);
+
+         txrates-&gt;default_rate = IEEE80211_CCK_RATE_1MB;
+         change |= IEEE80211SOFTMAC_TXRATECHG_DEFAULT;
+diff --git a/net/ieee80211/softmac/ieee80211softmac_wx.c b/net/ieee80211/softmac/ieee80211softmac_wx.c
+index fa2f7da..89c83fa 100644
+--- a/net/ieee80211/softmac/ieee80211softmac_wx.c
++++ b/net/ieee80211/softmac/ieee80211softmac_wx.c
+@@ -177,15 +177,10 @@ ieee80211softmac_wx_set_rate(struct net_device *net_dev,
+         int err = -EINVAL;
+
+         if (in_rate == -1) {
+-               /* FIXME: We don't correctly handle backing down to lower
+-                  rates, so 801.11g devices start off at 11M for now. People
+-                  can manually change it if they really need to, but 11M is
+-                  more reliable. Note similar logic in
+-                  ieee80211softmac_wx_set_rate() */
+-               if (ieee-&gt;modulation &amp; IEEE80211_CCK_MODULATION)
+-                       in_rate = 11000000;
++               if (ieee-&gt;modulation &amp; IEEE80211_OFDM_MODULATION)
++                       in_rate = 24000000;
+                 else
+-                       in_rate = 54000000;
++                       in_rate = 11000000;
+         }
+
+         switch (in_rate) {
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001232.html">How to prevent bcm43xx from switching bit rate
+</A></li>
+	<LI>Next message: <A HREF="001234.html">How to prevent bcm43xx from switching bit rate
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1233">[ date ]</a>
+              <a href="thread.html#1233">[ thread ]</a>
+              <a href="subject.html#1233">[ subject ]</a>
+              <a href="author.html#1233">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

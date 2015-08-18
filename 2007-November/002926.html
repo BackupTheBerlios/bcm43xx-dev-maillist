@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Bug 9414] Not work light of button-led with module b43 in	chipset broadcom 4318
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BBug%209414%5D%20Not%20work%20light%20of%20button-led%20with%20module%20b43%20in%0A%09chipset%20broadcom%204318&In-Reply-To=%3C200711271950.08609.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002925.html">
+   <LINK REL="Next"  HREF="002930.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Bug 9414] Not work light of button-led with module b43 in	chipset broadcom 4318</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BBug%209414%5D%20Not%20work%20light%20of%20button-led%20with%20module%20b43%20in%0A%09chipset%20broadcom%204318&In-Reply-To=%3C200711271950.08609.mb%40bu3sch.de%3E"
+       TITLE="[Bug 9414] Not work light of button-led with module b43 in	chipset broadcom 4318">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Nov 27 19:50:08 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002925.html">[Bug 9414] Not work light of button-led with module b43 in chipset	broadcom 4318
+</A></li>
+        <LI>Next message: <A HREF="002930.html">Patch available to use BCM4311/2 with mainline kernels
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2926">[ date ]</a>
+              <a href="thread.html#2926">[ thread ]</a>
+              <a href="subject.html#2926">[ subject ]</a>
+              <a href="author.html#2926">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tuesday 27 November 2007 19:33:41 Larry Finger wrote:
+&gt;<i> Ivo van Doorn wrote:
+</I>&gt;<i> &gt; Hi,
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt;&gt;&gt; On Monday 26 November 2007 23:15:53 Larry Finger wrote:
+</I>&gt;<i> &gt;&gt;&gt;&gt; Based on the code in the rtx200 directories that has a call to input_allocate_device() that was not
+</I>&gt;<i> &gt;&gt;&gt;&gt; present in b43, I made a modification to drivers/net/wireless/b43/rfkill.c as follows:
+</I>&gt;<i> &gt;&gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt;&gt; Index: wireless-2.6/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> &gt;&gt;&gt;&gt; ===================================================================
+</I>&gt;<i> &gt;&gt;&gt;&gt; --- wireless-2.6.orig/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> &gt;&gt;&gt;&gt; +++ wireless-2.6/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> &gt;&gt;&gt;&gt; @@ -133,6 +133,16 @@ void b43_rfkill_init(struct b43_wldev *d
+</I>&gt;<i> &gt;&gt;&gt;&gt;  	rfk-&gt;poll_dev-&gt;poll = b43_rfkill_poll;
+</I>&gt;<i> &gt;&gt;&gt;&gt;  	rfk-&gt;poll_dev-&gt;poll_interval = 1000; /* msecs */
+</I>&gt;<i> &gt;&gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt;&gt; +	rfk-&gt;poll_dev-&gt;input = input_allocate_device();
+</I>&gt;<i> &gt;&gt;&gt;&gt; +	if (!rfk-&gt;poll_dev-&gt;input)
+</I>&gt;<i> &gt;&gt;&gt;&gt; +		goto err_free_polldev;
+</I>&gt;<i> &gt;&gt;&gt;&gt; +
+</I>&gt;<i> &gt;&gt;&gt;&gt; +	rfk-&gt;poll_dev-&gt;input-&gt;name = rfk-&gt;name;
+</I>&gt;<i> &gt;&gt;&gt;&gt; +	rfk-&gt;poll_dev-&gt;input-&gt;id.bustype = BUS_HOST;
+</I>&gt;<i> &gt;&gt;&gt;&gt; +	rfk-&gt;poll_dev-&gt;input-&gt;id.vendor = dev-&gt;dev-&gt;bus-&gt;boardinfo.vendor;
+</I>&gt;<i> &gt;&gt;&gt;&gt; +	rfk-&gt;poll_dev-&gt;input-&gt;evbit[0] = BIT(EV_KEY);
+</I>&gt;<i> &gt;&gt;&gt;&gt; +	set_bit(KEY_WLAN, rfk-&gt;poll_dev-&gt;input-&gt;keybit);
+</I>&gt;<i> &gt;&gt;&gt;&gt; +
+</I>&gt;<i> &gt;&gt;&gt; Ehm, you saw a few lines above that we do
+</I>&gt;<i> &gt;&gt;&gt; input_allocate_polled_device()?
+</I>&gt;<i> &gt;&gt; I had not investigated the details of input_allocate_polled_device(). The part that was missing in
+</I>&gt;<i> &gt;&gt; b43 is the initialization of the rfk-&gt;poll_dev-&gt;input data. I will be posting a patch/hack that
+</I>&gt;<i> &gt;&gt; restores the LED behavior that we had before the rfkill code went in.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; The concept of input_allocate_polled_device() was misintepretet by me as well,
+</I>&gt;<i> &gt; but when allocating the polled device, you also must allocate a input device seperately
+</I>&gt;<i> &gt; and make sure the poll_dev-&gt;input pointer is initialized. Otherwise the polled dev registration
+</I>&gt;<i> &gt; will fail.
+</I>&gt;<i> 
+</I>&gt;<i> My testing shows that the separate input_allocate_device call is not needed - only the
+</I>&gt;<i> initialization is required.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt;&gt; BTW, there is a bug in rt2x00rfkill.c.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Where?
+</I>&gt;<i> 
+</I>&gt;<i> It is not a bug as much as redundant code.
+</I>
+It is a memory leak in rt2x00rfkill.c, as the structure is allocated twice.
+Ivo, look at the code of input_allocate_polled_device(). It already
+allocates the input dev.
+
+&gt;<i> I posted a patch to clean up the code, which went to the 
+</I>&gt;<i> wireless mailing list and to rt2400-dev. Sorry, I forgot to include you.
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002925.html">[Bug 9414] Not work light of button-led with module b43 in chipset	broadcom 4318
+</A></li>
+	<LI>Next message: <A HREF="002930.html">Patch available to use BCM4311/2 with mainline kernels
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2926">[ date ]</a>
+              <a href="thread.html#2926">[ thread ]</a>
+              <a href="subject.html#2926">[ subject ]</a>
+              <a href="author.html#2926">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

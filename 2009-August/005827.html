@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Fix another TX power control abuse
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Fix%20another%20TX%20power%20control%20abuse&In-Reply-To=%3C69e28c910908141500s2e6ee71avcebffd6107fe5a1%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005825.html">
+   <LINK REL="Next"  HREF="005828.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Fix another TX power control abuse</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Fix%20another%20TX%20power%20control%20abuse&In-Reply-To=%3C69e28c910908141500s2e6ee71avcebffd6107fe5a1%40mail.gmail.com%3E"
+       TITLE="[PATCH] b43: LP-PHY: Fix another TX power control abuse">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Sat Aug 15 00:00:59 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005825.html">[PATCH] b43: LP-PHY: Fix another TX power control abuse
+</A></li>
+        <LI>Next message: <A HREF="005828.html">[PATCH] b43: LP-PHY: Fix another TX power control abuse
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5827">[ date ]</a>
+              <a href="thread.html#5827">[ thread ]</a>
+              <a href="subject.html#5827">[ subject ]</a>
+              <a href="author.html#5827">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>2009/8/14 Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;:
+&gt;<i> G&#225;bor Stefanik wrote:
+</I>&gt;&gt;<i> This should fix the remaining WARN_ON.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+</I>&gt;&gt;<i> ---
+</I>&gt;&gt;<i> drivers/net/wireless/b43/phy_lp.c | &#160; &#160;7 ++++---
+</I>&gt;&gt;<i> 1 files changed, 4 insertions(+), 3 deletions(-)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> index bf89173..3872a31 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> @@ -1059,7 +1059,8 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev
+</I>&gt;&gt;<i> *dev)
+</I>&gt;&gt;<i> &#160; &#160; bool old_txg_ovr;
+</I>&gt;&gt;<i> &#160; &#160; u8 old_bbmult;
+</I>&gt;&gt;<i> &#160; &#160; u16 old_rf_ovr, old_rf_ovrval, old_afe_ovr, old_afe_ovrval,
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160;old_rf2_ovr, old_rf2_ovrval, old_phy_ctl, old_txpctl;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160;old_rf2_ovr, old_rf2_ovrval, old_phy_ctl;
+</I>&gt;&gt;<i> + &#160; &#160;enum b43_lpphy_txpctl_mode old_txpctl;
+</I>&gt;&gt;<i> &#160; &#160; u32 normal_pwr, ideal_pwr, mean_sq_pwr, tmp = 0, mean_sq_pwr_min = 0;
+</I>&gt;&gt;<i> &#160; &#160; int loopback, i, j, inner_sum;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> @@ -1077,8 +1078,8 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev
+</I>&gt;&gt;<i> *dev)
+</I>&gt;&gt;<i> &#160; &#160; old_rf2_ovr = b43_phy_read(dev, B43_LPPHY_RF_OVERRIDE_2);
+</I>&gt;&gt;<i> &#160; &#160; old_rf2_ovrval = b43_phy_read(dev, B43_LPPHY_RF_OVERRIDE_2_VAL);
+</I>&gt;&gt;<i> &#160; &#160; old_phy_ctl = b43_phy_read(dev, B43_LPPHY_LP_PHY_CTL);
+</I>&gt;&gt;<i> - &#160; &#160;old_txpctl = b43_phy_read(dev, B43_LPPHY_TX_PWR_CTL_CMD) &amp;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;B43_LPPHY_TX_PWR_CTL_CMD_MODE;
+</I>&gt;&gt;<i> + &#160; &#160;lpphy_read_tx_pctl_mode_from_hardware(dev);
+</I>&gt;&gt;<i> + &#160; &#160;old_txpctl = lpphy-&gt;txpctl_mode;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; lpphy_set_tx_power_control(dev, B43_LPPHY_TXPCTL_OFF);
+</I>&gt;&gt;<i> &#160; &#160; lpphy_disable_crs(dev);
+</I>&gt;<i>
+</I>&gt;<i> Yes, this one got rid of the warnings.
+</I>&gt;<i>
+</I>&gt;<i> Larry
+</I>&gt;<i>
+</I>&gt;<i>
+</I>
+I guess the device still doesn't TX/RX.
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005825.html">[PATCH] b43: LP-PHY: Fix another TX power control abuse
+</A></li>
+	<LI>Next message: <A HREF="005828.html">[PATCH] b43: LP-PHY: Fix another TX power control abuse
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5827">[ date ]</a>
+              <a href="thread.html#5827">[ thread ]</a>
+              <a href="subject.html#5827">[ subject ]</a>
+              <a href="author.html#5827">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

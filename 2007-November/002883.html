@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH V2] b43: Changes to enable BCM4311 rev 02 with wireless	core revision 13
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20b43%3A%20Changes%20to%20enable%20BCM4311%20rev%2002%20with%20wireless%0A%09core%20revision%2013&In-Reply-To=%3C200711231447.19262.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002873.html">
+   <LINK REL="Next"  HREF="002861.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH V2] b43: Changes to enable BCM4311 rev 02 with wireless	core revision 13</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20b43%3A%20Changes%20to%20enable%20BCM4311%20rev%2002%20with%20wireless%0A%09core%20revision%2013&In-Reply-To=%3C200711231447.19262.mb%40bu3sch.de%3E"
+       TITLE="[PATCH V2] b43: Changes to enable BCM4311 rev 02 with wireless	core revision 13">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Nov 23 14:47:18 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002873.html">[PATCH V2] b43: Changes to enable BCM4311 rev 02 with wireless	core revision 13
+</A></li>
+        <LI>Next message: <A HREF="002861.html">timeout problems with certain APs and b43
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2883">[ date ]</a>
+              <a href="thread.html#2883">[ thread ]</a>
+              <a href="subject.html#2883">[ subject ]</a>
+              <a href="author.html#2883">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 23 November 2007 06:36:55 Larry Finger wrote:
+&gt;<i> Michael Buesch wrote:
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; partially acked.
+</I>&gt;<i> &gt; Though, I'm not quite sure yet why you remove that
+</I>&gt;<i> &gt; address extension bits. The specs clearly say that they _are_ there.
+</I>&gt;<i> &gt; And it makes sense to use them, as two bytes of the address are used
+</I>&gt;<i> &gt; for the routing stuff. So the highest 2 bits of the address have to be put
+</I>&gt;<i> &gt; somewhere else. That's the &quot;Transmit Channel Control Word&quot; and
+</I>&gt;<i> &gt; &quot;Receive Channel Control Word&quot; where 0x00030000 are the extension bits.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> 
+</I>&gt;<i> The appropriate section of dmacontroller_setup() in my patched source is as follows:
+</I>&gt;<i> 
+</I>&gt;<i>         if (ring-&gt;tx) {
+</I>&gt;<i>                 if (ring-&gt;dma64) {
+</I>&gt;<i>                         u64 ringbase = (u64) (ring-&gt;dmabase);
+</I>&gt;<i> 
+</I>&gt;<i>                         b43_dma_write(ring, B43_DMA64_TXCTL,
+</I>&gt;<i>                                       B43_DMA64_TXENABLE);
+</I>&gt;<i>                         b43_dma_write(ring, B43_DMA64_TXRINGLO,
+</I>&gt;<i>                                       (ringbase &amp; 0xFFFFFFFF));
+</I>&gt;<i>                         b43_dma_write(ring, B43_DMA64_TXRINGHI,
+</I>&gt;<i>                                       (ringbase &gt;&gt; 32));
+</I>&gt;<i>                 } else {
+</I>&gt;<i> 			...... untouched 32-bit stuff ....
+</I>&gt;<i> 		}
+</I>&gt;<i>         } else {
+</I>&gt;<i>                 err = alloc_initial_descbuffers(ring);
+</I>&gt;<i>                 if (err)
+</I>&gt;<i>                         goto out;
+</I>&gt;<i>                 if (ring-&gt;dma64) {
+</I>&gt;<i>                         u64 ringbase = (u64) (ring-&gt;dmabase);
+</I>&gt;<i> 
+</I>&gt;<i>                         value = (ring-&gt;frameoffset &lt;&lt; B43_DMA64_RXFROFF_SHIFT)
+</I>&gt;<i>                                 | B43_DMA64_RXENABLE;
+</I>&gt;<i>                         b43_dma_write(ring, B43_DMA64_RXCTL, value);
+</I>&gt;<i>                         b43_dma_write(ring, B43_DMA64_RXRINGLO,
+</I>&gt;<i>                                       (ringbase &amp; 0xFFFFFFFF));
+</I>&gt;<i>                         b43_dma_write(ring, B43_DMA64_RXRINGHI,
+</I>&gt;<i>                                       (ringbase &gt;&gt; 32));
+</I>&gt;<i>                         b43_dma_write(ring, B43_DMA64_RXINDEX, ring-&gt;nr_slots *
+</I>&gt;<i>                                       sizeof(struct b43_dmadesc64));
+</I>&gt;<i>                 } else {
+</I>&gt;<i> 			........... 32-bit stuff ........
+</I>&gt;<i> 	}
+</I>&gt;<i> 
+</I>&gt;<i> No address extensions are used here because the specs clearly state that a flat 64-bit address is
+</I>&gt;<i> used to specify the Descriptor Ring address. My code matches the specs.
+</I>
+I'm not sure which specifications you use, but here it clearly describes the
+extension bits:
+<A HREF="http://bcm-v4.sipsolutions.net/802.11/DMA#TransmitChannelControlWord-1">http://bcm-v4.sipsolutions.net/802.11/DMA#TransmitChannelControlWord-1</A>
+
+&gt;<i> &gt; However I do think that this might be related to the bug you are explaining
+</I>&gt;<i> &gt; in the comment:
+</I>&gt;<i> &gt;&gt; +	 * For unknown reasons - possibly a hardware error - the BCM4311 rev
+</I>&gt;<i> &gt;&gt; +	 * 02, which uses 64-bit DMA, needs the ring buffer in very low memory,
+</I>&gt;<i> &gt;&gt; +	 * which accounts for the GFP_DMA flag below.
+</I>
+&gt;<i> the error, and that part does not use any extension bits. Secondly, the address extension stuff
+</I>&gt;<i> would only apply if my computer had more than 2^(62) bytes of RAM, which is something like 10
+</I>&gt;<i> billion GB - an amount that probably exceeds the total RAM in the world.
+</I>
+This is not true. We live in a world with IO-MMUs.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002873.html">[PATCH V2] b43: Changes to enable BCM4311 rev 02 with wireless	core revision 13
+</A></li>
+	<LI>Next message: <A HREF="002861.html">timeout problems with certain APs and b43
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2883">[ date ]</a>
+              <a href="thread.html#2883">[ thread ]</a>
+              <a href="subject.html#2883">[ subject ]</a>
+              <a href="author.html#2883">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

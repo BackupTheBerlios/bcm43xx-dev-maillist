@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Wireless-testing%27s%20b43%20panics%20in%20b43_generate_txhdr%20on%20packet%0A%09transmit&In-Reply-To=%3C20080602000841.qjrd66s3esgscko0-cebfxv%40fcnzpbc.arg%40webmail.spamcop.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004178.html">
+   <LINK REL="Next"  HREF="004185.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Wireless-testing%27s%20b43%20panics%20in%20b43_generate_txhdr%20on%20packet%0A%09transmit&In-Reply-To=%3C20080602000841.qjrd66s3esgscko0-cebfxv%40fcnzpbc.arg%40webmail.spamcop.net%3E"
+       TITLE="Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit">proski at gnu.org
+       </A><BR>
+    <I>Mon Jun  2 06:08:41 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004178.html">cancel_work_sync() question
+</A></li>
+        <LI>Next message: <A HREF="004185.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4184">[ date ]</a>
+              <a href="thread.html#4184">[ thread ]</a>
+              <a href="subject.html#4184">[ subject ]</a>
+              <a href="author.html#4184">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Quoting Johannes Berg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">johannes at sipsolutions.net</A>&gt;:
+
+&gt;&gt;<i> &gt; info-&gt;control.hw_key is NULL.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Is a NULL pointer supposed to tell &quot;do not encrypt&quot;, or is this a   
+</I>&gt;&gt;<i> mac80211 bug?
+</I>&gt;<i>
+</I>&gt;<i> It's probably a bug.
+</I>
+I've bisected it to commit 57ccbb1cbe3f8e10a500ff8b9fb26dc1a542fe99:
+mac80211: move TX info into skb-&gt;cb
+
+It turns out that commit introduces two sparse warnings in net/mac80211/wpa.c:
+
+net/mac80211/wpa.c:202:10: warning: incorrect type in return  
+expression (different base types)
+net/mac80211/wpa.c:202:10:    expected int
+net/mac80211/wpa.c:202:10:    got restricted ieee80211_tx_result  
+[usertype] &lt;noident&gt;
+net/mac80211/wpa.c:448:10: warning: incorrect type in return  
+expression (different base types)
+net/mac80211/wpa.c:448:10:    expected int
+net/mac80211/wpa.c:448:10:    got restricted ieee80211_tx_result  
+[usertype] &lt;noident&gt;
+
+That's returning TX_CONTINUE from tkip_encrypt_skb() and  
+ccmp_encrypt_skb(), where an integer should be returned.  Both times  
+it happens after info-&gt;control.hw_key is set.  The callers of those  
+functions check for negative numbers only, but TX_CONTINUE is 0, and  
+TX_DROP is 1.  Something must be wrong there.
+
+wep_encrypt_skb() in wep.c would not return TX_CONTINUE.  But most  
+importantly, there is a suspicious change in wep_encrypt_skb() - the  
+key is set in the other branch of the condition.
+
+I'll try to restore the original logic in wep.c.  I'll post a patch if  
+it works.
+
+-- 
+Regards,
+Pavel Roskin
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004178.html">cancel_work_sync() question
+</A></li>
+	<LI>Next message: <A HREF="004185.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4184">[ date ]</a>
+              <a href="thread.html#4184">[ thread ]</a>
+              <a href="subject.html#4184">[ subject ]</a>
+              <a href="author.html#4184">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

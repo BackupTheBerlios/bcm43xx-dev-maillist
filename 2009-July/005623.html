@@ -1,0 +1,130 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Improved opensource firmware
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Improved%20opensource%20firmware&In-Reply-To=%3C4A69C9D1.3060905%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005622.html">
+   <LINK REL="Next"  HREF="005624.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Improved opensource firmware</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Improved%20opensource%20firmware&In-Reply-To=%3C4A69C9D1.3060905%40lwfinger.net%3E"
+       TITLE="Improved opensource firmware">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Jul 24 16:48:49 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005622.html">Improved opensource firmware
+</A></li>
+        <LI>Next message: <A HREF="005624.html">Improved opensource firmware
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5623">[ date ]</a>
+              <a href="thread.html#5623">[ thread ]</a>
+              <a href="subject.html#5623">[ subject ]</a>
+              <a href="author.html#5623">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Francesco,
+
+Sorry, but I missed a warning about DMA queue overflow that was being
+logged as follows:
+
+ ------------[ cut here ]------------
+ WARNING: at drivers/net/wireless/b43/dma.c:1342
+b43_dma_tx+0x115/0x9b2 [b43]()
+ Hardware name: HP Pavilion dv2700 Notebook PC
+ Modules linked in: b43 ssb rng_core mac80211 cfg80211 rfkill
+led_class aes_x86_64 aes_gene
+ric af_packet snd_pcm_oss snd_mixer_oss snd_seq snd_seq_device nfs
+lockd nfs_acl auth_rpcgss vboxnetadp sunrpc vboxnetflt v
+boxdrv cpufreq_conservative cpufreq_userspace cpufreq_powersave
+powernow_k8 fuse ext4 jbd2 crc16 loop dm_mod ide_cd_mod cdr
+om snd_hda_codec_conexant arc4 ecb ide_pci_generic snd_hda_intel
+snd_hda_codec snd_pcm snd_timer ac k8temp amd74xx i2c_nfor
+ce2 battery snd sg serio_raw button forcedeth hwmon soundcore
+snd_page_alloc ide_core joydev i2c_core sd_mod ohci_hcd ehci_
+hcd usbcore edd ahci libata scsi_mod ext3 mbcache jbd fan thermal
+processor [last unloaded: led_class]
+ Pid: 10623, comm: tcpperf Tainted: G        W  2.6.31-rc3-wl #183
+ Call Trace:
+  [&lt;ffffffffa06cfeed&gt;] ? b43_dma_tx+0x115/0x9b2 [b43]
+  [&lt;ffffffff8103f426&gt;] warn_slowpath_common+0x77/0xa4
+  [&lt;ffffffff8103f462&gt;] warn_slowpath_null+0xf/0x11
+  [&lt;ffffffffa06cfeed&gt;] b43_dma_tx+0x115/0x9b2 [b43]
+  [&lt;ffffffffa06be7af&gt;] ? b43_op_tx+0x60/0x9e [b43]
+  [&lt;ffffffffa06be7c5&gt;] b43_op_tx+0x76/0x9e [b43]
+  [&lt;ffffffffa06950c7&gt;] __ieee80211_tx+0xa3/0x104 [mac80211]
+  [&lt;ffffffffa069524c&gt;] ieee80211_tx+0x124/0x272 [mac80211]
+  [&lt;ffffffffa0695169&gt;] ? ieee80211_tx+0x41/0x272 [mac80211]
+  [&lt;ffffffffa0695604&gt;] ieee80211_xmit+0x26a/0x28e [mac80211]
+  [&lt;ffffffffa0696372&gt;] ieee80211_subif_start_xmit+0x516/0x538 [mac80211]
+  [&lt;ffffffffa069606a&gt;] ? ieee80211_subif_start_xmit+0x20e/0x538 [mac80211]
+  [&lt;ffffffff8106380f&gt;] ? trace_hardirqs_on_caller+0xf1/0x12f
+  [&lt;ffffffff8106385a&gt;] ? trace_hardirqs_on+0xd/0xf
+  [&lt;ffffffff81202e3c&gt;] ? __kfree_skb+0x82/0x86
+  [&lt;ffffffff8120b38f&gt;] dev_hard_start_xmit+0x254/0x302
+  [&lt;ffffffff8120b199&gt;] ? dev_hard_start_xmit+0x5e/0x302
+  [&lt;ffffffff8121cafa&gt;] __qdisc_run+0xf5/0x208
+  [&lt;ffffffff8120b79a&gt;] dev_queue_xmit+0x24b/0x390
+  [&lt;ffffffff8120b6c4&gt;] ? dev_queue_xmit+0x175/0x390
+  [&lt;ffffffff8122c631&gt;] ip_finish_output+0x239/0x27f
+  [&lt;ffffffff810dce0c&gt;] ? do_select+0x5b7/0x5d6
+  [&lt;ffffffff8122c720&gt;] ip_output+0xa9/0xad
+  [&lt;ffffffff8122b7b3&gt;] ip_local_out+0x20/0x24
+  [&lt;ffffffff8122c020&gt;] ip_queue_xmit+0x2e0/0x337
+  [&lt;ffffffff8123d20d&gt;] tcp_transmit_skb+0x600/0x643
+  [&lt;ffffffff8123f71b&gt;] tcp_write_xmit+0x83f/0x924
+  [&lt;ffffffff810449d0&gt;] ? local_bh_enable+0xc9/0xce
+  [&lt;ffffffff8123f82f&gt;] tcp_push_one+0x2f/0x31
+  [&lt;ffffffff81233cda&gt;] tcp_sendmsg+0x7d1/0xa2e
+  [&lt;ffffffff811fc5ce&gt;] sock_sendmsg+0xdf/0xf8
+  [&lt;ffffffff810b060b&gt;] ? might_fault+0xaf/0xb1
+  [&lt;ffffffff81054e88&gt;] ? autoremove_wake_function+0x0/0x38
+  [&lt;ffffffff810dce68&gt;] ? core_sys_select+0x3d/0x2b4
+  [&lt;ffffffff81063829&gt;] ? trace_hardirqs_on_caller+0x10b/0x12f
+  [&lt;ffffffff8106385a&gt;] ? trace_hardirqs_on+0xd/0xf
+  [&lt;ffffffff811fbeff&gt;] ? sockfd_lookup_light+0x1b/0x54
+  [&lt;ffffffff811fd150&gt;] sys_sendto+0xdf/0x107
+  [&lt;ffffffff81058077&gt;] ? ktime_get_ts+0x49/0x4e
+  [&lt;ffffffff810dbfbd&gt;] ? poll_select_copy_remaining+0xc5/0xea
+  [&lt;ffffffff8100ba6b&gt;] system_call_fastpath+0x16/0x1b
+ ---[ end trace 3cd1097c91b647a6 ]---
+ b43-phy0 warning: DMA queue overflow
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005622.html">Improved opensource firmware
+</A></li>
+	<LI>Next message: <A HREF="005624.html">Improved opensource firmware
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5623">[ date ]</a>
+              <a href="thread.html#5623">[ thread ]</a>
+              <a href="subject.html#5623">[ subject ]</a>
+              <a href="author.html#5623">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

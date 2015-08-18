@@ -1,0 +1,223 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43_suspend problem
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43_suspend%20problem&In-Reply-To=%3C200801211605.10446.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003261.html">
+   <LINK REL="Next"  HREF="003264.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43_suspend problem</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43_suspend%20problem&In-Reply-To=%3C200801211605.10446.mb%40bu3sch.de%3E"
+       TITLE="b43_suspend problem">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Jan 21 16:05:10 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003261.html">b43_suspend problem
+</A></li>
+        <LI>Next message: <A HREF="003264.html">b43_suspend problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3262">[ date ]</a>
+              <a href="thread.html#3262">[ thread ]</a>
+              <a href="subject.html#3262">[ subject ]</a>
+              <a href="author.html#3262">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 21 January 2008, Rafael J. Wysocki wrote:
+&gt;<i> I modified the patch to implement something like this.  This still is one big
+</I>&gt;<i> patch against everything what's necessary.  [BTW, in the current version
+</I>&gt;<i> of the code, b43_resume() may leave wl-&gt;mutex locked in the error paths,
+</I>&gt;<i> which also is fixed by the patch.]
+</I>
+Whoopsy, thanks for catching this.
+
+&gt;<i> Index: linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- linux-2.6.24-rc8-mm1.orig/drivers/net/wireless/b43/main.c
+</I>&gt;<i> +++ linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/main.c
+</I>&gt;<i> @@ -2470,10 +2470,10 @@ static int b43_rng_read(struct hwrng *rn
+</I>&gt;<i>  	return (sizeof(u16));
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i> -static void b43_rng_exit(struct b43_wl *wl)
+</I>&gt;<i> +static void b43_rng_exit(struct b43_wl *wl, bool suspended)
+</I>&gt;<i>  {
+</I>&gt;<i>  	if (wl-&gt;rng_initialized)
+</I>&gt;<i> -		hwrng_unregister(&amp;wl-&gt;rng);
+</I>&gt;<i> +		__hwrng_unregister(&amp;wl-&gt;rng, suspended);
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i>  static int b43_rng_init(struct b43_wl *wl)
+</I>&gt;<i> @@ -3298,8 +3298,10 @@ static void b43_wireless_core_exit(struc
+</I>&gt;<i>  		return;
+</I>&gt;<i>  	b43_set_status(dev, B43_STAT_UNINIT);
+</I>&gt;<i>  
+</I>&gt;<i> -	b43_leds_exit(dev);
+</I>&gt;<i> -	b43_rng_exit(dev-&gt;wl);
+</I>&gt;<i> +	if (!dev-&gt;suspend_in_progress) {
+</I>&gt;<i> +		b43_leds_exit(dev);
+</I>&gt;<i> +		b43_rng_exit(dev-&gt;wl, false);
+</I>&gt;<i> +	}
+</I>&gt;<i>  	b43_pio_free(dev);
+</I>&gt;<i>  	b43_dma_free(dev);
+</I>&gt;<i>  	b43_chip_exit(dev);
+</I>&gt;<i> @@ -3420,11 +3422,13 @@ static int b43_wireless_core_init(struct
+</I>&gt;<i>  	memset(wl-&gt;mac_addr, 0, ETH_ALEN);
+</I>&gt;<i>  	b43_upload_card_macaddress(dev);
+</I>&gt;<i>  	b43_security_init(dev);
+</I>&gt;<i> -	b43_rng_init(wl);
+</I>&gt;<i> +	if (!dev-&gt;suspend_in_progress)
+</I>&gt;<i> +		b43_rng_init(wl);
+</I>&gt;<i>  
+</I>&gt;<i>  	b43_set_status(dev, B43_STAT_INITIALIZED);
+</I>&gt;<i>  
+</I>&gt;<i> -	b43_leds_init(dev);
+</I>&gt;<i> +	if (!dev-&gt;suspend_in_progress)
+</I>&gt;<i> +		b43_leds_init(dev);
+</I>&gt;<i>  out:
+</I>&gt;<i>  	return err;
+</I>&gt;<i>  
+</I>&gt;<i> @@ -4024,6 +4028,7 @@ static int b43_suspend(struct ssb_device
+</I>&gt;<i>  	b43dbg(wl, &quot;Suspending...\n&quot;);
+</I>&gt;<i>  
+</I>&gt;<i>  	mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;<i> +	wldev-&gt;suspend_in_progress = true;
+</I>&gt;<i>  	wldev-&gt;suspend_init_status = b43_status(wldev);
+</I>&gt;<i>  	if (wldev-&gt;suspend_init_status &gt;= B43_STAT_STARTED)
+</I>&gt;<i>  		b43_wireless_core_stop(wldev);
+</I>&gt;<i> @@ -4055,15 +4060,17 @@ static int b43_resume(struct ssb_device 
+</I>&gt;<i>  	if (wldev-&gt;suspend_init_status &gt;= B43_STAT_STARTED) {
+</I>&gt;<i>  		err = b43_wireless_core_start(wldev);
+</I>&gt;<i>  		if (err) {
+</I>&gt;<i> +			b43_leds_resume_exit(wldev);
+</I>&gt;<i> +			b43_rng_exit(wldev-&gt;wl, true);
+</I>&gt;<i>  			b43_wireless_core_exit(wldev);
+</I>&gt;<i>  			b43err(wl, &quot;Resume failed at core start\n&quot;);
+</I>&gt;<i>  			goto out;
+</I>&gt;<i>  		}
+</I>&gt;<i>  	}
+</I>&gt;<i> -	mutex_unlock(&amp;wl-&gt;mutex);
+</I>&gt;<i> -
+</I>&gt;<i>  	b43dbg(wl, &quot;Device resumed.\n&quot;);
+</I>&gt;<i> -      out:
+</I>&gt;<i> + out:
+</I>&gt;<i> +	wldev-&gt;suspend_in_progress = false;
+</I>&gt;<i> +	mutex_unlock(&amp;wl-&gt;mutex);
+</I>&gt;<i>  	return err;
+</I>&gt;<i>  }
+</I>&gt;<i>
+</I>
+This part looks OK.
+
+&gt;<i> Index: linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/leds.h
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- linux-2.6.24-rc8-mm1.orig/drivers/net/wireless/b43/leds.h
+</I>&gt;<i> +++ linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/leds.h
+</I>&gt;<i> @@ -43,8 +43,15 @@ enum b43_led_behaviour {
+</I>&gt;<i>  };
+</I>&gt;<i>  
+</I>&gt;<i>  void b43_leds_init(struct b43_wldev *dev);
+</I>&gt;<i> -void b43_leds_exit(struct b43_wldev *dev);
+</I>&gt;<i> -
+</I>&gt;<i> +void __b43_leds_exit(struct b43_wldev *dev, bool suspended);
+</I>&gt;<i> +static inline void b43_leds_exit(struct b43_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +	__b43_leds_exit(dev, false);
+</I>&gt;<i> +}
+</I>&gt;<i> +static inline void b43_leds_resume_exit(struct b43_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +	__b43_leds_exit(dev, true);
+</I>&gt;<i> +}
+</I>
+I still don't like this function wrapping.
+I'm pretty sure the additional parameter to the function is not
+needed. We can check dev-&gt;suspend_in_progress to find out
+if we are in a up/down or in a suspend/resume cycle.
+
+&gt;<i> -static void b43_unregister_led(struct b43_led *led)
+</I>&gt;<i> +static void b43_unregister_led(struct b43_led *led, bool suspended)
+</I>&gt;<i>  {
+</I>&gt;<i>  	if (!led-&gt;dev)
+</I>&gt;<i>  		return;
+</I>&gt;<i> -	led_classdev_unregister(&amp;led-&gt;led_dev);
+</I>&gt;<i> +	if (suspended)
+</I>
+You can check led-&gt;dev-&gt;suspend_in_progress here.
+
+&gt;<i> +		led_classdev_unregister_suspended(&amp;led-&gt;led_dev);
+</I>&gt;<i> +	else
+</I>&gt;<i> +		led_classdev_unregister(&amp;led-&gt;led_dev);
+</I>&gt;<i>  	b43_led_turn_off(led-&gt;dev, led-&gt;index, led-&gt;activelow);
+</I>&gt;<i>  	led-&gt;dev = NULL;
+</I>&gt;<i>  }
+</I>&gt;<i> @@ -230,10 +233,10 @@ void b43_leds_init(struct b43_wldev *dev
+</I>&gt;<i>  	}
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i> -void b43_leds_exit(struct b43_wldev *dev)
+</I>&gt;<i> +void __b43_leds_exit(struct b43_wldev *dev, bool suspended)
+</I>&gt;<i>  {
+</I>&gt;<i> -	b43_unregister_led(&amp;dev-&gt;led_tx);
+</I>&gt;<i> -	b43_unregister_led(&amp;dev-&gt;led_rx);
+</I>&gt;<i> -	b43_unregister_led(&amp;dev-&gt;led_assoc);
+</I>&gt;<i> -	b43_unregister_led(&amp;dev-&gt;led_radio);
+</I>&gt;<i> +	b43_unregister_led(&amp;dev-&gt;led_tx, suspended);
+</I>&gt;<i> +	b43_unregister_led(&amp;dev-&gt;led_rx, suspended);
+</I>&gt;<i> +	b43_unregister_led(&amp;dev-&gt;led_assoc, suspended);
+</I>&gt;<i> +	b43_unregister_led(&amp;dev-&gt;led_radio, suspended);
+</I>&gt;<i>  }
+</I>
+Don't need this hunk. Check led-&gt;dev-&gt;suspend_in_progress in
+b43_unregister_led.
+
+&gt;<i>  #endif /* __KERNEL__ */
+</I>&gt;<i>  #endif /* LINUX_HWRANDOM_H_ */
+</I>&gt;<i> Index: linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/b43.h
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- linux-2.6.24-rc8-mm1.orig/drivers/net/wireless/b43/b43.h
+</I>&gt;<i> +++ linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/b43.h
+</I>&gt;<i> @@ -706,6 +706,7 @@ struct b43_wldev {
+</I>&gt;<i>  	bool short_preamble;	/* TRUE, if short preamble is enabled. */
+</I>&gt;<i>  	bool short_slot;	/* TRUE, if short slot timing is enabled. */
+</I>&gt;<i>  	bool radio_hw_enable;	/* saved state of radio hardware enabled state */
+</I>&gt;<i> +	bool suspend_in_progress;
+</I>
+Please add a comment like: /* TRUE, if we are in a suspend/resume cycle */
+
+I like comments. Can never have enough of them. _Especially_ for data structures. :)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003261.html">b43_suspend problem
+</A></li>
+	<LI>Next message: <A HREF="003264.html">b43_suspend problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3262">[ date ]</a>
+              <a href="thread.html#3262">[ thread ]</a>
+              <a href="subject.html#3262">[ subject ]</a>
+              <a href="author.html#3262">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

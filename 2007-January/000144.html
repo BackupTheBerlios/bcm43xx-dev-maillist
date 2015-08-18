@@ -1,0 +1,175 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Can someone please try...
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Can%20someone%20please%20try...&In-Reply-To=%3C200701222106.24329.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000141.html">
+   <LINK REL="Next"  HREF="000147.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Can someone please try...</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Can%20someone%20please%20try...&In-Reply-To=%3C200701222106.24329.mb%40bu3sch.de%3E"
+       TITLE="Can someone please try...">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Jan 22 21:06:24 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000141.html">[PATCH V2] bcm43xx: Fix problem with &gt;1 GB RAM
+</A></li>
+        <LI>Next message: <A HREF="000147.html">Can someone please try...
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#144">[ date ]</a>
+              <a href="thread.html#144">[ thread ]</a>
+              <a href="subject.html#144">[ subject ]</a>
+              <a href="author.html#144">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 19 January 2007 08:54, Pavel Roskin wrote:
+&gt;<i> Hello, Michael!
+</I>&gt;<i> 
+</I>&gt;<i> I did more testing, and the results are following.  It looks like the
+</I>&gt;<i> oopses and panics on i386 were triggered by 4k stacks.  x86_64 doesn't
+</I>&gt;<i> have this option.
+</I>&gt;<i> 
+</I>&gt;<i> Now that I enabled other debug options on both platforms. but not 4k
+</I>&gt;<i> stacks, I'm seeing exactly the same problem on each platform.  When run
+</I>&gt;<i> initially, wpa_supplicant connects with no problems (except very poor
+</I>&gt;<i> reception of the data packets, but it's another story).  If interrupted
+</I>&gt;<i> and restarted, wpa_supplicant reconnects, but I'm getting messages like
+</I>&gt;<i> this (i386):
+</I>
+That's a very interresting discover.
+Partly, because I don't see this on my i386 machine. ;)
+
+It's obviously some stack/memory corruption. But I'm not
+sure if this is a stackoverflow. I'd rather say no, it isn't.
+
+Could probably be triggered by something like kfree()ing
+a dangling pointer or something...
+
+&gt;<i> Slab corruption: start=cfdaece0, len=1024
+</I>&gt;<i> Redzone: 0x5a2cf071/0x5a2cf071.
+</I>&gt;<i> Last user: [&lt;c02d70c2&gt;](skb_release_data+0x7b/0x7f)
+</I>&gt;<i> 000: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 050: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> Prev obj: start=cfdae8d4, len=1024
+</I>&gt;<i> Redzone: 0x170fc2a5/0x170fc2a5.
+</I>&gt;<i> Last user: [&lt;c026ea5a&gt;](device_create+0x2c/0x98)
+</I>&gt;<i> 000: 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 010: ad 4e ad de ff ff ff ff ff ff ff ff 10 3a 6d c0
+</I>&gt;<i> Next obj: start=cfdaf0ec, len=1024
+</I>&gt;<i> Redzone: 0x170fc2a5/0x170fc2a5.
+</I>&gt;<i> Last user: [&lt;c0165730&gt;](expand_files+0x95/0x2c2)
+</I>&gt;<i> 000: 78 55 39 c7 78 55 39 c7 78 55 39 c7 88 da 52 df
+</I>&gt;<i> 010: d8 18 3b c7 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 
+</I>&gt;<i> and this (x86_64):
+</I>&gt;<i> 
+</I>&gt;<i> Slab corruption: start=ffff81000ec8a198, len=1024
+</I>&gt;<i> Redzone: 0x5a2cf071/0x5a2cf071.
+</I>&gt;<i> Last user: [&lt;ffffffff8042e916&gt;](skb_release_data+0x94/0x99)
+</I>&gt;<i> 000: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 050: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> Next obj: start=ffff81000ec8a5b0, len=1024
+</I>&gt;<i> Redzone: 0x170fc2a5/0x170fc2a5.
+</I>&gt;<i> Last user: [&lt;ffffffff803be6e9&gt;](device_create+0x5f/0x110)
+</I>&gt;<i> 000: 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 
+</I>&gt;<i> I can restart wpa_supplicant again, and it would show similar messages.
+</I>&gt;<i> The first &quot;Last user&quot; is inevitably skb_release_data.
+</I>&gt;<i> 
+</I>&gt;<i> I have no idea how to deal with it.  I think I need a stack trace at the
+</I>&gt;<i> time when skb_release_data is called.
+</I>&gt;<i> 
+</I>&gt;<i> This is a stack trace at the time when slab corruption is detected.
+</I>&gt;<i> It's actually incorrect closer to the top, perhaps from gcc
+</I>&gt;<i> optimizations for static functions.
+</I>&gt;<i> 
+</I>&gt;<i> Slab corruption: start=ffff8100066f81d8, len=1024
+</I>&gt;<i> 
+</I>&gt;<i> Call Trace:
+</I>&gt;<i>  [&lt;ffffffff80218636&gt;] vsnprintf+0x338/0x5a8
+</I>&gt;<i>  [&lt;ffffffff8020713d&gt;] check_poison_obj+0x69/0x1ae
+</I>&gt;<i>  [&lt;ffffffff803c3ff2&gt;] _request_firmware+0x8f/0x326
+</I>&gt;<i>  [&lt;ffffffff803c3ff2&gt;] _request_firmware+0x8f/0x326
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i>  [&lt;ffffffff8020c09a&gt;] cache_alloc_debugcheck_after+0x32/0x1a2
+</I>&gt;<i>  [&lt;ffffffff803c3ff2&gt;] _request_firmware+0x8f/0x326
+</I>&gt;<i>  [&lt;ffffffff802aaae2&gt;] kmem_cache_zalloc+0xaf/0xd8
+</I>&gt;<i>  [&lt;ffffffff803c3ff2&gt;] _request_firmware+0x8f/0x326
+</I>&gt;<i>  [&lt;ffffffff880111ea&gt;] :bcm43xx_d80211:bcm43xx_phy_init_tssi2dbm_table
+</I>&gt;<i> +0xf0/0x2ca
+</I>&gt;<i>  [&lt;ffffffff803c432a&gt;] request_firmware+0xe/0x10
+</I>&gt;<i>  [&lt;ffffffff88007d75&gt;] :bcm43xx_d80211:bcm43xx_chip_init+0x96/0xaba
+</I>&gt;<i>  [&lt;ffffffff8020a03d&gt;] kmem_cache_alloc+0xaf/0xbe
+</I>&gt;<i>  [&lt;ffffffff88009c97&gt;] :bcm43xx_d80211:bcm43xx_wireless_core_init
+</I>&gt;<i> +0x4de/0xa3d
+</I>&gt;<i>  [&lt;ffffffff8800b4e8&gt;] :bcm43xx_d80211:bcm43xx_add_interface+0x64/0xde
+</I>&gt;<i>  [&lt;ffffffff8046eaa0&gt;] ieee80211_open+0x1c7/0x2cc
+</I>&gt;<i>  [&lt;ffffffff804330da&gt;] dev_open+0x36/0x76
+</I>&gt;<i>  [&lt;ffffffff8043185b&gt;] dev_change_flags+0x5d/0x122
+</I>&gt;<i>  [&lt;ffffffff8045a1a3&gt;] devinet_ioctl+0x259/0x5e8
+</I>&gt;<i>  [&lt;ffffffff8045a7f2&gt;] inet_ioctl+0x71/0x8f
+</I>&gt;<i>  [&lt;ffffffff8042a395&gt;] sock_ioctl+0x1db/0x1fd
+</I>&gt;<i>  [&lt;ffffffff8023bfa7&gt;] do_ioctl+0x1b/0x50
+</I>&gt;<i>  [&lt;ffffffff8022c9b2&gt;] vfs_ioctl+0x22a/0x23c
+</I>&gt;<i>  [&lt;ffffffff80289975&gt;] trace_hardirqs_on+0x124/0x14e
+</I>&gt;<i>  [&lt;ffffffff802459a2&gt;] sys_ioctl+0x42/0x65
+</I>&gt;<i>  [&lt;ffffffff8025531e&gt;] system_call+0x7e/0x83
+</I>&gt;<i> 
+</I>&gt;<i> Anyway, I could narrow down this message to the first kzalloc() call in
+</I>&gt;<i> fw_register_device(), file drivers/base/firmware_class.c.  This only
+</I>&gt;<i> seems to confirm my suspicion that the actual corruption happened before
+</I>&gt;<i> this point.  We are just hitting it when trying to allocate more memory.
+</I>&gt;<i> 
+</I>&gt;<i> Help with debugging this problem will be appreciated.  I've never hunted
+</I>&gt;<i> down such problems, especially in kernel space.
+</I>&gt;<i> 
+</I>
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000141.html">[PATCH V2] bcm43xx: Fix problem with &gt;1 GB RAM
+</A></li>
+	<LI>Next message: <A HREF="000147.html">Can someone please try...
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#144">[ date ]</a>
+              <a href="thread.html#144">[ thread ]</a>
+              <a href="subject.html#144">[ subject ]</a>
+              <a href="author.html#144">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

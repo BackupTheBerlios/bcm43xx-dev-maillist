@@ -1,0 +1,119 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RESEND] [PATCHv2] b43 add harware tkip
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRESEND%5D%20%5BPATCHv2%5D%20b43%20add%20harware%20tkip&In-Reply-To=%3C83a869cd0908041454i474b0ee4hfb770c7c5166be7f%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005681.html">
+   <LINK REL="Next"  HREF="005686.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RESEND] [PATCHv2] b43 add harware tkip</H1>
+    <B>gregor kowski</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRESEND%5D%20%5BPATCHv2%5D%20b43%20add%20harware%20tkip&In-Reply-To=%3C83a869cd0908041454i474b0ee4hfb770c7c5166be7f%40mail.gmail.com%3E"
+       TITLE="[RESEND] [PATCHv2] b43 add harware tkip">gregor.kowski at gmail.com
+       </A><BR>
+    <I>Tue Aug  4 23:54:42 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005681.html">
+</A></li>
+        <LI>Next message: <A HREF="005686.html">[RESEND] [PATCHv2] b43 add harware tkip
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5684">[ date ]</a>
+              <a href="thread.html#5684">[ thread ]</a>
+              <a href="subject.html#5684">[ subject ]</a>
+              <a href="author.html#5684">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 7/31/09, Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; wrote:
+&gt;<i> On Friday 31 July 2009 23:04:17 gregor kowski wrote:
+</I>&gt;&gt;<i> Hi Michael,
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &gt; It's mapped to 4, because you removed the old API support.
+</I>&gt;&gt;<i> &gt; (I'm not sure whether we want to remove that support, yet. Gimme some
+</I>&gt;&gt;<i> &gt; time
+</I>&gt;&gt;<i> &gt; on it...)
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i> Does the old API still useful ?
+</I>&gt;<i>
+</I>&gt;<i> Well, I'm not sure. Why do we remove it at all? It just avoids one single
+</I>&gt;<i> if condition in your tkip patch, doesn't it?
+</I>&gt;<i>
+</I>because you ask it : &quot;We should probably remove that new_kidx_api crap
+alltogether.&quot; [1] :)
+There is really bugs in the current code. You could see it by enabling
+B43_DBG_KEYS.
+With the current code and new API, you will see that 54 pairwise keys
+are dumped, not only 50.
+
+
+[1]
+&gt;<i> &gt;&gt; +     /* FIXME : for b43_new_kidx_api, there can be 54 key
+</I>&gt;<i> &gt;&gt; +      * instead of 50 in RCMTA and TKIPTSCTTAK.
+</I>&gt;<i> &gt;&gt; +      */
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; I don't understand this comment.
+</I>&gt;<i> if  b43_new_kidx_api is true :
+</I>&gt;<i> - we set max_nr_keys to 58
+</I>&gt;<i> - we program B43_MMIO_RCMTA_COUNT to 50
+</I>&gt;<i> - in b43_key_write we can allocate key up to index 58 (4 for default,
+</I>&gt;<i> 54 for sta)
+</I>&gt;<i>
+</I>&gt;<i> But there is only 50 entries for TKIPTSCTTAK, and a comment on bcm-v4
+</I>&gt;<i> suggest there is 50 entries for RCMTA. So if there more than 50
+</I>&gt;<i> station we will overflow RCMTA and TKIPTSCTTAK.
+</I>
+Yeah well. The key handling is pretty weird.
+There are 50 pairwise keys available. max_nr_keys includes pairwise
+keys, group keys (4)
+and another copy of the group keys (4) used with older firmware. So we
+end up at 58.
+
+To summarize it, in practice we have 50 pairwise keys and 4 group
+keys. You can ignore
+the additional 4 &quot;rx keys&quot; as they are not used in recent fw and are
+just a copy of the
+group keys.
+
+&gt;<i> So the fix will be do to something like
+</I>&gt;<i> dev-&gt;max_nr_keys = (dev-&gt;dev-&gt;id.revision &gt;= 5) ? 58 : 20;
+</I>&gt;<i> if (b43_new_kidx_api())
+</I>&gt;<i> dev-&gt;max_nr_keys -= 4;
+</I>
+Hm, I don't think this is correct. There are lots of weird assumptions
+all over the code.
+We should probably remove that new_kidx_api crap alltogether.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005681.html">
+</A></li>
+	<LI>Next message: <A HREF="005686.html">[RESEND] [PATCHv2] b43 add harware tkip
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5684">[ date ]</a>
+              <a href="thread.html#5684">[ thread ]</a>
+              <a href="subject.html#5684">[ subject ]</a>
+              <a href="author.html#5684">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

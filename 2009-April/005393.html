@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> mac80211: changing number of queues in ops-&gt;start
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mac80211%3A%20changing%20number%20of%20queues%20in%20ops-%3Estart&In-Reply-To=%3C1239133589.7475.3.camel%40johannes.local%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005392.html">
+   <LINK REL="Next"  HREF="005394.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>mac80211: changing number of queues in ops-&gt;start</H1>
+    <B>Johannes Berg</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mac80211%3A%20changing%20number%20of%20queues%20in%20ops-%3Estart&In-Reply-To=%3C1239133589.7475.3.camel%40johannes.local%3E"
+       TITLE="mac80211: changing number of queues in ops-&gt;start">johannes at sipsolutions.net
+       </A><BR>
+    <I>Tue Apr  7 21:46:29 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005392.html">mac80211: changing number of queues in ops-&gt;start
+</A></li>
+        <LI>Next message: <A HREF="005394.html">mac80211: changing number of queues in ops-&gt;start
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5393">[ date ]</a>
+              <a href="thread.html#5393">[ thread ]</a>
+              <a href="subject.html#5393">[ subject ]</a>
+              <a href="author.html#5393">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tue, 2009-04-07 at 21:40 +0200, Michael Buesch wrote:
+
+&gt;<i> Ok I see. So you say it's OK to lower hw-&gt;queues after ieee80211_register.
+</I>
+Let's say it's acceptable ;)
+
+&gt;<i> Should I reset hw-&gt;queues back to the value ieee80211_register was called with, before
+</I>&gt;<i> I call unregister/free? Are there resources allocated by the number of queues?
+</I>
+There are resources allocated, notably the qdiscs etc. in
+alloc_ether_mq() or whatever it's called in register_hw(). But the
+networking core should keep track of those so it shouldn't matter what
+the value is. OTOH if it can switch back and forth the pending packets
+are done per queue... for example ieee80211_clear_tx_pending will be
+called at unregister times, so if it's possible to be up with 4 queues,
+and later be up with 1, you will want to unregister with 4.
+
+johannes
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 836 bytes
+Desc: This is a digitally signed message part
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090407/cd33adac/attachment.pgp">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090407/cd33adac/attachment.pgp</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005392.html">mac80211: changing number of queues in ops-&gt;start
+</A></li>
+	<LI>Next message: <A HREF="005394.html">mac80211: changing number of queues in ops-&gt;start
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5393">[ date ]</a>
+              <a href="thread.html#5393">[ thread ]</a>
+              <a href="subject.html#5393">[ subject ]</a>
+              <a href="author.html#5393">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

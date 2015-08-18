@@ -1,0 +1,305 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Optimize PIO scratchbuffer usage
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Optimize%20PIO%20scratchbuffer%20usage&In-Reply-To=%3C200910092033.32585.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006163.html">
+   <LINK REL="Next"  HREF="006165.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Optimize PIO scratchbuffer usage</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Optimize%20PIO%20scratchbuffer%20usage&In-Reply-To=%3C200910092033.32585.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Optimize PIO scratchbuffer usage">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Oct  9 20:33:32 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006163.html">[PATCH] ssb: Put host pointers into a union
+</A></li>
+        <LI>Next message: <A HREF="006165.html">[PATCH] b43: Remove me as maintainer
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6164">[ date ]</a>
+              <a href="thread.html#6164">[ thread ]</a>
+              <a href="subject.html#6164">[ subject ]</a>
+              <a href="author.html#6164">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This optimizes the PIO scratchbuffer usage.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h	2009-10-09 19:50:15.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/b43.h	2009-10-09 20:15:41.000000000 +0200
+@@ -749,12 +749,6 @@ struct b43_wldev {
+ #endif
+ };
+ 
+-/*
+- * Include goes here to avoid a dependency problem.
+- * A better fix would be to integrate xmit.h into b43.h.
+- */
+-#include &quot;xmit.h&quot;
+-
+ /* Data structure for the WLAN parts (802.11 cores) of the b43 chip. */
+ struct b43_wl {
+ 	/* Pointer to the active wireless device on this chip */
+@@ -830,13 +824,9 @@ struct b43_wl {
+ 	struct b43_leds leds;
+ 
+ #ifdef CONFIG_B43_PIO
+-	/*
+-	 * RX/TX header/tail buffers used by the frame transmit functions.
+-	 */
+-	struct b43_rxhdr_fw4 rxhdr;
+-	struct b43_txhdr txhdr;
+-	u8 rx_tail[4];
+-	u8 tx_tail[4];
++	/* Kmalloc'ed scratch space for PIO TX/RX. Protected by wl-&gt;mutex. */
++	u8 pio_scratchspace[110] __attribute__((__aligned__(8)));
++	u8 pio_tailspace[4] __attribute__((__aligned__(8)));
+ #endif /* CONFIG_B43_PIO */
+ };
+ 
+Index: wireless-testing/drivers/net/wireless/b43/pio.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/pio.c	2009-10-09 19:50:15.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/pio.c	2009-10-09 20:15:41.000000000 +0200
+@@ -341,12 +341,15 @@ static u16 tx_write_2byte_queue(struct b
+ 			q-&gt;mmio_base + B43_PIO_TXDATA,
+ 			sizeof(u16));
+ 	if (data_len &amp; 1) {
++		u8 *tail = wl-&gt;pio_tailspace;
++		BUILD_BUG_ON(sizeof(wl-&gt;pio_tailspace) &lt; 2);
++
+ 		/* Write the last byte. */
+ 		ctl &amp;= ~B43_PIO_TXCTL_WRITEHI;
+ 		b43_piotx_write16(q, B43_PIO_TXCTL, ctl);
+-		wl-&gt;tx_tail[0] = data[data_len - 1];
+-		wl-&gt;tx_tail[1] = 0;
+-		ssb_block_write(dev-&gt;dev, wl-&gt;tx_tail, 2,
++		tail[0] = data[data_len - 1];
++		tail[1] = 0;
++		ssb_block_write(dev-&gt;dev, tail, 2,
+ 				q-&gt;mmio_base + B43_PIO_TXDATA,
+ 				sizeof(u16));
+ 	}
+@@ -392,27 +395,27 @@ static u32 tx_write_4byte_queue(struct b
+ 			q-&gt;mmio_base + B43_PIO8_TXDATA,
+ 			sizeof(u32));
+ 	if (data_len &amp; 3) {
+-		wl-&gt;tx_tail[3] = 0;
++		u8 *tail = wl-&gt;pio_tailspace;
++		BUILD_BUG_ON(sizeof(wl-&gt;pio_tailspace) &lt; 4);
++
++		memset(tail, 0, 4);
+ 		/* Write the last few bytes. */
+ 		ctl &amp;= ~(B43_PIO8_TXCTL_8_15 | B43_PIO8_TXCTL_16_23 |
+ 			 B43_PIO8_TXCTL_24_31);
+ 		switch (data_len &amp; 3) {
+ 		case 3:
+ 			ctl |= B43_PIO8_TXCTL_16_23 | B43_PIO8_TXCTL_8_15;
+-			wl-&gt;tx_tail[0] = data[data_len - 3];
+-			wl-&gt;tx_tail[1] = data[data_len - 2];
+-			wl-&gt;tx_tail[2] = data[data_len - 1];
++			tail[0] = data[data_len - 3];
++			tail[1] = data[data_len - 2];
++			tail[2] = data[data_len - 1];
+ 			break;
+ 		case 2:
+ 			ctl |= B43_PIO8_TXCTL_8_15;
+-			wl-&gt;tx_tail[0] = data[data_len - 2];
+-			wl-&gt;tx_tail[1] = data[data_len - 1];
+-			wl-&gt;tx_tail[2] = 0;
++			tail[0] = data[data_len - 2];
++			tail[1] = data[data_len - 1];
+ 			break;
+ 		case 1:
+-			wl-&gt;tx_tail[0] = data[data_len - 1];
+-			wl-&gt;tx_tail[1] = 0;
+-			wl-&gt;tx_tail[2] = 0;
++			tail[0] = data[data_len - 1];
+ 			break;
+ 		}
+ 		b43_piotx_write32(q, B43_PIO8_TXCTL, ctl);
+@@ -455,6 +458,7 @@ static int pio_tx_frame(struct b43_pio_t
+ 	int err;
+ 	unsigned int hdrlen;
+ 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
++	struct b43_txhdr *txhdr = (struct b43_txhdr *)wl-&gt;pio_scratchspace;
+ 
+ 	B43_WARN_ON(list_empty(&amp;q-&gt;packets_list));
+ 	pack = list_entry(q-&gt;packets_list.next,
+@@ -462,7 +466,9 @@ static int pio_tx_frame(struct b43_pio_t
+ 
+ 	cookie = generate_cookie(q, pack);
+ 	hdrlen = b43_txhdr_size(dev);
+-	err = b43_generate_txhdr(dev, (u8 *)&amp;wl-&gt;txhdr, skb,
++	BUILD_BUG_ON(sizeof(wl-&gt;pio_scratchspace) &lt; sizeof(struct b43_txhdr));
++	B43_WARN_ON(sizeof(wl-&gt;pio_scratchspace) &lt; hdrlen);
++	err = b43_generate_txhdr(dev, (u8 *)txhdr, skb,
+ 				 info, cookie);
+ 	if (err)
+ 		return err;
+@@ -476,9 +482,9 @@ static int pio_tx_frame(struct b43_pio_t
+ 
+ 	pack-&gt;skb = skb;
+ 	if (q-&gt;rev &gt;= 8)
+-		pio_tx_frame_4byte_queue(pack, (const u8 *)&amp;wl-&gt;txhdr, hdrlen);
++		pio_tx_frame_4byte_queue(pack, (const u8 *)txhdr, hdrlen);
+ 	else
+-		pio_tx_frame_2byte_queue(pack, (const u8 *)&amp;wl-&gt;txhdr, hdrlen);
++		pio_tx_frame_2byte_queue(pack, (const u8 *)txhdr, hdrlen);
+ 
+ 	/* Remove it from the list of available packet slots.
+ 	 * It will be put back when we receive the status report. */
+@@ -624,8 +630,10 @@ static bool pio_rx_frame(struct b43_pio_
+ 	unsigned int i, padding;
+ 	struct sk_buff *skb;
+ 	const char *err_msg = NULL;
++	struct b43_rxhdr *rxhdr = (struct b43_rxhdr *)wl-&gt;pio_scratchspace;
+ 
+-	memset(&amp;wl-&gt;rxhdr, 0, sizeof(wl-&gt;rxhdr));
++	BUILD_BUG_ON(sizeof(wl-&gt;pio_scratchspace) &lt; sizeof(*rxhdr));
++	memset(rxhdr, 0, sizeof(*rxhdr));
+ 
+ 	/* Check if we have data and wait for it to get ready. */
+ 	if (q-&gt;rev &gt;= 8) {
+@@ -663,16 +671,16 @@ data_ready:
+ 
+ 	/* Get the preamble (RX header) */
+ 	if (q-&gt;rev &gt;= 8) {
+-		ssb_block_read(dev-&gt;dev, &amp;wl-&gt;rxhdr, sizeof(wl-&gt;rxhdr),
++		ssb_block_read(dev-&gt;dev, rxhdr, sizeof(*rxhdr),
+ 			       q-&gt;mmio_base + B43_PIO8_RXDATA,
+ 			       sizeof(u32));
+ 	} else {
+-		ssb_block_read(dev-&gt;dev, &amp;wl-&gt;rxhdr, sizeof(wl-&gt;rxhdr),
++		ssb_block_read(dev-&gt;dev, rxhdr, sizeof(*rxhdr),
+ 			       q-&gt;mmio_base + B43_PIO_RXDATA,
+ 			       sizeof(u16));
+ 	}
+ 	/* Sanity checks. */
+-	len = le16_to_cpu(wl-&gt;rxhdr.frame_len);
++	len = le16_to_cpu(rxhdr-&gt;frame_len);
+ 	if (unlikely(len &gt; 0x700)) {
+ 		err_msg = &quot;len &gt; 0x700&quot;;
+ 		goto rx_error;
+@@ -682,7 +690,7 @@ data_ready:
+ 		goto rx_error;
+ 	}
+ 
+-	macstat = le32_to_cpu(wl-&gt;rxhdr.mac_status);
++	macstat = le32_to_cpu(rxhdr-&gt;mac_status);
+ 	if (macstat &amp; B43_RX_MAC_FCSERR) {
+ 		if (!(q-&gt;dev-&gt;wl-&gt;filter_flags &amp; FIF_FCSFAIL)) {
+ 			/* Drop frames with failed FCS. */
+@@ -707,22 +715,25 @@ data_ready:
+ 			       q-&gt;mmio_base + B43_PIO8_RXDATA,
+ 			       sizeof(u32));
+ 		if (len &amp; 3) {
++			u8 *tail = wl-&gt;pio_tailspace;
++			BUILD_BUG_ON(sizeof(wl-&gt;pio_tailspace) &lt; 4);
++
+ 			/* Read the last few bytes. */
+-			ssb_block_read(dev-&gt;dev, wl-&gt;rx_tail, 4,
++			ssb_block_read(dev-&gt;dev, tail, 4,
+ 				       q-&gt;mmio_base + B43_PIO8_RXDATA,
+ 				       sizeof(u32));
+ 			switch (len &amp; 3) {
+ 			case 3:
+-				skb-&gt;data[len + padding - 3] = wl-&gt;rx_tail[0];
+-				skb-&gt;data[len + padding - 2] = wl-&gt;rx_tail[1];
+-				skb-&gt;data[len + padding - 1] = wl-&gt;rx_tail[2];
++				skb-&gt;data[len + padding - 3] = tail[0];
++				skb-&gt;data[len + padding - 2] = tail[1];
++				skb-&gt;data[len + padding - 1] = tail[2];
+ 				break;
+ 			case 2:
+-				skb-&gt;data[len + padding - 2] = wl-&gt;rx_tail[0];
+-				skb-&gt;data[len + padding - 1] = wl-&gt;rx_tail[1];
++				skb-&gt;data[len + padding - 2] = tail[0];
++				skb-&gt;data[len + padding - 1] = tail[1];
+ 				break;
+ 			case 1:
+-				skb-&gt;data[len + padding - 1] = wl-&gt;rx_tail[0];
++				skb-&gt;data[len + padding - 1] = tail[0];
+ 				break;
+ 			}
+ 		}
+@@ -731,15 +742,18 @@ data_ready:
+ 			       q-&gt;mmio_base + B43_PIO_RXDATA,
+ 			       sizeof(u16));
+ 		if (len &amp; 1) {
++			u8 *tail = wl-&gt;pio_tailspace;
++			BUILD_BUG_ON(sizeof(wl-&gt;pio_tailspace) &lt; 2);
++
+ 			/* Read the last byte. */
+-			ssb_block_read(dev-&gt;dev, wl-&gt;rx_tail, 2,
++			ssb_block_read(dev-&gt;dev, tail, 2,
+ 				       q-&gt;mmio_base + B43_PIO_RXDATA,
+ 				       sizeof(u16));
+-			skb-&gt;data[len + padding - 1] = wl-&gt;rx_tail[0];
++			skb-&gt;data[len + padding - 1] = tail[0];
+ 		}
+ 	}
+ 
+-	b43_rx(q-&gt;dev, skb, &amp;wl-&gt;rxhdr);
++	b43_rx(q-&gt;dev, skb, rxhdr);
+ 
+ 	return 1;
+ 
+Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/xmit.c	2009-10-09 19:50:15.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/xmit.c	2009-10-09 20:15:41.000000000 +0200
+@@ -27,7 +27,7 @@
+ 
+ */
+ 
+-#include &quot;b43.h&quot;
++#include &quot;xmit.h&quot;
+ #include &quot;phy_common.h&quot;
+ #include &quot;dma.h&quot;
+ #include &quot;pio.h&quot;
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006163.html">[PATCH] ssb: Put host pointers into a union
+</A></li>
+	<LI>Next message: <A HREF="006165.html">[PATCH] b43: Remove me as maintainer
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6164">[ date ]</a>
+              <a href="thread.html#6164">[ thread ]</a>
+              <a href="subject.html#6164">[ subject ]</a>
+              <a href="author.html#6164">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

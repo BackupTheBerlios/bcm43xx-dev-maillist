@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb: Fix case where low-order board flags are unset
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Fix%20case%20where%20low-order%20board%20flags%20are%20unset&In-Reply-To=%3C200804191508.51640.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003879.html">
+   <LINK REL="Next"  HREF="003886.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb: Fix case where low-order board flags are unset</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Fix%20case%20where%20low-order%20board%20flags%20are%20unset&In-Reply-To=%3C200804191508.51640.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] ssb: Fix case where low-order board flags are unset">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Apr 19 15:08:51 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003879.html">[PATCH] ssb: Fix case where low-order board flags are unset
+</A></li>
+        <LI>Next message: <A HREF="003886.html">[PATCH] ssb: Fix case where low-order board flags are unset
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3882">[ date ]</a>
+              <a href="thread.html#3882">[ thread ]</a>
+              <a href="subject.html#3882">[ subject ]</a>
+              <a href="author.html#3882">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Saturday 19 April 2008 05:49:24 <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A> wrote:
+&gt;<i> The specifications call for the low 16 bits of the board flags to
+</I>&gt;<i> be cleared if unset (== 0xFFFF). This step was taken in bcm43xx,
+</I>&gt;<i> but was missed when ssb was coded. This omission prevents Linksys
+</I>&gt;<i> WMP11 cards with a BCM4301 from working.
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i> John,
+</I>&gt;<i> 
+</I>&gt;<i> This is 2.6.26 material.
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i> Index: linux-2.6/drivers/ssb/pci.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- linux-2.6.orig/drivers/ssb/pci.c
+</I>&gt;<i> +++ linux-2.6/drivers/ssb/pci.c
+</I>&gt;<i> @@ -377,6 +377,8 @@ static void sprom_extract_r123(struct ss
+</I>&gt;<i>  	     SSB_SPROM1_ITSSI_A_SHIFT);
+</I>&gt;<i>  	SPEX(itssi_bg, SSB_SPROM1_ITSSI, SSB_SPROM1_ITSSI_BG, 0);
+</I>&gt;<i>  	SPEX(boardflags_lo, SSB_SPROM1_BFLLO, 0xFFFF, 0);
+</I>&gt;<i> +	if (out-&gt;boardflags_lo == 0xFFFF)
+</I>&gt;<i> +		out-&gt;boardflags_lo = 0x0000;  /* per specs */
+</I>
+Please also do this for boardflags_hi.
+And I'd actually use 0 instead of 0x0000. But that doesn't really matter much :)
+
+&gt;<i>  	if (out-&gt;revision &gt;= 2)
+</I>&gt;<i>  		SPEX(boardflags_hi, SSB_SPROM2_BFLHI, 0xFFFF, 0);
+</I>&gt;<i>  
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003879.html">[PATCH] ssb: Fix case where low-order board flags are unset
+</A></li>
+	<LI>Next message: <A HREF="003886.html">[PATCH] ssb: Fix case where low-order board flags are unset
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3882">[ date ]</a>
+              <a href="thread.html#3882">[ thread ]</a>
+              <a href="subject.html#3882">[ subject ]</a>
+              <a href="author.html#3882">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

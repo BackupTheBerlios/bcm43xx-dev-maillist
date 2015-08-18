@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20net%3A%20wireless%3A%20bcm43xx%3A%20big_buffer_sem%20semaphore%20to%0A%09mutex&In-Reply-To=%3C200712141749.33708.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003039.html">
+   <LINK REL="Next"  HREF="003042.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20net%3A%20wireless%3A%20bcm43xx%3A%20big_buffer_sem%20semaphore%20to%0A%09mutex&In-Reply-To=%3C200712141749.33708.mb%40bu3sch.de%3E"
+       TITLE="[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Dec 14 17:49:33 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003039.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore	to mutex
+</A></li>
+        <LI>Next message: <A HREF="003042.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3041">[ date ]</a>
+              <a href="thread.html#3041">[ thread ]</a>
+              <a href="subject.html#3041">[ subject ]</a>
+              <a href="author.html#3041">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 14 December 2007 17:06:39 Ray Lee wrote:
+&gt;<i> Hi all. Perhaps I can inject some facts into this?
+</I>&gt;<i> 
+</I>&gt;<i> On Dec 14, 2007 5:08 AM, Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; wrote:
+</I>&gt;<i> &gt; &gt; &gt; This user did get the following messages in dmesg:
+</I>&gt;<i> &gt; &gt; &gt;
+</I>&gt;<i> &gt; &gt; &gt; b43err(dev-&gt;wl, &quot;Firmware file \&quot;%s\&quot; not found &quot;
+</I>&gt;<i> &gt; &gt; &gt;        &quot;or load failed.\n&quot;, path);
+</I>&gt;<i> &gt; &gt; &gt; b43err(wl, &quot;You must go to &quot;
+</I>&gt;<i> &gt; &gt; &gt;        &quot;<A HREF="http://linuxwireless.org/en/users/Drivers/b43#devicefirmware">http://linuxwireless.org/en/users/Drivers/b43#devicefirmware</A> &quot;
+</I>&gt;<i> &gt; &gt; &gt;        &quot;and download the correct firmware (version 4).\n&quot;);
+</I>&gt;<i> &gt; &gt; &gt;
+</I>&gt;<i> &gt; &gt; &gt; I'm not sure how I can improve that even more. There is a full URL
+</I>&gt;<i> &gt; &gt; &gt; describing how to get the device workin in _full_ detail.
+</I>&gt;<i> 
+</I>&gt;<i> Yes, but only if you load rfkill-input and rfkill by hand, prior.
+</I>
+I'm not sure what you are doing there.
+Do you have module autoloading disabled?
+This all works perfectly well on all of my systems. And I never heared
+such a problem before.
+
+If you have a PCI device probing works as follows:
+The PCI table is in ssb. So as soon as your kernel detects the PCI device
+it will load ssb. ssb will register the PCI device. That will trigger
+an udev event for the contained 802.11 core to get probed. This will load
+b43.
+
+So, I'm not sure where's the issue with my code here.
+
+&gt;<i> That I'm one of the first people to hit that makes me think that your
+</I>&gt;<i> testing base so far has been miniscule.
+</I>
+The driver is shipped by Fedora since quite some time.
+
+&gt;<i> &gt; &gt; || Well, doing an `rmmod bcm43xx ; modprobe ssb b43` gives me nothing in
+</I>&gt;<i> &gt; &gt; || dmesg other than lines related to the bcm43xx driver.
+</I>&gt;<i> &gt; &gt; || iwconfig/ifconfig do not see the interface either.
+</I>&gt;<i> 
+</I>&gt;<i> See above. Without a modprobe of rfkill, rfkill-input that is the case.
+</I>
+You can't do
+modprobe ssb b43
+This will be interpreted as modprobe of &quot;ssb&quot; with the module
+parameter &quot;b43&quot;. At least by my modutils.
+
+If you do
+modprobe b43
+it will automatically load _all_ required modules.
+It works perfectly well on my systems.
+Try it. Simply type &quot;modprobe b43&quot;. It will also work for you.
+
+&gt;<i> Heeeeellooooo? I tried that. It failed. What *I'm* talking about here
+</I>&gt;<i> is that this everyone needs to be aware that this is *not* a drop in
+</I>&gt;<i> replacement for bcm43xx, and if I'm having problems (not a kernel
+</I>&gt;<i> hacker, but I make my living writing code), then sheesh, you're gonna
+</I>&gt;<i> have a flood of people needing hand-holding on this.
+</I>
+All problems so far were not related to the b43 sourcecode at all.
+And I think I can not be held responsible for unrelated code or bugs
+in the operating system scripts.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003039.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore	to mutex
+</A></li>
+	<LI>Next message: <A HREF="003042.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3041">[ date ]</a>
+              <a href="thread.html#3041">[ thread ]</a>
+              <a href="subject.html#3041">[ subject ]</a>
+              <a href="author.html#3041">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Additional problem with b43legacy
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Additional%20problem%20with%20b43legacy&In-Reply-To=%3C47FA9AC8.6060604%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003770.html">
+   <LINK REL="Next"  HREF="003772.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Additional problem with b43legacy</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Additional%20problem%20with%20b43legacy&In-Reply-To=%3C47FA9AC8.6060604%40lwfinger.net%3E"
+       TITLE="Additional problem with b43legacy">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Tue Apr  8 00:06:00 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003770.html">Additional problem with b43legacy
+</A></li>
+        <LI>Next message: <A HREF="003772.html">Additional problem with b43legacy
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3771">[ date ]</a>
+              <a href="thread.html#3771">[ thread ]</a>
+              <a href="subject.html#3771">[ subject ]</a>
+              <a href="author.html#3771">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> 
+</I>&gt;<i> Can you add a printk here that prints the contents of
+</I>&gt;<i> B43legacy_DMA32_TXSTATUS
+</I>&gt;<i> and post the logs?
+</I>&gt;<i> 
+</I>&gt;<i> This could actually be a bus (ssb) problem. Not sure, yet.
+</I>&gt;<i> Some people do see it on b43, too.
+</I>&gt;<i> 
+</I>
+ACPI: PCI Interrupt 0000:00:0b.0[A] -&gt; GSI 19 (level, low) -&gt; IRQ 19
+ssb: Core 0 found: IEEE 802.11 (cc 0x812, rev 0x02, vendor 0x4243)
+ssb: Core 1 found: PCMCIA (cc 0x80D, rev 0x00, vendor 0x4243)
+ssb: Core 2 found: Fast Ethernet (cc 0x806, rev 0x02, vendor 0x4243)
+ssb: Core 3 found: V90 (cc 0x807, rev 0x01, vendor 0x4243)
+ssb: Core 4 found: PCI (cc 0x804, rev 0x03, vendor 0x4243)
+ssb: SPROM revision 1 detected.
+ssb: Sonics Silicon Backplane found on PCI device 0000:00:0b.0
+b43legacy-phy0: Broadcom 4301 WLAN found
+b43legacy-phy0 debug: Found PHY: Analog 0, Type 1, Revision 4
+b43legacy-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2053, Revision 2
+b43legacy-phy0 debug: Radio initialized
+phy0: Selected rate control algorithm 'pid'
+Broadcom 43xx-legacy driver loaded [ Features: PID, Firmware-ID: FW10 ]
+udev: renamed network interface wlan0 to eth1
+b43legacy-phy0: Loading firmware version 0x127, patch level 14
+(2005-04-18 02:36:27)
+b43legacy-phy0 debug: Chip initialized
+b43legacy-phy0 debug: 30-bit DMA initialized
+b43legacy-phy0 debug: Wireless interface started
+b43legacy-phy0 debug: Adding Interface type 2
+b43legacy: B43legacy_DMA32_TXSTATUS = 0xC
+b43legacy: B43legacy_DMA32_TXSTATUS = 0xC
+b43legacy: B43legacy_DMA32_TXSTATUS = 0xC
+
+followed by many more of the same.
+
+I have found one ssb bug that was keeping b43legacy from receiving.
+The one-line patch is as follows:
+
+Index: wireless-testing/drivers/ssb/driver_pcicore.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/driver_pcicore.c
++++ wireless-testing/drivers/ssb/driver_pcicore.c
+@@ -569,7 +569,7 @@ int ssb_pcicore_dev_irqvecs_enable(struc
+  		} else {
+  			tmp = ssb_read32(dev, SSB_TPSFLAG);
+  			tmp &amp;= SSB_TPSFLAG_BPFLAG;
+-			intvec |= tmp;
++			intvec |= (1 &lt;&lt; tmp);
+  		}
+  		ssb_write32(pdev, SSB_INTVEC, intvec);
+  	}
+
+With that patch in place, &quot;iwlist scan&quot; now sees the local AP's, but 
+still no transmit.
+
+I now have two interfaces that are PCI, but not Cardbus, that can 
+receive but not transmit. They are this BCM4301 using b43legacy, and 
+an ASUS WL-138G V2 card using b43 that Donald from Australia sent me. 
+It is a BCM4318 with a rev 0xC PCI core, and a rev 0x9 802.11 core.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003770.html">Additional problem with b43legacy
+</A></li>
+	<LI>Next message: <A HREF="003772.html">Additional problem with b43legacy
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3771">[ date ]</a>
+              <a href="thread.html#3771">[ thread ]</a>
+              <a href="subject.html#3771">[ subject ]</a>
+              <a href="author.html#3771">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

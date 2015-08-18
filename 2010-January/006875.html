@@ -1,0 +1,163 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC/RFT] b43: Fix regression from commit c7ab5ef
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/RFT%5D%20b43%3A%20Fix%20regression%20from%20commit%20c7ab5ef&In-Reply-To=%3C4b65fe2d.tW61Y0okWmOLTL3e%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006877.html">
+   
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC/RFT] b43: Fix regression from commit c7ab5ef</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/RFT%5D%20b43%3A%20Fix%20regression%20from%20commit%20c7ab5ef&In-Reply-To=%3C4b65fe2d.tW61Y0okWmOLTL3e%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[RFC/RFT] b43: Fix regression from commit c7ab5ef">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sun Jan 31 23:03:25 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006877.html">[PATCH 1/5] b43: N-PHY: split RSSI selection into	two	per-PHY-revision functions
+</A></li>
+        
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6875">[ date ]</a>
+              <a href="thread.html#6875">[ thread ]</a>
+              <a href="subject.html#6875">[ subject ]</a>
+              <a href="author.html#6875">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I had planned to address the issues reported in the thread &quot;BCM4311/02
+ABG disconnects on 2.6.32&quot;; however, when I installed my BCM4311/2 card,
+I found that the transmit rate as measured using program tcpperf was
+greatly reduced from what I had seen when it was last in the machine.
+With bisection, mainline commit number c7ab5ef9b was the problem. This
+patch was part of the 2.6.28 merge, thus this problem has existed for
+some time.
+
+The patch changes basic rate handling and implements short slot handling.
+The rate handling is OK - only the short slot changes were affecting
+the performance. Further investigation showed that the original code
+never called the routines that enable/disable short slot treatment,
+but the revised code does. From the specs, changing this parameter
+involves writing new values into a location in MMIO space and one in
+the shared memory. Experimentation showed that writing the new value
+to shared memory was the culprit. Changing the value in MMIO space
+actually helped performance in some cases.
+
+Tests on all my G PHY devices are summarized below. My AP is a Linksys
+WRT54G V5 running the latest version of standard firmware, and with
+combined 802.11b/g mode enabled. Transmit tests use program tcpperf
+with a fast computer in my network as the tcpperf server. It is connected
+to the AP/router with a 100 Mb/s wired connection. The results for all
+my devices as as follows:
+
+                         Transmit throughput in Mb/s
+Device        Before c7ab5ef   After c7ab5ef  With this patch
+
+BCM4306/3       unknown          5.3             19.0
+BCM4318/2       unknown         18.3             18.3
+BCM4311/2       18.3             0.7             22.1
+BCM4312/1       N/A*            12.2             12.2
+
+* LP PHY that was not supported until 2.6.32.
+
+I have no idea what causes some devices to be unaffected, while others
+are greatly improved. Please test to see if your device is adversely
+affested.
+
+Thanks,
+
+Larry
+
+--- Proposed commit message below. ---
+
+Commit c7ab5ef9bcd281135c21b4732c9be779585181be entitled &quot;b43: implement
+short slot and basic rate handling&quot; reduced the transmit throughput for
+my BCM4311 device from 18 Mb/s to 0.7 Mb/s. The basic rate handling
+portion is OK, the problem is in the short slot handling.
+
+Prior to this change, the short slot enable/disable routines were never
+called. Experimentation showed that the critical part was changing the
+value at offset 0x0010 in the shared memory. This is supposed to contain
+the 802.11 Slot Time in usec, but if it is changed from its initial value
+of zero, performance is destroyed. On the other hand, changing the value
+in the MMIO register corresponding to the Interframe Slot Time increased
+performance from 18 to 22 Mb/s. A BCM4306/3 also shows dramatic
+improvement of the transmit rate.
+
+Other changes in the patch include removal of the magic number for the
+MMIO register, and allowing the slot time to be set for any PHY operating
+in the 2.4 GHz band. Previously, the routine was executed only for G PHYs.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+Cc: Stable &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stable at kernel.org</A>&gt; [Any stable version back through 2.6.28]
+---
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c
++++ wireless-testing/drivers/net/wireless/b43/main.c
+@@ -637,10 +637,17 @@ static void b43_upload_card_macaddress(s
+ static void b43_set_slot_time(struct b43_wldev *dev, u16 slot_time)
+ {
+ 	/* slot_time is in usec. */
+-	if (dev-&gt;phy.type != B43_PHYTYPE_G)
++	/* This test used to exit for all but a G PHY. */
++	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ)
+ 		return;
+-	b43_write16(dev, 0x684, 510 + slot_time);
+-	b43_shm_write16(dev, B43_SHM_SHARED, 0x0010, slot_time);
++	b43_write16(dev, B43_MMIO_IFSSLOT, 510 + slot_time);
++	/* Shared memory location 0x0010 is the slot time and should be
++	 * set to slot_time; however, this register is initially 0 and changing
++	 * the value adversely affects the transmit rate for BCM4311
++	 * devices. Until this behavior is unterstood, delete this step
++	 *
++	 * b43_shm_write16(dev, B43_SHM_SHARED, 0x0010, slot_time);
++	 */
+ }
+ 
+ static void b43_short_slot_timing_enable(struct b43_wldev *dev)
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h
++++ wireless-testing/drivers/net/wireless/b43/b43.h
+@@ -115,6 +115,7 @@
+ #define B43_MMIO_TSF_2			0x636	/* core rev &lt; 3 only */
+ #define B43_MMIO_TSF_3			0x638	/* core rev &lt; 3 only */
+ #define B43_MMIO_RNG			0x65A
++#define B43_MMIO_IFSSLOT		0x684	/* Interframe slot time */
+ #define B43_MMIO_IFSCTL			0x688 /* Interframe space control */
+ #define  B43_MMIO_IFSCTL_USE_EDCF	0x0004
+ #define B43_MMIO_POWERUP_DELAY		0x6A8
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006877.html">[PATCH 1/5] b43: N-PHY: split RSSI selection into	two	per-PHY-revision functions
+</A></li>
+	
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6875">[ date ]</a>
+              <a href="thread.html#6875">[ thread ]</a>
+              <a href="subject.html#6875">[ subject ]</a>
+              <a href="author.html#6875">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

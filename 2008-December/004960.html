@@ -1,0 +1,326 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix some MAC locking
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20some%20MAC%20locking&In-Reply-To=%3C200812182213.39260.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004952.html">
+   <LINK REL="Next"  HREF="004961.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix some MAC locking</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20some%20MAC%20locking&In-Reply-To=%3C200812182213.39260.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix some MAC locking">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Dec 18 22:13:39 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004952.html">4311 drops outgoing traffic
+</A></li>
+        <LI>Next message: <A HREF="004961.html">[PATCH] b43: Fix some MAC locking
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4960">[ date ]</a>
+              <a href="thread.html#4960">[ thread ]</a>
+              <a href="subject.html#4960">[ subject ]</a>
+              <a href="author.html#4960">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes some locking w.r.t. the lower MAC (firmware).
+It also removes a lot of ancient IRQ-locking that's not needed anymore.
+We simply suspend the MAC. That's easier and causes less trouble.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+-- 
+
+Stuff for the next feature release.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-11-05 23:02:57.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-12-18 21:43:50.000000000 +0100
+@@ -3321,41 +3321,30 @@ static int b43_op_config(struct ieee8021
+ 	struct b43_wldev *dev;
+ 	struct b43_phy *phy;
+ 	struct ieee80211_conf *conf = &amp;hw-&gt;conf;
+ 	unsigned long flags;
+ 	int antenna;
+ 	int err = 0;
+-	u32 savedirqs;
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 
+ 	/* Switch the band (if necessary). This might change the active core. */
+ 	err = b43_switch_band(wl, conf-&gt;channel);
+ 	if (err)
+ 		goto out_unlock_mutex;
+ 	dev = wl-&gt;current_dev;
+ 	phy = &amp;dev-&gt;phy;
+ 
++	b43_mac_suspend(dev);
++
+ 	if (changed &amp; IEEE80211_CONF_CHANGE_RETRY_LIMITS)
+ 		b43_set_retry_limits(dev, conf-&gt;short_frame_max_tx_count,
+ 					  conf-&gt;long_frame_max_tx_count);
+ 	changed &amp;= ~IEEE80211_CONF_CHANGE_RETRY_LIMITS;
+ 	if (!changed)
+-		goto out_unlock_mutex;
+-
+-	/* Disable IRQs while reconfiguring the device.
+-	 * This makes it possible to drop the spinlock throughout
+-	 * the reconfiguration process. */
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-	if (b43_status(dev) &lt; B43_STAT_STARTED) {
+-		spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+-		goto out_unlock_mutex;
+-	}
+-	savedirqs = b43_interrupt_disable(dev, B43_IRQ_ALL);
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+-	b43_synchronize_irq(dev);
++		goto out_mac_enable;
+ 
+ 	/* Switch to the requested channel.
+ 	 * The firmware takes care of races with the TX handler. */
+ 	if (conf-&gt;channel-&gt;hw_value != phy-&gt;channel)
+ 		b43_switch_channel(dev, conf-&gt;channel-&gt;hw_value);
+ 
+@@ -3396,17 +3385,15 @@ static int b43_op_config(struct ieee8021
+ 		} else {
+ 			b43_software_rfkill(dev, RFKILL_STATE_SOFT_BLOCKED);
+ 			b43info(dev-&gt;wl, &quot;Radio turned off by software\n&quot;);
+ 		}
+ 	}
+ 
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-	b43_interrupt_enable(dev, savedirqs);
+-	mmiowb();
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+-      out_unlock_mutex:
++out_mac_enable:
++	b43_mac_enable(dev);
++out_unlock_mutex:
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+ 	return err;
+ }
+ 
+ static void b43_update_basic_rates(struct b43_wldev *dev, u64 brates)
+@@ -3458,33 +3445,18 @@ static void b43_op_bss_info_changed(stru
+ 				    struct ieee80211_vif *vif,
+ 				    struct ieee80211_bss_conf *conf,
+ 				    u32 changed)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev;
+-	struct b43_phy *phy;
+-	unsigned long flags;
+-	u32 savedirqs;
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 
+ 	dev = wl-&gt;current_dev;
+-	phy = &amp;dev-&gt;phy;
+-
+-	/* Disable IRQs while reconfiguring the device.
+-	 * This makes it possible to drop the spinlock throughout
+-	 * the reconfiguration process. */
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-	if (b43_status(dev) &lt; B43_STAT_STARTED) {
+-		spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
++	if (!dev || b43_status(dev) &lt; B43_STAT_STARTED)
+ 		goto out_unlock_mutex;
+-	}
+-	savedirqs = b43_interrupt_disable(dev, B43_IRQ_ALL);
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+-	b43_synchronize_irq(dev);
+-
+ 	b43_mac_suspend(dev);
+ 
+ 	if (changed &amp; BSS_CHANGED_BASIC_RATES)
+ 		b43_update_basic_rates(dev, conf-&gt;basic_rates);
+ 
+ 	if (changed &amp; BSS_CHANGED_ERP_SLOT) {
+@@ -3492,19 +3464,13 @@ static void b43_op_bss_info_changed(stru
+ 			b43_short_slot_timing_enable(dev);
+ 		else
+ 			b43_short_slot_timing_disable(dev);
+ 	}
+ 
+ 	b43_mac_enable(dev);
+-
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-	b43_interrupt_enable(dev, savedirqs);
+-	/* XXX: why? */
+-	mmiowb();
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+- out_unlock_mutex:
++out_unlock_mutex:
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+ 	return;
+ }
+ 
+ static int b43_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+Index: wireless-testing/drivers/net/wireless/b43/phy_g.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_g.c	2008-09-26 22:51:28.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy_g.c	2008-12-18 21:49:12.000000000 +0100
+@@ -3044,12 +3044,14 @@ static void b43_gphy_op_adjust_txpower(s
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 	struct b43_phy_g *gphy = phy-&gt;g;
+ 	int rfatt, bbatt;
+ 	u8 tx_control;
+ 
++	b43_mac_suspend(dev);
++
+ 	spin_lock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+ 
+ 	/* Calculate the new attenuation values. */
+ 	bbatt = gphy-&gt;bbatt.att;
+ 	bbatt += gphy-&gt;bbatt_delta;
+ 	rfatt = gphy-&gt;rfatt.att;
+@@ -3100,12 +3102,14 @@ static void b43_gphy_op_adjust_txpower(s
+ 	b43_phy_lock(dev);
+ 	b43_radio_lock(dev);
+ 	b43_set_txpower_g(dev, &amp;gphy-&gt;bbatt, &amp;gphy-&gt;rfatt,
+ 			  gphy-&gt;tx_control);
+ 	b43_radio_unlock(dev);
+ 	b43_phy_unlock(dev);
++
++	b43_mac_enable(dev);
+ }
+ 
+ static enum b43_txpwr_result b43_gphy_op_recalc_txpower(struct b43_wldev *dev,
+ 							bool ignore_tssi)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+@@ -3212,30 +3216,30 @@ no_adjustment_needed:
+ 
+ static void b43_gphy_op_pwork_15sec(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 	struct b43_phy_g *gphy = phy-&gt;g;
+ 
++	b43_mac_suspend(dev);
+ 	//TODO: update_aci_moving_average
+ 	if (gphy-&gt;aci_enable &amp;&amp; gphy-&gt;aci_wlan_automatic) {
+-		b43_mac_suspend(dev);
+ 		if (!gphy-&gt;aci_enable &amp;&amp; 1 /*TODO: not scanning? */ ) {
+ 			if (0 /*TODO: bunch of conditions */ ) {
+ 				phy-&gt;ops-&gt;interf_mitigation(dev,
+ 					B43_INTERFMODE_MANUALWLAN);
+ 			}
+ 		} else if (0 /*TODO*/) {
+ 			   if (/*(aci_average &gt; 1000) &amp;&amp;*/ !b43_gphy_aci_scan(dev))
+ 				phy-&gt;ops-&gt;interf_mitigation(dev, B43_INTERFMODE_NONE);
+ 		}
+-		b43_mac_enable(dev);
+ 	} else if (gphy-&gt;interfmode == B43_INTERFMODE_NONWLAN &amp;&amp;
+ 		   phy-&gt;rev == 1) {
+ 		//TODO: implement rev1 workaround
+ 	}
+ 	b43_lo_g_maintanance_work(dev);
++	b43_mac_enable(dev);
+ }
+ 
+ static void b43_gphy_op_pwork_60sec(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 
+Index: wireless-testing/drivers/net/wireless/b43/phy_common.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_common.c	2008-10-11 16:13:24.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy_common.c	2008-12-18 21:52:28.000000000 +0100
+@@ -175,19 +175,33 @@ void b43_phy_unlock(struct b43_wldev *de
+ 	B43_WARN_ON(dev-&gt;dev-&gt;id.revision &lt; 3);
+ 
+ 	if (!b43_is_mode(dev-&gt;wl, NL80211_IFTYPE_AP))
+ 		b43_power_saving_ctl_bits(dev, 0);
+ }
+ 
++static inline void assert_mac_suspended(struct b43_wldev *dev)
++{
++	if (!B43_DEBUG)
++		return;
++	if ((b43_status(dev) &gt;= B43_STAT_INITIALIZED) &amp;&amp;
++	    (dev-&gt;mac_suspended &lt;= 0)) {
++		b43dbg(dev-&gt;wl, &quot;PHY/RADIO register access with &quot;
++		       &quot;enabled MAC.\n&quot;);
++		dump_stack();
++	}
++}
++
+ u16 b43_radio_read(struct b43_wldev *dev, u16 reg)
+ {
++	assert_mac_suspended(dev);
+ 	return dev-&gt;phy.ops-&gt;radio_read(dev, reg);
+ }
+ 
+ void b43_radio_write(struct b43_wldev *dev, u16 reg, u16 value)
+ {
++	assert_mac_suspended(dev);
+ 	dev-&gt;phy.ops-&gt;radio_write(dev, reg, value);
+ }
+ 
+ void b43_radio_mask(struct b43_wldev *dev, u16 offset, u16 mask)
+ {
+ 	b43_radio_write16(dev, offset,
+@@ -205,17 +219,19 @@ void b43_radio_maskset(struct b43_wldev 
+ 	b43_radio_write16(dev, offset,
+ 			  (b43_radio_read16(dev, offset) &amp; mask) | set);
+ }
+ 
+ u16 b43_phy_read(struct b43_wldev *dev, u16 reg)
+ {
++	assert_mac_suspended(dev);
+ 	return dev-&gt;phy.ops-&gt;phy_read(dev, reg);
+ }
+ 
+ void b43_phy_write(struct b43_wldev *dev, u16 reg, u16 value)
+ {
++	assert_mac_suspended(dev);
+ 	dev-&gt;phy.ops-&gt;phy_write(dev, reg, value);
+ }
+ 
+ void b43_phy_mask(struct b43_wldev *dev, u16 offset, u16 mask)
+ {
+ 	b43_phy_write(dev, offset,
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004952.html">4311 drops outgoing traffic
+</A></li>
+	<LI>Next message: <A HREF="004961.html">[PATCH] b43: Fix some MAC locking
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4960">[ date ]</a>
+              <a href="thread.html#4960">[ thread ]</a>
+              <a href="subject.html#4960">[ subject ]</a>
+              <a href="author.html#4960">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

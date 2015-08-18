@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't associate	using b43 driver, works with bcm43xx
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Asus%20WL-138G%20V2%20%28BCM4318%20non-E%20rev02%29%20scans%20but%20doesn%27t%20associate%0A%09using%20b43%20driver%2C%20works%20with%20bcm43xx&In-Reply-To=%3C69e28c910803170309jabbc015u9b9bb726cdc5c840%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003590.html">
+   <LINK REL="Next"  HREF="003592.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't associate	using b43 driver, works with bcm43xx</H1>
+    <B>Stefanik G&#225;bor</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Asus%20WL-138G%20V2%20%28BCM4318%20non-E%20rev02%29%20scans%20but%20doesn%27t%20associate%0A%09using%20b43%20driver%2C%20works%20with%20bcm43xx&In-Reply-To=%3C69e28c910803170309jabbc015u9b9bb726cdc5c840%40mail.gmail.com%3E"
+       TITLE="Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't associate	using b43 driver, works with bcm43xx">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Mon Mar 17 11:09:02 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003590.html">Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't	associate using b43 driver, works with bcm43xx
+</A></li>
+        <LI>Next message: <A HREF="003592.html">Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't	associate using b43 driver, works with bcm43xx
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3591">[ date ]</a>
+              <a href="thread.html#3591">[ thread ]</a>
+              <a href="subject.html#3591">[ subject ]</a>
+              <a href="author.html#3591">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Not sure if it's related, but I have read somewhere that 4318/02 requires
+wl_apsta.o when using fw4.80.53, it doesn't work with wl_apsta_mimo.o from
+the same package. Maybe it would be a good idea to add support for the new
+wl_apsta.o (as opposed to wl_apsta_mimo.o) to fwcutter (or make fwcutter use
+search-and-cut instead of hardcoded offsets, making it compatible with
+future firmware files). Possibly wl_apsta_mimo.o still doesn't support
+4318/02.
+
+On Sun, Mar 16, 2008 at 10:24 AM, Johannes Berg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">johannes at sipsolutions.net</A>&gt;
+wrote:
+
+&gt;<i>
+</I>&gt;<i> On Sat, 2008-03-15 at 14:19 +0100, Stefanik G&#225;bor wrote:
+</I>&gt;<i> &gt; Wait, are you Hungarian too? Looks like b43 specifically hates
+</I>&gt;<i> &gt; 4318/02s designed for the EU (13 channel versions).
+</I>&gt;<i>
+</I>&gt;<i> Nah. The hardware is identical, regulatory enforcement is done in
+</I>&gt;<i> software.
+</I>&gt;<i>
+</I>
+Um... not really. WL-138G V2 includes a hardware limit that prevents
+switching to forbidden channels. Regardless of REGDOM, you won't be able to
+switch to channel 14 (except maybe if you hack the SPROM, possibly the HW
+regulatory domain setting is stored there, but it might also be embedded on
+the chip) on a non-JP card. Not sure about other 4318/02 brands though. (I
+suspect that this hardware lockout is the one that conflicts with mac80211,
+although it might be unrelated, as I got this error on the wireless-testing
+tree with an RalinkTech 2573 AKA RT73 USB dongle as well.) Possibly USA
+versions don't have this lockout, but EU versions do. (Even the old bcm43xx
+gives &quot;Operation not permitted&quot; regardless of REGDOM for iwconfig &lt;card&gt;
+channel 14.)
+
+
+&gt;<i>
+</I>&gt;<i> &gt; Someone from the USA should confirm, this looks more and more like a
+</I>&gt;<i> &gt; mac80211 bug. (Note: my AP is on channel 1, so it's not in the EU-only
+</I>&gt;<i> &gt; range.) Also, are there any records of an EU 4318/02 user getting b43
+</I>&gt;<i> &gt; to work? Japan might also be of interest. Someone should also try
+</I>&gt;<i> &gt; loading mac80211 (or cfg80211 on the wireless-testing tree) with
+</I>&gt;<i> &gt; ieee80211_regdom=64 to see if that helps. (I can't, as my OpenSUSE box
+</I>&gt;<i> &gt; died.)
+</I>&gt;<i>
+</I>&gt;<i> You currently can't use channels 12/13 with mac80211, but that shouldn't
+</I>&gt;<i> matter if your AP is on channel 1.
+</I>&gt;<i>
+</I>I suspect that if the card has a hardware-level 13-channel limit, then
+mac80211 doesn't work with it at all, regardless of channel. It receives,
+but doesn't transmit, maybe a safety feature in the hw/fw to avoid
+transmitting on disallowed channels.
+
+&gt;<i>
+</I>&gt;<i> johannes
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080317/342b07f4/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080317/342b07f4/attachment.html</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003590.html">Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't	associate using b43 driver, works with bcm43xx
+</A></li>
+	<LI>Next message: <A HREF="003592.html">Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't	associate using b43 driver, works with bcm43xx
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3591">[ date ]</a>
+              <a href="thread.html#3591">[ thread ]</a>
+              <a href="subject.html#3591">[ subject ]</a>
+              <a href="author.html#3591">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

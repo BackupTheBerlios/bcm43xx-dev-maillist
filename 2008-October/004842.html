@@ -1,0 +1,238 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 fails to reauthenticate
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20fails%20to%20reauthenticate&In-Reply-To=%3C200810291836.29795.aleks%40fys.uio.no%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004840.html">
+   <LINK REL="Next"  HREF="004844.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 fails to reauthenticate</H1>
+    <B>Aleksandr Konstantinov</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20fails%20to%20reauthenticate&In-Reply-To=%3C200810291836.29795.aleks%40fys.uio.no%3E"
+       TITLE="b43 fails to reauthenticate">aleksandr.konstantinov at fys.uio.no
+       </A><BR>
+    <I>Wed Oct 29 17:36:29 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004840.html">B43 STILL randomly and silently dropping connections...
+</A></li>
+        <LI>Next message: <A HREF="004844.html">b43 fails to reauthenticate
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4842">[ date ]</a>
+              <a href="thread.html#4842">[ thread ]</a>
+              <a href="subject.html#4842">[ subject ]</a>
+              <a href="author.html#4842">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>  Hello all,
+
+ Sorry if I'm writing to wron mailing list. From my uneducated point of view it looks like problem in driver
+but I may be wrong.
+ I'm having following problem. Wireless card of my laptop associates and authenticates successfully with 
+access point. After some time of successful usage (5-10 minutes) AP sends deauthentication with reason 
+code 2, which AFAIU is &quot;Previous authentication no longer valid&quot;. Sometimes reson code is different (I saw 
+3 and 23) but mostly it's 2. Then card reassociate and reauthenticates succesfully and gets deauthentication 
+immediately. And then it runs like that in loop forever. Card is controlled by wpa_supplicant and if I kill it (ifconfig 
+shows that interface is down after that) and then restart wpa_supplicant card connects to AP successfully. Below 
+are technical details.
+
+WPA configuration:
+ctrl_interface=/var/run/wpa_supplicant
+ctrl_interface_group=0
+eapol_version=1
+ap_scan=1
+fast_reauth=1
+
+network={
+  scan_ssid=0
+  ssid=&quot;..........&quot;
+  proto=WPA
+  key_mgmt=WPA-PSK
+  pairwise=CCMP TKIP
+  group=CCMP TKIP WEP104 WEP40
+  psk=&quot;............&quot;
+}
+
+network={
+  ssid=&quot;any&quot;
+  key_mgmt=NONE
+  priority=2
+}
+
+$ uname -a
+Linux mobile2 2.6.26 #2 Tue Jul 22 01:33:02 EEST 2008 i686 i686 i386 GNU/Linux
+
+$ /sbin/lspci -vvn|grep 43 -A7
+03:00.0 0280: 14e4:4311 (rev 01)
+        Subsystem: 14e4:0465
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+        Latency: 0, Cache Line Size: 64 bytes
+        Interrupt: pin A routed to IRQ 17
+        Region 0: Memory at d0000000 (32-bit, non-prefetchable) [size=16K]
+        Capabilities: &lt;access denied&gt;
+--
+05:06.2 0880: 1180:0843 (rev 01)
+        Subsystem: 17aa:382b
+        Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+        Interrupt: pin B routed to IRQ 5
+        Region 0: Memory at d0101000 (32-bit, non-prefetchable) [disabled] [size=256]
+        Capabilities: &lt;access denied&gt;
+
+$ dmesg
+b43-phy2: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+Registered led device: b43-phy2::tx
+Registered led device: b43-phy2::rx
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:18:74:48:ea:10
+wlan0: RX authentication from 00:18:74:48:ea:10 (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:18:74:48:ea:10
+wlan0: RX AssocResp from 00:18:74:48:ea:10 (capab=0x431 status=0 aid=90)
+wlan0: associated
+__ratelimit: 5 messages suppressed
+wlan0: switched to short barker preamble (BSSID=00:18:74:48:ea:10)
+b43-phy2 ERROR: PHY transmission error
+b43-phy2 ERROR: PHY transmission error
+b43-phy2 ERROR: PHY transmission error
+b43-phy2 ERROR: PHY transmission error
+__ratelimit: 9 messages suppressed
+b43-phy2 ERROR: PHY transmission error
+__ratelimit: 3 messages suppressed
+b43-phy2 ERROR: PHY transmission error
+wlan0: RX deauthentication from 00:18:74:48:ea:10 (reason=2)
+wlan0: deauthenticated
+wlan0: authenticate with AP 00:18:74:48:ea:10
+wlan0: RX authentication from 00:18:74:48:ea:10 (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:18:74:48:ea:10
+wlan0: RX ReassocResp from 00:18:74:48:ea:10 (capab=0x431 status=0 aid=45)
+wlan0: associated
+__ratelimit: 2 messages suppressed
+wlan0: switched to short barker preamble (BSSID=00:18:74:48:ea:10)
+wlan0: RX deauthentication from 00:18:74:48:ea:10 (reason=2)
+wlan0: deauthenticated
+wlan0: authenticate with AP 00:18:74:48:ea:10
+wlan0: RX authentication from 00:18:74:48:ea:10 (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:18:74:48:ea:10
+wlan0: RX ReassocResp from 00:18:74:48:ea:10 (capab=0x431 status=0 aid=46)
+wlan0: associated
+wlan0: switched to short barker preamble (BSSID=00:18:74:48:ea:10)
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:18:74:48:ec:40
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:18:74:48:ec:40
+wlan0: RX authentication from 00:18:74:48:ec:40 (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:18:74:48:ec:40
+wlan0: authentication frame received from 00:18:74:48:ec:40, but not in authenticate state - ignored
+wlan0: RX ReassocResp from 00:18:74:48:ec:40 (capab=0x431 status=0 aid=60)
+wlan0: associated
+b43-phy2 ERROR: PHY transmission error
+b43-phy2 ERROR: PHY transmission error
+b43-phy2 ERROR: PHY transmission error
+wlan0: RX deauthentication from 00:18:74:48:ec:40 (reason=2)
+wlan0: deauthenticated
+wlan0: authenticate with AP 00:18:74:48:ec:40
+wlan0: RX authentication from 00:18:74:48:ec:40 (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:18:74:48:ec:40
+b43-phy2 ERROR: PHY transmission error
+wlan0: RX ReassocResp from 00:18:74:48:ec:40 (capab=0x431 status=0 aid=61)
+wlan0: associated
+wlan0: switched to short barker preamble (BSSID=00:18:74:48:ec:40)
+wlan0: RX deauthentication from 00:18:74:48:ec:40 (reason=2)
+wlan0: deauthenticated
+wlan0: authenticate with AP 00:18:74:48:ec:40
+wlan0: authenticate with AP 00:18:74:48:ec:40
+wlan0: RX authentication from 00:18:74:48:ec:40 (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:18:74:48:ec:40
+wlan0: RX ReassocResp from 00:18:74:48:ec:40 (capab=0x431 status=0 aid=62)
+wlan0: associated
+wlan0: switched to short barker preamble (BSSID=00:18:74:48:ec:40)
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:18:74:48:ea:10
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:18:74:48:ea:10
+wlan0: RX authentication from 00:18:74:48:ea:10 (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:18:74:48:ea:10
+wlan0: authentication frame received from 00:18:74:48:ea:10, but not in authenticate state - ignored
+wlan0: RX ReassocResp from 00:18:74:48:ea:10 (capab=0x431 status=0 aid=47)
+wlan0: associated
+wlan0: RX deauthentication from 00:18:74:48:ea:10 (reason=23)
+wlan0: deauthenticated
+wlan0: RX deauthentication from 00:18:74:48:ea:10 (reason=2)
+wlan0: authenticate with AP 00:18:74:48:ea:10
+wlan0: RX authentication from 00:18:74:48:ea:10 (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:18:74:48:ea:10
+wlan0: RX ReassocResp from 00:18:74:48:ea:10 (capab=0x431 status=0 aid=48)
+wlan0: associated
+wlan0: switched to short barker preamble (BSSID=00:18:74:48:ea:10)
+wlan0: RX deauthentication from 00:18:74:48:ea:10 (reason=2)
+wlan0: deauthenticated
+wlan0: authenticate with AP 00:18:74:48:ea:10
+wlan0: RX authentication from 00:18:74:48:ea:10 (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:18:74:48:ea:10
+wlan0: RX ReassocResp from 00:18:74:48:ea:10 (capab=0x431 status=0 aid=49)
+wlan0: associated
+wlan0: switched to short barker preamble (BSSID=00:18:74:48:ea:10)
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:18:74:48:ec:40
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:18:74:48:ec:40
+wlan0: RX deauthentication from 00:18:74:48:ec:40 (reason=2)
+wlan0: deauthenticated
+wlan0: RX authentication from 00:18:74:48:ec:40 (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:18:74:48:ec:40
+wlan0: authentication frame received from 00:18:74:48:ec:40, but not in authenticate state - ignored
+wlan0: RX ReassocResp from 00:18:74:48:ec:40 (capab=0x431 status=0 aid=63)
+wlan0: associated
+wlan0: switched to short barker preamble (BSSID=00:18:74:48:ec:40)
+wlan0: RX deauthentication from 00:18:74:48:ec:40 (reason=2)
+wlan0: deauthenticated
+
+
+
+A.K.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004840.html">B43 STILL randomly and silently dropping connections...
+</A></li>
+	<LI>Next message: <A HREF="004844.html">b43 fails to reauthenticate
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4842">[ date ]</a>
+              <a href="thread.html#4842">[ thread ]</a>
+              <a href="subject.html#4842">[ subject ]</a>
+              <a href="author.html#4842">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

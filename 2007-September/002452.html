@@ -1,0 +1,397 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix sparse warnings.
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20sparse%20warnings.&In-Reply-To=%3C200709191830.30726.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002451.html">
+   <LINK REL="Next"  HREF="002453.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix sparse warnings.</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20sparse%20warnings.&In-Reply-To=%3C200709191830.30726.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix sparse warnings.">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Sep 19 18:30:30 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002451.html">[PATCH] softmac: Fix inability to associate with WEP networks,	and the inability to change essid
+</A></li>
+        <LI>Next message: <A HREF="002453.html">[PATCH] b43: Don't lock irq_lock in debugfs txpower adjust
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2452">[ date ]</a>
+              <a href="thread.html#2452">[ thread ]</a>
+              <a href="subject.html#2452">[ subject ]</a>
+              <a href="author.html#2452">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The remaining warning in phy.c will be fixed later.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+Index: wireless-dev/drivers/net/wireless/b43/pio.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43/pio.c	2007-09-19 17:49:20.000000000 +0200
++++ wireless-dev/drivers/net/wireless/b43/pio.c	2007-09-19 17:50:26.000000000 +0200
+@@ -60,7 +60,7 @@ static u16 tx_get_next_word(const u8 * t
+ 		source = packet;
+ 		i -= txhdr_size;
+ 	}
+-	ret = le16_to_cpu(*((u16 *) (source + i)));
++	ret = le16_to_cpu(*((__le16 *)(source + i)));
+ 	*pos += 2;
+ 
+ 	return ret;
+@@ -104,7 +104,7 @@ static u16 generate_cookie(struct b43_pi
+ 			   struct b43_pio_txpacket *packet)
+ {
+ 	u16 cookie = 0x0000;
+-	int packetindex;
++	u16 packetindex;
+ 
+ 	/* We use the upper 4 bits for the PIO
+ 	 * controller ID and the lower 12 bits
+@@ -125,7 +125,7 @@ static u16 generate_cookie(struct b43_pi
+ 	default:
+ 		B43_WARN_ON(1);
+ 	}
+-	packetindex = pio_txpacket_getindex(packet);
++	packetindex = packet-&gt;index;
+ 	B43_WARN_ON(packetindex &amp; ~0x0FFF);
+ 	cookie |= (u16) packetindex;
+ 
+@@ -286,6 +286,7 @@ static void setup_txqueues(struct b43_pi
+ 
+ 		packet-&gt;queue = queue;
+ 		INIT_LIST_HEAD(&amp;packet-&gt;list);
++		packet-&gt;index = i;
+ 
+ 		list_add(&amp;packet-&gt;list, &amp;queue-&gt;txfree);
+ 	}
+@@ -518,9 +519,10 @@ static void pio_rx_error(struct b43_pioq
+ 
+ void b43_pio_rx(struct b43_pioqueue *queue)
+ {
+-	u16 preamble[21] = { 0 };
++	__le16 preamble[21] = { 0 };
+ 	struct b43_rxhdr_fw4 *rxhdr;
+-	u16 tmp, len, macstat;
++	u16 tmp, len;
++	u32 macstat;
+ 	int i, preamble_readwords;
+ 	struct sk_buff *skb;
+ 
+@@ -537,7 +539,7 @@ void b43_pio_rx(struct b43_pioqueue *que
+ 	}
+ 	b43dbg(queue-&gt;dev-&gt;wl, &quot;PIO RX timed out\n&quot;);
+ 	return;
+-      data_ready:
++data_ready:
+ 
+ 	len = b43_pio_read(queue, B43_PIO_RXDATA);
+ 	if (unlikely(len &gt; 0x700)) {
+@@ -558,7 +560,7 @@ void b43_pio_rx(struct b43_pioqueue *que
+ 		preamble[i + 1] = cpu_to_le16(tmp);
+ 	}
+ 	rxhdr = (struct b43_rxhdr_fw4 *)preamble;
+-	macstat = le16_to_cpu(rxhdr-&gt;mac_status);
++	macstat = le32_to_cpu(rxhdr-&gt;mac_status);
+ 	if (macstat &amp; B43_RX_MAC_FCSERR) {
+ 		pio_rx_error(queue,
+ 			     (queue-&gt;mmio_base == B43_MMIO_PIO1_BASE),
+@@ -583,7 +585,7 @@ void b43_pio_rx(struct b43_pioqueue *que
+ 	skb_put(skb, len);
+ 	for (i = 0; i &lt; len - 1; i += 2) {
+ 		tmp = b43_pio_read(queue, B43_PIO_RXDATA);
+-		*((u16 *) (skb-&gt;data + i)) = cpu_to_le16(tmp);
++		*((__le16 *)(skb-&gt;data + i)) = cpu_to_le16(tmp);
+ 	}
+ 	if (len % 2) {
+ 		tmp = b43_pio_read(queue, B43_PIO_RXDATA);
+Index: wireless-dev/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43/xmit.c	2007-09-19 17:49:20.000000000 +0200
++++ wireless-dev/drivers/net/wireless/b43/xmit.c	2007-09-19 17:50:26.000000000 +0200
+@@ -121,10 +121,12 @@ void b43_generate_plcp_hdr(struct b43_pl
+ 	__u8 *raw = plcp-&gt;raw;
+ 
+ 	if (b43_is_ofdm_rate(bitrate)) {
+-		*data = b43_plcp_get_ratecode_ofdm(bitrate);
++		u32 d;
++
++		d = b43_plcp_get_ratecode_ofdm(bitrate);
+ 		B43_WARN_ON(octets &amp; 0xF000);
+-		*data |= (octets &lt;&lt; 5);
+-		*data = cpu_to_le32(*data);
++		d |= (octets &lt;&lt; 5);
++		*data = cpu_to_le32(d);
+ 	} else {
+ 		u32 plen;
+ 
+Index: wireless-dev/drivers/net/wireless/b43/leds.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43/leds.c	2007-09-19 17:49:20.000000000 +0200
++++ wireless-dev/drivers/net/wireless/b43/leds.c	2007-09-19 17:50:26.000000000 +0200
+@@ -32,14 +32,13 @@
+ static void b43_led_changestate(struct b43_led *led)
+ {
+ 	struct b43_wldev *dev = led-&gt;dev;
+-	const int index = b43_led_index(led);
+-	const u16 mask = (1 &lt;&lt; index);
++	const int index = led-&gt;index;
+ 	u16 ledctl;
+ 
+ 	B43_WARN_ON(!(index &gt;= 0 &amp;&amp; index &lt; B43_NR_LEDS));
+ 	B43_WARN_ON(!led-&gt;blink_interval);
+ 	ledctl = b43_read16(dev, B43_MMIO_GPIO_CONTROL);
+-	ledctl = (ledctl &amp; mask) ? (ledctl &amp; ~mask) : (ledctl | mask);
++	ledctl ^= (1 &lt;&lt; index);
+ 	b43_write16(dev, B43_MMIO_GPIO_CONTROL, ledctl);
+ }
+ 
+@@ -70,7 +69,7 @@ static void b43_led_blink_start(struct b
+ static void b43_led_blink_stop(struct b43_led *led, int sync)
+ {
+ 	struct b43_wldev *dev = led-&gt;dev;
+-	const int index = b43_led_index(led);
++	const int index = led-&gt;index;
+ 	u16 ledctl;
+ 
+ 	if (!led-&gt;blink_interval)
+@@ -139,6 +138,7 @@ int b43_leds_init(struct b43_wldev *dev)
+ 
+ 	for (i = 0; i &lt; B43_NR_LEDS; i++) {
+ 		led = &amp;(dev-&gt;leds[i]);
++		led-&gt;index = i;
+ 		led-&gt;dev = dev;
+ 		setup_timer(&amp;led-&gt;blink_timer,
+ 			    b43_led_blink, (unsigned long)led);
+Index: wireless-dev/drivers/net/wireless/b43/leds.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43/leds.h	2007-09-19 17:49:20.000000000 +0200
++++ wireless-dev/drivers/net/wireless/b43/leds.h	2007-09-19 17:50:26.000000000 +0200
+@@ -5,14 +5,14 @@
+ #include &lt;linux/timer.h&gt;
+ 
+ struct b43_led {
+-	u8 behaviour:7;
+-	u8 activelow:1;
+-
++	u8 behaviour;
++	bool activelow;
++	/* Index in the &quot;leds&quot; array in b43_wldev */
++	u8 index;
+ 	struct b43_wldev *dev;
+ 	struct timer_list blink_timer;
+ 	unsigned long blink_interval;
+ };
+-#define b43_led_index(led)	((int)((led) - (led)-&gt;dev-&gt;leds))
+ 
+ /* Delay between state changes when blinking in jiffies */
+ #define B43_LEDBLINK_SLOW		(HZ / 1)
+Index: wireless-dev/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43/main.c	2007-09-19 17:49:20.000000000 +0200
++++ wireless-dev/drivers/net/wireless/b43/main.c	2007-09-19 17:50:26.000000000 +0200
+@@ -1062,7 +1062,7 @@ static void handle_irq_noise(struct b43_
+ 	B43_WARN_ON(!dev-&gt;noisecalc.calculation_running);
+ 	if (dev-&gt;noisecalc.channel_at_start != phy-&gt;channel)
+ 		goto drop_calculation;
+-	*((u32 *) noise) = cpu_to_le32(b43_jssi_read(dev));
++	*((__le32 *)noise) = cpu_to_le32(b43_jssi_read(dev));
+ 	if (noise[0] == 0x7F || noise[1] == 0x7F ||
+ 	    noise[2] == 0x7F || noise[3] == 0x7F)
+ 		goto generate_new;
+@@ -1598,8 +1598,7 @@ static int do_request_fw(struct b43_wlde
+ 			 const char *name,
+ 			 const struct firmware **fw)
+ {
+-	const size_t plen = sizeof(modparam_fwpostfix) + 32;
+-	char path[plen];
++	char path[sizeof(modparam_fwpostfix) + 32];
+ 	struct b43_fw_header *hdr;
+ 	u32 size;
+ 	int err;
+Index: wireless-dev/drivers/net/wireless/b43/pcmcia.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43/pcmcia.c	2007-09-19 17:49:20.000000000 +0200
++++ wireless-dev/drivers/net/wireless/b43/pcmcia.c	2007-09-19 17:50:26.000000000 +0200
+@@ -21,6 +21,8 @@
+ 
+ */
+ 
++#include &quot;pcmcia.h&quot;
++
+ #include &lt;linux/ssb/ssb.h&gt;
+ 
+ #include &lt;pcmcia/cs_types.h&gt;
+@@ -30,6 +32,7 @@
+ #include &lt;pcmcia/ds.h&gt;
+ #include &lt;pcmcia/cisreg.h&gt;
+ 
++
+ static /*const */ struct pcmcia_device_id b43_pcmcia_tbl[] = {
+ 	PCMCIA_DEVICE_MANF_CARD(0x2D0, 0x448),
+ 	PCMCIA_DEVICE_NULL,
+Index: wireless-dev/drivers/net/wireless/b43/pio.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43/pio.h	2007-09-19 17:49:20.000000000 +0200
++++ wireless-dev/drivers/net/wireless/b43/pio.h	2007-09-19 17:50:26.000000000 +0200
+@@ -39,10 +39,9 @@ struct b43_pio_txpacket {
+ 	struct sk_buff *skb;
+ 	struct ieee80211_tx_status txstat;
+ 	struct list_head list;
++	u16 index; /* Index in the tx_packets_cache */
+ };
+ 
+-#define pio_txpacket_getindex(packet) ((int)((packet) - (packet)-&gt;queue-&gt;tx_packets_cache))
+-
+ struct b43_pioqueue {
+ 	struct b43_wldev *dev;
+ 	u16 mmio_base;
+Index: wireless-dev/drivers/net/wireless/b43/debugfs.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43/debugfs.c	2007-09-19 17:49:20.000000000 +0200
++++ wireless-dev/drivers/net/wireless/b43/debugfs.c	2007-09-19 18:02:22.000000000 +0200
+@@ -39,7 +39,7 @@
+ 
+ 
+ /* The root directory. */
+-struct dentry *rootdir;
++static struct dentry *rootdir;
+ 
+ struct b43_debugfs_fops {
+ 	ssize_t (*read)(struct b43_wldev *dev, char *buf, size_t bufsize);
+@@ -76,7 +76,8 @@ struct b43_dfs_file * fops_to_dfs_file(s
+ 
+ 
+ /* wl-&gt;irq_lock is locked */
+-ssize_t tsf_read_file(struct b43_wldev *dev, char *buf, size_t bufsize)
++static ssize_t tsf_read_file(struct b43_wldev *dev,
++			     char *buf, size_t bufsize)
+ {
+ 	ssize_t count = 0;
+ 	u64 tsf;
+@@ -90,7 +91,8 @@ ssize_t tsf_read_file(struct b43_wldev *
+ }
+ 
+ /* wl-&gt;irq_lock is locked */
+-int tsf_write_file(struct b43_wldev *dev, const char *buf, size_t count)
++static int tsf_write_file(struct b43_wldev *dev,
++			  const char *buf, size_t count)
+ {
+ 	u64 tsf;
+ 
+@@ -102,7 +104,8 @@ int tsf_write_file(struct b43_wldev *dev
+ }
+ 
+ /* wl-&gt;irq_lock is locked */
+-ssize_t ucode_regs_read_file(struct b43_wldev *dev, char *buf, size_t bufsize)
++static ssize_t ucode_regs_read_file(struct b43_wldev *dev,
++				    char *buf, size_t bufsize)
+ {
+ 	ssize_t count = 0;
+ 	int i;
+@@ -116,7 +119,8 @@ ssize_t ucode_regs_read_file(struct b43_
+ }
+ 
+ /* wl-&gt;irq_lock is locked */
+-ssize_t shm_read_file(struct b43_wldev *dev, char *buf, size_t bufsize)
++static ssize_t shm_read_file(struct b43_wldev *dev,
++			     char *buf, size_t bufsize)
+ {
+ 	ssize_t count = 0;
+ 	int i;
+@@ -135,7 +139,8 @@ ssize_t shm_read_file(struct b43_wldev *
+ 	return count;
+ }
+ 
+-ssize_t txstat_read_file(struct b43_wldev *dev, char *buf, size_t bufsize)
++static ssize_t txstat_read_file(struct b43_wldev *dev,
++				char *buf, size_t bufsize)
+ {
+ 	struct b43_txstatus_log *log = &amp;dev-&gt;dfsentry-&gt;txstatlog;
+ 	ssize_t count = 0;
+@@ -182,7 +187,8 @@ out_unlock:
+ 	return count;
+ }
+ 
+-ssize_t txpower_g_read_file(struct b43_wldev *dev, char *buf, size_t bufsize)
++static ssize_t txpower_g_read_file(struct b43_wldev *dev,
++				   char *buf, size_t bufsize)
+ {
+ 	ssize_t count = 0;
+ 
+@@ -214,7 +220,8 @@ out:
+ 	return count;
+ }
+ 
+-int txpower_g_write_file(struct b43_wldev *dev, const char *buf, size_t count)
++static int txpower_g_write_file(struct b43_wldev *dev,
++				const char *buf, size_t count)
+ {
+ 	unsigned long flags;
+ 	unsigned long phy_flags;
+@@ -262,7 +269,8 @@ out_unlock:
+ }
+ 
+ /* wl-&gt;irq_lock is locked */
+-int restart_write_file(struct b43_wldev *dev, const char *buf, size_t count)
++static int restart_write_file(struct b43_wldev *dev,
++			      const char *buf, size_t count)
+ {
+ 	int err = 0;
+ 
+@@ -294,7 +302,8 @@ static ssize_t append_lo_table(ssize_t c
+ 	return count;
+ }
+ 
+-ssize_t loctls_read_file(struct b43_wldev *dev, char *buf, size_t bufsize)
++static ssize_t loctls_read_file(struct b43_wldev *dev,
++				char *buf, size_t bufsize)
+ {
+ 	ssize_t count = 0;
+ 	struct b43_txpower_lo_control *lo;
+@@ -383,6 +392,8 @@ static ssize_t b43_debugfs_read(struct f
+ 			err = -ENOMEM;
+ 			goto out_unlock;
+ 		}
++		/* Sparse warns about the following memset, because it has a big
++		 * size value. That warning is bogus, so I will ignore it. --mb */
+ 		memset(buf, 0, bufsize);
+ 		if (dfops-&gt;take_irqlock) {
+ 			spin_lock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002451.html">[PATCH] softmac: Fix inability to associate with WEP networks,	and the inability to change essid
+</A></li>
+	<LI>Next message: <A HREF="002453.html">[PATCH] b43: Don't lock irq_lock in debugfs txpower adjust
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2452">[ date ]</a>
+              <a href="thread.html#2452">[ thread ]</a>
+              <a href="subject.html#2452">[ subject ]</a>
+              <a href="author.html#2452">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

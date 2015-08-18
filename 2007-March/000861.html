@@ -1,0 +1,411 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 2/3] bcm43xx-mac80211: accessor functions for chip DMA	capabilities.
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/3%5D%20bcm43xx-mac80211%3A%20accessor%20functions%20for%20chip%20DMA%0A%09capabilities.&In-Reply-To=%3C8e6f94720703231423p2e1ed5d3sc84e82d1f24c4d2%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000849.html">
+   <LINK REL="Next"  HREF="000852.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 2/3] bcm43xx-mac80211: accessor functions for chip DMA	capabilities.</H1>
+    <B>Will Dyson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/3%5D%20bcm43xx-mac80211%3A%20accessor%20functions%20for%20chip%20DMA%0A%09capabilities.&In-Reply-To=%3C8e6f94720703231423p2e1ed5d3sc84e82d1f24c4d2%40mail.gmail.com%3E"
+       TITLE="[PATCH 2/3] bcm43xx-mac80211: accessor functions for chip DMA	capabilities.">will.dyson at gmail.com
+       </A><BR>
+    <I>Fri Mar 23 22:23:12 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000849.html">[PATCH 1/3] bcm43xx-mac80211: Catch dma mapping failures.
+</A></li>
+        <LI>Next message: <A HREF="000852.html">[PATCH 3/3] bcm43xx-mac80211: Work around 30bit DMA limitation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#861">[ date ]</a>
+              <a href="thread.html#861">[ thread ]</a>
+              <a href="subject.html#861">[ subject ]</a>
+              <a href="author.html#861">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Introduce and use a set of accessor functions to return the DMA capabilities
+of
+the chip. The detected DMA mask is accessible through bcm43xx_wldev and it
+cannot vary between the rings on a chip, so no need to separately keep track
+of
+it on a per-ring basis. This paves the way for checking for 30bit dma
+without
+keeping separate track of it.
+
+Signed-off-by: Will Dyson &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">will.dyson at gmail.com</A>&gt;
+---
+ .../net/wireless/mac80211/bcm43xx/bcm43xx_dma.c    |   70
++++++++++-----------
+ .../net/wireless/mac80211/bcm43xx/bcm43xx_dma.h    |   49 +++++++++++---
+ 2 files changed, 70 insertions(+), 49 deletions(-)
+
+diff --git a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
+b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
+index 4abc6c8..d09b849 100644
+--- a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
++++ b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
+@@ -418,18 +418,18 @@ static void free_ringmemory(struct bcm43xx_dmaring
+*ring)
+
+ /* Reset the RX DMA channel */
+ int bcm43xx_dmacontroller_rx_reset(struct bcm43xx_wldev *dev,
+-                   u16 mmio_base, int dma64)
++                   u16 mmio_base)
+ {
+     int i;
+     u32 value;
+     u16 offset;
+
+-    offset = dma64 ? BCM43xx_DMA64_RXCTL : BCM43xx_DMA32_RXCTL;
++    offset = bcm43xx_dma64(dev) ? BCM43xx_DMA64_RXCTL :
+BCM43xx_DMA32_RXCTL;
+     bcm43xx_write32(dev, mmio_base + offset, 0);
+     for (i = 0; i &lt; 1000; i++) {
+-        offset = dma64 ? BCM43xx_DMA64_RXSTATUS : BCM43xx_DMA32_RXSTATUS;
++        offset = bcm43xx_dma64(dev) ? BCM43xx_DMA64_RXSTATUS :
+BCM43xx_DMA32_RXSTATUS;
+         value = bcm43xx_read32(dev, mmio_base + offset);
+-        if (dma64) {
++        if (bcm43xx_dma64(dev)) {
+             value &amp;= BCM43xx_DMA64_RXSTAT;
+             if (value == BCM43xx_DMA64_RXSTAT_DISABLED) {
+                 i = -1;
+@@ -454,16 +454,16 @@ int bcm43xx_dmacontroller_rx_reset(struct
+bcm43xx_wldev *dev,
+
+ /* Reset the RX DMA channel */
+ int bcm43xx_dmacontroller_tx_reset(struct bcm43xx_wldev *dev,
+-                   u16 mmio_base, int dma64)
++                   u16 mmio_base)
+ {
+     int i;
+     u32 value;
+     u16 offset;
+
+     for (i = 0; i &lt; 1000; i++) {
+-        offset = dma64 ? BCM43xx_DMA64_TXSTATUS : BCM43xx_DMA32_TXSTATUS;
++        offset = bcm43xx_dma64(dev) ? BCM43xx_DMA64_TXSTATUS :
+BCM43xx_DMA32_TXSTATUS;
+         value = bcm43xx_read32(dev, mmio_base + offset);
+-        if (dma64) {
++        if (bcm43xx_dma64(dev)) {
+             value &amp;= BCM43xx_DMA64_TXSTAT;
+             if (value == BCM43xx_DMA64_TXSTAT_DISABLED ||
+                 value == BCM43xx_DMA64_TXSTAT_IDLEWAIT ||
+@@ -478,12 +478,12 @@ int bcm43xx_dmacontroller_tx_reset(struct
+bcm43xx_wldev *dev,
+         }
+         udelay(10);
+     }
+-    offset = dma64 ? BCM43xx_DMA64_TXCTL : BCM43xx_DMA32_TXCTL;
++    offset = bcm43xx_dma64(dev) ? BCM43xx_DMA64_TXCTL :
+BCM43xx_DMA32_TXCTL;
+     bcm43xx_write32(dev, mmio_base + offset, 0);
+     for (i = 0; i &lt; 1000; i++) {
+-        offset = dma64 ? BCM43xx_DMA64_TXSTATUS : BCM43xx_DMA32_TXSTATUS;
++        offset = bcm43xx_dma64(dev) ? BCM43xx_DMA64_TXSTATUS :
+BCM43xx_DMA32_TXSTATUS;
+         value = bcm43xx_read32(dev, mmio_base + offset);
+-        if (dma64) {
++        if (bcm43xx_dma64(dev)) {
+             value &amp;= BCM43xx_DMA64_TXSTAT;
+             if (value == BCM43xx_DMA64_TXSTAT_DISABLED) {
+                 i = -1;
+@@ -587,7 +587,7 @@ static int dmacontroller_setup(struct bcm43xx_dmaring
+*ring)
+     u32 trans = ssb_dma_translation(ring-&gt;dev-&gt;dev);
+
+     if (ring-&gt;tx) {
+-        if (ring-&gt;dma64) {
++        if (bcm43xx_dma64(ring-&gt;dev)) {
+             u64 ringbase = (u64)(ring-&gt;dmabase);
+
+             addrext = ((ringbase &gt;&gt; 32) &amp; SSB_DMA_TRANSLATION_MASK)
+@@ -618,7 +618,7 @@ static int dmacontroller_setup(struct bcm43xx_dmaring
+*ring)
+         err = alloc_initial_descbuffers(ring);
+         if (err)
+             goto out;
+-        if (ring-&gt;dma64) {
++        if (bcm43xx_dma64(ring-&gt;dev)) {
+             u64 ringbase = (u64)(ring-&gt;dmabase);
+
+             addrext = ((ringbase &gt;&gt; 32) &amp; SSB_DMA_TRANSLATION_MASK)
+@@ -659,15 +659,15 @@ out:
+ static void dmacontroller_cleanup(struct bcm43xx_dmaring *ring)
+ {
+     if (ring-&gt;tx) {
+-        bcm43xx_dmacontroller_tx_reset(ring-&gt;dev, ring-&gt;mmio_base,
+ring-&gt;dma64);
+-        if (ring-&gt;dma64) {
++        bcm43xx_dmacontroller_tx_reset(ring-&gt;dev, ring-&gt;mmio_base);
++        if (bcm43xx_dma64(ring-&gt;dev)) {
+             bcm43xx_dma_write(ring, BCM43xx_DMA64_TXRINGLO, 0);
+             bcm43xx_dma_write(ring, BCM43xx_DMA64_TXRINGHI, 0);
+         } else
+             bcm43xx_dma_write(ring, BCM43xx_DMA32_TXRING, 0);
+     } else {
+-        bcm43xx_dmacontroller_rx_reset(ring-&gt;dev, ring-&gt;mmio_base,
+ring-&gt;dma64);
+-        if (ring-&gt;dma64) {
++        bcm43xx_dmacontroller_rx_reset(ring-&gt;dev, ring-&gt;mmio_base);
++        if (bcm43xx_dma64(ring-&gt;dev)) {
+             bcm43xx_dma_write(ring, BCM43xx_DMA64_RXRINGLO, 0);
+             bcm43xx_dma_write(ring, BCM43xx_DMA64_RXRINGHI, 0);
+         } else
+@@ -725,8 +725,7 @@ static u64 supported_dma_mask(struct bcm43xx_wldev *dev)
+ static
+ struct bcm43xx_dmaring * bcm43xx_setup_dmaring(struct bcm43xx_wldev *dev,
+                            int controller_index,
+-                           int for_tx,
+-                           int dma64)
++                           int for_tx)
+ {
+     struct bcm43xx_dmaring *ring;
+     int err;
+@@ -754,10 +753,9 @@ struct bcm43xx_dmaring * bcm43xx_setup_dmaring(struct
+bcm43xx_wldev *dev,
+
+     ring-&gt;dev = dev;
+     ring-&gt;nr_slots = nr_slots;
+-    ring-&gt;mmio_base = bcm43xx_dmacontroller_base(dma64, controller_index);
++    ring-&gt;mmio_base = bcm43xx_dmacontroller_base(bcm43xx_dma64(dev),
+controller_index);
+     ring-&gt;index = controller_index;
+-    ring-&gt;dma64 = !!dma64;
+-    if (dma64)
++    if (bcm43xx_dma64(dev))
+         ring-&gt;ops = &amp;dma64_ops;
+     else
+         ring-&gt;ops = &amp;dma32_ops;
+@@ -802,7 +800,7 @@ static void bcm43xx_destroy_dmaring(struct
+bcm43xx_dmaring *ring)
+         return;
+
+     dprintk(KERN_INFO PFX &quot;DMA-%s 0x%04X (%s) max used slots: %d/%d\n&quot;,
+-        (ring-&gt;dma64) ? &quot;64&quot; : &quot;32&quot;,
++        (bcm43xx_dma64(ring-&gt;dev)) ? &quot;64&quot; : &quot;32&quot;,
+         ring-&gt;mmio_base,
+         (ring-&gt;tx) ? &quot;TX&quot; : &quot;RX&quot;,
+         ring-&gt;max_used_slots, ring-&gt;nr_slots);
+@@ -850,14 +848,8 @@ int bcm43xx_dma_init(struct bcm43xx_wldev *dev)
+     struct bcm43xx_dma *dma = &amp;dev-&gt;dma;
+     struct bcm43xx_dmaring *ring;
+     int err;
+-    u64 dmamask;
+-    int dma64 = 0;
+
+-    dmamask = supported_dma_mask(dev);
+-    if (dmamask == DMA_64BIT_MASK)
+-        dma64 = 1;
+-
+-    err = ssb_dma_set_mask(dev-&gt;dev, dmamask);
++    err = ssb_dma_set_mask(dev-&gt;dev, supported_dma_mask(dev));
+     if (err) {
+ #ifdef BCM43XX_MAC80211_PIO
+         printk(KERN_WARNING PFX &quot;DMA for this device not supported. &quot;
+@@ -873,52 +865,52 @@ int bcm43xx_dma_init(struct bcm43xx_wldev *dev)
+
+     err = -ENOMEM;
+     /* setup TX DMA channels. */
+-    ring = bcm43xx_setup_dmaring(dev, 0, 1, dma64);
++    ring = bcm43xx_setup_dmaring(dev, 0, 1);
+     if (!ring)
+         goto out;
+     dma-&gt;tx_ring0 = ring;
+
+-    ring = bcm43xx_setup_dmaring(dev, 1, 1, dma64);
++    ring = bcm43xx_setup_dmaring(dev, 1, 1);
+     if (!ring)
+         goto err_destroy_tx0;
+     dma-&gt;tx_ring1 = ring;
+
+-    ring = bcm43xx_setup_dmaring(dev, 2, 1, dma64);
++    ring = bcm43xx_setup_dmaring(dev, 2, 1);
+     if (!ring)
+         goto err_destroy_tx1;
+     dma-&gt;tx_ring2 = ring;
+
+-    ring = bcm43xx_setup_dmaring(dev, 3, 1, dma64);
++    ring = bcm43xx_setup_dmaring(dev, 3, 1);
+     if (!ring)
+         goto err_destroy_tx2;
+     dma-&gt;tx_ring3 = ring;
+
+-    ring = bcm43xx_setup_dmaring(dev, 4, 1, dma64);
++    ring = bcm43xx_setup_dmaring(dev, 4, 1);
+     if (!ring)
+         goto err_destroy_tx3;
+     dma-&gt;tx_ring4 = ring;
+
+-    ring = bcm43xx_setup_dmaring(dev, 5, 1, dma64);
++    ring = bcm43xx_setup_dmaring(dev, 5, 1);
+     if (!ring)
+         goto err_destroy_tx4;
+     dma-&gt;tx_ring5 = ring;
+
+     /* setup RX DMA channels. */
+-    ring = bcm43xx_setup_dmaring(dev, 0, 0, dma64);
++    ring = bcm43xx_setup_dmaring(dev, 0, 0);
+     if (!ring)
+         goto err_destroy_tx5;
+     dma-&gt;rx_ring0 = ring;
+
+     if (dev-&gt;dev-&gt;id.revision &lt; 5) {
+-        ring = bcm43xx_setup_dmaring(dev, 3, 0, dma64);
++        ring = bcm43xx_setup_dmaring(dev, 3, 0);
+         if (!ring)
+             goto err_destroy_rx0;
+         dma-&gt;rx_ring3 = ring;
+     }
+
+     dprintk(KERN_INFO PFX &quot;%d-bit DMA initialized\n&quot;,
+-        (dmamask == DMA_64BIT_MASK) ? 64 :
+-        (dmamask == DMA_32BIT_MASK) ? 32 : 30);
++        (bcm43xx_dma64(dev)) ? 64 :
++        (bcm43xx_dma30(dev)) ? 32 : 30);
+     err = 0;
+ out:
+     return err;
+diff --git a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.h
+b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.h
+index 94fac2a..56e2f3d 100644
+--- a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.h
++++ b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.h
+@@ -248,8 +248,6 @@ struct bcm43xx_dmaring {
+     int index;
+     /* Boolean. Is this a TX ring? */
+     u8 tx;
+-    /* Boolean. 64bit DMA if true, 32bit DMA otherwise. */
+-    u8 dma64;
+     /* Boolean. Is this ring stopped at ieee80211 level? */
+     u8 stopped;
+     struct bcm43xx_wldev *dev;
+@@ -259,6 +257,23 @@ struct bcm43xx_dmaring {
+ #endif /* CONFIG_BCM43XX_MAC80211_DEBUG*/
+ };
+
++static inline
++int bcm43xx_dma64(struct bcm43xx_wldev *dev)
++{
++    return (*dev-&gt;dev-&gt;dev-&gt;dma_mask == DMA_64BIT_MASK);
++}
++
++static inline
++int bcm43xx_dma32(struct bcm43xx_wldev *dev)
++{
++    return (*dev-&gt;dev-&gt;dev-&gt;dma_mask == DMA_32BIT_MASK);
++}
++
++static inline
++int bcm43xx_dma30(struct bcm43xx_wldev *dev)
++{
++    return (*dev-&gt;dev-&gt;dev-&gt;dma_mask == DMA_30BIT_MASK);
++}
+
+ static inline
+ u32 bcm43xx_dma_read(struct bcm43xx_dmaring *ring,
+@@ -279,11 +294,9 @@ int bcm43xx_dma_init(struct bcm43xx_wldev *dev);
+ void bcm43xx_dma_free(struct bcm43xx_wldev *dev);
+
+ int bcm43xx_dmacontroller_rx_reset(struct bcm43xx_wldev *dev,
+-                   u16 dmacontroller_mmio_base,
+-                   int dma64);
++                   u16 dmacontroller_mmio_base);
+ int bcm43xx_dmacontroller_tx_reset(struct bcm43xx_wldev *dev,
+-                   u16 dmacontroller_mmio_base,
+-                   int dma64);
++                   u16 dmacontroller_mmio_base);
+
+ u16 bcm43xx_dmacontroller_base(int dma64bit, int dmacontroller_idx);
+
+@@ -305,6 +318,24 @@ void bcm43xx_dma_rx(struct bcm43xx_dmaring *ring);
+
+
+ static inline
++int bcm43xx_dma64(struct bcm43xx_dmaring *ring)
++{
++    return 0;
++}
++
++static inline
++int bcm43xx_dma32(struct bcm43xx_dmaring *ring)
++{
++    return 0;
++}
++
++static inline
++int bcm43xx_dma30(struct bcm43xx_dmaring *ring)
++{
++    return 0;
++}
++
++static inline
+ int bcm43xx_dma_init(struct bcm43xx_wldev *dev)
+ {
+     return 0;
+@@ -315,15 +346,13 @@ void bcm43xx_dma_free(struct bcm43xx_wldev *dev)
+ }
+ static inline
+ int bcm43xx_dmacontroller_rx_reset(struct bcm43xx_wldev *dev,
+-                   u16 dmacontroller_mmio_base,
+-                   int dma64)
++                   u16 dmacontroller_mmio_base)
+ {
+     return 0;
+ }
+ static inline
+ int bcm43xx_dmacontroller_tx_reset(struct bcm43xx_wldev *dev,
+-                   u16 dmacontroller_mmio_base,
+-                   int dma64)
++                   u16 dmacontroller_mmio_base)
+ {
+     return 0;
+ }
+-- 
+1.5.0.3
+
+
+
+-- 
+Will Dyson
+<A HREF="http://www.lucidts.com/">http://www.lucidts.com/</A>
+Linux/Mac/Win consulting
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070323/f6b5591c/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070323/f6b5591c/attachment.html</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000849.html">[PATCH 1/3] bcm43xx-mac80211: Catch dma mapping failures.
+</A></li>
+	<LI>Next message: <A HREF="000852.html">[PATCH 3/3] bcm43xx-mac80211: Work around 30bit DMA limitation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#861">[ date ]</a>
+              <a href="thread.html#861">[ thread ]</a>
+              <a href="subject.html#861">[ subject ]</a>
+              <a href="author.html#861">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

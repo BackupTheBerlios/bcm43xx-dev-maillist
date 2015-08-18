@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Improved opensource firmware
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Improved%20opensource%20firmware&In-Reply-To=%3C4A6C7826.1000004%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005630.html">
+   <LINK REL="Next"  HREF="005632.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Improved opensource firmware</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Improved%20opensource%20firmware&In-Reply-To=%3C4A6C7826.1000004%40lwfinger.net%3E"
+       TITLE="Improved opensource firmware">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sun Jul 26 17:37:10 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005630.html">Improved opensource firmware
+</A></li>
+        <LI>Next message: <A HREF="005632.html">Improved opensource firmware
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5631">[ date ]</a>
+              <a href="thread.html#5631">[ thread ]</a>
+              <a href="subject.html#5631">[ subject ]</a>
+              <a href="author.html#5631">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> 
+</I>&gt;<i> Just to explain my idea:
+</I>&gt;<i> I think there are two ways for this warning to trigger.
+</I>&gt;<i> The first being mac80211 being broken and not stopping the queue on request.
+</I>&gt;<i> That's probably not very likely.
+</I>&gt;<i> The second could possibly be the firmware reporting status for one frame
+</I>&gt;<i> multiple times. I did not check the whole code, but this could possibly
+</I>&gt;<i> lead to an integer under/overflow in the free_slots() calculation. A signed integer
+</I>&gt;<i> is used, so I think it can go negative, which would trigger the warning.
+</I>&gt;<i> 
+</I>&gt;<i> I don't see another way to trigger the message.
+</I>&gt;<i> And as it only seems to happen with open firmware, it seems likely be caused
+</I>&gt;<i> by TX status reporting in the firmware.
+</I>
+The message also triggers with proprietary firmware. My debugging hunk is
+
+@@ -1340,7 +1350,8 @@ int b43_dma_tx(struct b43_wldev *dev, st
+        B43_WARN_ON(ring-&gt;stopped);
+
+        if (unlikely(free_slots(ring) &lt; TX_SLOTS_PER_FRAME)) {
+-               b43warn(dev-&gt;wl, &quot;DMA queue overflow\n&quot;);
++               b43warn(dev-&gt;wl, &quot;DMA queue overflow with free_slots =
+%d\n&quot;,
++                       free_slots(ring));
+                err = -ENOSPC;
+                goto out_unlock;
+        }
+
+The revised printk shows
+
+b43-phy0 warning: DMA queue overflow with free_slots = 0
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005630.html">Improved opensource firmware
+</A></li>
+	<LI>Next message: <A HREF="005632.html">Improved opensource firmware
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5631">[ date ]</a>
+              <a href="thread.html#5631">[ thread ]</a>
+              <a href="subject.html#5631">[ subject ]</a>
+              <a href="author.html#5631">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

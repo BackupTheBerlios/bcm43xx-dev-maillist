@@ -1,0 +1,108 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> opensource firmware now accept version 410 frames
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20opensource%20firmware%20now%20accept%20version%20410%20frames&In-Reply-To=%3C2F0B8ED4-BF06-491F-98E6-CA27A104C237%40ing.unibs.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005196.html">
+   <LINK REL="Next"  HREF="005169.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>opensource firmware now accept version 410 frames</H1>
+    <B>Francesco Gringoli</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20opensource%20firmware%20now%20accept%20version%20410%20frames&In-Reply-To=%3C2F0B8ED4-BF06-491F-98E6-CA27A104C237%40ing.unibs.it%3E"
+       TITLE="opensource firmware now accept version 410 frames">francesco.gringoli at ing.unibs.it
+       </A><BR>
+    <I>Sun Feb  1 12:25:20 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005196.html">opensource firmware now accept version 410 frames
+</A></li>
+        <LI>Next message: <A HREF="005169.html">opensource firmware now accept version 410 frames
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5168">[ date ]</a>
+              <a href="thread.html#5168">[ thread ]</a>
+              <a href="subject.html#5168">[ subject ]</a>
+              <a href="author.html#5168">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+On Feb 1, 2009, at 11:25 AM, Michael Buesch wrote:
+
+&gt;<i> On Sunday 01 February 2009 11:16:29 Michael Buesch wrote:
+</I>&gt;<i>
+</I>&gt;<i> If it's not an external condition, it could possibly also be a bit  
+</I>&gt;<i> in the TXE or something
+</I>&gt;<i> like that. I'm not completely sure on that one. But external  
+</I>&gt;<i> condition would be my
+</I>&gt;<i> first bet, as we have lots of other external conditions for other  
+</I>&gt;<i> overflow conditions.
+</I>
+For my understanding of what's going on with Larry's adapter, may I  
+kindly ask you if the following picture is correct?
+
+I simply put a printk just at the top of op32_poke_tx and another in  
+handle_irq_transmit_status. I injected as mush traffic as I can by  
+sending UDP style frames through a raw socket to the wireless  
+interface, I send ten thousands packets so to enter a &quot;regime&quot;  
+condition: after the first  hundreds packets are sent, I see from  
+dmesg a op32_poke_tx line followed by a handle_irq_transmit_status  
+line, these two couple of lines repeated thousands times. More  
+interesting is what happens at the end when I stop sending packets on  
+the raw socket: the kernel stops filling the queue, and in dmesg we  
+can see only handle_irq_transmit_status lines corresponding to frames  
+still in the tx fifo. The firmware is removing these last packets and  
+for each of them it will send a IRQ after sending. It always turn out  
+that the queue had 64 packets inside, I always see 64 consecutive  
+lines about handle_irq_transmit_stats. Is this number (64) due to the  
+definition
+
+#define B43_TXRING_SLOTS                128
+
+in dma.h? For what I understand a slot is used for tx header, the  
+other for the actual packet, isn'it? So we have half of 128 slots for  
+64 packets.
+
+If this is correct, the condition observed by Larry could be due to  
+some packets being lost during their travel in the fifo run by the dma  
+system? It seems that the firmware is reporting status for not all  
+packets that have been sent through the dma, but we know that the  
+firmware always reports status _unless_ the mac ctl register is set to  
+skip status reporting. Could we investigate on this or I'm completely  
+wrong?
+
+Cheers,
+-Francesco
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005196.html">opensource firmware now accept version 410 frames
+</A></li>
+	<LI>Next message: <A HREF="005169.html">opensource firmware now accept version 410 frames
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5168">[ date ]</a>
+              <a href="thread.html#5168">[ thread ]</a>
+              <a href="subject.html#5168">[ subject ]</a>
+              <a href="author.html#5168">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

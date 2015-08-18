@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BCM4311/02 ABG disconnects on 2.6.32
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4311/02%20ABG%20disconnects%20on%202.6.32&In-Reply-To=%3C4B69DEC8.1010201%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006883.html">
+   <LINK REL="Next"  HREF="006886.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BCM4311/02 ABG disconnects on 2.6.32</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4311/02%20ABG%20disconnects%20on%202.6.32&In-Reply-To=%3C4B69DEC8.1010201%40lwfinger.net%3E"
+       TITLE="BCM4311/02 ABG disconnects on 2.6.32">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Wed Feb  3 21:38:32 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006883.html">BCM4311/02 ABG disconnects on 2.6.32
+</A></li>
+        <LI>Next message: <A HREF="006886.html">BCM4311/02 ABG disconnects on 2.6.32
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6885">[ date ]</a>
+              <a href="thread.html#6885">[ thread ]</a>
+              <a href="subject.html#6885">[ subject ]</a>
+              <a href="author.html#6885">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 02/03/2010 01:37 PM, Yuval Hager wrote:
+&gt;<i> 
+</I>&gt;<i> I just upgraded to the latest firmware, but there is no change. I am not 
+</I>&gt;<i> having any issues with this router while running 2.6.29 on this machine, or 
+</I>&gt;<i> 2.6.32 on another machine (using rt2x500pci). The router is Netgear WGR614V9, 
+</I>&gt;<i> and the firmware is V1.2.24_37.0.35.
+</I>&gt;<i> Also note that this &quot;reason 3&quot; only occures after the first association - 
+</I>&gt;<i> after that it just continues with the &quot;no probe response&quot; I got used to.
+</I>
+Based on a suggestion by Michael Buesch, I am trying a new version of the patch.
+Does this one work for you?
+
+Larry
+
+===========
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c
++++ wireless-testing/drivers/net/wireless/b43/main.c
+@@ -3980,6 +3980,7 @@ static int b43_wireless_core_start(struc
+ 	}
+
+ 	/* We are ready to run. */
++	ieee80211_wake_queues(dev-&gt;wl-&gt;hw);
+ 	b43_set_status(dev, B43_STAT_STARTED);
+
+ 	/* Start data flow (TX/RX). */
+@@ -4387,10 +4388,6 @@ static int b43_wireless_core_init(struct
+ 	b43_upload_card_macaddress(dev);
+ 	b43_security_init(dev);
+
+-	ieee80211_wake_queues(dev-&gt;wl-&gt;hw);
+-
+-	ieee80211_wake_queues(dev-&gt;wl-&gt;hw);
+-
+ 	b43_set_status(dev, B43_STAT_INITIALIZED);
+
+ out:
+Index: wireless-testing/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-testing/drivers/net/wireless/b43legacy/main.c
+@@ -2923,6 +2923,7 @@ static int b43legacy_wireless_core_start
+ 		goto out;
+ 	}
+ 	/* We are ready to run. */
++	ieee80211_wake_queues(dev-&gt;wl-&gt;hw);
+ 	b43legacy_set_status(dev, B43legacy_STAT_STARTED);
+
+ 	/* Start data flow (TX/RX) */
+
+
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: b43_queues_patch
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20100203/0236a4dc/attachment.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20100203/0236a4dc/attachment.ksh</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006883.html">BCM4311/02 ABG disconnects on 2.6.32
+</A></li>
+	<LI>Next message: <A HREF="006886.html">BCM4311/02 ABG disconnects on 2.6.32
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6885">[ date ]</a>
+              <a href="thread.html#6885">[ thread ]</a>
+              <a href="subject.html#6885">[ subject ]</a>
+              <a href="author.html#6885">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

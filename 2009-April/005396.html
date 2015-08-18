@@ -1,0 +1,286 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH, RFC] b44: Add fw capabilities
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%2C%20RFC%5D%20b44%3A%20Add%20fw%20capabilities&In-Reply-To=%3C69e28c910904080530j10cdd69co5232cc1121090ca4%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005395.html">
+   <LINK REL="Next"  HREF="005397.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH, RFC] b44: Add fw capabilities</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%2C%20RFC%5D%20b44%3A%20Add%20fw%20capabilities&In-Reply-To=%3C69e28c910904080530j10cdd69co5232cc1121090ca4%40mail.gmail.com%3E"
+       TITLE="[PATCH, RFC] b44: Add fw capabilities">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Wed Apr  8 14:30:06 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005395.html">[PATCH, RFC] b44: Add fw capabilities
+</A></li>
+        <LI>Next message: <A HREF="005397.html">[PATCH, RFC] b44: Add fw capabilities
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5396">[ date ]</a>
+              <a href="thread.html#5396">[ thread ]</a>
+              <a href="subject.html#5396">[ subject ]</a>
+              <a href="author.html#5396">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I assume &quot;b44&quot; in the title is a typo.
+
+On Wed, Apr 8, 2009 at 2:11 AM, Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; wrote:
+&gt;<i> Completely untested patch to implement firmware capabilities
+</I>&gt;<i> and automagic QoS-disabling.
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/b43.h
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/b43.h &#160; &#160; &#160; &#160;2009-04-07 19:52:34.000000000 +0200
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/b43.h &#160; &#160; 2009-04-08 01:57:58.000000000 +0200
+</I>&gt;<i> @@ -163,6 +163,7 @@ enum {
+</I>&gt;<i> &#160;#define B43_SHM_SH_WLCOREREV &#160; &#160; &#160; &#160; &#160; 0x0016 &#160;/* 802.11 core revision */
+</I>&gt;<i> &#160;#define B43_SHM_SH_PCTLWDPOS &#160; &#160; &#160; &#160; &#160; 0x0008
+</I>&gt;<i> &#160;#define B43_SHM_SH_RXPADOFF &#160; &#160; &#160; &#160; &#160; &#160;0x0034 &#160;/* RX Padding data offset (PIO only) */
+</I>&gt;<i> +#define B43_SHM_SH_FWCAPA &#160; &#160; &#160; &#160; &#160; &#160; &#160;0x0042 &#160;/* Firmware capabilities (Opensource firmware only) */
+</I>&gt;<i> &#160;#define B43_SHM_SH_PHYVER &#160; &#160; &#160; &#160; &#160; &#160; &#160;0x0050 &#160;/* PHY version */
+</I>&gt;<i> &#160;#define B43_SHM_SH_PHYTYPE &#160; &#160; &#160; &#160; &#160; &#160; 0x0052 &#160;/* PHY type */
+</I>&gt;<i> &#160;#define B43_SHM_SH_ANTSWAP &#160; &#160; &#160; &#160; &#160; &#160; 0x005C &#160;/* Antenna swap threshold */
+</I>&gt;<i> @@ -297,6 +298,10 @@ enum {
+</I>&gt;<i> &#160;#define B43_HF_MLADVW &#160; &#160; &#160; &#160; &#160;0x001000000000ULL /* N PHY ML ADV workaround (rev &gt;= 13 only) */
+</I>&gt;<i> &#160;#define B43_HF_PR45960W &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;0x080000000000ULL /* PR 45960 workaround (rev &gt;= 13 only) */
+</I>&gt;<i>
+</I>&gt;<i> +/* Firmware capabilities field in SHM (Opensource firmware only) */
+</I>&gt;<i> +#define B43_FWCAPA_HWCRYPTO &#160; &#160;0x0001
+</I>&gt;<i> +#define B43_FWCAPA_QOS &#160; &#160; &#160; &#160; 0x0002
+</I>&gt;<i> +
+</I>&gt;<i> &#160;/* MacFilter offsets. */
+</I>&gt;<i> &#160;#define B43_MACFILTER_SELF &#160; &#160; &#160; &#160; &#160; &#160; 0x0000
+</I>&gt;<i> &#160;#define B43_MACFILTER_BSSID &#160; &#160; &#160; &#160; &#160; &#160;0x0003
+</I>&gt;<i> @@ -596,6 +601,13 @@ struct b43_wl {
+</I>&gt;<i> &#160; &#160; &#160; &#160;/* Pointer to the ieee80211 hardware data structure */
+</I>&gt;<i> &#160; &#160; &#160; &#160;struct ieee80211_hw *hw;
+</I>&gt;<i>
+</I>&gt;<i> + &#160; &#160; &#160; /* The number of queues that were registered with the mac80211 subsystem
+</I>&gt;<i> + &#160; &#160; &#160; &#160;* initially. This is a backup copy of hw-&gt;queues in case hw-&gt;queues has
+</I>&gt;<i> + &#160; &#160; &#160; &#160;* to be dynamically lowered at runtime (Firmware does not support QoS).
+</I>&gt;<i> + &#160; &#160; &#160; &#160;* hw-&gt;queues has to be restored to the original value before unregistering
+</I>&gt;<i> + &#160; &#160; &#160; &#160;* from the mac80211 subsystem. */
+</I>&gt;<i> + &#160; &#160; &#160; u16 mac80211_initially_registered_queues;
+</I>&gt;<i> +
+</I>&gt;<i> &#160; &#160; &#160; &#160;struct mutex mutex;
+</I>&gt;<i> &#160; &#160; &#160; &#160;spinlock_t irq_lock;
+</I>&gt;<i> &#160; &#160; &#160; &#160;/* R/W lock for data transmission.
+</I>&gt;<i> @@ -752,6 +764,8 @@ struct b43_wldev {
+</I>&gt;<i> &#160; &#160; &#160; &#160;bool dfq_valid; &#160; &#160; &#160; &#160; /* Directed frame queue valid (IBSS PS mode, ATIM) */
+</I>&gt;<i> &#160; &#160; &#160; &#160;bool radio_hw_enable; &#160; /* saved state of radio hardware enabled state */
+</I>&gt;<i> &#160; &#160; &#160; &#160;bool suspend_in_progress; &#160; &#160; &#160; /* TRUE, if we are in a suspend/resume cycle */
+</I>&gt;<i> + &#160; &#160; &#160; bool qos_enabled; &#160; &#160; &#160; &#160; &#160; &#160; &#160; /* TRUE, if QoS is used. */
+</I>&gt;<i> + &#160; &#160; &#160; bool hwcrypto_enabled; &#160; &#160; &#160; &#160; &#160;/* TRUE, if HW crypto acceleration is enabled. */
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;/* PHY/Radio device. */
+</I>&gt;<i> &#160; &#160; &#160; &#160;struct b43_phy phy;
+</I>&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/dma.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/dma.c &#160; &#160; &#160; &#160;2009-04-07 19:58:22.000000000 +0200
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/dma.c &#160; &#160; 2009-04-08 01:53:56.000000000 +0200
+</I>&gt;<i> @@ -1285,7 +1285,7 @@ static struct b43_dmaring *select_ring_b
+</I>&gt;<i> &#160;{
+</I>&gt;<i> &#160; &#160; &#160; &#160;struct b43_dmaring *ring;
+</I>&gt;<i>
+</I>&gt;<i> - &#160; &#160; &#160; if (b43_modparam_qos) {
+</I>&gt;<i> + &#160; &#160; &#160; if (dev-&gt;qos_enabled) {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;/* 0 = highest priority */
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;switch (queue_prio) {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;default:
+</I>&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/main.c &#160; &#160; &#160; 2009-04-07 19:55:03.000000000 +0200
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/main.c &#160; &#160;2009-04-08 02:02:19.000000000 +0200
+</I>&gt;<i> @@ -80,8 +80,8 @@ static int modparam_nohwcrypt;
+</I>&gt;<i> &#160;module_param_named(nohwcrypt, modparam_nohwcrypt, int, 0444);
+</I>&gt;<i> &#160;MODULE_PARM_DESC(nohwcrypt, &quot;Disable hardware encryption.&quot;);
+</I>&gt;<i>
+</I>&gt;<i> -int b43_modparam_qos = 1;
+</I>&gt;<i> -module_param_named(qos, b43_modparam_qos, int, 0444);
+</I>&gt;<i> +static int modparam_qos = 1;
+</I>&gt;<i> +module_param_named(qos, modparam_qos, int, 0444);
+</I>&gt;<i> &#160;MODULE_PARM_DESC(qos, &quot;Enable QOS support (default on)&quot;);
+</I>&gt;<i>
+</I>&gt;<i> &#160;static int modparam_btcoex = 1;
+</I>&gt;<i> @@ -538,6 +538,13 @@ void b43_hf_write(struct b43_wldev *dev,
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_shm_write16(dev, B43_SHM_SHARED, B43_SHM_SH_HOSTFHI, hi);
+</I>&gt;<i> &#160;}
+</I>&gt;<i>
+</I>&gt;<i> +/* Read the firmware capabilities bitmask (Opensource firmware only) */
+</I>&gt;<i> +static u16 b43_fwcapa_read(struct b43_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> + &#160; &#160; &#160; B43_WARN_ON(!dev-&gt;fw.opensource);
+</I>&gt;<i> + &#160; &#160; &#160; return b43_shm_read16(dev, B43_SHM_SHARED, B43_SHM_SH_FWCAPA);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> &#160;void b43_tsf_read(struct b43_wldev *dev, u64 *tsf)
+</I>&gt;<i> &#160;{
+</I>&gt;<i> &#160; &#160; &#160; &#160;u32 low, high;
+</I>&gt;<i> @@ -2330,12 +2337,34 @@ static int b43_upload_microcode(struct b
+</I>&gt;<i> &#160; &#160; &#160; &#160;dev-&gt;fw.patch = fwpatch;
+</I>&gt;<i> &#160; &#160; &#160; &#160;dev-&gt;fw.opensource = (fwdate == 0xFFFF);
+</I>&gt;<i>
+</I>&gt;<i> + &#160; &#160; &#160; /* Default to use-all-queues. */
+</I>&gt;<i> + &#160; &#160; &#160; dev-&gt;wl-&gt;hw-&gt;queues = dev-&gt;wl-&gt;mac80211_initially_registered_queues;
+</I>&gt;<i> + &#160; &#160; &#160; dev-&gt;qos_enabled = !!modparam_qos;
+</I>&gt;<i> + &#160; &#160; &#160; /* Default to firmware/hardware crypto acceleration. */
+</I>&gt;<i> + &#160; &#160; &#160; dev-&gt;hwcrypto_enabled = 1;
+</I>&gt;<i> +
+</I>&gt;<i> &#160; &#160; &#160; &#160;if (dev-&gt;fw.opensource) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; u16 fwcapa;
+</I>&gt;<i> +
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;/* Patchlevel info is encoded in the &quot;time&quot; field. */
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;dev-&gt;fw.patch = fwtime;
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43info(dev-&gt;wl, &quot;Loading OpenSource firmware version %u.%u%s\n&quot;,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; dev-&gt;fw.rev, dev-&gt;fw.patch,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; dev-&gt;fw.pcm_request_failed ? &quot; (Hardware crypto not supported)&quot; : &quot;&quot;);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43info(dev-&gt;wl, &quot;Loading OpenSource firmware version %u.%u\n&quot;,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; dev-&gt;fw.rev, dev-&gt;fw.patch);
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; fwcapa = b43_fwcapa_read(dev);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (!(fwcapa &amp; B43_FWCAPA_HWCRYPTO) || dev-&gt;fw.pcm_request_failed) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43info(dev-&gt;wl, &quot;Hardware crypto acceleration not supported by firmware\n&quot;);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; /* Disable hardware crypto and fall back to software crypto. */
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; dev-&gt;hwcrypto_enabled = 0;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; }
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (!(fwcapa &amp; B43_FWCAPA_QOS)) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43info(dev-&gt;wl, &quot;QoS not supported by firmware\n&quot;);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; /* Disable QoS. Tweak hw-&gt;queues to 1. It will be restored before
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;* ieee80211_unregister to make sure the networking core can
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;* properly free possible resources. */
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; dev-&gt;wl-&gt;hw-&gt;queues = 1;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; dev-&gt;qos_enabled = 0;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; }
+</I>&gt;<i> &#160; &#160; &#160; &#160;} else {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43info(dev-&gt;wl, &quot;Loading firmware version %u.%u &quot;
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;&quot;(20%.2i-%.2i-%.2i %.2i:%.2i:%.2i)\n&quot;,
+</I>&gt;<i> @@ -3626,7 +3655,7 @@ static int b43_op_set_key(struct ieee802
+</I>&gt;<i> &#160; &#160; &#160; &#160;if (!dev || b43_status(dev) &lt; B43_STAT_INITIALIZED)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;goto out_unlock;
+</I>&gt;<i>
+</I>&gt;<i> - &#160; &#160; &#160; if (dev-&gt;fw.pcm_request_failed) {
+</I>&gt;<i> + &#160; &#160; &#160; if (dev-&gt;fw.pcm_request_failed || !dev-&gt;hwcrypto_enabled) {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;/* We don't have firmware for the crypto engine.
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; * Must use software-crypto. */
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;err = -EOPNOTSUPP;
+</I>&gt;<i> @@ -4770,6 +4799,7 @@ static int b43_wireless_init(struct ssb_
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43err(NULL, &quot;Could not allocate ieee80211 device\n&quot;);
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;goto out;
+</I>&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;<i> + &#160; &#160; &#160; wl = hw_to_b43_wl(hw);
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;/* fill hw info */
+</I>&gt;<i> &#160; &#160; &#160; &#160;hw-&gt;flags = IEEE80211_HW_RX_INCLUDES_FCS |
+</I>&gt;<i> @@ -4783,7 +4813,8 @@ static int b43_wireless_init(struct ssb_
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;BIT(NL80211_IFTYPE_WDS) |
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;BIT(NL80211_IFTYPE_ADHOC);
+</I>&gt;<i>
+</I>&gt;<i> - &#160; &#160; &#160; hw-&gt;queues = b43_modparam_qos ? 4 : 1;
+</I>&gt;<i> + &#160; &#160; &#160; hw-&gt;queues = modparam_qos ? 4 : 1;
+</I>&gt;<i> + &#160; &#160; &#160; wl-&gt;mac80211_initially_registered_queues = hw-&gt;queues;
+</I>&gt;<i> &#160; &#160; &#160; &#160;hw-&gt;max_rates = 2;
+</I>&gt;<i> &#160; &#160; &#160; &#160;SET_IEEE80211_DEV(hw, dev-&gt;dev);
+</I>&gt;<i> &#160; &#160; &#160; &#160;if (is_valid_ether_addr(sprom-&gt;et1mac))
+</I>&gt;<i> @@ -4791,9 +4822,7 @@ static int b43_wireless_init(struct ssb_
+</I>&gt;<i> &#160; &#160; &#160; &#160;else
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;SET_IEEE80211_PERM_ADDR(hw, sprom-&gt;il0mac);
+</I>&gt;<i>
+</I>&gt;<i> - &#160; &#160; &#160; /* Get and initialize struct b43_wl */
+</I>&gt;<i> - &#160; &#160; &#160; wl = hw_to_b43_wl(hw);
+</I>&gt;<i> - &#160; &#160; &#160; memset(wl, 0, sizeof(*wl));
+</I>&gt;<i> + &#160; &#160; &#160; /* Initialize struct b43_wl */
+</I>&gt;<i> &#160; &#160; &#160; &#160;wl-&gt;hw = hw;
+</I>&gt;<i> &#160; &#160; &#160; &#160;spin_lock_init(&amp;wl-&gt;irq_lock);
+</I>&gt;<i> &#160; &#160; &#160; &#160;rwlock_init(&amp;wl-&gt;tx_lock);
+</I>&gt;<i> @@ -4859,8 +4888,13 @@ static void b43_remove(struct ssb_device
+</I>&gt;<i> &#160; &#160; &#160; &#160;cancel_work_sync(&amp;wldev-&gt;restart_work);
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;B43_WARN_ON(!wl);
+</I>&gt;<i> - &#160; &#160; &#160; if (wl-&gt;current_dev == wldev)
+</I>&gt;<i> + &#160; &#160; &#160; if (wl-&gt;current_dev == wldev) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; /* Restore the queues count before unregistering, because firmware detect
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;* might have modified it. Restoring is important, so the networking
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;* stack can properly free resources. */
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; wl-&gt;hw-&gt;queues = wl-&gt;mac80211_initially_registered_queues;
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;ieee80211_unregister_hw(wl-&gt;hw);
+</I>&gt;<i> + &#160; &#160; &#160; }
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_one_core_detach(dev);
+</I>&gt;<i>
+</I>&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/main.h
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/main.h &#160; &#160; &#160; 2009-04-08 01:53:15.000000000 +0200
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/main.h &#160; &#160;2009-04-08 01:53:20.000000000 +0200
+</I>&gt;<i> @@ -39,7 +39,6 @@
+</I>&gt;<i> &#160;#define PAD_BYTES(nr_bytes) &#160; &#160; &#160; &#160; &#160; &#160;P4D_BYTES( __LINE__ , (nr_bytes))
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> -extern int b43_modparam_qos;
+</I>&gt;<i> &#160;extern int b43_modparam_verbose;
+</I>&gt;<i>
+</I>&gt;<i> &#160;/* Logmessage verbosity levels. Update the b43_modparam_verbose helptext, if
+</I>&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/pio.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/pio.c &#160; &#160; &#160; &#160;2009-04-08 02:10:23.000000000 +0200
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/pio.c &#160; &#160; 2009-04-08 02:10:38.000000000 +0200
+</I>&gt;<i> @@ -313,7 +313,7 @@ static struct b43_pio_txqueue *select_qu
+</I>&gt;<i> &#160;{
+</I>&gt;<i> &#160; &#160; &#160; &#160;struct b43_pio_txqueue *q;
+</I>&gt;<i>
+</I>&gt;<i> - &#160; &#160; &#160; if (b43_modparam_qos) {
+</I>&gt;<i> + &#160; &#160; &#160; if (dev-&gt;qos_enabled) {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;/* 0 = highest priority */
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;switch (queue_prio) {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;default:
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i> Greetings, Michael.
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Bcm43xx-dev mailing list
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005395.html">[PATCH, RFC] b44: Add fw capabilities
+</A></li>
+	<LI>Next message: <A HREF="005397.html">[PATCH, RFC] b44: Add fw capabilities
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5396">[ date ]</a>
+              <a href="thread.html#5396">[ thread ]</a>
+              <a href="subject.html#5396">[ subject ]</a>
+              <a href="author.html#5396">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

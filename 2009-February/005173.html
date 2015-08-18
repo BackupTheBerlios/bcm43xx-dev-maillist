@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> opensource firmware now accept version 410 frames
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20opensource%20firmware%20now%20accept%20version%20410%20frames&In-Reply-To=%3C200902011723.24851.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005171.html">
+   <LINK REL="Next"  HREF="005172.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>opensource firmware now accept version 410 frames</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20opensource%20firmware%20now%20accept%20version%20410%20frames&In-Reply-To=%3C200902011723.24851.mb%40bu3sch.de%3E"
+       TITLE="opensource firmware now accept version 410 frames">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Feb  1 17:23:24 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005171.html">opensource firmware now accept version 410 frames
+</A></li>
+        <LI>Next message: <A HREF="005172.html">opensource firmware now accept version 410 frames
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5173">[ date ]</a>
+              <a href="thread.html#5173">[ thread ]</a>
+              <a href="subject.html#5173">[ subject ]</a>
+              <a href="author.html#5173">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday 01 February 2009 16:58:33 Larry Finger wrote:
+&gt;<i> Michael Buesch wrote:
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; But, why do we talk about this, actually? Do we actually know what went wrong, yet?
+</I>&gt;<i> &gt; Larry, did you dump a cookie of a frame that would trigger the crash? What does the
+</I>&gt;<i> &gt; ring memory allocation look like at the time the crash would trigger? Are there holes
+</I>&gt;<i> &gt; in the ring memory? What does the crashing cookie point to? The end of the ring (aprox)
+</I>&gt;<i> &gt; or somewhere completely different.
+</I>&gt;<i> &gt; printk printk printk printk... :)
+</I>&gt;<i> &gt; 
+</I>&gt;<i> 
+</I>&gt;<i> Now that I'm not crashing Linux when it happens, I know a little more
+</I>&gt;<i> about what happens. My last test with 5.1 firmware ran nearly 7 hours
+</I>&gt;<i> before it died. At that point, ifconfig reported 25,407,000 packets
+</I>&gt;<i> received for a total of 1,944 MB, and 36,843,000 packets transmitted
+</I>&gt;<i> for a total of 596 MB. Those numbers for the MB transferred are not
+</I>&gt;<i> what I expected - the flood ping should TX and RX equal numbers of
+</I>&gt;<i> small packets, and the tcpperf run should TX large packets and RX only
+</I>&gt;<i> ACKs.
+</I>&gt;<i> 
+</I>&gt;<i> In my latest run, I froze the TX queue when the first error occurred.
+</I>&gt;<i> When that happened, there were still 6 more entries in the TX queue.
+</I>&gt;<i> The cookies were all in the same sequence: 0x204A, 0x204E, 0x2050,
+</I>&gt;<i> 0x2052, 0x2054, 0x2056, and 0x205A. What happened to 0x2058?
+</I>
+And 4C
+The DMA implementation requires slots on one DMA queue to be reported in
+the correct sequencial order. And it also requires them all to be reported.
+
+Otherwise the slot counts (used_slots, current_slot) go wrong.
+
+If you don't keep the strict order it will result in memory leaks and/or double-frees.
+The double-free is detected by the BUG_ON in question.
+There's no leak detection, so it will silently leak.
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005171.html">opensource firmware now accept version 410 frames
+</A></li>
+	<LI>Next message: <A HREF="005172.html">opensource firmware now accept version 410 frames
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5173">[ date ]</a>
+              <a href="thread.html#5173">[ thread ]</a>
+              <a href="subject.html#5173">[ subject ]</a>
+              <a href="author.html#5173">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,251 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] mac80211: make simple rate control algorithm built-in
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20mac80211%3A%20make%20simple%20rate%20control%20algorithm%20built-in&In-Reply-To=%3C1193577464.5197.2.camel%40johannes.berg%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002613.html">
+   <LINK REL="Next"  HREF="002618.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] mac80211: make simple rate control algorithm built-in</H1>
+    <B>Johannes Berg</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20mac80211%3A%20make%20simple%20rate%20control%20algorithm%20built-in&In-Reply-To=%3C1193577464.5197.2.camel%40johannes.berg%3E"
+       TITLE="[PATCH] mac80211: make simple rate control algorithm built-in">johannes at sipsolutions.net
+       </A><BR>
+    <I>Sun Oct 28 14:17:44 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002613.html">Change error message for failed rc module (was: possible bug in	ssb/b43)
+</A></li>
+        <LI>Next message: <A HREF="002618.html">[PATCH] mac80211: make simple rate control algorithm built-in
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2617">[ date ]</a>
+              <a href="thread.html#2617">[ thread ]</a>
+              <a href="subject.html#2617">[ subject ]</a>
+              <a href="author.html#2617">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Too frequently people do not have module autoloading enabled
+or fail to install the rate control module correctly, hence
+their hardware probing fails due to no rate control algorithm
+being available. This makes the 'simple' algorithm built into
+the mac80211 module unless EMBEDDED is enabled in which case
+it can be disabled (eg. if the wanted driver requires another
+rate control algorithm.)
+
+Signed-off-by: Johannes Berg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">johannes at sipsolutions.net</A>&gt;
+
+---
+ net/mac80211/Kconfig          |   12 ++++++++++++
+ net/mac80211/Makefile         |    3 ++-
+ net/mac80211/ieee80211.c      |   13 +++++++++++++
+ net/mac80211/ieee80211_rate.c |   13 +++++++++++--
+ net/mac80211/ieee80211_rate.h |    3 +++
+ net/mac80211/rc80211_simple.c |   25 +------------------------
+ 6 files changed, 42 insertions(+), 27 deletions(-)
+
+--- linux-2.6.orig/net/mac80211/Kconfig	2007-10-28 11:56:30.749321886 +0100
++++ linux-2.6/net/mac80211/Kconfig	2007-10-28 14:13:34.255049803 +0100
+@@ -13,6 +13,18 @@ config MAC80211
+ 	This option enables the hardware independent IEEE 802.11
+ 	networking stack.
+ 
++config MAC80211_RCSIMPLE
++	bool &quot;'simple' rate control algorithm&quot;
++	default y
++	depends on MAC80211 &amp;&amp; EMBEDDED
++	help
++	  This option allows you to turn off the 'simple' rate
++	  control algorithm in mac80211. If you do turn it off,
++	  you absolutely need another rate control algorithm.
++
++	  Say Y unless you know you will have another algorithm
++	  available.
++
+ config MAC80211_LEDS
+ 	bool &quot;Enable LED triggers&quot;
+ 	depends on MAC80211 &amp;&amp; LEDS_TRIGGERS
+--- linux-2.6.orig/net/mac80211/Makefile	2007-10-28 11:55:23.509301107 +0100
++++ linux-2.6/net/mac80211/Makefile	2007-10-28 11:56:26.709301759 +0100
+@@ -1,8 +1,9 @@
+-obj-$(CONFIG_MAC80211) += mac80211.o rc80211_simple.o
++obj-$(CONFIG_MAC80211) += mac80211.o
+ 
+ mac80211-objs-$(CONFIG_MAC80211_LEDS) += ieee80211_led.o
+ mac80211-objs-$(CONFIG_MAC80211_DEBUGFS) += debugfs.o debugfs_sta.o debugfs_netdev.o debugfs_key.o
+ mac80211-objs-$(CONFIG_NET_SCHED) += wme.o
++mac80211-objs-$(CONFIG_MAC80211_RCSIMPLE) += rc80211_simple.o
+ 
+ mac80211-objs := \
+ 	ieee80211.o \
+--- linux-2.6.orig/net/mac80211/ieee80211.c	2007-10-28 11:59:41.869300835 +0100
++++ linux-2.6/net/mac80211/ieee80211.c	2007-10-28 14:12:14.495041666 +0100
+@@ -1435,8 +1435,17 @@ static int __init ieee80211_init(void)
+ 
+ 	BUILD_BUG_ON(sizeof(struct ieee80211_tx_packet_data) &gt; sizeof(skb-&gt;cb));
+ 
++#ifdef CONFIG_MAC80211_RCSIMPLE
++	ret = ieee80211_rate_control_register(&amp;mac80211_rcsimple);
++	if (ret)
++		return ret;
++#endif
++
+ 	ret = ieee80211_wme_register();
+ 	if (ret) {
++#ifdef CONFIG_MAC80211_RCSIMPLE
++		ieee80211_rate_control_unregister(&amp;mac80211_rcsimple);
++#endif
+ 		printk(KERN_DEBUG &quot;ieee80211_init: failed to &quot;
+ 		       &quot;initialize WME (err=%d)\n&quot;, ret);
+ 		return ret;
+@@ -1450,6 +1459,10 @@ static int __init ieee80211_init(void)
+ 
+ static void __exit ieee80211_exit(void)
+ {
++#ifdef CONFIG_MAC80211_RCSIMPLE
++	ieee80211_rate_control_unregister(&amp;mac80211_rcsimple);
++#endif
++
+ 	ieee80211_wme_unregister();
+ 	ieee80211_debugfs_netdev_exit();
+ }
+--- linux-2.6.orig/net/mac80211/ieee80211_rate.h	2007-10-28 12:01:32.659303603 +0100
++++ linux-2.6/net/mac80211/ieee80211_rate.h	2007-10-28 14:11:42.775035211 +0100
+@@ -67,6 +67,9 @@ struct rate_control_ref {
+ 	struct kref kref;
+ };
+ 
++/* default 'simple' algorithm */
++extern struct rate_control_ops mac80211_rcsimple;
++
+ int ieee80211_rate_control_register(struct rate_control_ops *ops);
+ void ieee80211_rate_control_unregister(struct rate_control_ops *ops);
+ 
+--- linux-2.6.orig/net/mac80211/rc80211_simple.c	2007-10-28 12:03:52.769304415 +0100
++++ linux-2.6/net/mac80211/rc80211_simple.c	2007-10-28 14:11:53.705037761 +0100
+@@ -7,7 +7,6 @@
+  * published by the Free Software Foundation.
+  */
+ 
+-#include &lt;linux/module.h&gt;
+ #include &lt;linux/init.h&gt;
+ #include &lt;linux/netdevice.h&gt;
+ #include &lt;linux/types.h&gt;
+@@ -29,8 +28,6 @@
+ #define RATE_CONTROL_INTERVAL (HZ / 20)
+ #define RATE_CONTROL_MIN_TX 10
+ 
+-MODULE_ALIAS(&quot;rc80211_default&quot;);
+-
+ static void rate_control_rate_inc(struct ieee80211_local *local,
+ 				  struct sta_info *sta)
+ {
+@@ -394,8 +391,7 @@ static void rate_control_simple_remove_s
+ }
+ #endif
+ 
+-static struct rate_control_ops rate_control_simple = {
+-	.module = THIS_MODULE,
++struct rate_control_ops mac80211_rcsimple = {
+ 	.name = &quot;simple&quot;,
+ 	.tx_status = rate_control_simple_tx_status,
+ 	.get_rate = rate_control_simple_get_rate,
+@@ -410,22 +406,3 @@ static struct rate_control_ops rate_cont
+ 	.remove_sta_debugfs = rate_control_simple_remove_sta_debugfs,
+ #endif
+ };
+-
+-
+-static int __init rate_control_simple_init(void)
+-{
+-	return ieee80211_rate_control_register(&amp;rate_control_simple);
+-}
+-
+-
+-static void __exit rate_control_simple_exit(void)
+-{
+-	ieee80211_rate_control_unregister(&amp;rate_control_simple);
+-}
+-
+-
+-subsys_initcall(rate_control_simple_init);
+-module_exit(rate_control_simple_exit);
+-
+-MODULE_DESCRIPTION(&quot;Simple rate control algorithm for ieee80211&quot;);
+-MODULE_LICENSE(&quot;GPL&quot;);
+--- linux-2.6.orig/net/mac80211/ieee80211_rate.c	2007-10-28 13:41:38.079305284 +0100
++++ linux-2.6/net/mac80211/ieee80211_rate.c	2007-10-28 14:07:51.665033203 +0100
+@@ -25,6 +25,9 @@ int ieee80211_rate_control_register(stru
+ {
+ 	struct rate_control_alg *alg;
+ 
++	if (!ops-&gt;name)
++		return -EINVAL;
++
+ 	alg = kzalloc(sizeof(*alg), GFP_KERNEL);
+ 	if (alg == NULL) {
+ 		return -ENOMEM;
+@@ -61,9 +64,12 @@ ieee80211_try_rate_control_ops_get(const
+ 	struct rate_control_alg *alg;
+ 	struct rate_control_ops *ops = NULL;
+ 
++	if (!name)
++		return NULL;
++
+ 	mutex_lock(&amp;rate_ctrl_mutex);
+ 	list_for_each_entry(alg, &amp;rate_ctrl_algs, list) {
+-		if (!name || !strcmp(alg-&gt;ops-&gt;name, name))
++		if (!strcmp(alg-&gt;ops-&gt;name, name))
+ 			if (try_module_get(alg-&gt;ops-&gt;module)) {
+ 				ops = alg-&gt;ops;
+ 				break;
+@@ -80,9 +86,12 @@ ieee80211_rate_control_ops_get(const cha
+ {
+ 	struct rate_control_ops *ops;
+ 
++	if (!name)
++		name = &quot;simple&quot;;
++
+ 	ops = ieee80211_try_rate_control_ops_get(name);
+ 	if (!ops) {
+-		request_module(&quot;rc80211_%s&quot;, name ? name : &quot;default&quot;);
++		request_module(&quot;rc80211_%s&quot;, name);
+ 		ops = ieee80211_try_rate_control_ops_get(name);
+ 	}
+ 	return ops;
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002613.html">Change error message for failed rc module (was: possible bug in	ssb/b43)
+</A></li>
+	<LI>Next message: <A HREF="002618.html">[PATCH] mac80211: make simple rate control algorithm built-in
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2617">[ date ]</a>
+              <a href="thread.html#2617">[ thread ]</a>
+              <a href="subject.html#2617">[ subject ]</a>
+              <a href="author.html#2617">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

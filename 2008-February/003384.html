@@ -1,0 +1,151 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Add driver load messages
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Add%20driver%20load%20messages&In-Reply-To=%3C20080209072043.05af8bd5%40morte%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003388.html">
+   <LINK REL="Next"  HREF="003387.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Add driver load messages</H1>
+    <B>Stefano Brivio</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Add%20driver%20load%20messages&In-Reply-To=%3C20080209072043.05af8bd5%40morte%3E"
+       TITLE="[PATCH] b43legacy: Add driver load messages">stefano.brivio at polimi.it
+       </A><BR>
+    <I>Sat Feb  9 07:20:43 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003388.html">[PATCH] b43: Add driver load messages
+</A></li>
+        <LI>Next message: <A HREF="003387.html">[PATCH] b43: Add firmware information to modinfo
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3384">[ date ]</a>
+              <a href="thread.html#3384">[ thread ]</a>
+              <a href="subject.html#3384">[ subject ]</a>
+              <a href="author.html#3384">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds printk messages with basic information about the driver being loaded.
+This information includes a summary of the compiled-in features, which
+simplifies bug-reporting and debugging a lot.
+Also a firmware ID is printed. This is a unique identifier blob for a specific
+version of the firmware. This ID is attached to a specific version of the firmware
+blob in b43-fwcutter (see fwcutter git).
+This helps users to select the right firmware for their device.
+This also makes it possible to use automated scripts to fetch and extract the right
+firmware for the driver. (The script will grep the .ko for the &quot;Firmware-ID: xxx&quot; string.)
+While the driver might still support other versions of the firmware for backward
+compatibility, this will always print out the officially supported version, which
+people _should_ use.
+
+Signed-off-by: Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+---
+Index: wireless-2.6/drivers/net/wireless/b43legacy/b43legacy.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/b43legacy.h
++++ wireless-2.6/drivers/net/wireless/b43legacy/b43legacy.h
+@@ -23,6 +23,10 @@
+ #include &quot;phy.h&quot;
+ 
+ 
++/* The unique identifier of the firmware that's officially supported by this
++ * driver version. */
++#define B43legacy_SUPPORTED_FIRMWARE_ID	&quot;FW10&quot;
++
+ #define B43legacy_IRQWAIT_MAX_RETRIES	20
+ 
+ #define B43legacy_RX_MAX_SSI		60 /* best guess at max ssi */
+Index: wireless-2.6/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-2.6/drivers/net/wireless/b43legacy/main.c
+@@ -3,7 +3,7 @@
+  *  Broadcom B43legacy wireless driver
+  *
+  *  Copyright (c) 2005 Martin Langer &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">martin-langer at gmx.de</A>&gt;
+- *  Copyright (c) 2005-2007 Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
++ *  Copyright (c) 2005-2008 Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+  *  Copyright (c) 2005, 2006 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+  *  Copyright (c) 2005 Danny van Dyk &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">kugelfang at gentoo.org</A>&gt;
+  *  Copyright (c) 2005 Andreas Jaggi &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">andreas.jaggi at waterwave.ch</A>&gt;
+@@ -3847,6 +3847,32 @@ static struct ssb_driver b43legacy_ssb_d
+ 	.resume		= b43legacy_resume,
+ };
+ 
++static void b43legacy_print_driverinfo(void)
++{
++	const char *feat_pci = &quot;&quot;, *feat_leds = &quot;&quot;, *feat_rfkill = &quot;&quot;,
++		   *feat_pio = &quot;&quot;, *feat_dma = &quot;&quot;;
++
++#ifdef CONFIG_B43LEGACY_PCI_AUTOSELECT
++	feat_pci = &quot;P&quot;;
++#endif
++#ifdef CONFIG_B43LEGACY_LEDS
++	feat_leds = &quot;L&quot;;
++#endif
++#ifdef CONFIG_B43LEGACY_RFKILL
++	feat_rfkill = &quot;R&quot;;
++#endif
++#ifdef CONFIG_B43LEGACY_PIO
++	feat_pio = &quot;I&quot;;
++#endif
++#ifdef CONFIG_B43LEGACY_DMA
++	feat_dma = &quot;D&quot;;
++#endif
++	printk(KERN_INFO &quot;Broadcom 43xx driver loaded &quot;
++	       &quot;[ Features: %s%s%s%s%s, Firmware-ID: &quot;
++	       B43legacy_SUPPORTED_FIRMWARE_ID &quot; ]\n&quot;,
++	       feat_pci, feat_leds, feat_rfkill, feat_pio, feat_dma);
++}
++
+ static int __init b43legacy_init(void)
+ {
+ 	int err;
+@@ -3857,6 +3883,8 @@ static int __init b43legacy_init(void)
+ 	if (err)
+ 		goto err_dfs_exit;
+ 
++	b43legacy_print_driverinfo();
++
+ 	return err;
+ 
+ err_dfs_exit:
+
+
+-- 
+Ciao
+Stefano
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003388.html">[PATCH] b43: Add driver load messages
+</A></li>
+	<LI>Next message: <A HREF="003387.html">[PATCH] b43: Add firmware information to modinfo
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3384">[ date ]</a>
+              <a href="thread.html#3384">[ thread ]</a>
+              <a href="subject.html#3384">[ subject ]</a>
+              <a href="author.html#3384">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

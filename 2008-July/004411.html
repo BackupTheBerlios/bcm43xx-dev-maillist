@@ -1,0 +1,133 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%2C%20b43%2C%20b43legacy%2C%20b44%3A%20Rewrite%20SSB%20DMA%20API&In-Reply-To=%3C200807032307.20680.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004410.html">
+   <LINK REL="Next"  HREF="004419.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%2C%20b43%2C%20b43legacy%2C%20b44%3A%20Rewrite%20SSB%20DMA%20API&In-Reply-To=%3C200807032307.20680.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Jul  3 23:07:20 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004410.html">[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+</A></li>
+        <LI>Next message: <A HREF="004419.html">[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4411">[ date ]</a>
+              <a href="thread.html#4411">[ thread ]</a>
+              <a href="subject.html#4411">[ subject ]</a>
+              <a href="author.html#4411">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Thursday 03 July 2008 22:52:35 Michael Buesch wrote:
+&gt;<i> On Thursday 03 July 2008 18:30:18 Felipe Maya wrote:
+</I>&gt;<i> &gt; Hi, I have applied this patch and i tested on a wl500gpv2 (BCM5354). The
+</I>&gt;<i> &gt; following part disable the ethernet device. If this part of the patch is
+</I>&gt;<i> &gt; restored the device work ok.
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> Well, I would say your architecture is pretty broken then.
+</I>&gt;<i> This patch replaces an incorrect manual DMA mask setting by
+</I>&gt;<i> a call to the official API.
+</I>&gt;<i> Please report this to your archtitecture maintainer.
+</I>
+Ah and btw, the bug most likely is that dma_set_mask does not
+set the dev-&gt;coherent_dma_mask or something like that
+while the dma remapping function require it to be set (I could be wrong,
+this is just guesswork). In any case, I think the bug really is in the
+arch DMA implementation and we must not workaround that in the ssb code.
+So I will reject a patch that adds the
+	dev-&gt;coherent_dma_mask = mask;
+	dma_dev-&gt;dma_mask = &amp;dma_dev-&gt;coherent_dma_mask;
+stuff back. dma_set_mask should set all required masks for the dma_...
+remapping functions. If it doesn't, it's either a bug in dma_set_mask
+or in the remapping functions using the wrong mask.
+We need to fix it correctly this time, as the whole purpose of
+my SSB patch was the get the DMA remapping _right_ so it doesn't break
+every two months if somebody changes some arch internal assumption.
+So please do not to send me any SSB patch that works around the bug. ;)
+
+&gt;<i> 
+</I>&gt;<i> &gt; &gt; -int ssb_dma_set_mask(struct ssb_device *ssb_dev, u64 mask)
+</I>&gt;<i> &gt; &gt; +int ssb_dma_set_mask(struct ssb_device *dev, u64 mask)
+</I>&gt;<i> &gt; &gt;  {
+</I>&gt;<i> &gt; &gt; -	struct device *dma_dev = ssb_dev-&gt;dma_dev;
+</I>&gt;<i> &gt; &gt; -	int err = 0;
+</I>&gt;<i> &gt; &gt; +	int err;
+</I>&gt;<i> &gt; &gt;  
+</I>&gt;<i> &gt; &gt; -#ifdef CONFIG_SSB_PCIHOST
+</I>&gt;<i> &gt; &gt; -	if (ssb_dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_PCI) {
+</I>&gt;<i> &gt; &gt; -		err = pci_set_dma_mask(ssb_dev-&gt;bus-&gt;host_pci, mask);
+</I>&gt;<i> &gt; &gt; +	switch (dev-&gt;bus-&gt;bustype) {
+</I>&gt;<i> &gt; &gt; +	case SSB_BUSTYPE_PCI:
+</I>&gt;<i> &gt; &gt; +		err = pci_set_dma_mask(dev-&gt;bus-&gt;host_pci, mask);
+</I>&gt;<i> &gt; &gt;  		if (err)
+</I>&gt;<i> &gt; &gt;  			return err;
+</I>&gt;<i> &gt; &gt; -		err = pci_set_consistent_dma_mask(ssb_dev-&gt;bus-&gt;host_pci, mask);
+</I>&gt;<i> &gt; &gt; +		err = pci_set_consistent_dma_mask(dev-&gt;bus-&gt;host_pci, mask);
+</I>&gt;<i> &gt; &gt;  		return err;
+</I>&gt;<i> &gt; &gt; +	case SSB_BUSTYPE_SSB:
+</I>&gt;<i> &gt; &gt; +		return dma_set_mask(dev-&gt;dev, mask);
+</I>&gt;<i> &gt; &gt; +	default:
+</I>&gt;<i> &gt; &gt; +		__ssb_dma_not_implemented(dev);
+</I>&gt;<i> &gt; &gt;  	}
+</I>&gt;<i> &gt; &gt; -#endif
+</I>&gt;<i> &gt; &gt; -	dma_dev-&gt;coherent_dma_mask = mask;
+</I>&gt;<i> &gt; &gt; -	dma_dev-&gt;dma_mask = &amp;dma_dev-&gt;coherent_dma_mask;
+</I>&gt;<i> &gt; &gt; -
+</I>&gt;<i> &gt; &gt; -	return err;
+</I>&gt;<i> &gt; &gt; +	return -ENOSYS;
+</I>&gt;<i> &gt; &gt;  }
+</I>&gt;<i> &gt; &gt;  EXPORT_SYMBOL(ssb_dma_set_mask);
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004410.html">[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+</A></li>
+	<LI>Next message: <A HREF="004419.html">[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4411">[ date ]</a>
+              <a href="thread.html#4411">[ thread ]</a>
+              <a href="subject.html#4411">[ subject ]</a>
+              <a href="author.html#4411">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

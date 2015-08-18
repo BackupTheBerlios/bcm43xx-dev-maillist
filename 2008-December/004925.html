@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> less power driver?
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20less%20power%20driver%3F&In-Reply-To=%3C4935A956.2080904%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004924.html">
+   <LINK REL="Next"  HREF="004926.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>less power driver?</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20less%20power%20driver%3F&In-Reply-To=%3C4935A956.2080904%40lwfinger.net%3E"
+       TITLE="less power driver?">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Tue Dec  2 22:32:06 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004924.html">less power driver?
+</A></li>
+        <LI>Next message: <A HREF="004926.html">BCM4312 Fails when xdm is started
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4925">[ date ]</a>
+              <a href="thread.html#4925">[ thread ]</a>
+              <a href="subject.html#4925">[ subject ]</a>
+              <a href="author.html#4925">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>cc the list
+
+The short answer is you cannot. You might modify b43 to increase that number,
+but your device might not last very long. The reason is that every Broadcom chip
+contains an SPROM that contains the maximum power to be sent to the radio, among
+other things. Assuming that Broadcom sacrificed a number of devices to learn a
+safe value, increasing the power might damage your chip. You might have one that
+can stand more power than most, but it might stand less. Are you willing to risk
+your hardware?
+
+In b43, the MAC layer sends a power of 27 dBm to b43, but the driver reduces the
+value to maximum based on that chip's programming. The reduced number is what
+iwconfig reports. I have no idea what the Windows driver is doing, but I doubt
+that it is sending more than the SPROM max to the chip, no matter what it is
+reporting.
+
+Why does ndiswrapper get better results? First of all, ndiswrapper only converts
+the Windows system calls to the Linux equivalent. It is the Windows driver that
+does the work. Remember that Broadcom software personnel wrote that Windows
+driver with full access to the device specifications. The code in b43 was
+written from &quot;specifications&quot; deduced by disassembling Broadcom code. Any
+mistakes in the disassembly, or errors in the original Broadcom code that have
+since been corrected might hurt the performance of b43 on that device relative
+to the Windows driver.
+
+The performance of the Windows driver relative to b43 varies a lot depending on
+the particular chip you have. The BCM4306 chips are the worst - the BCM4311's
+are the best. What chip do you have?
+
+There are some differences between 2.6.27 and 2.6.28 in the behavior of the MAC
+layer. The newer code does much better at recovering from low signals. If you
+want the best, then you should use the kernel from the wireless-testing git
+tree. That code will not be in mainline until 2.6.29. Alternatively, you could
+use the code from compat-wireless. It is the same as the wireless-testing tree.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004924.html">less power driver?
+</A></li>
+	<LI>Next message: <A HREF="004926.html">BCM4312 Fails when xdm is started
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4925">[ date ]</a>
+              <a href="thread.html#4925">[ thread ]</a>
+              <a href="subject.html#4925">[ subject ]</a>
+              <a href="author.html#4925">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

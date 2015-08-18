@@ -1,0 +1,203 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 3/3] bcm43xx-mac80211: Work around 30bit DMA limitation
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20bcm43xx-mac80211%3A%20Work%20around%2030bit%20DMA%20limitation&In-Reply-To=%3C11757462773949-git-send-email-will.dyson%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000921.html">
+   <LINK REL="Next"  HREF="000923.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 3/3] bcm43xx-mac80211: Work around 30bit DMA limitation</H1>
+    <B>Will Dyson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20bcm43xx-mac80211%3A%20Work%20around%2030bit%20DMA%20limitation&In-Reply-To=%3C11757462773949-git-send-email-will.dyson%40gmail.com%3E"
+       TITLE="[PATCH 3/3] bcm43xx-mac80211: Work around 30bit DMA limitation">will.dyson at gmail.com
+       </A><BR>
+    <I>Thu Apr  5 06:11:17 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000921.html">[PATCH 2/3] bcm43xx_mac80211: Fix error path memory leak
+</A></li>
+        <LI>Next message: <A HREF="000923.html">[PATCH 3/3] bcm43xx-mac80211: Work around 30bit DMA limitation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#922">[ date ]</a>
+              <a href="thread.html#922">[ thread ]</a>
+              <a href="subject.html#922">[ subject ]</a>
+              <a href="author.html#922">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: Will Dyson &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">will_dyson at gmail.com</A>&gt;
+
+When DMA mapping for RX fails because of the limitation, retry the allocation
+in ZONE_DMA. When the network stack passes us TX buffers that cannot be mapped
+because of the limitation, allocate a bounce buffer in ZONE_DMA and copy the
+packet there.
+
+Signed-off-by: Will Dyson &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">will_dyson at gmail.com</A>&gt;
+---
+ .../net/wireless/mac80211/bcm43xx/bcm43xx_dma.c    |   73 ++++++++++++++++++-
+ 1 files changed, 69 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
+index 1dc95a7..faefdc4 100644
+--- a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
++++ b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
+@@ -525,8 +525,24 @@ static int setup_rx_descbuffer(struct bcm43xx_dmaring *ring,
+ 		return -ENOMEM;
+ 	dmaaddr = map_descbuffer(ring, skb-&gt;data,
+ 				 ring-&gt;rx_buffersize, 0);
+-	if (dma_mapping_error(dmaaddr))
++	if (dma_mapping_error(dmaaddr)) {
++		/* ugh. try to realloc in zone_dma */
++		gfp_flags &amp;= ~GFP_KERNEL;
++		gfp_flags |= GFP_DMA;
++
++		dev_kfree_skb_any(skb);
++		
++		skb = __dev_alloc_skb(ring-&gt;rx_buffersize, gfp_flags);
++		if (unlikely(!skb))
++			return -ENOMEM;
++		dmaaddr = map_descbuffer(ring, skb-&gt;data,
++					 ring-&gt;rx_buffersize, 0);
++	}
++	
++	if (dma_mapping_error(dmaaddr)) {
++		dev_kfree_skb_any(skb);
+ 		return -EIO;
++	}
+ 
+ 	meta-&gt;skb = skb;
+ 	meta-&gt;dmaaddr = dmaaddr;
+@@ -731,6 +747,7 @@ struct bcm43xx_dmaring * bcm43xx_setup_dmaring(struct bcm43xx_wldev *dev,
+ 	struct bcm43xx_dmaring *ring;
+ 	int err;
+ 	int nr_slots;
++	dma_addr_t dma_test;
+ 
+ 	ring = kzalloc(sizeof(*ring), GFP_KERNEL);
+ 	if (!ring)
+@@ -750,6 +767,32 @@ struct bcm43xx_dmaring * bcm43xx_setup_dmaring(struct bcm43xx_wldev *dev,
+ 					    GFP_KERNEL);
+ 		if (!ring-&gt;txhdr_cache)
+ 			goto err_kfree_meta;
++
++		/* test for ability to dma to txhdr_cache */
++		dma_test = dma_map_single(dev-&gt;dev-&gt;dev,
++				ring-&gt;txhdr_cache, sizeof(struct bcm43xx_txhdr_fw4),
++				DMA_TO_DEVICE);
++		
++		if (dma_mapping_error(dma_test)) {
++			/* ugh realloc */
++			kfree(ring-&gt;txhdr_cache);
++			ring-&gt;txhdr_cache = kcalloc(nr_slots,
++							sizeof(struct bcm43xx_txhdr_fw4),
++							GFP_DMA);
++			if (!ring-&gt;txhdr_cache)
++				goto err_kfree_meta;
++
++			dma_test = dma_map_single(dev-&gt;dev-&gt;dev,
++					ring-&gt;txhdr_cache, sizeof(struct bcm43xx_txhdr_fw4),
++					DMA_TO_DEVICE);
++
++			if (dma_mapping_error(dma_test))
++				goto err_kfree_txhdr_cache;
++		}
++
++		dma_unmap_single(dev-&gt;dev-&gt;dev,
++				dma_test, sizeof(struct bcm43xx_txhdr_fw4),
++				DMA_TO_DEVICE);
+ 	}
+ 
+ 	ring-&gt;dev = dev;
+@@ -1030,9 +1073,11 @@ static int dma_tx_fragment(struct bcm43xx_dmaring *ring,
+ 	const struct bcm43xx_dma_ops *ops = ring-&gt;ops;
+ 	u8 *header;
+ 	int slot;
++	int err;
+ 	struct bcm43xx_dmadesc_generic *desc;
+ 	struct bcm43xx_dmadesc_meta *meta;
+ 	struct bcm43xx_dmadesc_meta *meta_hdr;
++	struct sk_buff *bounce_skb;
+ 
+ #define SLOTS_PER_PACKET  2
+ 	assert(skb_shinfo(skb)-&gt;nr_frags == 0);
+@@ -1062,9 +1107,27 @@ static int dma_tx_fragment(struct bcm43xx_dmaring *ring,
+ 	memcpy(&amp;meta-&gt;txstat.control, ctl, sizeof(*ctl));
+ 	meta-&gt;skb = skb;
+ 	meta-&gt;is_last_fragment = 1;
++
+ 	meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+-	if(dma_mapping_error(meta-&gt;dmaaddr))
+-		goto out_unmap_hdr;
++
++	/* create a bounce buffer in zone_dma on mapping failure. */
++	if (dma_mapping_error(meta-&gt;dmaaddr)) {
++		bounce_skb = __dev_alloc_skb(skb-&gt;len, GFP_ATOMIC|GFP_DMA);
++		if (!bounce_skb) {
++			err = -ENOMEM;
++			goto out_unmap_hdr;
++		}
++
++		memcpy(skb_put(bounce_skb, skb-&gt;len), skb-&gt;data, skb-&gt;len);
++		dev_kfree_skb_any(skb);
++		skb = bounce_skb;
++		meta-&gt;skb = skb;
++		meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
++		if (dma_mapping_error(meta-&gt;dmaaddr)) {
++			err = -EIO;
++			goto out_free_bounce;
++		}
++	}
+ 
+ 	ops-&gt;fill_descriptor(ring, desc, meta-&gt;dmaaddr,
+ 			     skb-&gt;len, 0, 1, 1);
+@@ -1074,10 +1137,12 @@ static int dma_tx_fragment(struct bcm43xx_dmaring *ring,
+ 	ops-&gt;poke_tx(ring, next_slot(ring, slot));
+ 	return 0;
+ 
++out_free_bounce:
++	dev_kfree_skb_any(skb);
+ out_unmap_hdr:
+ 	unmap_descbuffer(ring, meta_hdr-&gt;dmaaddr,
+ 			sizeof(struct bcm43xx_txhdr_fw4), 1);
+-	return -EIO;
++	return err;
+ }
+ 
+ int bcm43xx_dma_tx(struct bcm43xx_wldev *dev,
+-- 
+1.5.0.3
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000921.html">[PATCH 2/3] bcm43xx_mac80211: Fix error path memory leak
+</A></li>
+	<LI>Next message: <A HREF="000923.html">[PATCH 3/3] bcm43xx-mac80211: Work around 30bit DMA limitation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#922">[ date ]</a>
+              <a href="thread.html#922">[ thread ]</a>
+              <a href="subject.html#922">[ subject ]</a>
+              <a href="author.html#922">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

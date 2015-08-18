@@ -1,0 +1,191 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 2/5] b43: N-PHY: b43_nphy_get_tx_gains
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/5%5D%20b43%3A%20N-PHY%3A%20b43_nphy_get_tx_gains&In-Reply-To=%3Cop.u54a59c89lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006689.html">
+   <LINK REL="Next"  HREF="006662.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 2/5] b43: N-PHY: b43_nphy_get_tx_gains</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/5%5D%20b43%3A%20N-PHY%3A%20b43_nphy_get_tx_gains&In-Reply-To=%3Cop.u54a59c89lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 2/5] b43: N-PHY: b43_nphy_get_tx_gains">zajec5 at gmail.com
+       </A><BR>
+    <I>Wed Jan  6 16:40:47 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006689.html">[PATCH 1/5] b43: N-PHY: implement b43_nphy_stay_in_carrier_search	and it's calls (V2)
+</A></li>
+        <LI>Next message: <A HREF="006662.html">[PATCH 2/5] b43: N-PHY: b43_nphy_get_tx_gains
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6655">[ date ]</a>
+              <a href="thread.html#6655">[ thread ]</a>
+              <a href="subject.html#6655">[ subject ]</a>
+              <a href="author.html#6655">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>b43: N-PHY: b43_nphy_get_tx_gains
+
+
+ From 5c96b3de80f7d044c42808e8123ae3f50916d6fc Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+Date: Wed, 6 Jan 2010 15:25:14 +0100
+Subject: [PATCH 2/5] b43: N-PHY: b43_nphy_get_tx_gains
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+  drivers/net/wireless/b43/phy_n.c |   75 ++++++++++++++++++++++++++++++++++++++
+  drivers/net/wireless/b43/phy_n.h |    1 +
+  2 files changed, 76 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 40d7b73..249caf0 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -30,6 +30,8 @@
+  #include &quot;tables_nphy.h&quot;
+
+
++struct nphy_txgains { u16 txgm[2]; u16 pga[2]; u16 pad[2]; u16 ipa[2]; };
++
+  void b43_nphy_set_rxantenna(struct b43_wldev *dev, int antenna)
+  {//TODO
+  }
+@@ -405,6 +407,79 @@ static void b43_nphy_stay_carrier_search(struct b43_wldev *dev, bool enable)
+  	}
+  }
+
++static struct nphy_txgains b43_nphy_get_tx_gains(struct b43_wldev *dev)
++{
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
++
++	u16 curr_gain[2];
++	struct nphy_txgains target;
++	u32 *table = NULL;
++
++	if (nphy-&gt;txpwrctrl == 0) {
++		int i;
++
++		if (nphy-&gt;hang_avoid)
++			b43_nphy_stay_carrier_search(dev, true);
++		//TODO: Read an N PHY Table with ID 7, length 2, offset 0x110, width 16, and curr_gain
++		if (nphy-&gt;hang_avoid)
++			b43_nphy_stay_carrier_search(dev, false);
++
++		for (i = 0; i &lt; 2; ++i) {
++			if (dev-&gt;phy.rev &gt;= 3) {
++				target.ipa[i] = curr_gain[i] &amp; 0x000F;
++				target.pad[i] = (curr_gain[i] &amp; 0x00F0) &gt;&gt; 4;
++				target.pga[i] = (curr_gain[i] &amp; 0x0F00) &gt;&gt; 8;
++				target.txgm[i] = (curr_gain[i] &amp; 0x7000) &gt;&gt; 12;
++			} else {
++				target.ipa[i] = curr_gain[i] &amp; 0x0003;
++				target.pad[i] = (curr_gain[i] &amp; 0x000C) &gt;&gt; 2;
++				target.pga[i] = (curr_gain[i] &amp; 0x0070) &gt;&gt; 4;
++				target.txgm[i] = (curr_gain[i] &amp; 0x0380) &gt;&gt; 7;
++			}
++		}
++	} else {
++		int i;
++		u16 index[2];
++	
++		for (i = 0; i &lt; 2; ++i) {
++			if (dev-&gt;phy.rev &gt;= 3) {
++				enum ieee80211_band band =
++					b43_current_band(dev-&gt;wl);
++
++				if ((nphy-&gt;ipa2g_on &amp;&amp; band == IEEE80211_BAND_2GHZ) ||
++				    (nphy-&gt;ipa5g_on &amp;&amp; band == IEEE80211_BAND_5GHZ)) {
++					table = NULL; //FIXME: = output of N PHY Get IPA GainTbl
++				} else {
++					if (band == IEEE80211_BAND_5GHZ) {
++						if (dev-&gt;phy.rev == 3)
++							table = NULL; //FIXME: N PHY TX Power Control - TX Gain Table Rev &gt;= 3 (5 GHz)
++						else if (dev-&gt;phy.rev == 4)
++							table = NULL; //FIXME: N PHY TX Power Control - TX Gain Table Rev 4 (5 GHz)
++						else
++							table = NULL; //FIXME: N PHY TX Power Control - TX Gain Table Rev 5 (5 GHz)
++					} else {
++						table = NULL; //FIXME: N PHY TX Power Control - TX Gain Table Rev &gt;= 3 (2.4 GHz)
++					}
++				}
++
++				target.ipa[i] = (table[index[i]] &gt;&gt; 16) &amp; 0xF;
++				target.pad[i] = (table[index[i]] &gt;&gt; 20) &amp; 0xF;
++				target.pga[i] = (table[index[i]] &gt;&gt; 24) &amp; 0xF;
++				target.txgm[i] = (table[index[i]] &gt;&gt; 28) &amp; 0xF;
++			} else {
++				table = NULL; //FIXME: N PHY TX Power Control - TX Gain Table Rev &lt;= 2
++
++				target.ipa[i] = (table[index[i]] &gt;&gt; 16) &amp; 0x3;
++				target.pad[i] = (table[index[i]] &gt;&gt; 18) &amp; 0x3;
++				target.pga[i] = (table[index[i]] &gt;&gt; 20) &amp; 0x7;
++				target.txgm[i] = (table[index[i]] &gt;&gt; 23) &amp; 0x7;
++			}
++		}
++	}
++
++	return target;
++}
++
+  enum b43_nphy_rf_sequence {
+  	B43_RFSEQ_RX2TX,
+  	B43_RFSEQ_TX2RX,
+diff --git a/drivers/net/wireless/b43/phy_n.h b/drivers/net/wireless/b43/phy_n.h
+index 6ab07fc..e63c371 100644
+--- a/drivers/net/wireless/b43/phy_n.h
++++ b/drivers/net/wireless/b43/phy_n.h
+@@ -930,6 +930,7 @@ struct b43_phy_n {
+  	u8 phyrxchain;
+  	u8 mphase_cal_phase_id;
+  	u32 deaf_count;
++	bool hang_avoid;
+  	bool mute;
+
+  	u16 classifier_state;
+-- 
+1.6.4.2
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: 0002-b43-N-PHY-b43_nphy_get_tx_gains.patch
+Type: application/octet-stream
+Size: 3825 bytes
+Desc: not available
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20100106/dbc12d57/attachment.obj">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20100106/dbc12d57/attachment.obj</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006689.html">[PATCH 1/5] b43: N-PHY: implement b43_nphy_stay_in_carrier_search	and it's calls (V2)
+</A></li>
+	<LI>Next message: <A HREF="006662.html">[PATCH 2/5] b43: N-PHY: b43_nphy_get_tx_gains
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6655">[ date ]</a>
+              <a href="thread.html#6655">[ thread ]</a>
+              <a href="subject.html#6655">[ subject ]</a>
+              <a href="author.html#6655">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

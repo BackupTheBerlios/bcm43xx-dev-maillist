@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb: Fix probing of PCI cores if PCI and PCIE core is	available
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Fix%20probing%20of%20PCI%20cores%20if%20PCI%20and%20PCIE%20core%20is%0A%09available&In-Reply-To=%3C200801031859.25596.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003158.html">
+   <LINK REL="Next"  HREF="003160.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb: Fix probing of PCI cores if PCI and PCIE core is	available</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Fix%20probing%20of%20PCI%20cores%20if%20PCI%20and%20PCIE%20core%20is%0A%09available&In-Reply-To=%3C200801031859.25596.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] ssb: Fix probing of PCI cores if PCI and PCIE core is	available">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Jan  3 18:59:25 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003158.html">Device busy error
+</A></li>
+        <LI>Next message: <A HREF="003160.html">[PATCH] b43-ssb-bridge: Add PCI ID for BCM43XG
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3159">[ date ]</a>
+              <a href="thread.html#3159">[ thread ]</a>
+              <a href="subject.html#3159">[ subject ]</a>
+              <a href="author.html#3159">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This will make sure that always the correct core is selected, even if
+there are both a PCI and PCI-E core on a PCI or PCI-E card.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, as this is a bugfix it should probably go into 2.6.24.
+
+Index: wireless-2.6/drivers/ssb/scan.c
+===================================================================
+--- wireless-2.6.orig/drivers/ssb/scan.c	2008-01-02 18:49:22.000000000 +0100
++++ wireless-2.6/drivers/ssb/scan.c	2008-01-03 18:56:30.000000000 +0100
+@@ -388,6 +388,17 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 		case SSB_DEV_PCI:
+ 		case SSB_DEV_PCIE:
+ #ifdef CONFIG_SSB_DRIVER_PCICORE
++			if (bus-&gt;bustype == SSB_BUSTYPE_PCI) {
++				/* Ignore PCI cores on PCI-E cards.
++				 * Ignore PCI-E cores on PCI cards. */
++				if (dev-&gt;id.coreid == SSB_DEV_PCI) {
++					if (bus-&gt;host_pci-&gt;is_pcie)
++						continue;
++				} else {
++					if (!bus-&gt;host_pci-&gt;is_pcie)
++						continue;
++				}
++			}
+ 			if (bus-&gt;pcicore.dev) {
+ 				ssb_printk(KERN_WARNING PFX
+ 					   &quot;WARNING: Multiple PCI(E) cores found\n&quot;);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003158.html">Device busy error
+</A></li>
+	<LI>Next message: <A HREF="003160.html">[PATCH] b43-ssb-bridge: Add PCI ID for BCM43XG
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3159">[ date ]</a>
+              <a href="thread.html#3159">[ thread ]</a>
+              <a href="subject.html#3159">[ subject ]</a>
+              <a href="author.html#3159">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

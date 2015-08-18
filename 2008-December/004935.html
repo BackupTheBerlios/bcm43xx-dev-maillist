@@ -1,0 +1,148 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] b43: rework rfkill code
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43%3A%20rework%20rfkill%20code&In-Reply-To=%3C1228929529.15837.34.camel%40johannes.berg%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004953.html">
+   <LINK REL="Next"  HREF="004936.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] b43: rework rfkill code</H1>
+    <B>Johannes Berg</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43%3A%20rework%20rfkill%20code&In-Reply-To=%3C1228929529.15837.34.camel%40johannes.berg%3E"
+       TITLE="[RFC] b43: rework rfkill code">johannes at sipsolutions.net
+       </A><BR>
+    <I>Wed Dec 10 18:18:49 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004953.html">[RFC] b43: rework rfkill code
+</A></li>
+        <LI>Next message: <A HREF="004936.html">[RFC] b43: rework rfkill code
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4935">[ date ]</a>
+              <a href="thread.html#4935">[ thread ]</a>
+              <a href="subject.html#4935">[ subject ]</a>
+              <a href="author.html#4935">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>[warning: this is going to be a long mail and will tell you why and how
+I think rfkill needs to be rewritten]
+
+On Wed, 2008-12-10 at 17:51 +0100, Marcel Holtmann wrote:
+
+&gt;<i> if you figured out on how to do it the best way, then let me know,
+</I>&gt;<i> because I have to do the same thing for Bluetooth.
+</I>
+I'd suggest to start by rewriting rfkill to be not such a mess to use.
+
+We really need to disentangle the state tracking rfkill does. People
+have said this a million times before, but nobody cares: drivers need to
+register hard-blocked and get soft-block states independently, not in a
+single enum; API for drivers needs to be, above all, EASY to use.
+
+For mac80211, we really need to register an rfkill structure for each
+physical device that mac80211 knows about. Drivers would not be allowed
+to get access to this structure, because the toggle_radio() callback is
+assigned to a mac80211 function that calls the driver's -&gt;config()
+callback and, at some point, also disallows configuring interfaces that
+belong to a device that is rfkilled.
+
+To properly implement this, however, we need to disentangle rfkill
+states and provide just a single API function to change the state:
+
+rfkill_hw_kill(struct rfkill *rfkill, bool killed);
+
+this would be shadowed by mac80211 with
+	ieee80211_hw_rfkill(struct ieee80211_hw *hw, bool killed)
+so mac80211 knows about hard-kills too, since they don't call
+-&gt;toggle_radio() obviously.
+
+I know what you're thinking at this point, but hear me out. This is
+another thing where I think rfkill's design is fundamentally wrong. If
+you're not thinking anything, hear me out anyway :)
+
+
+Let's take a step back here and analyse what we really have and need:
+
+ * we have devices with a plethora of rfkill setups:
+   1) devices disappear from the bus (not handled here, not possible
+      either)
+   2) devices have hard kill button that just disables the radio
+      (need to know about this so users aren't left in the dark)
+   3) devices have soft kill buttons that just notify the driver
+   4) soft kill switches that work through other input methods (ACPI
+      comes to mind, but anything is possible)
+ * we have various ways to kill the radio:
+   1) like above
+   2) through platform methods (toshiba ACPI I think?)
+   3) through the driver only
+
+The last two cases only differ in the radios that the button is supposed
+to apply to, but this is more of a policy decision.
+
+The point where I think rfkill's design is totally wrong is that it
+intimately ties this software kill from case three to the rfkill
+structure as well.
+
+Instead, we should come to accept that this is just a button as well. A
+button, however, that is *by default* tied to a particular radio.
+Therefore, drivers for devices that provide such buttons, should, in my
+opinion, register an rfkill button driver that
+ a) by default is tied to their hardware by a pointer to the rfkill
+    struct for the hardware, but this could be possible to override in
+    sysfs like LEDs are, if you want the button to really kill all
+    radios
+ b) serves as input to the rfkill subsystem which will then look up the
+    right rfkill struct(s) and ask them to kill the radio
+
+This would add new API for a button, but again only a single function,
+something like
+	rfkill_button_update(struct rfkill_button *btn, bool killed)
+
+
+Finally, rfkill-input will boil down to just registering a software
+button that happens to control all radios by default, by setting the
+controlled rfkill struct to NULL.
+
+
+johannes
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 836 bytes
+Desc: This is a digitally signed message part
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20081210/19db8bec/attachment.pgp">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20081210/19db8bec/attachment.pgp</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004953.html">[RFC] b43: rework rfkill code
+</A></li>
+	<LI>Next message: <A HREF="004936.html">[RFC] b43: rework rfkill code
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4935">[ date ]</a>
+              <a href="thread.html#4935">[ thread ]</a>
+              <a href="subject.html#4935">[ subject ]</a>
+              <a href="author.html#4935">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

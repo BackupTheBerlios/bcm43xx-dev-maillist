@@ -1,0 +1,358 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] Merge the Sonics Silicon Backplane subsystem
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20Merge%20the%20Sonics%20Silicon%20Backplane%20subsystem&In-Reply-To=%3C200707272130.48973.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001606.html">
+   <LINK REL="Next"  HREF="001607.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] Merge the Sonics Silicon Backplane subsystem</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20Merge%20the%20Sonics%20Silicon%20Backplane%20subsystem&In-Reply-To=%3C200707272130.48973.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] Merge the Sonics Silicon Backplane subsystem">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jul 27 21:30:48 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001606.html">[PATCH] Merge the Sonics Silicon Backplane subsystem
+</A></li>
+        <LI>Next message: <A HREF="001607.html">[PATCH] Merge the Sonics Silicon Backplane subsystem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1604">[ date ]</a>
+              <a href="thread.html#1604">[ thread ]</a>
+              <a href="subject.html#1604">[ subject ]</a>
+              <a href="author.html#1604">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 27 July 2007 21:03:18 Andrew Morton wrote:
+&gt;<i> On Fri, 27 Jul 2007 18:57:20 +0200
+</I>&gt;<i> Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; wrote:
+</I>&gt;<i> 
+</I>&gt;<i> &gt; The Sonics Silicon Backplane is a mini-bus used on
+</I>&gt;<i> &gt; various Broadcom chips and embedded devices.
+</I>&gt;<i> &gt; Devices using the SSB include b44, bcm43xx and various
+</I>&gt;<i> &gt; Broadcom based wireless routers.
+</I>&gt;<i> &gt; A b44 and bcm43xx port and a SSB based OHCI driver is available.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> 
+</I>&gt;<i> hm, slim pickings for me here.  Nice looking code.
+</I>&gt;<i> 
+</I>&gt;<i> checkpatch finds a few coding style glitches.  Lots of 80-col violations
+</I>&gt;<i> which you might choose ignore (comments on #defines in headers are
+</I>&gt;<i> especially hard) but these guys:
+</I>
+I tried to fix most of the checkpatch warning, except these 80col
+warnings.
+I don't think it's worth the work to fix the 80col stuff, yet.
+I develop kernel code in the real console, and I have no problems
+with this. Though, I use a wider console than 80col.
+Let's better fix the worst 80col violations over time and not now.
+
+&gt;<i> ERROR: &quot;foo * bar&quot; should be &quot;foo *bar&quot;
+</I>&gt;<i> #4156: FILE: drivers/ssb/ssb_private.h:119:
+</I>&gt;<i> +extern struct ssb_bus * ssb_pci_dev_to_bus(struct pci_dev *pdev);
+</I>&gt;<i> 
+</I>&gt;<i> are worth addressing.
+</I>
+Well, I intentionally wrote that this way, as in my opinion
+it it easier to read. I only use this additional space for
+functions returning a pointer.
+
+struct foo * function(int a, int b);
+
+vs:
+
+struct foo *function(int a, int b);
+
+But I can change that, if that's really an issue and a
+style violation.
+
+&gt;<i> &gt; ...
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; --- /dev/null
+</I>&gt;<i> &gt; +++ b/drivers/ssb/driver_pcicore.c
+</I>&gt;<i> &gt; @@ -0,0 +1,564 @@
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; ...
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; +u32 pci_iobase = 0x100;
+</I>&gt;<i> &gt; +u32 pci_membase = SSB_PCI_DMA;
+</I>&gt;<i> 
+</I>&gt;<i> These are quite poor names for global symbols.
+</I>
+Agreed. I will change this.
+
+&gt;<i> &gt; +static struct resource ssb_pcicore_mem_resource = {
+</I>&gt;<i> &gt; +	.name	= &quot;SSB PCIcore external memory&quot;,
+</I>&gt;<i> &gt; +	.start	= SSB_PCI_DMA,
+</I>&gt;<i> &gt; +	.end	= (u32)SSB_PCI_DMA + (u32)SSB_PCI_DMA_SZ - 1,
+</I>&gt;<i> &gt; +	.flags	= IORESOURCE_MEM,
+</I>&gt;<i> &gt; +};
+</I>&gt;<i> 
+</I>&gt;<i> start and end here are resource_size_t.  Forcing them to u32 seems
+</I>&gt;<i> inappropriate.
+</I>
+You're right. I'll fix that.
+
+&gt;<i> &gt; +void ssb_pcicore_init(struct ssb_pcicore *pc)
+</I>&gt;<i> 
+</I>&gt;<i> Please check that all newly-added global symbols do indeed need global scope.
+</I>
+ok.
+
+&gt;<i> &gt; +static void ssb_pcie_mdio_write(struct ssb_pcicore *pc, u8 device,
+</I>&gt;<i> &gt; +				u8 address, u16 data)
+</I>&gt;<i> &gt; +{
+</I>&gt;<i> &gt; +	const u16 mdio_control = 0x128;
+</I>&gt;<i> &gt; +	const u16 mdio_data = 0x12C;
+</I>&gt;<i> &gt; +	u32 v;
+</I>&gt;<i> &gt; +	int i;
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +	v = 0x80; /* Enable Preamble Sequence */
+</I>&gt;<i> &gt; +	v |= 0x2; /* MDIO Clock Divisor */
+</I>&gt;<i> &gt; +	pcicore_write32(pc, mdio_control, v);
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +	v = (1 &lt;&lt; 30); /* Start of Transaction */
+</I>&gt;<i> &gt; +	v |= (1 &lt;&lt; 28); /* Write Transaction */
+</I>&gt;<i> &gt; +	v |= (1 &lt;&lt; 17); /* Turnaround */
+</I>&gt;<i> &gt; +	v |= (u32)device &lt;&lt; 22;
+</I>&gt;<i> &gt; +	v |= (u32)address &lt;&lt; 18;
+</I>&gt;<i> &gt; +	v |= data;
+</I>&gt;<i> &gt; +	pcicore_write32(pc, mdio_data, v);
+</I>&gt;<i> &gt; +	udelay(10);
+</I>&gt;<i> 
+</I>&gt;<i> mystery udelays are usually worth a comment.
+</I>
+Sure.
+
+&gt;<i> &gt; +static void ssb_buses_lock(void)
+</I>&gt;<i> &gt; +{
+</I>&gt;<i> &gt; +	if (!ssb_is_early_boot)
+</I>&gt;<i> &gt; +		mutex_lock(&amp;buses_mutex);
+</I>&gt;<i> &gt; +}
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +static void ssb_buses_unlock(void)
+</I>&gt;<i> &gt; +{
+</I>&gt;<i> &gt; +	if (!ssb_is_early_boot)
+</I>&gt;<i> &gt; +		mutex_unlock(&amp;buses_mutex);
+</I>&gt;<i> &gt; +}
+</I>&gt;<i> 
+</I>&gt;<i> Some comments are neeeded here to explain why we're jumping through this
+</I>&gt;<i> hoop.
+</I>
+I added a comment at the declaration of ssb_is_early_boot,
+which tries to explain this in detail.
+
+&gt;<i> It's normally OK to take a mutex early in boot, so one wonders 
+</I>&gt;<i> what's happening.
+</I>
+Hm, I tried that. There were problems. I don't remember this in detail, though.
+This is called _really_ early in boot.
+
+&gt;<i> &gt; +EXPORT_SYMBOL(ssb_clockspeed);
+</I>&gt;<i> 
+</I>&gt;<i> Please check that all newly-added exports really need to be exported (I'm
+</I>&gt;<i> sure they do, but..)
+</I>&gt;<i> 
+</I>&gt;<i> &gt; +static int ssb_wait_bit(struct ssb_device *dev, u16 reg, u32 bitmask,
+</I>&gt;<i> &gt; +			int timeout, int set)
+</I>&gt;<i> &gt; +{
+</I>&gt;<i> &gt; +	int i;
+</I>&gt;<i> &gt; +	u32 val;
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +	for (i = 0; i &lt; timeout; i++) {
+</I>&gt;<i> &gt; +		val = ssb_read32(dev, reg);
+</I>&gt;<i> &gt; +		if (set) {
+</I>&gt;<i> &gt; +			if (val &amp; bitmask)
+</I>&gt;<i> &gt; +				return 0;
+</I>&gt;<i> &gt; +		} else {
+</I>&gt;<i> &gt; +			if (!(val &amp; bitmask))
+</I>&gt;<i> &gt; +				return 0;
+</I>&gt;<i> &gt; +		}
+</I>&gt;<i> &gt; +		udelay(10);
+</I>&gt;<i> &gt; +	}
+</I>&gt;<i> &gt; +	printk(KERN_ERR PFX &quot;Timeout waiting for bitmask %08X on &quot;
+</I>&gt;<i> &gt; +			    &quot;register %04X to %s.\n&quot;,
+</I>&gt;<i> &gt; +	       bitmask, reg, (set ? &quot;set&quot; : &quot;clear&quot;));
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +	return -ETIMEDOUT;
+</I>&gt;<i> &gt; +}
+</I>&gt;<i> 
+</I>&gt;<i> So `timeout' is in units of ten-microseconds.  Unusual.
+</I>&gt;<i> 
+</I>&gt;<i> &gt; +void ssb_device_disable(struct ssb_device *dev, u32 core_specific_flags)
+</I>&gt;<i> &gt; +{
+</I>&gt;<i> &gt; +	u32 reject;
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +	if (ssb_read32(dev, SSB_TMSLOW) &amp; SSB_TMSLOW_RESET)
+</I>&gt;<i> &gt; +		return;
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +	reject = ssb_tmslow_reject_bitmask(dev);
+</I>&gt;<i> &gt; +	ssb_write32(dev, SSB_TMSLOW, reject | SSB_TMSLOW_CLOCK);
+</I>&gt;<i> &gt; +	ssb_wait_bit(dev, SSB_TMSLOW, reject, 1000, 1);
+</I>&gt;<i> &gt; +	ssb_wait_bit(dev, SSB_TMSHIGH, SSB_TMSHIGH_BUSY, 1000, 0);
+</I>&gt;<i> &gt; +	ssb_write32(dev, SSB_TMSLOW,
+</I>&gt;<i> &gt; +		    SSB_TMSLOW_FGC | SSB_TMSLOW_CLOCK |
+</I>&gt;<i> &gt; +		    reject | SSB_TMSLOW_RESET |
+</I>&gt;<i> &gt; +		    core_specific_flags);
+</I>&gt;<i> &gt; +	/* flush */
+</I>&gt;<i> &gt; +	ssb_read32(dev, SSB_TMSLOW);
+</I>&gt;<i> &gt; +	udelay(1);
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +	ssb_write32(dev, SSB_TMSLOW,
+</I>&gt;<i> &gt; +		    reject | SSB_TMSLOW_RESET |
+</I>&gt;<i> &gt; +		    core_specific_flags);
+</I>&gt;<i> &gt; +	/* flush */
+</I>&gt;<i> &gt; +	ssb_read32(dev, SSB_TMSLOW);
+</I>&gt;<i> &gt; +	udelay(1);
+</I>&gt;<i> 
+</I>&gt;<i> mystery udelay.
+</I>
+Well, /* flush */ :)
+It simply waits and makes really sure the device is done.
+This is a really critical place and we must make 100% sure
+or we risk running into a machine check exception.
+
+&gt;<i> &gt; +}
+</I>&gt;<i> &gt; +EXPORT_SYMBOL(ssb_device_disable);
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; ...
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; +const struct ssb_bus_ops ssb_pci_ops = {
+</I>&gt;<i> &gt; +	.read16		= ssb_pci_read16,
+</I>&gt;<i> &gt; +	.read32		= ssb_pci_read32,
+</I>&gt;<i> &gt; +	.write16	= ssb_pci_write16,
+</I>&gt;<i> &gt; +	.write32	= ssb_pci_write32,
+</I>&gt;<i> &gt; +};
+</I>&gt;<i> 
+</I>&gt;<i> static?
+</I>
+Yeah, think so. Good catch.
+
+&gt;<i> &gt; +static ssize_t ssb_pci_attr_sprom_show(struct device *pcidev,
+</I>&gt;<i> &gt; +				       struct device_attribute *attr,
+</I>&gt;<i> &gt; +				       char *buf)
+</I>&gt;<i> &gt; +{
+</I>&gt;<i> &gt; +	struct pci_dev *pdev = container_of(pcidev, struct pci_dev, dev);
+</I>&gt;<i> &gt; +	struct ssb_bus *bus;
+</I>&gt;<i> &gt; +	u16 *sprom;
+</I>&gt;<i> &gt; +	int err = -ENODEV;
+</I>&gt;<i> &gt; +	ssize_t count = 0;
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +	bus = ssb_pci_dev_to_bus(pdev);
+</I>&gt;<i> &gt; +	if (!bus)
+</I>&gt;<i> &gt; +		goto out;
+</I>&gt;<i> &gt; +	err = -ENOMEM;
+</I>&gt;<i> &gt; +	sprom = kcalloc(SSB_SPROMSIZE_WORDS, sizeof(u16), GFP_KERNEL);
+</I>&gt;<i> &gt; +	if (!sprom)
+</I>&gt;<i> &gt; +		goto out;
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +	err = -ERESTARTSYS;
+</I>&gt;<i> &gt; +	if (mutex_lock_interruptible(&amp;bus-&gt;pci_sprom_mutex))
+</I>&gt;<i> &gt; +		goto out_kfree;
+</I>&gt;<i> &gt; +	sprom_do_read(bus, sprom);
+</I>&gt;<i> &gt; +	mutex_unlock(&amp;bus-&gt;pci_sprom_mutex);
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +	count = sprom2hex(sprom, buf, PAGE_SIZE);
+</I>&gt;<i> &gt; +	err = 0;
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +out_kfree:
+</I>&gt;<i> &gt; +	kfree(sprom);
+</I>&gt;<i> &gt; +out:
+</I>&gt;<i> &gt; +	return err ? err : count;
+</I>&gt;<i> &gt; +}
+</I>&gt;<i> 
+</I>&gt;<i> The mutex_lock_interruptible() looks fishy.  Some commented explanation of
+</I>&gt;<i> what it's doing would be good here.  It's quite unobvious to this reader. 
+</I>&gt;<i> Cheesy deadlock avoidance?  Hope not.
+</I>
+No, it's simply to avoid writing the SPROM concurrently.
+SPROM writing is hairy and we must make sure here that
+we are the only one accessing the whole bus. We do that
+by suspending all devices and taking a lock to protect
+the SPROM from write concurrency.
+
+&gt;<i> &gt; +
+</I>&gt;<i> &gt; +/* These are the main device register access functions.
+</I>&gt;<i> &gt; + * do_select_core is inline to have the likely hotpath inline.
+</I>&gt;<i> &gt; + * All unlikely codepaths are out-of-line. */
+</I>&gt;<i> &gt; +static inline int do_select_core(struct ssb_bus *bus,
+</I>&gt;<i> &gt; +				 struct ssb_device *dev,
+</I>&gt;<i> &gt; +				 u16 *offset)
+</I>&gt;<i> &gt; +{
+</I>&gt;<i> &gt; +	int err;
+</I>&gt;<i> &gt; +	u8 need_seg = (*offset &gt;= 0x800) ? 1 : 0;
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +	if (unlikely(dev != bus-&gt;mapped_device)) {
+</I>&gt;<i> &gt; +		err = ssb_pcmcia_switch_core(bus, dev);
+</I>&gt;<i> &gt; +		if (unlikely(err))
+</I>&gt;<i> &gt; +			return err;
+</I>&gt;<i> &gt; +	}
+</I>&gt;<i> &gt; +	if (unlikely(need_seg != bus-&gt;mapped_pcmcia_seg)) {
+</I>&gt;<i> &gt; +		err = ssb_pcmcia_switch_segment(bus, need_seg);
+</I>&gt;<i> &gt; +		if (unlikely(err))
+</I>&gt;<i> &gt; +			return err;
+</I>&gt;<i> &gt; +	}
+</I>&gt;<i> &gt; +	if (need_seg == 1)
+</I>&gt;<i> &gt; +		*offset -= 0x800;
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +	return 0;
+</I>&gt;<i> &gt; +}
+</I>&gt;<i> 
+</I>&gt;<i> Looks too large for inlining.
+</I>
+Well, as I already explained in a previous submission,
+this is the hottest path in the SSB code. It's called with
+every MMIO access. I intentionally did this inline to have
+the likely path inline and all the unlikely paths out of
+line. See the unlikely() branches, which are out of line.
+
+&gt;<i> &gt; +const struct ssb_bus_ops ssb_pcmcia_ops = {
+</I>&gt;<i> &gt; +	.read16		= ssb_pcmcia_read16,
+</I>&gt;<i> &gt; +	.read32		= ssb_pcmcia_read32,
+</I>&gt;<i> &gt; +	.write16	= ssb_pcmcia_write16,
+</I>&gt;<i> &gt; +	.write32	= ssb_pcmcia_write32,
+</I>&gt;<i> &gt; +};
+</I>&gt;<i> 
+</I>&gt;<i> static?
+</I>
+Yep.
+
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001606.html">[PATCH] Merge the Sonics Silicon Backplane subsystem
+</A></li>
+	<LI>Next message: <A HREF="001607.html">[PATCH] Merge the Sonics Silicon Backplane subsystem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1604">[ date ]</a>
+              <a href="thread.html#1604">[ thread ]</a>
+              <a href="subject.html#1604">[ subject ]</a>
+              <a href="author.html#1604">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,138 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Support for 16 bit PCMCIA 0x02d0, 0x042d?
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Support%20for%2016%20bit%20PCMCIA%200x02d0%2C%200x042d%3F&In-Reply-To=%3C200901150022.35501.s.L-H%40gmx.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005036.html">
+   <LINK REL="Next"  HREF="005054.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Support for 16 bit PCMCIA 0x02d0, 0x042d?</H1>
+    <B>Stefan Lippers-Hollmann</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Support%20for%2016%20bit%20PCMCIA%200x02d0%2C%200x042d%3F&In-Reply-To=%3C200901150022.35501.s.L-H%40gmx.de%3E"
+       TITLE="Support for 16 bit PCMCIA 0x02d0, 0x042d?">s.L-H at gmx.de
+       </A><BR>
+    <I>Thu Jan 15 00:22:33 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005036.html">[b43] opensource firmware
+</A></li>
+        <LI>Next message: <A HREF="005054.html">Support for 16 bit PCMCIA 0x02d0, 0x042d?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5043">[ date ]</a>
+              <a href="thread.html#5043">[ thread ]</a>
+              <a href="subject.html#5043">[ subject ]</a>
+              <a href="author.html#5043">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi
+
+I recently got hold of an older 16 bit PCMCIA card, which is branded as 
+&quot;ADS Tech wireless PCMCIA Card 802.11g (581-150)&quot; and doesn't seem to be 
+claimed by b43/ b43legacy. 
+
+
+$ /sbin/lspcmcia -vv
+Socket 0 Bridge:        [yenta_cardbus]         (bus ID: 0000:02:03.0)
+        Configuration:  state: on       ready: unknown
+                        Voltage: 3.3V Vcc: 3.3V Vpp: 3.3V
+--none--
+--none--
+Socket 0 Device 0:      [-- no driver --]       (bus ID: 0.0)
+        Configuration:  state: on
+        Product Name:   Broadcom 802.11g PCMCIA 4.3
+        Identification: manf_id: 0x02d0 card_id: 0x042d
+                        function: 6 (network)
+                        prod_id(1): &quot;Broadcom&quot; (0x620c9840)
+                        prod_id(2): &quot;802.11g PCMCIA&quot; (0x30f90a13)
+                        prod_id(3): &quot;4.3&quot; (0x97b52576)
+                        prod_id(4): --- (---)
+
+
+The PCMCIA ID suggests that it might be a BCM4306 variant, trying to add
+this ID to b43 (2.6.28)
+
+
+--- a/drivers/net/wireless/b43/pcmcia.c
++++ b/drivers/net/wireless/b43/pcmcia.c
+@@ -34,6 +34,7 @@
+ 
+ 
+ static /*const */ struct pcmcia_device_id b43_pcmcia_tbl[] = {
++	PCMCIA_DEVICE_MANF_CARD(0x2D0, 0x42d),
+ 	PCMCIA_DEVICE_MANF_CARD(0x2D0, 0x448),
+ 	PCMCIA_DEVICE_NULL,
+ };
+
+
+doesn't seem to be sufficient/ succesful (did I eventually miss any 
+required SSB addition?) and results in the following dmesg output:
+
+
+[...]
+yenta_cardbus 0000:02:03.0: pcmcia: parent PCI bridge I/O window: 0xa000 - 0xbfff
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0xa000-0xbfff: clean.
+yenta_cardbus 0000:02:03.0: pcmcia: parent PCI bridge Memory window: 0xd0000000 - 0xdfffffff
+yenta_cardbus 0000:02:03.0: pcmcia: parent PCI bridge Memory window: 0x90000000 - 0x9fffffff
+pcmcia_socket pcmcia_socket0: pccard: PCMCIA card inserted into slot 0
+pcmcia_socket pcmcia_pcmcia 0.0: pcmcia: registering new device pcmcia0.0
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0x100-0x3af: excluding 0x230-0x237
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0x3e0-0x4ff: clean.
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0x820-0x8ff: clean.
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0xc00-0xcf7: clean.
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0xa00-0xaff: clean.
+socket0: cs: memory probe 0xd0000000-0xdfffffff: excluding 0xd0000000-0xd07fffff 0xd4000000-0xd7ffffff
+[...]
+ssb: Failed to switch to core 0
+b43-pcmcia: Initialization failed (0, -110)
+b43-pcmcia: probe of 0.0 failed with error -110
+Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID: FW13 ]
+ssb: Failed to switch to core 0
+b43-pcmcia: Initialization failed (0, -110)
+b43-pcmcia: probe of 0.0 failed with error -110
+[...]
+
+
+Is there a chance to add support for this kind of device?
+
+Regards
+	Stefan Lippers-Hollmann
+
+-- 
+I'm sorry if you receive this mail twice, I already sent this mail at the 
+4th of january, but it didn't appear in the mailing list archive yet (most 
+likely because I wasn't subscribed at that time).
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005036.html">[b43] opensource firmware
+</A></li>
+	<LI>Next message: <A HREF="005054.html">Support for 16 bit PCMCIA 0x02d0, 0x042d?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5043">[ date ]</a>
+              <a href="thread.html#5043">[ thread ]</a>
+              <a href="subject.html#5043">[ subject ]</a>
+              <a href="author.html#5043">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

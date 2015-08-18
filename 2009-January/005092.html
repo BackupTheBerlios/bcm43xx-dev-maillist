@@ -1,0 +1,468 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Automatically probe for opensource firmware
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Automatically%20probe%20for%20opensource%20firmware&In-Reply-To=%3C200901232121.52012.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005082.html">
+   <LINK REL="Next"  HREF="005093.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Automatically probe for opensource firmware</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Automatically%20probe%20for%20opensource%20firmware&In-Reply-To=%3C200901232121.52012.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Automatically probe for opensource firmware">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jan 23 21:21:51 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005082.html">integration of opensource firmware with b43 kernel driver
+</A></li>
+        <LI>Next message: <A HREF="005093.html">[PATCH] b43: Automatically probe for opensource firmware
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5092">[ date ]</a>
+              <a href="thread.html#5092">[ thread ]</a>
+              <a href="subject.html#5092">[ subject ]</a>
+              <a href="author.html#5092">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>First probe for proprietary firmware and then probe for opensource firmware.
+This way around it's a win-win situation.
+1) If proprietary fw is available, it will work.
+2) If opensource firmware is available, but no proprietary (Distros can only ship open fw)
+   it might work.
+3) If both open and proprietary are available, it will work, because it selects
+   the proprietary. We currently don't prefer the open fw in this case, because it doesn't
+   work on all devices. It would introduce a regression otherwise.
+
+The remaining FIXMEs in this patch are harmless, because they only matter on multiband
+devices, which are not implemented yet anyway.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, please queue for the next feature round.
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2009-01-23 19:19:20.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/main.c	2009-01-23 19:23:18.000000000 +0100
+@@ -1931,25 +1931,25 @@ static irqreturn_t b43_interrupt_handler
+ 	mmiowb();
+ 	spin_unlock(&amp;dev-&gt;wl-&gt;irq_lock);
+ 
+ 	return ret;
+ }
+ 
+-static void do_release_fw(struct b43_firmware_file *fw)
++void b43_do_release_fw(struct b43_firmware_file *fw)
+ {
+ 	release_firmware(fw-&gt;data);
+ 	fw-&gt;data = NULL;
+ 	fw-&gt;filename = NULL;
+ }
+ 
+ static void b43_release_firmware(struct b43_wldev *dev)
+ {
+-	do_release_fw(&amp;dev-&gt;fw.ucode);
+-	do_release_fw(&amp;dev-&gt;fw.pcm);
+-	do_release_fw(&amp;dev-&gt;fw.initvals);
+-	do_release_fw(&amp;dev-&gt;fw.initvals_band);
++	b43_do_release_fw(&amp;dev-&gt;fw.ucode);
++	b43_do_release_fw(&amp;dev-&gt;fw.pcm);
++	b43_do_release_fw(&amp;dev-&gt;fw.initvals);
++	b43_do_release_fw(&amp;dev-&gt;fw.initvals_band);
+ }
+ 
+ static void b43_print_fw_helptext(struct b43_wl *wl, bool error)
+ {
+ 	const char *text;
+ 
+@@ -1960,48 +1960,66 @@ static void b43_print_fw_helptext(struct
+ 	if (error)
+ 		b43err(wl, text);
+ 	else
+ 		b43warn(wl, text);
+ }
+ 
+-static int do_request_fw(struct b43_wldev *dev,
+-			 const char *name,
+-			 struct b43_firmware_file *fw,
+-			 bool silent)
++int b43_do_request_fw(struct b43_request_fw_context *ctx,
++		      const char *name,
++		      struct b43_firmware_file *fw)
+ {
+-	char path[sizeof(modparam_fwpostfix) + 32];
+ 	const struct firmware *blob;
+ 	struct b43_fw_header *hdr;
+ 	u32 size;
+ 	int err;
+ 
+ 	if (!name) {
+ 		/* Don't fetch anything. Free possibly cached firmware. */
+-		do_release_fw(fw);
++		/* FIXME: We should probably keep it anyway, to save some headache
++		 * on suspend/resume with multiband devices. */
++		b43_do_release_fw(fw);
+ 		return 0;
+ 	}
+ 	if (fw-&gt;filename) {
+-		if (strcmp(fw-&gt;filename, name) == 0)
++		if ((fw-&gt;type == ctx-&gt;req_type) &amp;&amp;
++		    (strcmp(fw-&gt;filename, name) == 0))
+ 			return 0; /* Already have this fw. */
+ 		/* Free the cached firmware first. */
+-		do_release_fw(fw);
++		/* FIXME: We should probably do this later after we successfully
++		 * got the new fw. This could reduce headache with multiband devices.
++		 * We could also redesign this to cache the firmware for all possible
++		 * bands all the time. */
++		b43_do_release_fw(fw);
++	}
++
++	switch (ctx-&gt;req_type) {
++	case B43_FWTYPE_PROPRIETARY:
++		snprintf(ctx-&gt;fwname, sizeof(ctx-&gt;fwname),
++			 &quot;b43%s/%s.fw&quot;,
++			 modparam_fwpostfix, name);
++		break;
++	case B43_FWTYPE_OPENSOURCE:
++		snprintf(ctx-&gt;fwname, sizeof(ctx-&gt;fwname),
++			 &quot;b43-open%s/%s.fw&quot;,
++			 modparam_fwpostfix, name);
++		break;
++	default:
++		B43_WARN_ON(1);
++		return -ENOSYS;
+ 	}
+-
+-	snprintf(path, ARRAY_SIZE(path),
+-		 &quot;b43%s/%s.fw&quot;,
+-		 modparam_fwpostfix, name);
+-	err = request_firmware(&amp;blob, path, dev-&gt;dev-&gt;dev);
++	err = request_firmware(&amp;blob, ctx-&gt;fwname, ctx-&gt;dev-&gt;dev-&gt;dev);
+ 	if (err == -ENOENT) {
+-		if (!silent) {
+-			b43err(dev-&gt;wl, &quot;Firmware file \&quot;%s\&quot; not found\n&quot;,
+-			       path);
+-		}
++		snprintf(ctx-&gt;errors[ctx-&gt;req_type],
++			 sizeof(ctx-&gt;errors[ctx-&gt;req_type]),
++			 &quot;Firmware file \&quot;%s\&quot; not found\n&quot;, ctx-&gt;fwname);
+ 		return err;
+ 	} else if (err) {
+-		b43err(dev-&gt;wl, &quot;Firmware file \&quot;%s\&quot; request failed (err=%d)\n&quot;,
+-		       path, err);
++		snprintf(ctx-&gt;errors[ctx-&gt;req_type],
++			 sizeof(ctx-&gt;errors[ctx-&gt;req_type]),
++			 &quot;Firmware file \&quot;%s\&quot; request failed (err=%d)\n&quot;,
++			 ctx-&gt;fwname, err);
+ 		return err;
+ 	}
+ 	if (blob-&gt;size &lt; sizeof(struct b43_fw_header))
+ 		goto err_format;
+ 	hdr = (struct b43_fw_header *)(blob-&gt;data);
+ 	switch (hdr-&gt;type) {
+@@ -2018,26 +2036,30 @@ static int do_request_fw(struct b43_wlde
+ 	default:
+ 		goto err_format;
+ 	}
+ 
+ 	fw-&gt;data = blob;
+ 	fw-&gt;filename = name;
++	fw-&gt;type = ctx-&gt;req_type;
+ 
+ 	return 0;
+ 
+ err_format:
+-	b43err(dev-&gt;wl, &quot;Firmware file \&quot;%s\&quot; format error.\n&quot;, path);
++	snprintf(ctx-&gt;errors[ctx-&gt;req_type],
++		 sizeof(ctx-&gt;errors[ctx-&gt;req_type]),
++		 &quot;Firmware file \&quot;%s\&quot; format error.\n&quot;, ctx-&gt;fwname);
+ 	release_firmware(blob);
+ 
+ 	return -EPROTO;
+ }
+ 
+-static int b43_request_firmware(struct b43_wldev *dev)
++static int b43_try_request_fw(struct b43_request_fw_context *ctx)
+ {
+-	struct b43_firmware *fw = &amp;dev-&gt;fw;
+-	const u8 rev = dev-&gt;dev-&gt;id.revision;
++	struct b43_wldev *dev = ctx-&gt;dev;
++	struct b43_firmware *fw = &amp;ctx-&gt;dev-&gt;fw;
++	const u8 rev = ctx-&gt;dev-&gt;dev-&gt;id.revision;
+ 	const char *filename;
+ 	u32 tmshigh;
+ 	int err;
+ 
+ 	/* Get microcode */
+ 	tmshigh = ssb_read32(dev-&gt;dev, SSB_TMSHIGH);
+@@ -2046,25 +2068,25 @@ static int b43_request_firmware(struct b
+ 	else if ((rev &gt;= 11) &amp;&amp; (rev &lt;= 12))
+ 		filename = &quot;ucode11&quot;;
+ 	else if (rev &gt;= 13)
+ 		filename = &quot;ucode13&quot;;
+ 	else
+ 		goto err_no_ucode;
+-	err = do_request_fw(dev, filename, &amp;fw-&gt;ucode, 0);
++	err = b43_do_request_fw(ctx, filename, &amp;fw-&gt;ucode);
+ 	if (err)
+ 		goto err_load;
+ 
+ 	/* Get PCM code */
+ 	if ((rev &gt;= 5) &amp;&amp; (rev &lt;= 10))
+ 		filename = &quot;pcm5&quot;;
+ 	else if (rev &gt;= 11)
+ 		filename = NULL;
+ 	else
+ 		goto err_no_pcm;
+ 	fw-&gt;pcm_request_failed = 0;
+-	err = do_request_fw(dev, filename, &amp;fw-&gt;pcm, 1);
++	err = b43_do_request_fw(ctx, filename, &amp;fw-&gt;pcm);
+ 	if (err == -ENOENT) {
+ 		/* We did not find a PCM file? Not fatal, but
+ 		 * core rev &lt;= 10 must do without hwcrypto then. */
+ 		fw-&gt;pcm_request_failed = 1;
+ 	} else if (err)
+ 		goto err_load;
+@@ -2094,13 +2116,13 @@ static int b43_request_firmware(struct b
+ 		else
+ 			goto err_no_initvals;
+ 		break;
+ 	default:
+ 		goto err_no_initvals;
+ 	}
+-	err = do_request_fw(dev, filename, &amp;fw-&gt;initvals, 0);
++	err = b43_do_request_fw(ctx, filename, &amp;fw-&gt;initvals);
+ 	if (err)
+ 		goto err_load;
+ 
+ 	/* Get bandswitch initvals */
+ 	switch (dev-&gt;phy.type) {
+ 	case B43_PHYTYPE_A:
+@@ -2128,43 +2150,89 @@ static int b43_request_firmware(struct b
+ 		else
+ 			goto err_no_initvals;
+ 		break;
+ 	default:
+ 		goto err_no_initvals;
+ 	}
+-	err = do_request_fw(dev, filename, &amp;fw-&gt;initvals_band, 0);
++	err = b43_do_request_fw(ctx, filename, &amp;fw-&gt;initvals_band);
+ 	if (err)
+ 		goto err_load;
+ 
+ 	return 0;
+ 
+-err_load:
+-	b43_print_fw_helptext(dev-&gt;wl, 1);
+-	goto error;
+-
+ err_no_ucode:
+-	err = -ENODEV;
+-	b43err(dev-&gt;wl, &quot;No microcode available for core rev %u\n&quot;, rev);
++	err = ctx-&gt;fatal_failure = -EOPNOTSUPP;
++	b43err(dev-&gt;wl, &quot;The driver does not know which firmware (ucode) &quot;
++	       &quot;is required for your device (wl-core rev %u)\n&quot;, rev);
+ 	goto error;
+ 
+ err_no_pcm:
+-	err = -ENODEV;
+-	b43err(dev-&gt;wl, &quot;No PCM available for core rev %u\n&quot;, rev);
++	err = ctx-&gt;fatal_failure = -EOPNOTSUPP;
++	b43err(dev-&gt;wl, &quot;The driver does not know which firmware (PCM) &quot;
++	       &quot;is required for your device (wl-core rev %u)\n&quot;, rev);
+ 	goto error;
+ 
+ err_no_initvals:
+-	err = -ENODEV;
+-	b43err(dev-&gt;wl, &quot;No Initial Values firmware file for PHY %u, &quot;
+-	       &quot;core rev %u\n&quot;, dev-&gt;phy.type, rev);
++	err = ctx-&gt;fatal_failure = -EOPNOTSUPP;
++	b43err(dev-&gt;wl, &quot;The driver does not know which firmware (initvals) &quot;
++	       &quot;is required for your device (wl-core rev %u)\n&quot;, rev);
++	goto error;
++
++err_load:
++	/* We failed to load this firmware image. The error message
++	 * already is in ctx-&gt;errors. Return and let our caller decide
++	 * what to do. */
+ 	goto error;
+ 
+ error:
+ 	b43_release_firmware(dev);
+ 	return err;
+ }
+ 
++static int b43_request_firmware(struct b43_wldev *dev)
++{
++	struct b43_request_fw_context *ctx;
++	unsigned int i;
++	int err;
++	const char *errmsg;
++
++	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
++	if (!ctx)
++		return -ENOMEM;
++	ctx-&gt;dev = dev;
++
++	ctx-&gt;req_type = B43_FWTYPE_PROPRIETARY;
++	err = b43_try_request_fw(ctx);
++	if (!err)
++		goto out; /* Successfully loaded it. */
++	err = ctx-&gt;fatal_failure;
++	if (err)
++		goto out;
++
++	ctx-&gt;req_type = B43_FWTYPE_OPENSOURCE;
++	err = b43_try_request_fw(ctx);
++	if (!err)
++		goto out; /* Successfully loaded it. */
++	err = ctx-&gt;fatal_failure;
++	if (err)
++		goto out;
++
++	/* Could not find a usable firmware. Print the errors. */
++	for (i = 0; i &lt; B43_NR_FWTYPES; i++) {
++		errmsg = ctx-&gt;errors[i];
++		if (strlen(errmsg))
++			b43err(dev-&gt;wl, errmsg);
++	}
++	b43_print_fw_helptext(dev-&gt;wl, 1);
++	err = -ENOENT;
++
++out:
++	kfree(ctx);
++	return err;
++}
++
+ static int b43_upload_microcode(struct b43_wldev *dev)
+ {
+ 	const size_t hdr_len = sizeof(struct b43_fw_header);
+ 	const __be32 *data;
+ 	unsigned int i, len;
+ 	u16 fwrev, fwpatch, fwdate, fwtime;
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h	2008-12-21 20:59:49.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/b43.h	2009-01-23 19:33:23.000000000 +0100
+@@ -652,16 +652,45 @@ struct b43_wl {
+ 	/* Work for adjustment of the transmission power.
+ 	 * This is scheduled when we determine that the actual TX output
+ 	 * power doesn't match what we want. */
+ 	struct work_struct txpower_adjust_work;
+ };
+ 
++/* The type of the firmware file. */
++enum b43_firmware_file_type {
++	B43_FWTYPE_PROPRIETARY,
++	B43_FWTYPE_OPENSOURCE,
++	B43_NR_FWTYPES,
++};
++
++/* Context data for fetching firmware. */
++struct b43_request_fw_context {
++	/* The device we are requesting the fw for. */
++	struct b43_wldev *dev;
++	/* The type of firmware to request. */
++	enum b43_firmware_file_type req_type;
++	/* Error messages for each firmware type. */
++	char errors[B43_NR_FWTYPES][128];
++	/* Temporary buffer for storing the firmware name. */
++	char fwname[64];
++	/* A fatal error occured while requesting. Firmware reqest
++	 * can not continue, as any other reqest will also fail. */
++	int fatal_failure;
++};
++
+ /* In-memory representation of a cached microcode file. */
+ struct b43_firmware_file {
+ 	const char *filename;
+ 	const struct firmware *data;
++	/* Type of the firmware file name. Note that this does only indicate
++	 * the type by the firmware name. NOT the file contents.
++	 * If you want to check for proprietary vs opensource, use (struct b43_firmware)-&gt;opensource
++	 * instead! The (struct b43_firmware)-&gt;opensource flag is derived from the actual firmware
++	 * binary code, not just the filename.
++	 */
++	enum b43_firmware_file_type type;
+ };
+ 
+ /* Pointers to the firmware data and meta information about it. */
+ struct b43_firmware {
+ 	/* Microcode */
+ 	struct b43_firmware_file ucode;
+@@ -674,13 +703,14 @@ struct b43_firmware {
+ 
+ 	/* Firmware revision */
+ 	u16 rev;
+ 	/* Firmware patchlevel */
+ 	u16 patch;
+ 
+-	/* Set to true, if we are using an opensource firmware. */
++	/* Set to true, if we are using an opensource firmware.
++	 * Use this to check for proprietary vs opensource. */
+ 	bool opensource;
+ 	/* Set to true, if the core needs a PCM firmware, but
+ 	 * we failed to load one. This is always false for
+ 	 * core rev &gt; 10, as these don't need PCM firmware. */
+ 	bool pcm_request_failed;
+ };
+Index: wireless-testing/drivers/net/wireless/b43/main.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.h	2008-08-28 18:38:15.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.h	2009-01-23 19:19:40.000000000 +0100
+@@ -118,7 +118,14 @@ void b43_controller_restart(struct b43_w
+ #define B43_PS_ASLEEP	(1 &lt;&lt; 3)	/* Force device asleep */
+ void b43_power_saving_ctl_bits(struct b43_wldev *dev, unsigned int ps_flags);
+ 
+ void b43_mac_suspend(struct b43_wldev *dev);
+ void b43_mac_enable(struct b43_wldev *dev);
+ 
++
++struct b43_request_fw_context;
++int b43_do_request_fw(struct b43_request_fw_context *ctx,
++		      const char *name,
++		      struct b43_firmware_file *fw);
++void b43_do_release_fw(struct b43_firmware_file *fw);
++
+ #endif /* B43_MAIN_H_ */
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005082.html">integration of opensource firmware with b43 kernel driver
+</A></li>
+	<LI>Next message: <A HREF="005093.html">[PATCH] b43: Automatically probe for opensource firmware
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5092">[ date ]</a>
+              <a href="thread.html#5092">[ thread ]</a>
+              <a href="subject.html#5092">[ subject ]</a>
+              <a href="author.html#5092">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

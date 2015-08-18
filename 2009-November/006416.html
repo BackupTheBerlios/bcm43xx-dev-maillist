@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Improve error response for bug in openfwwf
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Improve%20error%20response%20for%20bug%20in%20openfwwf&In-Reply-To=%3C4b058734.0H90xGUti/95cLxC%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006414.html">
+   <LINK REL="Next"  HREF="006417.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Improve error response for bug in openfwwf</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Improve%20error%20response%20for%20bug%20in%20openfwwf&In-Reply-To=%3C4b058734.0H90xGUti/95cLxC%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43: Improve error response for bug in openfwwf">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Thu Nov 19 18:58:12 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006414.html">[Bug 538579] Kernel dead, when with the default b43 Firmware, a while 	full speed downloading
+</A></li>
+        <LI>Next message: <A HREF="006417.html">[PATCH] ssb: Unconditionally log results of core scans
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6416">[ date ]</a>
+              <a href="thread.html#6416">[ thread ]</a>
+              <a href="subject.html#6416">[ subject ]</a>
+              <a href="author.html#6416">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>With open firmware being distributed by some distros, the problem
+of a duplicate skb returned to b43_dma_handle_txstatus() is being
+reported. (See Bug #538579 at <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">bugzilla at redhat.com.</A>)
+
+When this problem occurs, A BUG_ON() is encountered - the kernel
+panic yields little information. This patch turns that panic into
+a KERN_ERR message. The interface will not continue; however, reporting
+of the condition is better.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+Cc: Stable &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stable at vger.org</A>&gt;
+---
+
+John,
+
+This change should be sent to 2.6.32. I have used a variation of it in
+private testing for the openfwwf project, and would have sent it up earlier
+if I had known that the open firmware was being distributed.
+
+Larry
+---
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c
++++ wireless-testing/drivers/net/wireless/b43/dma.c
+@@ -1522,7 +1522,13 @@ void b43_dma_handle_txstatus(struct b43_
+ 		if (meta-&gt;is_last_fragment) {
+ 			struct ieee80211_tx_info *info;
+ 
+-			BUG_ON(!meta-&gt;skb);
++			if (meta-&gt;skb == (void *)0x0606060606060606) {
++				printk(KERN_ERR &quot;b43: Duplicate free of skb\n&quot;);
++				return;
++			} else if (!meta-&gt;skb) {
++				printk(KERN_ERR &quot;b43: skb is NULL\n&quot;);
++				return;
++			}
+ 
+ 			info = IEEE80211_SKB_CB(meta-&gt;skb);
+ 
+@@ -1540,8 +1546,8 @@ void b43_dma_handle_txstatus(struct b43_
+ #endif /* DEBUG */
+ 			ieee80211_tx_status(dev-&gt;wl-&gt;hw, meta-&gt;skb);
+ 
+-			/* skb is freed by ieee80211_tx_status() */
+-			meta-&gt;skb = NULL;
++			/* skb was freed by ieee80211_tx_status() - poison it */
++			meta-&gt;skb = (void *)0x0606060606060606;
+ 		} else {
+ 			/* No need to call free_descriptor_buffer here, as
+ 			 * this is only the txhdr, which is not allocated.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006414.html">[Bug 538579] Kernel dead, when with the default b43 Firmware, a while 	full speed downloading
+</A></li>
+	<LI>Next message: <A HREF="006417.html">[PATCH] ssb: Unconditionally log results of core scans
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6416">[ date ]</a>
+              <a href="thread.html#6416">[ thread ]</a>
+              <a href="subject.html#6416">[ subject ]</a>
+              <a href="author.html#6416">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

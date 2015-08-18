@@ -1,0 +1,145 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Additional problem with b43legacy
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Additional%20problem%20with%20b43legacy&In-Reply-To=%3C47F951F1.7050508%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003765.html">
+   <LINK REL="Next"  HREF="003770.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Additional problem with b43legacy</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Additional%20problem%20with%20b43legacy&In-Reply-To=%3C47F951F1.7050508%40lwfinger.net%3E"
+       TITLE="Additional problem with b43legacy">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Mon Apr  7 00:42:57 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003765.html">[PATCH RFT V2] b43legacy: Fix TX power adjustments
+</A></li>
+        <LI>Next message: <A HREF="003770.html">Additional problem with b43legacy
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3766">[ date ]</a>
+              <a href="thread.html#3766">[ thread ]</a>
+              <a href="subject.html#3766">[ subject ]</a>
+              <a href="author.html#3766">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Stefano and Michael,
+
+In order to test Stefano's recent patches for the BCM4303 using 
+b43legacy, I dug out my Linksys WMP11-V27, which has a BCM4301 chip. 
+Implementing it is a pain as it kills my sound card - thus it must be 
+removed before I turn that computer back to my spouse (it runs Windows).
+
+The ssb details for the card are as follows:
+
+ssb: Core 0 found: IEEE 802.11 (cc 0x812, rev 0x02, vendor 0x4243)
+ssb: Core 1 found: PCMCIA (cc 0x80D, rev 0x00, vendor 0x4243)
+ssb: Core 2 found: Fast Ethernet (cc 0x806, rev 0x02, vendor 0x4243)
+ssb: Core 3 found: V90 (cc 0x807, rev 0x01, vendor 0x4243)
+ssb: Core 4 found: PCI (cc 0x804, rev 0x03, vendor 0x4243)
+ssb: SPROM revision 1 detected.
+ssb: Sonics Silicon Backplane found on PCI device 0000:00:0b.0
+
+The b43legacy and mac80211 messages that follow are:
+
+b43legacy-phy0: Broadcom 4301 WLAN found
+b43legacy-phy0 debug: Found PHY: Analog 0, Type 1, Revision 4
+b43legacy-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2053, Revision 2
+b43legacy-phy0 debug: Radio initialized
+phy0: Selected rate control algorithm 'pid'
+Broadcom 43xx-legacy driver loaded [ Features: PID, Firmware-ID: FW10 ]
+b43legacy-phy0: Loading firmware version 0x127, patch level 14 
+(2005-04-18 02:36:27)
+b43legacy-phy0 debug: Chip initialized
+b43legacy-phy0 debug: 30-bit DMA initialized
+b43legacy-phy0 debug: Wireless interface started
+b43legacy-phy0 debug: Adding Interface type 2
+
+The card works perfectly when running bcm43xx from the 2.6.22 kernel 
+used by openSUSE 10.3, but fails to transmit when running b43legacy. 
+The clue that there is a &quot;TX problem&quot; is seen when the module is unloaded:
+
+b43legacy-phy0 debug: DMA-30 0x0220 (TX) max used slots: 128/128
+
+To try to debug this, I added the following two printouts, and turned 
+on debugging in mac80211.
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/dma.c
++++ wireless-testing/drivers/net/wireless/b43legacy/dma.c
+@@ -94,6 +94,7 @@ static void op32_poke_tx(struct b43legac
+  {
+         b43legacy_dma_write(ring, B43legacy_DMA32_TXINDEX,
+                             (u32)(slot * sizeof(struct 
+b43legacy_dmadesc32)));
++       printk(KERN_INFO &quot;b43legacy: 30/32-bit DMA poked\n&quot;);
+  }
+
+  static void op32_tx_suspend(struct b43legacy_dmaring *ring)
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-testing/drivers/net/wireless/b43legacy/main.c
+@@ -743,6 +743,7 @@ static void handle_irq_transmit_status(s
+         u16 tmp;
+         struct b43legacy_txstatus stat;
+
++       printk(KERN_INFO &quot;b43legacy: entered 
+handle_irq_transmit_status\n&quot;);
+         while (1) {
+                 v0 = b43legacy_read32(dev, B43legacy_MMIO_XMITSTAT_0);
+                 if (!(v0 &amp; 0x00000001))
+
+My intention was to be certain that the DMA operation had been 
+&quot;poked&quot;, and to see if an interrupt resulted. I see the poke, but not 
+the interrupt, as follows:
+
+phy0: TX to low-level driver (len=32) FC=0x0040 DUR=0x0000 
+A1=ff:ff:ff:ff:ff:ff A2=00:06:25:1c:99:a0 A3=ff:ff:ff:ff:ff:ff
+b43legacy: 30/32-bit DMA poked
+
+Do you have any suggestions on what might be wrong? Where should I 
+place printk's to find out where the DMA process is failing? Besides 
+the transmit problem, I never see any AP's with an &quot;iwlist scan&quot; 
+command, so it is likely that receiving is also not functioning.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003765.html">[PATCH RFT V2] b43legacy: Fix TX power adjustments
+</A></li>
+	<LI>Next message: <A HREF="003770.html">Additional problem with b43legacy
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3766">[ date ]</a>
+              <a href="thread.html#3766">[ thread ]</a>
+              <a href="subject.html#3766">[ subject ]</a>
+              <a href="author.html#3766">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

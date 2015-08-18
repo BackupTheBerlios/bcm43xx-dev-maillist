@@ -1,0 +1,823 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix PHY register routing
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20PHY%20register%20routing&In-Reply-To=%3C200801091839.10076.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003208.html">
+   <LINK REL="Next"  HREF="003213.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix PHY register routing</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20PHY%20register%20routing&In-Reply-To=%3C200801091839.10076.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix PHY register routing">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Jan  9 18:39:09 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003208.html">[PATCH] b43: Add N-PHY register definitions
+</A></li>
+        <LI>Next message: <A HREF="003213.html">[PATCH] b43: Remove PIO support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3209">[ date ]</a>
+              <a href="thread.html#3209">[ thread ]</a>
+              <a href="subject.html#3209">[ subject ]</a>
+              <a href="author.html#3209">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes the PHY routing bit handling.
+This is needed for N-PHY.
+No functional change to A-PHY and G-PHY code.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+For 2.6.25.
+
+
+Index: wireless-2.6/drivers/net/wireless/b43/phy.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/phy.c	2008-01-09 17:51:03.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/phy.c	2008-01-09 18:30:13.000000000 +0100
+@@ -271,21 +271,36 @@ void b43_raw_phy_unlock(struct b43_wldev
+  */
+ static inline u16 adjust_phyreg_for_phytype(struct b43_phy *phy,
+ 					    u16 offset, struct b43_wldev *dev)
+ {
+ 	if (phy-&gt;type == B43_PHYTYPE_A) {
+ 		/* OFDM registers are base-registers for the A-PHY. */
+-		offset &amp;= ~B43_PHYROUTE_OFDM_GPHY;
++		if ((offset &amp; B43_PHYROUTE) == B43_PHYROUTE_OFDM_GPHY) {
++			offset &amp;= ~B43_PHYROUTE;
++			offset |= B43_PHYROUTE_BASE;
++		}
+ 	}
+-	if (offset &amp; B43_PHYROUTE_EXT_GPHY) {
++
++#if B43_DEBUG
++	if ((offset &amp; B43_PHYROUTE) == B43_PHYROUTE_EXT_GPHY) {
+ 		/* Ext-G registers are only available on G-PHYs */
+ 		if (phy-&gt;type != B43_PHYTYPE_G) {
+-			b43dbg(dev-&gt;wl, &quot;EXT-G PHY access at &quot;
+-			       &quot;0x%04X on %u type PHY\n&quot;, offset, phy-&gt;type);
++			b43err(dev-&gt;wl, &quot;Invalid EXT-G PHY access at &quot;
++			       &quot;0x%04X on PHY type %u\n&quot;, offset, phy-&gt;type);
++			dump_stack();
++		}
++	}
++	if ((offset &amp; B43_PHYROUTE) == B43_PHYROUTE_N_BMODE) {
++		/* N-BMODE registers are only available on N-PHYs */
++		if (phy-&gt;type != B43_PHYTYPE_N) {
++			b43err(dev-&gt;wl, &quot;Invalid N-BMODE PHY access at &quot;
++			       &quot;0x%04X on PHY type %u\n&quot;, offset, phy-&gt;type);
++			dump_stack();
+ 		}
+ 	}
++#endif /* B43_DEBUG */
+ 
+ 	return offset;
+ }
+ 
+ u16 b43_phy_read(struct b43_wldev * dev, u16 offset)
+ {
+@@ -299,13 +314,12 @@ u16 b43_phy_read(struct b43_wldev * dev,
+ void b43_phy_write(struct b43_wldev *dev, u16 offset, u16 val)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 
+ 	offset = adjust_phyreg_for_phytype(phy, offset, dev);
+ 	b43_write16(dev, B43_MMIO_PHY_CONTROL, offset);
+-	mmiowb();
+ 	b43_write16(dev, B43_MMIO_PHY_DATA, val);
+ }
+ 
+ /* Adjust the transmission power output (G-PHY) */
+ void b43_set_txpower_g(struct b43_wldev *dev,
+ 		       const struct b43_bbatt *bbatt,
+@@ -1270,20 +1284,20 @@ static void b43_calc_loopback_gain(struc
+ 	backup_phy[2] = b43_phy_read(dev, B43_PHY_RFOVER);
+ 	backup_phy[3] = b43_phy_read(dev, B43_PHY_RFOVERVAL);
+ 	if (phy-&gt;rev != 1) {	/* Not in specs, but needed to prevent PPC machine check */
+ 		backup_phy[4] = b43_phy_read(dev, B43_PHY_ANALOGOVER);
+ 		backup_phy[5] = b43_phy_read(dev, B43_PHY_ANALOGOVERVAL);
+ 	}
+-	backup_phy[6] = b43_phy_read(dev, B43_PHY_BASE(0x5A));
+-	backup_phy[7] = b43_phy_read(dev, B43_PHY_BASE(0x59));
+-	backup_phy[8] = b43_phy_read(dev, B43_PHY_BASE(0x58));
+-	backup_phy[9] = b43_phy_read(dev, B43_PHY_BASE(0x0A));
+-	backup_phy[10] = b43_phy_read(dev, B43_PHY_BASE(0x03));
++	backup_phy[6] = b43_phy_read(dev, B43_PHY_CCK(0x5A));
++	backup_phy[7] = b43_phy_read(dev, B43_PHY_CCK(0x59));
++	backup_phy[8] = b43_phy_read(dev, B43_PHY_CCK(0x58));
++	backup_phy[9] = b43_phy_read(dev, B43_PHY_CCK(0x0A));
++	backup_phy[10] = b43_phy_read(dev, B43_PHY_CCK(0x03));
+ 	backup_phy[11] = b43_phy_read(dev, B43_PHY_LO_MASK);
+ 	backup_phy[12] = b43_phy_read(dev, B43_PHY_LO_CTL);
+-	backup_phy[13] = b43_phy_read(dev, B43_PHY_BASE(0x2B));
++	backup_phy[13] = b43_phy_read(dev, B43_PHY_CCK(0x2B));
+ 	backup_phy[14] = b43_phy_read(dev, B43_PHY_PGACTL);
+ 	backup_phy[15] = b43_phy_read(dev, B43_PHY_LO_LEAKAGE);
+ 	backup_bband = phy-&gt;bbatt.att;
+ 	backup_radio[0] = b43_radio_read16(dev, 0x52);
+ 	backup_radio[1] = b43_radio_read16(dev, 0x43);
+ 	backup_radio[2] = b43_radio_read16(dev, 0x7A);
+@@ -1319,27 +1333,27 @@ static void b43_calc_loopback_gain(struc
+ 	b43_phy_write(dev, B43_PHY_RFOVER,
+ 		      b43_phy_read(dev, B43_PHY_RFOVER) | 0x0030);
+ 	b43_phy_write(dev, B43_PHY_RFOVERVAL,
+ 		      (b43_phy_read(dev, B43_PHY_RFOVERVAL)
+ 		       &amp; 0xFFCF) | 0x10);
+ 
+-	b43_phy_write(dev, B43_PHY_BASE(0x5A), 0x0780);
+-	b43_phy_write(dev, B43_PHY_BASE(0x59), 0xC810);
+-	b43_phy_write(dev, B43_PHY_BASE(0x58), 0x000D);
++	b43_phy_write(dev, B43_PHY_CCK(0x5A), 0x0780);
++	b43_phy_write(dev, B43_PHY_CCK(0x59), 0xC810);
++	b43_phy_write(dev, B43_PHY_CCK(0x58), 0x000D);
+ 
+-	b43_phy_write(dev, B43_PHY_BASE(0x0A),
+-		      b43_phy_read(dev, B43_PHY_BASE(0x0A)) | 0x2000);
++	b43_phy_write(dev, B43_PHY_CCK(0x0A),
++		      b43_phy_read(dev, B43_PHY_CCK(0x0A)) | 0x2000);
+ 	if (phy-&gt;rev != 1) {	/* Not in specs, but needed to prevent PPC machine check */
+ 		b43_phy_write(dev, B43_PHY_ANALOGOVER,
+ 			      b43_phy_read(dev, B43_PHY_ANALOGOVER) | 0x0004);
+ 		b43_phy_write(dev, B43_PHY_ANALOGOVERVAL,
+ 			      b43_phy_read(dev,
+ 					   B43_PHY_ANALOGOVERVAL) &amp; 0xFFFB);
+ 	}
+-	b43_phy_write(dev, B43_PHY_BASE(0x03),
+-		      (b43_phy_read(dev, B43_PHY_BASE(0x03))
++	b43_phy_write(dev, B43_PHY_CCK(0x03),
++		      (b43_phy_read(dev, B43_PHY_CCK(0x03))
+ 		       &amp; 0xFF9F) | 0x40);
+ 
+ 	if (phy-&gt;radio_rev == 8) {
+ 		b43_radio_write16(dev, 0x43, 0x000F);
+ 	} else {
+ 		b43_radio_write16(dev, 0x52, 0);
+@@ -1351,17 +1365,17 @@ static void b43_calc_loopback_gain(struc
+ 	if (phy-&gt;rev &gt;= 3)
+ 		b43_phy_write(dev, B43_PHY_LO_MASK, 0xC020);
+ 	else
+ 		b43_phy_write(dev, B43_PHY_LO_MASK, 0x8020);
+ 	b43_phy_write(dev, B43_PHY_LO_CTL, 0);
+ 
+-	b43_phy_write(dev, B43_PHY_BASE(0x2B),
+-		      (b43_phy_read(dev, B43_PHY_BASE(0x2B))
++	b43_phy_write(dev, B43_PHY_CCK(0x2B),
++		      (b43_phy_read(dev, B43_PHY_CCK(0x2B))
+ 		       &amp; 0xFFC0) | 0x01);
+-	b43_phy_write(dev, B43_PHY_BASE(0x2B),
+-		      (b43_phy_read(dev, B43_PHY_BASE(0x2B))
++	b43_phy_write(dev, B43_PHY_CCK(0x2B),
++		      (b43_phy_read(dev, B43_PHY_CCK(0x2B))
+ 		       &amp; 0xC0FF) | 0x800);
+ 
+ 	b43_phy_write(dev, B43_PHY_RFOVER,
+ 		      b43_phy_read(dev, B43_PHY_RFOVER) | 0x0100);
+ 	b43_phy_write(dev, B43_PHY_RFOVERVAL,
+ 		      b43_phy_read(dev, B43_PHY_RFOVERVAL) &amp; 0xCFFF);
+@@ -1426,20 +1440,20 @@ static void b43_calc_loopback_gain(struc
+       exit_loop2:
+ 
+ 	if (phy-&gt;rev != 1) {	/* Not in specs, but needed to prevent PPC machine check */
+ 		b43_phy_write(dev, B43_PHY_ANALOGOVER, backup_phy[4]);
+ 		b43_phy_write(dev, B43_PHY_ANALOGOVERVAL, backup_phy[5]);
+ 	}
+-	b43_phy_write(dev, B43_PHY_BASE(0x5A), backup_phy[6]);
+-	b43_phy_write(dev, B43_PHY_BASE(0x59), backup_phy[7]);
+-	b43_phy_write(dev, B43_PHY_BASE(0x58), backup_phy[8]);
+-	b43_phy_write(dev, B43_PHY_BASE(0x0A), backup_phy[9]);
+-	b43_phy_write(dev, B43_PHY_BASE(0x03), backup_phy[10]);
++	b43_phy_write(dev, B43_PHY_CCK(0x5A), backup_phy[6]);
++	b43_phy_write(dev, B43_PHY_CCK(0x59), backup_phy[7]);
++	b43_phy_write(dev, B43_PHY_CCK(0x58), backup_phy[8]);
++	b43_phy_write(dev, B43_PHY_CCK(0x0A), backup_phy[9]);
++	b43_phy_write(dev, B43_PHY_CCK(0x03), backup_phy[10]);
+ 	b43_phy_write(dev, B43_PHY_LO_MASK, backup_phy[11]);
+ 	b43_phy_write(dev, B43_PHY_LO_CTL, backup_phy[12]);
+-	b43_phy_write(dev, B43_PHY_BASE(0x2B), backup_phy[13]);
++	b43_phy_write(dev, B43_PHY_CCK(0x2B), backup_phy[13]);
+ 	b43_phy_write(dev, B43_PHY_PGACTL, backup_phy[14]);
+ 
+ 	b43_phy_set_baseband_attenuation(dev, backup_bband);
+ 
+ 	b43_radio_write16(dev, 0x52, backup_radio[0]);
+ 	b43_radio_write16(dev, 0x43, backup_radio[1]);
+@@ -1525,25 +1539,25 @@ static void b43_phy_initg(struct b43_wld
+ 		} else {
+ 			b43_radio_write16(dev, 0x52,
+ 					  (b43_radio_read16(dev, 0x52) &amp; 0xFFF0)
+ 					  | phy-&gt;lo_control-&gt;tx_bias);
+ 		}
+ 		if (phy-&gt;rev &gt;= 6) {
+-			b43_phy_write(dev, B43_PHY_BASE(0x36),
+-				      (b43_phy_read(dev, B43_PHY_BASE(0x36))
++			b43_phy_write(dev, B43_PHY_CCK(0x36),
++				      (b43_phy_read(dev, B43_PHY_CCK(0x36))
+ 				       &amp; 0x0FFF) | (phy-&gt;lo_control-&gt;
+ 						    tx_bias &lt;&lt; 12));
+ 		}
+ 		if (dev-&gt;dev-&gt;bus-&gt;sprom.boardflags_lo &amp; B43_BFL_PACTRL)
+-			b43_phy_write(dev, B43_PHY_BASE(0x2E), 0x8075);
++			b43_phy_write(dev, B43_PHY_CCK(0x2E), 0x8075);
+ 		else
+-			b43_phy_write(dev, B43_PHY_BASE(0x2E), 0x807F);
++			b43_phy_write(dev, B43_PHY_CCK(0x2E), 0x807F);
+ 		if (phy-&gt;rev &lt; 2)
+-			b43_phy_write(dev, B43_PHY_BASE(0x2F), 0x101);
++			b43_phy_write(dev, B43_PHY_CCK(0x2F), 0x101);
+ 		else
+-			b43_phy_write(dev, B43_PHY_BASE(0x2F), 0x202);
++			b43_phy_write(dev, B43_PHY_CCK(0x2F), 0x202);
+ 	}
+ 	if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 		b43_lo_g_adjust(dev);
+ 		b43_phy_write(dev, B43_PHY_LO_MASK, 0x8078);
+ 	}
+ 
+@@ -2165,15 +2179,18 @@ void b43_radio_unlock(struct b43_wldev *
+ }
+ 
+ u16 b43_radio_read16(struct b43_wldev *dev, u16 offset)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 
++	/* Offset 1 is a 32-bit register. */
++	B43_WARN_ON(offset == 1);
++
+ 	switch (phy-&gt;type) {
+ 	case B43_PHYTYPE_A:
+-		offset |= 0x0040;
++		offset |= 0x40;
+ 		break;
+ 	case B43_PHYTYPE_B:
+ 		if (phy-&gt;radio_ver == 0x2053) {
+ 			if (offset &lt; 0x70)
+ 				offset += 0x80;
+ 			else if (offset &lt; 0x80)
+@@ -2183,22 +2200,32 @@ u16 b43_radio_read16(struct b43_wldev *d
+ 		} else
+ 			B43_WARN_ON(1);
+ 		break;
+ 	case B43_PHYTYPE_G:
+ 		offset |= 0x80;
+ 		break;
++	case B43_PHYTYPE_N:
++		offset |= 0x100;
++		break;
++	case B43_PHYTYPE_LP:
++		/* No adjustment required. */
++		break;
++	default:
++		B43_WARN_ON(1);
+ 	}
+ 
+ 	b43_write16(dev, B43_MMIO_RADIO_CONTROL, offset);
+ 	return b43_read16(dev, B43_MMIO_RADIO_DATA_LOW);
+ }
+ 
+ void b43_radio_write16(struct b43_wldev *dev, u16 offset, u16 val)
+ {
++	/* Offset 1 is a 32-bit register. */
++	B43_WARN_ON(offset == 1);
++
+ 	b43_write16(dev, B43_MMIO_RADIO_CONTROL, offset);
+-	mmiowb();
+ 	b43_write16(dev, B43_MMIO_RADIO_DATA_LOW, val);
+ }
+ 
+ static void b43_set_all_gains(struct b43_wldev *dev,
+ 			      s16 first, s16 second, s16 third)
+ {
+@@ -3477,16 +3504,16 @@ struct init2050_saved_values {
+ 	/* Radio registers */
+ 	u16 radio_43;
+ 	u16 radio_51;
+ 	u16 radio_52;
+ 	/* PHY registers */
+ 	u16 phy_pgactl;
+-	u16 phy_base_5A;
+-	u16 phy_base_59;
+-	u16 phy_base_58;
+-	u16 phy_base_30;
++	u16 phy_cck_5A;
++	u16 phy_cck_59;
++	u16 phy_cck_58;
++	u16 phy_cck_30;
+ 	u16 phy_rfover;
+ 	u16 phy_rfoverval;
+ 	u16 phy_analogover;
+ 	u16 phy_analogoverval;
+ 	u16 phy_crs0;
+ 	u16 phy_classctl;
+@@ -3508,21 +3535,21 @@ u16 b43_radio_init2050(struct b43_wldev 
+ 	memset(&amp;sav, 0, sizeof(sav));	/* get rid of &quot;may be used uninitialized...&quot; */
+ 
+ 	sav.radio_43 = b43_radio_read16(dev, 0x43);
+ 	sav.radio_51 = b43_radio_read16(dev, 0x51);
+ 	sav.radio_52 = b43_radio_read16(dev, 0x52);
+ 	sav.phy_pgactl = b43_phy_read(dev, B43_PHY_PGACTL);
+-	sav.phy_base_5A = b43_phy_read(dev, B43_PHY_BASE(0x5A));
+-	sav.phy_base_59 = b43_phy_read(dev, B43_PHY_BASE(0x59));
+-	sav.phy_base_58 = b43_phy_read(dev, B43_PHY_BASE(0x58));
++	sav.phy_cck_5A = b43_phy_read(dev, B43_PHY_CCK(0x5A));
++	sav.phy_cck_59 = b43_phy_read(dev, B43_PHY_CCK(0x59));
++	sav.phy_cck_58 = b43_phy_read(dev, B43_PHY_CCK(0x58));
+ 
+ 	if (phy-&gt;type == B43_PHYTYPE_B) {
+-		sav.phy_base_30 = b43_phy_read(dev, B43_PHY_BASE(0x30));
++		sav.phy_cck_30 = b43_phy_read(dev, B43_PHY_CCK(0x30));
+ 		sav.reg_3EC = b43_read16(dev, 0x3EC);
+ 
+-		b43_phy_write(dev, B43_PHY_BASE(0x30), 0xFF);
++		b43_phy_write(dev, B43_PHY_CCK(0x30), 0xFF);
+ 		b43_write16(dev, 0x3EC, 0x3F3F);
+ 	} else if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 		sav.phy_rfover = b43_phy_read(dev, B43_PHY_RFOVER);
+ 		sav.phy_rfoverval = b43_phy_read(dev, B43_PHY_RFOVERVAL);
+ 		sav.phy_analogover = b43_phy_read(dev, B43_PHY_ANALOGOVER);
+ 		sav.phy_analogoverval =
+@@ -3567,14 +3594,14 @@ u16 b43_radio_init2050(struct b43_wldev 
+ 	sav.reg_3F4 = b43_read16(dev, 0x3F4);
+ 
+ 	if (phy-&gt;analog == 0) {
+ 		b43_write16(dev, 0x03E6, 0x0122);
+ 	} else {
+ 		if (phy-&gt;analog &gt;= 2) {
+-			b43_phy_write(dev, B43_PHY_BASE(0x03),
+-				      (b43_phy_read(dev, B43_PHY_BASE(0x03))
++			b43_phy_write(dev, B43_PHY_CCK(0x03),
++				      (b43_phy_read(dev, B43_PHY_CCK(0x03))
+ 				       &amp; 0xFFBF) | 0x40);
+ 		}
+ 		b43_write16(dev, B43_MMIO_CHANNEL_EXT,
+ 			    (b43_read16(dev, B43_MMIO_CHANNEL_EXT) | 0x2000));
+ 	}
+ 
+@@ -3585,13 +3612,13 @@ u16 b43_radio_init2050(struct b43_wldev 
+ 	if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 		b43_phy_write(dev, B43_PHY_RFOVERVAL,
+ 			      radio2050_rfover_val(dev, B43_PHY_RFOVERVAL,
+ 						   LPD(0, 1, 1)));
+ 	}
+ 	b43_phy_write(dev, B43_PHY_PGACTL, 0xBFAF);
+-	b43_phy_write(dev, B43_PHY_BASE(0x2B), 0x1403);
++	b43_phy_write(dev, B43_PHY_CCK(0x2B), 0x1403);
+ 	if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 		b43_phy_write(dev, B43_PHY_RFOVERVAL,
+ 			      radio2050_rfover_val(dev, B43_PHY_RFOVERVAL,
+ 						   LPD(0, 0, 1)));
+ 	}
+ 	b43_phy_write(dev, B43_PHY_PGACTL, 0xBFA0);
+@@ -3601,18 +3628,18 @@ u16 b43_radio_init2050(struct b43_wldev 
+ 		b43_radio_write16(dev, 0x43, 0x1F);
+ 	} else {
+ 		b43_radio_write16(dev, 0x52, 0);
+ 		b43_radio_write16(dev, 0x43, (b43_radio_read16(dev, 0x43)
+ 					      &amp; 0xFFF0) | 0x0009);
+ 	}
+-	b43_phy_write(dev, B43_PHY_BASE(0x58), 0);
++	b43_phy_write(dev, B43_PHY_CCK(0x58), 0);
+ 
+ 	for (i = 0; i &lt; 16; i++) {
+-		b43_phy_write(dev, B43_PHY_BASE(0x5A), 0x0480);
+-		b43_phy_write(dev, B43_PHY_BASE(0x59), 0xC810);
+-		b43_phy_write(dev, B43_PHY_BASE(0x58), 0x000D);
++		b43_phy_write(dev, B43_PHY_CCK(0x5A), 0x0480);
++		b43_phy_write(dev, B43_PHY_CCK(0x59), 0xC810);
++		b43_phy_write(dev, B43_PHY_CCK(0x58), 0x000D);
+ 		if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 			b43_phy_write(dev, B43_PHY_RFOVERVAL,
+ 				      radio2050_rfover_val(dev,
+ 							   B43_PHY_RFOVERVAL,
+ 							   LPD(1, 0, 1)));
+ 		}
+@@ -3632,35 +3659,35 @@ u16 b43_radio_init2050(struct b43_wldev 
+ 							   B43_PHY_RFOVERVAL,
+ 							   LPD(1, 0, 0)));
+ 		}
+ 		b43_phy_write(dev, B43_PHY_PGACTL, 0xFFF0);
+ 		udelay(20);
+ 		tmp1 += b43_phy_read(dev, B43_PHY_LO_LEAKAGE);
+-		b43_phy_write(dev, B43_PHY_BASE(0x58), 0);
++		b43_phy_write(dev, B43_PHY_CCK(0x58), 0);
+ 		if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 			b43_phy_write(dev, B43_PHY_RFOVERVAL,
+ 				      radio2050_rfover_val(dev,
+ 							   B43_PHY_RFOVERVAL,
+ 							   LPD(1, 0, 1)));
+ 		}
+ 		b43_phy_write(dev, B43_PHY_PGACTL, 0xAFB0);
+ 	}
+ 	udelay(10);
+ 
+-	b43_phy_write(dev, B43_PHY_BASE(0x58), 0);
++	b43_phy_write(dev, B43_PHY_CCK(0x58), 0);
+ 	tmp1++;
+ 	tmp1 &gt;&gt;= 9;
+ 
+ 	for (i = 0; i &lt; 16; i++) {
+ 		radio78 = ((flip_4bit(i) &lt;&lt; 1) | 0x20);
+ 		b43_radio_write16(dev, 0x78, radio78);
+ 		udelay(10);
+ 		for (j = 0; j &lt; 16; j++) {
+-			b43_phy_write(dev, B43_PHY_BASE(0x5A), 0x0D80);
+-			b43_phy_write(dev, B43_PHY_BASE(0x59), 0xC810);
+-			b43_phy_write(dev, B43_PHY_BASE(0x58), 0x000D);
++			b43_phy_write(dev, B43_PHY_CCK(0x5A), 0x0D80);
++			b43_phy_write(dev, B43_PHY_CCK(0x59), 0xC810);
++			b43_phy_write(dev, B43_PHY_CCK(0x58), 0x000D);
+ 			if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 				b43_phy_write(dev, B43_PHY_RFOVERVAL,
+ 					      radio2050_rfover_val(dev,
+ 								   B43_PHY_RFOVERVAL,
+ 								   LPD(1, 0,
+ 								       1)));
+@@ -3683,13 +3710,13 @@ u16 b43_radio_init2050(struct b43_wldev 
+ 								   LPD(1, 0,
+ 								       0)));
+ 			}
+ 			b43_phy_write(dev, B43_PHY_PGACTL, 0xFFF0);
+ 			udelay(10);
+ 			tmp2 += b43_phy_read(dev, B43_PHY_LO_LEAKAGE);
+-			b43_phy_write(dev, B43_PHY_BASE(0x58), 0);
++			b43_phy_write(dev, B43_PHY_CCK(0x58), 0);
+ 			if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 				b43_phy_write(dev, B43_PHY_RFOVERVAL,
+ 					      radio2050_rfover_val(dev,
+ 								   B43_PHY_RFOVERVAL,
+ 								   LPD(1, 0,
+ 								       1)));
+@@ -3704,22 +3731,22 @@ u16 b43_radio_init2050(struct b43_wldev 
+ 
+ 	/* Restore the registers */
+ 	b43_phy_write(dev, B43_PHY_PGACTL, sav.phy_pgactl);
+ 	b43_radio_write16(dev, 0x51, sav.radio_51);
+ 	b43_radio_write16(dev, 0x52, sav.radio_52);
+ 	b43_radio_write16(dev, 0x43, sav.radio_43);
+-	b43_phy_write(dev, B43_PHY_BASE(0x5A), sav.phy_base_5A);
+-	b43_phy_write(dev, B43_PHY_BASE(0x59), sav.phy_base_59);
+-	b43_phy_write(dev, B43_PHY_BASE(0x58), sav.phy_base_58);
++	b43_phy_write(dev, B43_PHY_CCK(0x5A), sav.phy_cck_5A);
++	b43_phy_write(dev, B43_PHY_CCK(0x59), sav.phy_cck_59);
++	b43_phy_write(dev, B43_PHY_CCK(0x58), sav.phy_cck_58);
+ 	b43_write16(dev, 0x3E6, sav.reg_3E6);
+ 	if (phy-&gt;analog != 0)
+ 		b43_write16(dev, 0x3F4, sav.reg_3F4);
+ 	b43_phy_write(dev, B43_PHY_SYNCCTL, sav.phy_syncctl);
+ 	b43_synth_pu_workaround(dev, phy-&gt;channel);
+ 	if (phy-&gt;type == B43_PHYTYPE_B) {
+-		b43_phy_write(dev, B43_PHY_BASE(0x30), sav.phy_base_30);
++		b43_phy_write(dev, B43_PHY_CCK(0x30), sav.phy_cck_30);
+ 		b43_write16(dev, 0x3EC, sav.reg_3EC);
+ 	} else if (phy-&gt;gmode) {
+ 		b43_write16(dev, B43_MMIO_PHY_RADIO,
+ 			    b43_read16(dev, B43_MMIO_PHY_RADIO)
+ 			    &amp; 0x7FFF);
+ 		b43_phy_write(dev, B43_PHY_RFOVER, sav.phy_rfover);
+Index: wireless-2.6/drivers/net/wireless/b43/phy.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/phy.h	2008-01-09 17:51:03.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/phy.h	2008-01-09 17:59:17.000000000 +0100
+@@ -6,23 +6,27 @@
+ struct b43_wldev;
+ struct b43_phy;
+ 
+ /*** PHY Registers ***/
+ 
+ /* Routing */
+-#define B43_PHYROUTE_OFDM_GPHY		0x0400 /* OFDM register routing for G-PHYs */
+-#define B43_PHYROUTE_EXT_GPHY		0x0800 /* Extended G-PHY registers */
+-#define B43_PHYROUTE_N_BMODE		0x3000 /* N-PHY BMODE registers */
++#define B43_PHYROUTE			0x0C00 /* PHY register routing bits mask */
++#define  B43_PHYROUTE_BASE		0x0000 /* Base registers */
++#define  B43_PHYROUTE_OFDM_GPHY		0x0400 /* OFDM register routing for G-PHYs */
++#define  B43_PHYROUTE_EXT_GPHY		0x0800 /* Extended G-PHY registers */
++#define  B43_PHYROUTE_N_BMODE		0x0C00 /* N-PHY BMODE registers */
+ 
+-/* Base registers. */
+-#define B43_PHY_BASE(reg)		(reg)
++/* CCK (B-PHY) registers. */
++#define B43_PHY_CCK(reg)		((reg) | B43_PHYROUTE_BASE)
+ /* N-PHY registers. */
+-#define B43_PHY_N(reg)			(reg)
+-/* OFDM (A) registers of a G-PHY */
++#define B43_PHY_N(reg)			((reg) | B43_PHYROUTE_BASE)
++/* N-PHY BMODE registers. */
++#define B43_PHY_N_BMODE(reg)		((reg) | B43_PHYROUTE_N_BMODE)
++/* OFDM (A-PHY) registers. */
+ #define B43_PHY_OFDM(reg)		((reg) | B43_PHYROUTE_OFDM_GPHY)
+-/* Extended G-PHY registers */
++/* Extended G-PHY registers. */
+ #define B43_PHY_EXTG(reg)		((reg) | B43_PHYROUTE_EXT_GPHY)
+ 
+ /* OFDM (A) PHY Registers */
+ #define B43_PHY_VERSION_OFDM		B43_PHY_OFDM(0x00)	/* Versioning register for A-PHY */
+ #define B43_PHY_BBANDCFG		B43_PHY_OFDM(0x01)	/* Baseband config */
+ #define  B43_PHY_BBANDCFG_RXANT		0x180	/* RX Antenna selection */
+@@ -76,26 +80,26 @@ struct b43_phy;
+ #define B43_PHY_CRSTHRES2		B43_PHY_OFDM(0xC1)	/* CRS Threshold 2 (phy.rev &gt;= 2 only) */
+ #define B43_PHY_TSSIP_LTBASE		B43_PHY_OFDM(0x380)	/* TSSI power lookup table base */
+ #define B43_PHY_DC_LTBASE		B43_PHY_OFDM(0x3A0)	/* DC lookup table base */
+ #define B43_PHY_GAIN_LTBASE		B43_PHY_OFDM(0x3C0)	/* Gain lookup table base */
+ 
+ /* CCK (B) PHY Registers */
+-#define B43_PHY_VERSION_CCK		B43_PHY_BASE(0x00)	/* Versioning register for B-PHY */
+-#define B43_PHY_CCKBBANDCFG		B43_PHY_BASE(0x01)	/* Contains antenna 0/1 control bit */
+-#define B43_PHY_PGACTL			B43_PHY_BASE(0x15)	/* PGA control */
++#define B43_PHY_VERSION_CCK		B43_PHY_CCK(0x00)	/* Versioning register for B-PHY */
++#define B43_PHY_CCKBBANDCFG		B43_PHY_CCK(0x01)	/* Contains antenna 0/1 control bit */
++#define B43_PHY_PGACTL			B43_PHY_CCK(0x15)	/* PGA control */
+ #define  B43_PHY_PGACTL_LPF		0x1000	/* Low pass filter (?) */
+ #define  B43_PHY_PGACTL_LOWBANDW	0x0040	/* Low bandwidth flag */
+ #define  B43_PHY_PGACTL_UNKNOWN		0xEFA0
+-#define B43_PHY_FBCTL1			B43_PHY_BASE(0x18)	/* Frequency bandwidth control 1 */
+-#define B43_PHY_ITSSI			B43_PHY_BASE(0x29)	/* Idle TSSI */
+-#define B43_PHY_LO_LEAKAGE		B43_PHY_BASE(0x2D)	/* Measured LO leakage */
+-#define B43_PHY_ENERGY			B43_PHY_BASE(0x33)	/* Energy */
+-#define B43_PHY_SYNCCTL			B43_PHY_BASE(0x35)
+-#define B43_PHY_FBCTL2			B43_PHY_BASE(0x38)	/* Frequency bandwidth control 2 */
+-#define B43_PHY_DACCTL			B43_PHY_BASE(0x60)	/* DAC control */
+-#define B43_PHY_RCCALOVER		B43_PHY_BASE(0x78)	/* RC calibration override */
++#define B43_PHY_FBCTL1			B43_PHY_CCK(0x18)	/* Frequency bandwidth control 1 */
++#define B43_PHY_ITSSI			B43_PHY_CCK(0x29)	/* Idle TSSI */
++#define B43_PHY_LO_LEAKAGE		B43_PHY_CCK(0x2D)	/* Measured LO leakage */
++#define B43_PHY_ENERGY			B43_PHY_CCK(0x33)	/* Energy */
++#define B43_PHY_SYNCCTL			B43_PHY_CCK(0x35)
++#define B43_PHY_FBCTL2			B43_PHY_CCK(0x38)	/* Frequency bandwidth control 2 */
++#define B43_PHY_DACCTL			B43_PHY_CCK(0x60)	/* DAC control */
++#define B43_PHY_RCCALOVER		B43_PHY_CCK(0x78)	/* RC calibration override */
+ 
+ /* Extended G-PHY Registers */
+ #define B43_PHY_CLASSCTL		B43_PHY_EXTG(0x02)	/* Classify control */
+ #define B43_PHY_GTABCTL			B43_PHY_EXTG(0x03)	/* G-PHY table control (see below) */
+ #define  B43_PHY_GTABOFF		0x03FF	/* G-PHY table offset (see below) */
+ #define  B43_PHY_GTABNR			0xFC00	/* G-PHY table number (see below) */
+Index: wireless-2.6/drivers/net/wireless/b43/lo.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/lo.c	2007-12-28 23:36:04.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/lo.c	2008-01-09 18:03:14.000000000 +0100
+@@ -552,26 +552,26 @@ struct lo_g_saved_values {
+ 
+ 	/* PHY registers */
+ 	u16 phy_lo_mask;
+ 	u16 phy_extg_01;
+ 	u16 phy_dacctl_hwpctl;
+ 	u16 phy_dacctl;
+-	u16 phy_base_14;
++	u16 phy_cck_14;
+ 	u16 phy_hpwr_tssictl;
+ 	u16 phy_analogover;
+ 	u16 phy_analogoverval;
+ 	u16 phy_rfover;
+ 	u16 phy_rfoverval;
+ 	u16 phy_classctl;
+-	u16 phy_base_3E;
++	u16 phy_cck_3E;
+ 	u16 phy_crs0;
+ 	u16 phy_pgactl;
+-	u16 phy_base_2A;
++	u16 phy_cck_2A;
+ 	u16 phy_syncctl;
+-	u16 phy_base_30;
+-	u16 phy_base_06;
++	u16 phy_cck_30;
++	u16 phy_cck_06;
+ 
+ 	/* Radio registers */
+ 	u16 radio_43;
+ 	u16 radio_7A;
+ 	u16 radio_52;
+ };
+@@ -585,43 +585,43 @@ static void lo_measure_setup(struct b43_
+ 	u16 tmp;
+ 
+ 	if (b43_has_hardware_pctl(phy)) {
+ 		sav-&gt;phy_lo_mask = b43_phy_read(dev, B43_PHY_LO_MASK);
+ 		sav-&gt;phy_extg_01 = b43_phy_read(dev, B43_PHY_EXTG(0x01));
+ 		sav-&gt;phy_dacctl_hwpctl = b43_phy_read(dev, B43_PHY_DACCTL);
+-		sav-&gt;phy_base_14 = b43_phy_read(dev, B43_PHY_BASE(0x14));
++		sav-&gt;phy_cck_14 = b43_phy_read(dev, B43_PHY_CCK(0x14));
+ 		sav-&gt;phy_hpwr_tssictl = b43_phy_read(dev, B43_PHY_HPWR_TSSICTL);
+ 
+ 		b43_phy_write(dev, B43_PHY_HPWR_TSSICTL,
+ 			      b43_phy_read(dev, B43_PHY_HPWR_TSSICTL)
+ 			      | 0x100);
+ 		b43_phy_write(dev, B43_PHY_EXTG(0x01),
+ 			      b43_phy_read(dev, B43_PHY_EXTG(0x01))
+ 			      | 0x40);
+ 		b43_phy_write(dev, B43_PHY_DACCTL,
+ 			      b43_phy_read(dev, B43_PHY_DACCTL)
+ 			      | 0x40);
+-		b43_phy_write(dev, B43_PHY_BASE(0x14),
+-			      b43_phy_read(dev, B43_PHY_BASE(0x14))
++		b43_phy_write(dev, B43_PHY_CCK(0x14),
++			      b43_phy_read(dev, B43_PHY_CCK(0x14))
+ 			      | 0x200);
+ 	}
+ 	if (phy-&gt;type == B43_PHYTYPE_B &amp;&amp;
+ 	    phy-&gt;radio_ver == 0x2050 &amp;&amp; phy-&gt;radio_rev &lt; 6) {
+-		b43_phy_write(dev, B43_PHY_BASE(0x16), 0x410);
+-		b43_phy_write(dev, B43_PHY_BASE(0x17), 0x820);
++		b43_phy_write(dev, B43_PHY_CCK(0x16), 0x410);
++		b43_phy_write(dev, B43_PHY_CCK(0x17), 0x820);
+ 	}
+ 	if (!lo-&gt;rebuild &amp;&amp; b43_has_hardware_pctl(phy))
+ 		lo_read_power_vector(dev);
+ 	if (phy-&gt;rev &gt;= 2) {
+ 		sav-&gt;phy_analogover = b43_phy_read(dev, B43_PHY_ANALOGOVER);
+ 		sav-&gt;phy_analogoverval =
+ 		    b43_phy_read(dev, B43_PHY_ANALOGOVERVAL);
+ 		sav-&gt;phy_rfover = b43_phy_read(dev, B43_PHY_RFOVER);
+ 		sav-&gt;phy_rfoverval = b43_phy_read(dev, B43_PHY_RFOVERVAL);
+ 		sav-&gt;phy_classctl = b43_phy_read(dev, B43_PHY_CLASSCTL);
+-		sav-&gt;phy_base_3E = b43_phy_read(dev, B43_PHY_BASE(0x3E));
++		sav-&gt;phy_cck_3E = b43_phy_read(dev, B43_PHY_CCK(0x3E));
+ 		sav-&gt;phy_crs0 = b43_phy_read(dev, B43_PHY_CRS0);
+ 
+ 		b43_phy_write(dev, B43_PHY_CLASSCTL,
+ 			      b43_phy_read(dev, B43_PHY_CLASSCTL)
+ 			      &amp; 0xFFFC);
+ 		b43_phy_write(dev, B43_PHY_CRS0, b43_phy_read(dev, B43_PHY_CRS0)
+@@ -639,68 +639,68 @@ static void lo_measure_setup(struct b43_
+ 			} else {
+ 				b43_phy_write(dev, B43_PHY_RFOVER, 0x133);
+ 			}
+ 		} else {
+ 			b43_phy_write(dev, B43_PHY_RFOVER, 0);
+ 		}
+-		b43_phy_write(dev, B43_PHY_BASE(0x3E), 0);
++		b43_phy_write(dev, B43_PHY_CCK(0x3E), 0);
+ 	}
+ 	sav-&gt;reg_3F4 = b43_read16(dev, 0x3F4);
+ 	sav-&gt;reg_3E2 = b43_read16(dev, 0x3E2);
+ 	sav-&gt;radio_43 = b43_radio_read16(dev, 0x43);
+ 	sav-&gt;radio_7A = b43_radio_read16(dev, 0x7A);
+ 	sav-&gt;phy_pgactl = b43_phy_read(dev, B43_PHY_PGACTL);
+-	sav-&gt;phy_base_2A = b43_phy_read(dev, B43_PHY_BASE(0x2A));
++	sav-&gt;phy_cck_2A = b43_phy_read(dev, B43_PHY_CCK(0x2A));
+ 	sav-&gt;phy_syncctl = b43_phy_read(dev, B43_PHY_SYNCCTL);
+ 	sav-&gt;phy_dacctl = b43_phy_read(dev, B43_PHY_DACCTL);
+ 
+ 	if (!has_tx_magnification(phy)) {
+ 		sav-&gt;radio_52 = b43_radio_read16(dev, 0x52);
+ 		sav-&gt;radio_52 &amp;= 0x00F0;
+ 	}
+ 	if (phy-&gt;type == B43_PHYTYPE_B) {
+-		sav-&gt;phy_base_30 = b43_phy_read(dev, B43_PHY_BASE(0x30));
+-		sav-&gt;phy_base_06 = b43_phy_read(dev, B43_PHY_BASE(0x06));
+-		b43_phy_write(dev, B43_PHY_BASE(0x30), 0x00FF);
+-		b43_phy_write(dev, B43_PHY_BASE(0x06), 0x3F3F);
++		sav-&gt;phy_cck_30 = b43_phy_read(dev, B43_PHY_CCK(0x30));
++		sav-&gt;phy_cck_06 = b43_phy_read(dev, B43_PHY_CCK(0x06));
++		b43_phy_write(dev, B43_PHY_CCK(0x30), 0x00FF);
++		b43_phy_write(dev, B43_PHY_CCK(0x06), 0x3F3F);
+ 	} else {
+ 		b43_write16(dev, 0x3E2, b43_read16(dev, 0x3E2)
+ 			    | 0x8000);
+ 	}
+ 	b43_write16(dev, 0x3F4, b43_read16(dev, 0x3F4)
+ 		    &amp; 0xF000);
+ 
+ 	tmp =
+-	    (phy-&gt;type == B43_PHYTYPE_G) ? B43_PHY_LO_MASK : B43_PHY_BASE(0x2E);
++	    (phy-&gt;type == B43_PHYTYPE_G) ? B43_PHY_LO_MASK : B43_PHY_CCK(0x2E);
+ 	b43_phy_write(dev, tmp, 0x007F);
+ 
+ 	tmp = sav-&gt;phy_syncctl;
+ 	b43_phy_write(dev, B43_PHY_SYNCCTL, tmp &amp; 0xFF7F);
+ 	tmp = sav-&gt;radio_7A;
+ 	b43_radio_write16(dev, 0x007A, tmp &amp; 0xFFF0);
+ 
+-	b43_phy_write(dev, B43_PHY_BASE(0x2A), 0x8A3);
++	b43_phy_write(dev, B43_PHY_CCK(0x2A), 0x8A3);
+ 	if (phy-&gt;type == B43_PHYTYPE_G ||
+ 	    (phy-&gt;type == B43_PHYTYPE_B &amp;&amp;
+ 	     phy-&gt;radio_ver == 0x2050 &amp;&amp; phy-&gt;radio_rev &gt;= 6)) {
+-		b43_phy_write(dev, B43_PHY_BASE(0x2B), 0x1003);
++		b43_phy_write(dev, B43_PHY_CCK(0x2B), 0x1003);
+ 	} else
+-		b43_phy_write(dev, B43_PHY_BASE(0x2B), 0x0802);
++		b43_phy_write(dev, B43_PHY_CCK(0x2B), 0x0802);
+ 	if (phy-&gt;rev &gt;= 2)
+ 		b43_dummy_transmission(dev);
+ 	b43_radio_selectchannel(dev, 6, 0);
+ 	b43_radio_read16(dev, 0x51);	/* dummy read */
+ 	if (phy-&gt;type == B43_PHYTYPE_G)
+-		b43_phy_write(dev, B43_PHY_BASE(0x2F), 0);
++		b43_phy_write(dev, B43_PHY_CCK(0x2F), 0);
+ 	if (lo-&gt;rebuild)
+ 		lo_measure_txctl_values(dev);
+ 	if (phy-&gt;type == B43_PHYTYPE_G &amp;&amp; phy-&gt;rev &gt;= 3) {
+ 		b43_phy_write(dev, B43_PHY_LO_MASK, 0xC078);
+ 	} else {
+ 		if (phy-&gt;type == B43_PHYTYPE_B)
+-			b43_phy_write(dev, B43_PHY_BASE(0x2E), 0x8078);
++			b43_phy_write(dev, B43_PHY_CCK(0x2E), 0x8078);
+ 		else
+ 			b43_phy_write(dev, B43_PHY_LO_MASK, 0x8078);
+ 	}
+ }
+ 
+ static void lo_measure_restore(struct b43_wldev *dev,
+@@ -729,54 +729,54 @@ static void lo_measure_restore(struct b4
+ 			b43_lo_g_adjust_to(dev, 3, 2, 0);
+ 		else
+ 			b43_lo_g_adjust(dev);
+ 	}
+ 	if (phy-&gt;type == B43_PHYTYPE_G) {
+ 		if (phy-&gt;rev &gt;= 3)
+-			b43_phy_write(dev, B43_PHY_BASE(0x2E), 0xC078);
++			b43_phy_write(dev, B43_PHY_CCK(0x2E), 0xC078);
+ 		else
+-			b43_phy_write(dev, B43_PHY_BASE(0x2E), 0x8078);
++			b43_phy_write(dev, B43_PHY_CCK(0x2E), 0x8078);
+ 		if (phy-&gt;rev &gt;= 2)
+-			b43_phy_write(dev, B43_PHY_BASE(0x2F), 0x0202);
++			b43_phy_write(dev, B43_PHY_CCK(0x2F), 0x0202);
+ 		else
+-			b43_phy_write(dev, B43_PHY_BASE(0x2F), 0x0101);
++			b43_phy_write(dev, B43_PHY_CCK(0x2F), 0x0101);
+ 	}
+ 	b43_write16(dev, 0x3F4, sav-&gt;reg_3F4);
+ 	b43_phy_write(dev, B43_PHY_PGACTL, sav-&gt;phy_pgactl);
+-	b43_phy_write(dev, B43_PHY_BASE(0x2A), sav-&gt;phy_base_2A);
++	b43_phy_write(dev, B43_PHY_CCK(0x2A), sav-&gt;phy_cck_2A);
+ 	b43_phy_write(dev, B43_PHY_SYNCCTL, sav-&gt;phy_syncctl);
+ 	b43_phy_write(dev, B43_PHY_DACCTL, sav-&gt;phy_dacctl);
+ 	b43_radio_write16(dev, 0x43, sav-&gt;radio_43);
+ 	b43_radio_write16(dev, 0x7A, sav-&gt;radio_7A);
+ 	if (!has_tx_magnification(phy)) {
+ 		tmp = sav-&gt;radio_52;
+ 		b43_radio_write16(dev, 0x52, (b43_radio_read16(dev, 0x52)
+ 					      &amp; 0xFF0F) | tmp);
+ 	}
+ 	b43_write16(dev, 0x3E2, sav-&gt;reg_3E2);
+ 	if (phy-&gt;type == B43_PHYTYPE_B &amp;&amp;
+ 	    phy-&gt;radio_ver == 0x2050 &amp;&amp; phy-&gt;radio_rev &lt;= 5) {
+-		b43_phy_write(dev, B43_PHY_BASE(0x30), sav-&gt;phy_base_30);
+-		b43_phy_write(dev, B43_PHY_BASE(0x06), sav-&gt;phy_base_06);
++		b43_phy_write(dev, B43_PHY_CCK(0x30), sav-&gt;phy_cck_30);
++		b43_phy_write(dev, B43_PHY_CCK(0x06), sav-&gt;phy_cck_06);
+ 	}
+ 	if (phy-&gt;rev &gt;= 2) {
+ 		b43_phy_write(dev, B43_PHY_ANALOGOVER, sav-&gt;phy_analogover);
+ 		b43_phy_write(dev, B43_PHY_ANALOGOVERVAL,
+ 			      sav-&gt;phy_analogoverval);
+ 		b43_phy_write(dev, B43_PHY_CLASSCTL, sav-&gt;phy_classctl);
+ 		b43_phy_write(dev, B43_PHY_RFOVER, sav-&gt;phy_rfover);
+ 		b43_phy_write(dev, B43_PHY_RFOVERVAL, sav-&gt;phy_rfoverval);
+-		b43_phy_write(dev, B43_PHY_BASE(0x3E), sav-&gt;phy_base_3E);
++		b43_phy_write(dev, B43_PHY_CCK(0x3E), sav-&gt;phy_cck_3E);
+ 		b43_phy_write(dev, B43_PHY_CRS0, sav-&gt;phy_crs0);
+ 	}
+ 	if (b43_has_hardware_pctl(phy)) {
+ 		tmp = (sav-&gt;phy_lo_mask &amp; 0xBFFF);
+ 		b43_phy_write(dev, B43_PHY_LO_MASK, tmp);
+ 		b43_phy_write(dev, B43_PHY_EXTG(0x01), sav-&gt;phy_extg_01);
+ 		b43_phy_write(dev, B43_PHY_DACCTL, sav-&gt;phy_dacctl_hwpctl);
+-		b43_phy_write(dev, B43_PHY_BASE(0x14), sav-&gt;phy_base_14);
++		b43_phy_write(dev, B43_PHY_CCK(0x14), sav-&gt;phy_cck_14);
+ 		b43_phy_write(dev, B43_PHY_HPWR_TSSICTL, sav-&gt;phy_hpwr_tssictl);
+ 	}
+ 	b43_radio_selectchannel(dev, sav-&gt;old_channel, 1);
+ }
+ 
+ struct b43_lo_g_statemachine {
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003208.html">[PATCH] b43: Add N-PHY register definitions
+</A></li>
+	<LI>Next message: <A HREF="003213.html">[PATCH] b43: Remove PIO support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3209">[ date ]</a>
+              <a href="thread.html#3209">[ thread ]</a>
+              <a href="subject.html#3209">[ subject ]</a>
+              <a href="author.html#3209">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

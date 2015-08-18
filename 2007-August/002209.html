@@ -1,0 +1,272 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43: Always calibrate all LO control values
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%3A%20Always%20calibrate%20all%20LO%20control%20values&In-Reply-To=%3C200708250201.44950.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002211.html">
+   <LINK REL="Next"  HREF="002214.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43: Always calibrate all LO control values</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%3A%20Always%20calibrate%20all%20LO%20control%20values&In-Reply-To=%3C200708250201.44950.mb%40bu3sch.de%3E"
+       TITLE="b43: Always calibrate all LO control values">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Aug 25 02:01:44 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002211.html">b43: Copy MAC address to local struct
+</A></li>
+        <LI>Next message: <A HREF="002214.html">BCM4306 totally exausted
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2209">[ date ]</a>
+              <a href="thread.html#2209">[ thread ]</a>
+              <a href="subject.html#2209">[ subject ]</a>
+              <a href="author.html#2209">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This is a workaround that (optionally) removes the broken
+optimization to only calibrate &quot;needed&quot; control values.
+With this applied, all possible control values are always
+calibrated and some runtime warnings vanish.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+Index: wireless-dev-new/drivers/net/wireless/b43/lo.h
+===================================================================
+--- wireless-dev-new.orig/drivers/net/wireless/b43/lo.h	2007-08-24 13:21:54.000000000 +0200
++++ wireless-dev-new/drivers/net/wireless/b43/lo.h	2007-08-25 01:01:32.000000000 +0200
+@@ -55,7 +55,7 @@ static inline bool b43_loctl_is_calibrat
+  * Use b43_get_lo_g_ctl() to retrieve a value from the lists.
+  */
+ struct b43_txpower_lo_control {
+-#define B43_NR_BB	9
++#define B43_NR_BB	12
+ #define B43_NR_RF	16
+ 	/* LO Control values, with PAD Mixer */
+ 	struct b43_loctl with_padmix[B43_NR_BB][B43_NR_RF];
+Index: wireless-dev-new/drivers/net/wireless/b43/lo.c
+===================================================================
+--- wireless-dev-new.orig/drivers/net/wireless/b43/lo.c	2007-08-24 13:21:54.000000000 +0200
++++ wireless-dev-new/drivers/net/wireless/b43/lo.c	2007-08-25 01:42:55.000000000 +0200
+@@ -35,6 +35,12 @@
+ #include &lt;linux/delay.h&gt;
+ #include &lt;linux/sched.h&gt;
+ 
++
++/* Define to 1 to always calibrate all possible LO control pairs.
++ * This is a workaround until we fix the partial LO calibration optimization. */
++#define B43_CALIB_ALL_LOCTLS	1
++
++
+ /* Write the LocalOscillator Control (adjust) value-pair. */
+ static void b43_lo_write(struct b43_wldev *dev, struct b43_loctl *control)
+ {
+@@ -77,6 +83,7 @@ static int assert_rfatt_and_bbatt(const 
+ 	return err;
+ }
+ 
++#if !B43_CALIB_ALL_LOCTLS
+ static
+ struct b43_loctl *b43_get_lo_g_ctl_nopadmix(struct b43_wldev *dev,
+ 					    const struct b43_rfatt *rfatt,
+@@ -89,6 +96,7 @@ struct b43_loctl *b43_get_lo_g_ctl_nopad
+ 		return &amp;(lo-&gt;no_padmix[0][0]);	/* Just prevent a crash */
+ 	return &amp;(lo-&gt;no_padmix[bbatt-&gt;att][rfatt-&gt;att]);
+ }
++#endif /* !B43_CALIB_ALL_LOCTLS */
+ 
+ struct b43_loctl *b43_get_lo_g_ctl(struct b43_wldev *dev,
+ 				   const struct b43_rfatt *rfatt,
+@@ -936,6 +944,66 @@ static void lo_probe_loctls_statemachine
+ 	} while (++repeat_cnt &lt; max_repeat);
+ }
+ 
++#if B43_CALIB_ALL_LOCTLS
++static const struct b43_rfatt b43_full_rfatt_list_items[] = {
++	{ .att = 0, .with_padmix = 0, },
++	{ .att = 1, .with_padmix = 0, },
++	{ .att = 2, .with_padmix = 0, },
++	{ .att = 3, .with_padmix = 0, },
++	{ .att = 4, .with_padmix = 0, },
++	{ .att = 5, .with_padmix = 0, },
++	{ .att = 6, .with_padmix = 0, },
++	{ .att = 7, .with_padmix = 0, },
++	{ .att = 8, .with_padmix = 0, },
++	{ .att = 9, .with_padmix = 0, },
++	{ .att = 10, .with_padmix = 0, },
++	{ .att = 11, .with_padmix = 0, },
++	{ .att = 12, .with_padmix = 0, },
++	{ .att = 13, .with_padmix = 0, },
++	{ .att = 14, .with_padmix = 0, },
++	{ .att = 15, .with_padmix = 0, },
++	{ .att = 0, .with_padmix = 1, },
++	{ .att = 1, .with_padmix = 1, },
++	{ .att = 2, .with_padmix = 1, },
++	{ .att = 3, .with_padmix = 1, },
++	{ .att = 4, .with_padmix = 1, },
++	{ .att = 5, .with_padmix = 1, },
++	{ .att = 6, .with_padmix = 1, },
++	{ .att = 7, .with_padmix = 1, },
++	{ .att = 8, .with_padmix = 1, },
++	{ .att = 9, .with_padmix = 1, },
++	{ .att = 10, .with_padmix = 1, },
++	{ .att = 11, .with_padmix = 1, },
++	{ .att = 12, .with_padmix = 1, },
++	{ .att = 13, .with_padmix = 1, },
++	{ .att = 14, .with_padmix = 1, },
++	{ .att = 15, .with_padmix = 1, },
++};
++static const struct b43_rfatt_list b43_full_rfatt_list = {
++	.list		= b43_full_rfatt_list_items,
++	.len		= ARRAY_SIZE(b43_full_rfatt_list_items),
++};
++
++static const struct b43_bbatt b43_full_bbatt_list_items[] = {
++	{ .att = 0, },
++	{ .att = 1, },
++	{ .att = 2, },
++	{ .att = 3, },
++	{ .att = 4, },
++	{ .att = 5, },
++	{ .att = 6, },
++	{ .att = 7, },
++	{ .att = 8, },
++	{ .att = 9, },
++	{ .att = 10, },
++	{ .att = 11, },
++};
++static const struct b43_bbatt_list b43_full_bbatt_list = {
++	.list		= b43_full_bbatt_list_items,
++	.len		= ARRAY_SIZE(b43_full_bbatt_list_items),
++};
++#endif /* B43_CALIB_ALL_LOCTLS */
++
+ static void lo_measure(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+@@ -947,41 +1015,51 @@ static void lo_measure(struct b43_wldev 
+ 	struct b43_loctl *ploctl;
+ 	int max_rx_gain;
+ 	int rfidx, bbidx;
++	const struct b43_bbatt_list *bbatt_list;
++	const struct b43_rfatt_list *rfatt_list;
+ 
+ 	/* Values from the &quot;TXCTL Register and Value Table&quot; */
+ 	u16 txctl_reg;
+ 	u16 txctl_value;
+ 	u16 pad_mix_gain;
+ 
++	bbatt_list = &amp;lo-&gt;bbatt_list;
++	rfatt_list = &amp;lo-&gt;rfatt_list;
++#if B43_CALIB_ALL_LOCTLS
++	bbatt_list = &amp;b43_full_bbatt_list;
++	rfatt_list = &amp;b43_full_rfatt_list;
++#endif
++
+ 	txctl_reg = lo_txctl_register_table(dev, &amp;txctl_value, &amp;pad_mix_gain);
+ 
+-	for (rfidx = 0; rfidx &lt; lo-&gt;rfatt_list.len; rfidx++) {
++	for (rfidx = 0; rfidx &lt; rfatt_list-&gt;len; rfidx++) {
+ 
+ 		b43_radio_write16(dev, 0x43, (b43_radio_read16(dev, 0x43)
+-					      &amp; 0xFFF0) | lo-&gt;rfatt_list.
+-				  list[rfidx].att);
++					      &amp; 0xFFF0) |
++				  rfatt_list-&gt;list[rfidx].att);
+ 		b43_radio_write16(dev, txctl_reg,
+ 				  (b43_radio_read16(dev, txctl_reg)
+ 				   &amp; ~txctl_value)
+-				  | (lo-&gt;rfatt_list.list[rfidx].
+-				     with_padmix ? txctl_value : 0));
++				  | (rfatt_list-&gt;list[rfidx].with_padmix ?
++				     txctl_value : 0));
+ 
+-		for (bbidx = 0; bbidx &lt; lo-&gt;bbatt_list.len; bbidx++) {
++		for (bbidx = 0; bbidx &lt; bbatt_list-&gt;len; bbidx++) {
+ 			if (lo-&gt;rebuild) {
++#if B43_CALIB_ALL_LOCTLS
++				ploctl = b43_get_lo_g_ctl(dev,
++							  &amp;rfatt_list-&gt;list[rfidx],
++							  &amp;bbatt_list-&gt;list[bbidx]);
++#else
+ 				ploctl = b43_get_lo_g_ctl_nopadmix(dev,
+-								   &amp;lo-&gt;
+-								   rfatt_list.
++								   &amp;rfatt_list-&gt;
+ 								   list[rfidx],
+-								   &amp;lo-&gt;
+-								   bbatt_list.
++								   &amp;bbatt_list-&gt;
+ 								   list[bbidx]);
++#endif
+ 			} else {
+-				ploctl =
+-				    b43_get_lo_g_ctl(dev,
+-						     &amp;lo-&gt;rfatt_list.
+-						     list[rfidx],
+-						     &amp;lo-&gt;bbatt_list.
+-						     list[bbidx]);
++				ploctl = b43_get_lo_g_ctl(dev,
++							  &amp;rfatt_list-&gt;list[rfidx],
++							  &amp;bbatt_list-&gt;list[bbidx]);
+ 				if (!ploctl-&gt;used)
+ 					continue;
+ 			}
+@@ -989,9 +1067,9 @@ static void lo_measure(struct b43_wldev 
+ 			loctl.i = 0;
+ 			loctl.q = 0;
+ 
+-			max_rx_gain = lo-&gt;rfatt_list.list[rfidx].att * 2;
+-			max_rx_gain += lo-&gt;bbatt_list.list[bbidx].att / 2;
+-			if (lo-&gt;rfatt_list.list[rfidx].with_padmix)
++			max_rx_gain = rfatt_list-&gt;list[rfidx].att * 2;
++			max_rx_gain += bbatt_list-&gt;list[bbidx].att / 2;
++			if (rfatt_list-&gt;list[rfidx].with_padmix)
+ 				max_rx_gain -= pad_mix_gain;
+ 			if (has_loopback_gain(phy))
+ 				max_rx_gain += phy-&gt;max_lb_gain;
+@@ -999,8 +1077,7 @@ static void lo_measure(struct b43_wldev 
+ 					       has_loopback_gain(phy));
+ 
+ 			b43_phy_set_baseband_attenuation(dev,
+-							 lo-&gt;bbatt_list.
+-							 list[bbidx].att);
++							 bbatt_list-&gt;list[bbidx].att);
+ 			lo_probe_loctls_statemachine(dev, &amp;loctl, &amp;max_rx_gain);
+ 			if (phy-&gt;type == B43_PHYTYPE_B) {
+ 				loctl.i++;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002211.html">b43: Copy MAC address to local struct
+</A></li>
+	<LI>Next message: <A HREF="002214.html">BCM4306 totally exausted
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2209">[ date ]</a>
+              <a href="thread.html#2209">[ thread ]</a>
+              <a href="subject.html#2209">[ subject ]</a>
+              <a href="author.html#2209">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

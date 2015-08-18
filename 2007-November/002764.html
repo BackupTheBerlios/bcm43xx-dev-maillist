@@ -1,0 +1,139 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 on a Linksys WRT54GL
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20on%20a%20Linksys%20WRT54GL&In-Reply-To=%3C51471.212.123.219.162.1194712822.squirrel%40home.parabolic.nl%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002761.html">
+   <LINK REL="Next"  HREF="002767.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 on a Linksys WRT54GL</H1>
+    <B>Maurits Dijkstra</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20on%20a%20Linksys%20WRT54GL&In-Reply-To=%3C51471.212.123.219.162.1194712822.squirrel%40home.parabolic.nl%3E"
+       TITLE="b43 on a Linksys WRT54GL">mauritsd at xs4all.nl
+       </A><BR>
+    <I>Sat Nov 10 17:40:22 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002761.html">[PATCH] b43: silence a bogus gcc warning
+</A></li>
+        <LI>Next message: <A HREF="002767.html">b43 on a Linksys WRT54GL
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2764">[ date ]</a>
+              <a href="thread.html#2764">[ thread ]</a>
+              <a href="subject.html#2764">[ subject ]</a>
+              <a href="author.html#2764">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi all,
+
+The last few days I've been trying to get b43 to work on my WRT54GL
+wlan-router. The reason I've been trying this is because I want to use the
+device as a bridge between the local university wlan and my own local
+network. However, because the network I'm trying to connect to is part of
+the academic eduroam infrastructure I need 802.1x with dynamic WEP keying.
+
+The proprietary broadcom drivers do not seem to support wpa_supplicant or
+xsupplicant as they do not implement (much of) the standard linux wireless
+extensions. There is a broadcom-specific driver for wpa_supplicant, but it
+is broken, and it would be nice to get rid of the binary-only driver
+altogether, not patch it up with yet another hack. So I set out to get b43
+working. After a few hours of tinkering I got the driver to insert and
+load the firmware:
+
+b43-phy0: Broadcom 5352 WLAN found
+b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 7
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+b43-phy0 debug: DebugFS (CONFIG_DEBUG_FS) not enabled in kernel config
+phy0: Selected rate control algorithm 'simple'
+b43-phy0 debug: Loading firmware version 351.126 (2006-07-29 05:54:02)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 32-bit DMA initialized
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+
+So far so good, I thought. But when I tried to actually do anything with
+the interface this message appeared in dmesg:
+
+b43-phy0 warning: Invalid max-TX-power value in SPROM.
+
+The driver itself responds to commands, but scanning finds nothing and
+trying to associate to access points doesn't work either. Also, the MAC
+addresses for both the wmaster0 and wlan0 interfaces are zeroed out:
+
+wlan0     Link encap:Ethernet  HWaddr 00:00:00:00:00:00
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+wmaster0  Link encap:UNSPEC  HWaddr
+00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+I've tried b43 from a git tree I pulled yesterday evening on openwrt
+kamikaze svn trunk (r9519), running linux 2.6.23.1. My SSB info is:
+
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x0E, vendor 0x4243)
+ssb: Core 1 found: Fast Ethernet (cc 0x806, rev 0x09, vendor 0x4243)
+ssb: Core 2 found: MIPS 3302 (cc 0x816, rev 0x06, vendor 0x4243)
+ssb: Core 3 found: USB 1.1 Host (cc 0x817, rev 0x02, vendor 0x4243)
+ssb: Core 4 found: MEMC SDRAM (cc 0x80F, rev 0x01, vendor 0x4243)
+ssb: Core 5 found: IEEE 802.11 (cc 0x812, rev 0x09, vendor 0x4243)
+ssb: Core 6 found: Roboswitch (cc 0x81C, rev 0x02, vendor 0x4243)
+ssb: Initializing MIPS core...
+ssb: set_irq: core 0x0806, irq 2 =&gt; 2
+ssb: set_irq: core 0x0817, irq 4 =&gt; 3
+ssb: set_irq: core 0x0812, irq 0 =&gt; 4
+ssb: Sonics Silicon Backplane found at address 0x18000000
+
+If I were to take a fairly uneducated guess, I'd say the driver is not
+recognizing the layout of the SPROM correctly, since it doesn't seem to be
+able to find  correct values for the MAC address and TX-power, both of
+which should be stored there...
+
+Is there anyone who knows what's wrong or can provide pointers on where to
+look? Any help would be greatly appreciated and I wouldn't mind getting my
+own hands dirty to fix it. :)
+
+Maurits Dijkstra
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002761.html">[PATCH] b43: silence a bogus gcc warning
+</A></li>
+	<LI>Next message: <A HREF="002767.html">b43 on a Linksys WRT54GL
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2764">[ date ]</a>
+              <a href="thread.html#2764">[ thread ]</a>
+              <a href="subject.html#2764">[ subject ]</a>
+              <a href="author.html#2764">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

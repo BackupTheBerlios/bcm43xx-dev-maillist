@@ -1,0 +1,215 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/2] b43legacy: Fixes for beaconing
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/2%5D%20b43legacy%3A%20Fixes%20for%20beaconing&In-Reply-To=%3C49e0c474.XsWa0DgDe2f9J6w/%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005441.html">
+   <LINK REL="Next"  HREF="005429.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/2] b43legacy: Fixes for beaconing</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/2%5D%20b43legacy%3A%20Fixes%20for%20beaconing&In-Reply-To=%3C49e0c474.XsWa0DgDe2f9J6w/%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH 1/2] b43legacy: Fixes for beaconing">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Apr 11 18:25:24 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005441.html">b43legacy AP
+</A></li>
+        <LI>Next message: <A HREF="005429.html">[PATCH 2/2] b43legacy: Clean up beacon IRQ
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5428">[ date ]</a>
+              <a href="thread.html#5428">[ thread ]</a>
+              <a href="subject.html#5428">[ subject ]</a>
+              <a href="author.html#5428">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This patch ports the beaconing fixes from commit a82d992261f &quot;b43: Beaconing
+fixes&quot; to b43legacy. Basically it prevents the card from triggering the beacon
+IRQ over and over again.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+Acked-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+Tested-by: David Ellingsworth &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">david at identd.dyndns.org</A>&gt;
+---
+
+John,
+
+This is material for the next major release.
+
+Larry
+---
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/b43legacy.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/b43legacy.h
++++ wireless-testing/drivers/net/wireless/b43legacy/b43legacy.h
+@@ -59,7 +59,8 @@
+ #define B43legacy_MMIO_XMITSTAT_1		0x174
+ #define B43legacy_MMIO_REV3PLUS_TSF_LOW	0x180 /* core rev &gt;= 3 only */
+ #define B43legacy_MMIO_REV3PLUS_TSF_HIGH	0x184 /* core rev &gt;= 3 only */
+-
++#define B43legacy_MMIO_TSF_CFP_REP	0x188
++#define B43legacy_MMIO_TSF_CFP_START	0x18C
+ /* 32-bit DMA */
+ #define B43legacy_MMIO_DMA32_BASE0	0x200
+ #define B43legacy_MMIO_DMA32_BASE1	0x220
+@@ -614,6 +615,7 @@ struct b43legacy_wl {
+ 	struct sk_buff *current_beacon;
+ 	bool beacon0_uploaded;
+ 	bool beacon1_uploaded;
++	struct work_struct beacon_update_trigger;
+ };
+ 
+ /* Pointers to the firmware data and meta information about it. */
+Index: wireless-testing/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-testing/drivers/net/wireless/b43legacy/main.c
+@@ -1013,7 +1013,8 @@ static void b43legacy_write_beacon_templ
+ 		b43legacywarn(dev-&gt;wl, &quot;Did not find a valid TIM IE in the &quot;
+ 			      &quot;beacon template packet. AP or IBSS operation &quot;
+ 			      &quot;may be broken.\n&quot;);
+-	}
++	} else
++		b43legacydbg(dev-&gt;wl, &quot;Updated beacon template\n&quot;);
+ }
+ 
+ static void b43legacy_write_probe_resp_plcp(struct b43legacy_wldev *dev,
+@@ -1133,6 +1134,27 @@ static void b43legacy_write_probe_resp_t
+ 	kfree(probe_resp_data);
+ }
+ 
++static void b43legacy_beacon_update_trigger_work(struct work_struct *work)
++{
++	struct b43legacy_wl *wl = container_of(work, struct b43legacy_wl,
++					 beacon_update_trigger);
++	struct b43legacy_wldev *dev;
++
++	mutex_lock(&amp;wl-&gt;mutex);
++	dev = wl-&gt;current_dev;
++	if (likely(dev &amp;&amp; (b43legacy_status(dev) &gt;= B43legacy_STAT_INITIALIZED))) {
++		/* Force the microcode to trigger the
++		 * beacon update bottom-half IRQ. */
++		spin_lock_irq(&amp;wl-&gt;irq_lock);
++		b43legacy_write32(dev, B43legacy_MMIO_MACCMD,
++			    b43legacy_read32(dev, B43legacy_MMIO_MACCMD)
++			    | B43legacy_MACCMD_BEACON0_VALID
++			    | B43legacy_MACCMD_BEACON1_VALID);
++		spin_unlock_irq(&amp;wl-&gt;irq_lock);
++	}
++	mutex_unlock(&amp;wl-&gt;mutex);
++}
++
+ /* Asynchronously update the packet templates in template RAM.
+  * Locking: Requires wl-&gt;irq_lock to be locked. */
+ static void b43legacy_update_templates(struct b43legacy_wl *wl)
+@@ -1156,25 +1178,31 @@ static void b43legacy_update_templates(s
+ 	wl-&gt;current_beacon = beacon;
+ 	wl-&gt;beacon0_uploaded = 0;
+ 	wl-&gt;beacon1_uploaded = 0;
++	queue_work(wl-&gt;hw-&gt;workqueue, &amp;wl-&gt;beacon_update_trigger);
+ }
+ 
+ static void b43legacy_set_beacon_int(struct b43legacy_wldev *dev,
+ 				     u16 beacon_int)
+ {
+ 	b43legacy_time_lock(dev);
+-	if (dev-&gt;dev-&gt;id.revision &gt;= 3)
+-		b43legacy_write32(dev, 0x188, (beacon_int &lt;&lt; 16));
+-	else {
++	if (dev-&gt;dev-&gt;id.revision &gt;= 3) {
++		b43legacy_write32(dev, B43legacy_MMIO_TSF_CFP_REP,
++				 (beacon_int &lt;&lt; 16));
++		b43legacy_write32(dev, B43legacy_MMIO_TSF_CFP_START,
++				 (beacon_int &lt;&lt; 10));
++	} else {
+ 		b43legacy_write16(dev, 0x606, (beacon_int &gt;&gt; 6));
+ 		b43legacy_write16(dev, 0x610, beacon_int);
+ 	}
+ 	b43legacy_time_unlock(dev);
++	b43legacydbg(dev-&gt;wl, &quot;Set beacon interval to %u\n&quot;, beacon_int);
+ }
+ 
+ static void handle_irq_beacon(struct b43legacy_wldev *dev)
+ {
+ 	struct b43legacy_wl *wl = dev-&gt;wl;
+ 	u32 cmd;
++	u32 beacon0_valid, beacon1_valid;
+ 
+ 	if (!b43legacy_is_mode(wl, NL80211_IFTYPE_AP))
+ 		return;
+@@ -1182,7 +1210,11 @@ static void handle_irq_beacon(struct b43
+ 	/* This is the bottom half of the asynchronous beacon update. */
+ 
+ 	cmd = b43legacy_read32(dev, B43legacy_MMIO_MACCMD);
+-	if (!(cmd &amp; B43legacy_MACCMD_BEACON0_VALID)) {
++	beacon0_valid = (cmd &amp; B43legacy_MACCMD_BEACON0_VALID);
++	beacon1_valid = (cmd &amp; B43legacy_MACCMD_BEACON1_VALID);
++	cmd &amp;= ~(B43legacy_MACCMD_BEACON0_VALID | B43legacy_MACCMD_BEACON1_VALID);
++
++	if (!beacon0_valid) {
+ 		if (!wl-&gt;beacon0_uploaded) {
+ 			b43legacy_write_beacon_template(dev, 0x68,
+ 							B43legacy_SHM_SH_BTL0,
+@@ -1193,8 +1225,7 @@ static void handle_irq_beacon(struct b43
+ 			wl-&gt;beacon0_uploaded = 1;
+ 		}
+ 		cmd |= B43legacy_MACCMD_BEACON0_VALID;
+-	}
+-	if (!(cmd &amp; B43legacy_MACCMD_BEACON1_VALID)) {
++	} else if (!beacon1_valid) {
+ 		if (!wl-&gt;beacon1_uploaded) {
+ 			b43legacy_write_beacon_template(dev, 0x468,
+ 							B43legacy_SHM_SH_BTL1,
+@@ -3429,6 +3460,7 @@ static void b43legacy_op_stop(struct iee
+ 	struct b43legacy_wldev *dev = wl-&gt;current_dev;
+ 
+ 	b43legacy_rfkill_exit(dev);
++	cancel_work_sync(&amp;(wl-&gt;beacon_update_trigger));
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 	if (b43legacy_status(dev) &gt;= B43legacy_STAT_STARTED)
+@@ -3760,6 +3792,7 @@ static int b43legacy_wireless_init(struc
+ 	spin_lock_init(&amp;wl-&gt;leds_lock);
+ 	mutex_init(&amp;wl-&gt;mutex);
+ 	INIT_LIST_HEAD(&amp;wl-&gt;devlist);
++	INIT_WORK(&amp;wl-&gt;beacon_update_trigger, b43legacy_beacon_update_trigger_work);
+ 
+ 	ssb_set_devtypedata(dev, wl);
+ 	b43legacyinfo(wl, &quot;Broadcom %04X WLAN found\n&quot;, dev-&gt;bus-&gt;chip_id);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005441.html">b43legacy AP
+</A></li>
+	<LI>Next message: <A HREF="005429.html">[PATCH 2/2] b43legacy: Clean up beacon IRQ
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5428">[ date ]</a>
+              <a href="thread.html#5428">[ thread ]</a>
+              <a href="subject.html#5428">[ subject ]</a>
+              <a href="author.html#5428">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

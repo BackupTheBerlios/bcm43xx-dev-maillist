@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx-mac80211: Fix machine checks on PPC with rev 1	PHYs
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx-mac80211%3A%20Fix%20machine%20checks%20on%20PPC%20with%20rev%201%0A%09PHYs&In-Reply-To=%3C1176685447.3304.17.camel%40pmac.infradead.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001055.html">
+   <LINK REL="Next"  HREF="001058.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx-mac80211: Fix machine checks on PPC with rev 1	PHYs</H1>
+    <B>David Woodhouse</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx-mac80211%3A%20Fix%20machine%20checks%20on%20PPC%20with%20rev%201%0A%09PHYs&In-Reply-To=%3C1176685447.3304.17.camel%40pmac.infradead.org%3E"
+       TITLE="[PATCH] bcm43xx-mac80211: Fix machine checks on PPC with rev 1	PHYs">dwmw2 at infradead.org
+       </A><BR>
+    <I>Mon Apr 16 03:04:07 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001055.html">[PATCH] bcm43xx-mac80211: Fix machine checks on PPC with rev	1 PHYs
+</A></li>
+        <LI>Next message: <A HREF="001058.html">[PATCH] bcm43xx-mac80211: Fix machine checks on PPC with rev 1	PHYs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1091">[ date ]</a>
+              <a href="thread.html#1091">[ thread ]</a>
+              <a href="subject.html#1091">[ subject ]</a>
+              <a href="author.html#1091">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Thu, 2007-04-12 at 20:22 -0500, Larry Finger wrote:
+&gt;<i> Your tester needs to get a copy of David's hack that prints out the address of the offending 
+</I>&gt;<i> register. That is the only way to tell what is happening. Once we know the address, then it will be 
+</I>&gt;<i> a matter of getting printk's into the code to tell which one is failing. 
+</I>
+It's very simple... if we use inw instead of readw for the faulting I/O
+access, then the machine check gets trapped. We can do this because on
+PPC, PCI I/O is actually memory-mapped. The CPU doesn't have a separate
+I/O space and instructions. So we just compensate for the address at
+which PCI I/O is mapped, and abuse inw().
+
+Then we make bcm43xx_phy_read() print the register it tried to access
+whenever it gets 0xFFFF, and stick a WARN_ON(1) in the machine check
+handler when it detects a machine check caused by an I/O access...
+
+--- ../linux-2.6.20.ppc64/./drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c	2007-04-14 21:51:02.000000000 +0100
++++ ./drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c	2007-04-16 01:39:44.000000000 +0100
+@@ -269,10 +270,13 @@ static inline u16 adjust_phyreg_for_phyt
+ u16 bcm43xx_phy_read(struct bcm43xx_wldev *dev, u16 offset)
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+-
++	uint16_t foo;
+ 	offset = adjust_phyreg_for_phytype(phy, offset);
+ 	bcm43xx_write16(dev, BCM43xx_MMIO_PHY_CONTROL, offset);
+-	return bcm43xx_read16(dev, BCM43xx_MMIO_PHY_DATA);
++	foo = bcm43xx_read16(dev, BCM43xx_MMIO_PHY_DATA);
++	if (foo == 0xffff)
++		printk(KERN_DEBUG &quot;Read phy reg %x; got 0xFFFF.\n&quot;, offset);
++	return foo;
+ }
+ 
+ void bcm43xx_phy_write(struct bcm43xx_wldev *dev, u16 offset, u16 val)
+--- ../linux-2.6.20.ppc64/./drivers/ssb/pci.c	2007-04-14 21:51:02.000000000 +0100
++++ ./drivers/ssb/pci.c	2007-04-15 23:44:27.000000000 +0100
+@@ -475,6 +475,7 @@ static u16 ssb_pci_read16(struct ssb_dev
+ 		if (unlikely(ssb_pci_switch_core(bus, dev)))
+ 			return 0xFFFF;
+ 	}
++	return inw(bus-&gt;mmio + offset - isa_io_base);
+ 	return readw(bus-&gt;mmio + offset);
+ }
+ 
+--- ../linux-2.6.20.ppc64/./arch/powerpc/kernel/traps.c	2007-04-14 21:50:40.000000000 +0100
++++ ./arch/powerpc/kernel/traps.c	2007-04-15 23:45:48.000000000 +0100
+@@ -343,8 +343,10 @@ void machine_check_exception(struct pt_r
+ 		return;
+ 	}
+ 
+-	if (check_io_access(regs))
++	if (check_io_access(regs)) {
++		WARN_ON(1);
+ 		return;
++	}
+ 
+ #if defined(CONFIG_4xx) &amp;&amp; !defined(CONFIG_440A)
+ 	if (reason &amp; ESR_IMCP) {
+
+-- 
+dwmw2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001055.html">[PATCH] bcm43xx-mac80211: Fix machine checks on PPC with rev	1 PHYs
+</A></li>
+	<LI>Next message: <A HREF="001058.html">[PATCH] bcm43xx-mac80211: Fix machine checks on PPC with rev 1	PHYs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1091">[ date ]</a>
+              <a href="thread.html#1091">[ thread ]</a>
+              <a href="subject.html#1091">[ subject ]</a>
+              <a href="author.html#1091">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

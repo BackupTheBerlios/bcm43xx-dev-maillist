@@ -1,0 +1,131 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Wireless-testing%27s%20b43%20panics%20in%20b43_generate_txhdr%20on%20packet%0A%09transmit&In-Reply-To=%3C200805311711.16266.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004161.html">
+   <LINK REL="Next"  HREF="004163.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Wireless-testing%27s%20b43%20panics%20in%20b43_generate_txhdr%20on%20packet%0A%09transmit&In-Reply-To=%3C200805311711.16266.mb%40bu3sch.de%3E"
+       TITLE="Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit">mb at bu3sch.de
+       </A><BR>
+    <I>Sat May 31 17:11:15 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004161.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet transmit
+</A></li>
+        <LI>Next message: <A HREF="004163.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4162">[ date ]</a>
+              <a href="thread.html#4162">[ thread ]</a>
+              <a href="subject.html#4162">[ subject ]</a>
+              <a href="author.html#4162">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Saturday 31 May 2008 16:23:58 Stefanik G&#225;bor wrote:
+&gt;<i> In the latest wireless-testing kernel, I get a panic when I try to
+</I>&gt;<i> connect to a network or inject a packet in monitor mode using b43
+</I>&gt;<i> (stack obtained using kdump and crash):
+</I>&gt;<i> 
+</I>&gt;<i> crash&gt; bt -l
+</I>&gt;<i> PID: 0      TASK: c0431340  CPU: 0   COMMAND: &quot;swapper&quot;
+</I>&gt;<i>  #0 [c04617bc] crash_kexec at c015ce2a
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/kernel/kexec.c: 1077
+</I>&gt;<i>  #1 [c046180c] die at c01054ba
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/arch/x86/kernel/traps_32.c: 476
+</I>&gt;<i>  #2 [c0461828] do_page_fault at c034ef1f
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/arch/x86/mm/fault.c: 858
+</I>&gt;<i>  #3 [c0461994] error_code (via page_fault) at c034d2e8
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/arch/i386/kernel/entry.S
+</I>&gt;<i>     EAX: 00000000  EBX: 00000000  ECX: f6103000  EDX: f75ed4a0  EBP: c0461a58
+</I>&gt;<i>     DS:  007b      ESI: 00000002  ES:  007b      EDI: 00000074
+</I>&gt;<i>     CS:  0060      EIP: f8dd3a99  ERR: ffffffff  EFLAGS: 00010046
+</I>&gt;<i>  #4 [c04619c8] b43_generate_txhdr at f8dd3a99
+</I>&gt;<i>  #5 [c0461a5c] b43_dma_tx at f8dd83d7
+</I>&gt;<i>  #6 [c0461ae4] b43_op_tx at f8dc4d32
+</I>&gt;<i>  #7 [c0461afc] __ieee80211_tx at f89c3ed4
+</I>&gt;<i>  #8 [c0461b14] ieee80211_master_start_xmit at f89c4b6d
+</I>&gt;<i>  #9 [c0461b74] dev_hard_start_xmit at c02d4cb5
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/net/core/dev.c: 1558
+</I>&gt;<i> #10 [c0461ba0] __qdisc_run at c02e678d
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/net/sched/sch_generic.c: 155
+</I>&gt;<i> #11 [c0461bd8] dev_queue_xmit at c02d5172
+</I>&gt;<i>     include/net/pkt_sched.h: 89
+</I>&gt;<i> #12 [c0461c04] ieee80211_subif_start_xmit at f89c45db
+</I>&gt;<i> #13 [c0461cc0] dev_hard_start_xmit at c02d4cb5
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/net/core/dev.c: 1558
+</I>&gt;<i> #14 [c0461cec] __qdisc_run at c02e678d
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/net/sched/sch_generic.c: 155
+</I>&gt;<i> #15 [c0461d24] dev_queue_xmit at c02d5172
+</I>&gt;<i>     include/net/pkt_sched.h: 89
+</I>&gt;<i> #16 [c0461d50] neigh_resolve_output at c02dac3e
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/net/core/neighbour.c: 1215
+</I>&gt;<i> #17 [c0461d90] ip6_output_finish at f8d55c9e
+</I>&gt;<i> #18 [c0461db0] ip6_output2 at f8d57e63
+</I>&gt;<i> #19 [c0461dd4] ip6_output at f8d58418
+</I>&gt;<i> #20 [c0461e50] mld_sendpack at f8d70d8d
+</I>&gt;<i> #21 [c0461ebc] mld_ifc_timer_expire at f8d71a94
+</I>&gt;<i> #22 [c0461ef0] run_timer_softirq at c0138547
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/kernel/timer.c: 798
+</I>&gt;<i> #23 [c0461f34] __do_softirq at c0134230
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/kernel/softirq.c: 234
+</I>&gt;<i> #24 [c0461f50] do_softirq at c0134318
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/kernel/softirq.c: 271
+</I>&gt;<i> #25 [c0461f5c] irq_exit at c01344b0
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/kernel/softirq.c: 310
+</I>&gt;<i> #26 [c0461f64] smp_apic_timer_interrupt at c0113583
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/arch/x86/kernel/apic_32.c: 619
+</I>&gt;<i> #27 [c0461f7c] apic_timer_interrupt at c0104963
+</I>&gt;<i>     include/linux/kdev_t.h: 52
+</I>&gt;<i> #28 [c0461fbc] cpu_idle at c0102d69
+</I>&gt;<i>     /usr/src/wl-hack/wireless-testing/arch/x86/kernel/process_32.c: 188
+</I>&gt;<i> 
+</I>&gt;<i> No out-of-tree patches applied on b43. (I used to have a patch
+</I>&gt;<i> applied, but I removed it to test reproducibility of this crash.)
+</I>&gt;<i> 
+</I>&gt;<i> Any ideas why this happens?
+</I>
+Please provide more information. For example as for what &quot;crash&quot; means.
+Is this a NULL pointer dereference or whatever?
+Please put a few printks into b43_generate_txhdr()
+
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004161.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet transmit
+</A></li>
+	<LI>Next message: <A HREF="004163.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4162">[ date ]</a>
+              <a href="thread.html#4162">[ thread ]</a>
+              <a href="subject.html#4162">[ subject ]</a>
+              <a href="author.html#4162">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

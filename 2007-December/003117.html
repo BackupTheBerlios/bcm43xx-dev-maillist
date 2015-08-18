@@ -1,0 +1,204 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Cannot get BCM94311MCG working against 2.6.24-rc5
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Cannot%20get%20BCM94311MCG%20working%20against%202.6.24-rc5&In-Reply-To=%3C476D38F9.4090802%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003116.html">
+   <LINK REL="Next"  HREF="003118.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Cannot get BCM94311MCG working against 2.6.24-rc5</H1>
+    <B>sarcarsh</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Cannot%20get%20BCM94311MCG%20working%20against%202.6.24-rc5&In-Reply-To=%3C476D38F9.4090802%40gmail.com%3E"
+       TITLE="Cannot get BCM94311MCG working against 2.6.24-rc5">sarcarsh at gmail.com
+       </A><BR>
+    <I>Sat Dec 22 17:19:05 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003116.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+        <LI>Next message: <A HREF="003118.html">Cannot get BCM94311MCG working against 2.6.24-rc5
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3117">[ date ]</a>
+              <a href="thread.html#3117">[ thread ]</a>
+              <a href="subject.html#3117">[ subject ]</a>
+              <a href="author.html#3117">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>[I had sent this email a few minutes back from an unsubscribed id,
+apologies if you are getting this twice]
+
+
+Hello,
+
+I am trying out Linux on my Dell D620 which has BCM94311MCG wlan card.
+
+lspci gives:
+0c:00.0 Network controller: Broadcom Corporation BCM94311MCG wlan
+mini-PCI (rev 01)
+
+I installed Ubuntu 7.10 and while this would not wor out-of-the-box,
+with the help of the restricted-driver-manager my WLAN works fine with
+the 2.6.22-14 stock kernel.
+
+I downloaded and compiled the 2.6.24-rc5 kernel. The kernel compiled and
+  I can boot into it and perform *most* operations. But my WLAN wont work.
+I have been reading on the net and trying to form a picture of the
+BCM43xx chipsets, their history of vendor-no-cooperation with Linux and
+what people have done to bypass that.
+
+My understanding is that this card has the BCM4311 chipset which is
+supported directly by the kernel on the 2.6.24-rc line. I was expecting
+this to be the case since I thought I compiled the kernel with the
+BCM43xx options &quot;on&quot;. Here's a snip:
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">shouryas at rush</A>:~/fed$ grep BCM /boot/config-2.6.24-rc5
+CONFIG_BT_HCIBCM203X=m
+CONFIG_BCM43XX=m
+CONFIG_BCM43XX_DEBUG=y
+CONFIG_BCM43XX_DMA=y
+CONFIG_BCM43XX_PIO=y
+CONFIG_BCM43XX_DMA_AND_PIO_MODE=y
+# CONFIG_BCM43XX_DMA_MODE is not set
+# CONFIG_BCM43XX_PIO_MODE is not set
+CONFIG_DVB_BCM3510=m
+
+When I do an lsmod, I see..
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">shouryas at rush</A>:~$ lsmod | grep -i bcm
+bcm43xx               433312  0
+ieee80211softmac       34944  1 bcm43xx
+ieee80211              49900  2 bcm43xx,ieee80211softmac
+
+
+I tried the ndiswrapper, by following the instructions on the Ubuntu
+site (I even re-compiled ndiswrapper-1.51)
+<A HREF="https://help.ubuntu.com/community/WifiDocs/Driver/bcm43xx/Feisty_No-Fluff#head-c8cbba1734885284e4f79c2054461c863169f1bf">https://help.ubuntu.com/community/WifiDocs/Driver/bcm43xx/Feisty_No-Fluff#head-c8cbba1734885284e4f79c2054461c863169f1bf</A>
+but, no it won't work :-(
+
+
+I found some good info on the Gnome Network-Manager list here:
+<A HREF="http://www.nabble.com/My-Laptop-td14293457.html">http://www.nabble.com/My-Laptop-td14293457.html</A>
+
+So I tried unloading the bcm43xx module(s), and uninstall the XP driver
+wrapped via ndiswrapper and then load b43 directly. But I get an error.
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at rush</A>:/home/shouryas# rmmod bcm43xx
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at rush</A>:/home/shouryas# ndiswrapper -l
+bcmwl5 : driver installed
+         device (14E4:4311) present (alternate driver: ssb)
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at rush</A>:/home/shouryas# ndiswrapper -e bcmwl5
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at rush</A>:/home/shouryas# ndiswrapper -l
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at rush</A>:/home/shouryas# modprobe b43
+FATAL: Error inserting b43
+(/lib/modules/2.6.24-rc5/kernel/drivers/net/wireless/b43/b43.ko):
+Unknown symbol in module, or unknown parameter (see dmesg)
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at rush</A>:/home/shouryas# dmesg  /* giving the relvant snip here */
+[ 6086.380829] b43: Unknown symbol ssb_bus_pcmciabus_register
+
+
+--[At this point I apologize for this too-long email, I am trying to
+make some headway myself and documenting my observations]--
+I tried to see who should export the symbol ssb_bus_pcmciabus_register
+Expectedly, no one does
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at rush</A>:/proc# cat kallsyms | grep pcmcia | grep ssb
+yields nothing.
+
+So, I tried to look into the source:
+Around line 656 of /home/shouryas/kernels/my2.6/drivers/ssb/main.c
+#ifdef CONFIG_SSB_PCMCIAHOST
+int ssb_bus_pcmciabus_register(struct ssb_bus *bus,
+                                struct pcmcia_device *pcmcia_dev,
+                                unsigned long baseaddr)
+{
+         int err;
+
+         bus-&gt;bustype = SSB_BUSTYPE_PCMCIA;
+         bus-&gt;host_pcmcia = pcmcia_dev;
+         bus-&gt;ops = &amp;ssb_pcmcia_ops;
+
+         err = ssb_bus_register(bus, ssb_pcmcia_get_invariants, baseaddr);
+         if (!err) {
+                 ssb_printk(KERN_INFO PFX &quot;Sonics Silicon Backplane
+found on &quot;
+                            &quot;PCMCIA device %s\n&quot;, pcmcia_dev-&gt;devname);
+         }
+
+         return err;
+}
+EXPORT_SYMBOL(ssb_bus_pcmciabus_register);
+#endif /* CONFIG_SSB_PCMCIAHOST */
+
+I looked into my config file to see if CONFIG_SSB_PCMCIAHOST is defined.
+It is !
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at rush</A>:/proc# cat /boot/config | grep SSB
+CONFIG_SSB_POSSIBLE=y
+CONFIG_SSB=m
+CONFIG_SSB_PCIHOST_POSSIBLE=y
+CONFIG_SSB_PCIHOST=y
+CONFIG_SSB_PCMCIAHOST_POSSIBLE=y
+CONFIG_SSB_PCMCIAHOST=y
+# CONFIG_SSB_SILENT is not set
+# CONFIG_SSB_DEBUG is not set
+CONFIG_SSB_DRIVER_PCICORE_POSSIBLE=y
+CONFIG_SSB_DRIVER_PCICORE=y
+# CONFIG_USB_OHCI_HCD_SSB is not set
+
+Also, I looked into dmesg, and see the line
+[   14.635610] ssb: Sonics Silicon Backplane found on PCI device
+0000:0c:00.0
+
+So, it seems that SSB_CONFIG_PCMCIA is defined (and no error in SSB 
+detection hoepfully) but then why is the
+symbol not exported ?
+
+
+I would appreciate if you somebody could provide me some hints to where
+to go and look for the problem. Maybe you can solve this immediately but
+still I'd appreciate only hints so that I can play at least some part in
+  resolving the situation.
+
+I'd be happy to provide more info from my system.
+
+Thanks and regards,
+Shourya
+
+
+
+
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003116.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+	<LI>Next message: <A HREF="003118.html">Cannot get BCM94311MCG working against 2.6.24-rc5
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3117">[ date ]</a>
+              <a href="thread.html#3117">[ thread ]</a>
+              <a href="subject.html#3117">[ subject ]</a>
+              <a href="author.html#3117">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,138 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.24-rc5 the LED does not come on after a switch-off switch-on
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.24-rc5%20the%20LED%20does%20not%20come%20on%20after%20a%20switch-off%20switch-on&In-Reply-To=%3C47683704.8020104%40wetwork.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003111.html">
+   <LINK REL="Next"  HREF="003113.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.24-rc5 the LED does not come on after a switch-off switch-on</H1>
+    <B>Ehud Gavron</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.24-rc5%20the%20LED%20does%20not%20come%20on%20after%20a%20switch-off%20switch-on&In-Reply-To=%3C47683704.8020104%40wetwork.net%3E"
+       TITLE="2.6.24-rc5 the LED does not come on after a switch-off switch-on">gavron at wetwork.net
+       </A><BR>
+    <I>Tue Dec 18 22:09:24 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003111.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+        <LI>Next message: <A HREF="003113.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3112">[ date ]</a>
+              <a href="thread.html#3112">[ thread ]</a>
+              <a href="subject.html#3112">[ subject ]</a>
+              <a href="author.html#3112">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+
+Michael Buesch wrote:
+&gt;<i> On Tuesday 18 December 2007 19:39:15 Ehud Gavron wrote:
+</I>&gt;<i>   
+</I>&gt;&gt;<i> Michael Buesch wrote:
+</I>&gt;&gt;<i>     
+</I>&gt;&gt;&gt;<i> On Tuesday 18 December 2007 18:33:43 Michael Buesch wrote:
+</I>&gt;&gt;&gt;<i>   
+</I>&gt;&gt;&gt;<i>       
+</I>&gt;&gt;&gt;&gt;<i> On Tuesday 18 December 2007 18:29:34 Michael Buesch wrote:
+</I>&gt;&gt;&gt;&gt;<i>     
+</I>&gt;&gt;&gt;&gt;<i>         
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> And here's the code:
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>         if (unlikely(report_change)) {
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>                 b43info(wl,&quot;EHUD: sleeping\n&quot;);
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>                 msleep(1);
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>                 b43info(wl,&quot;EHUD: LED coming on\n);
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>                 input_report_key(poll_dev-&gt;input, KEY_WLAN, 1);
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>                 input_report_key(poll_dev-&gt;input, KEY_WLAN, 0);
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>         }
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> So my question (other than why do I need two messages and one msleep to 
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> get my LED lit) is... what happened to the &quot;EHUD: sleeping&quot; debug 
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> message?  It never showed up on the console.  I did this several times.  
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> The full dmesg is attached.
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> Ehud
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>         
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>             
+</I>&gt;&gt;&gt;&gt;&gt;<i> This smells like a compiler bug.
+</I>&gt;&gt;&gt;&gt;&gt;<i> Can you try an older compiler version?
+</I>&gt;&gt;&gt;&gt;&gt;<i> (Most distros ship several versions)
+</I>&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;<i>       
+</I>&gt;&gt;&gt;&gt;&gt;<i>           
+</I>&gt;&gt;&gt;&gt;<i> Actually I do remember a gcc bug related to strict-aliasing.
+</I>&gt;&gt;&gt;&gt;<i> What happens is that about two lines of source code are
+</I>&gt;&gt;&gt;&gt;<i> skipped. So this might also apply here. We skip two lines.
+</I>&gt;&gt;&gt;&gt;<i> But I don't remember the gcc bug #. :(
+</I>&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i>     
+</I>&gt;&gt;&gt;&gt;<i>         
+</I>&gt;&gt;&gt;<i> I think this is the one I was talking about:
+</I>&gt;&gt;&gt;<i> <A HREF="http://gcc.gnu.org/bugzilla/show_bug.cgi?id=32328">http://gcc.gnu.org/bugzilla/show_bug.cgi?id=32328</A>
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i>   
+</I>&gt;&gt;&gt;<i>       
+</I>&gt;&gt;<i>  From Bugzilla:
+</I>&gt;&gt;<i> Known to Work: 4.1.2 4.3.0
+</I>&gt;&gt;<i>  gcc --version
+</I>&gt;&gt;<i> gcc (GCC) 4.1.2 20070925 (Red Hat 4.1.2-33)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> Please check this anyway. This really looks like a compiler bug.
+</I>&gt;<i> Why would it skip a printk otherwise?
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>I did just check and you are right!  It is a compiler bug despite the 
+version being supposedly safe.
+two  msleep(0); 's got inlined out of the way and the KEY_WLAN code ran 
+as it's supposed to.
+
+I can't find gcc 4.3 on gnu's site and Fedora RPMs says 4.1.2 is the 
+latest.  Any clues as to how best to proceed ?
+
+Thanks
+
+Ehud
+PS Yes I realize this means it's not a b43 problem, but my problem with 
+my compiler :)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003111.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+	<LI>Next message: <A HREF="003113.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3112">[ date ]</a>
+              <a href="thread.html#3112">[ thread ]</a>
+              <a href="subject.html#3112">[ subject ]</a>
+              <a href="author.html#3112">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

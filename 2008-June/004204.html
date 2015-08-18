@@ -1,0 +1,127 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH stable] b43: Fix controller restart crash
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20stable%5D%20b43%3A%20Fix%20controller%20restart%20crash&In-Reply-To=%3C200806061558.42998.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004202.html">
+   <LINK REL="Next"  HREF="004207.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH stable] b43: Fix controller restart crash</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20stable%5D%20b43%3A%20Fix%20controller%20restart%20crash&In-Reply-To=%3C200806061558.42998.mb%40bu3sch.de%3E"
+       TITLE="[PATCH stable] b43: Fix controller restart crash">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jun  6 15:58:42 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004202.html">vendor/product ID's
+</A></li>
+        <LI>Next message: <A HREF="004207.html">[stable] [PATCH stable] b43: Fix controller restart crash
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4204">[ date ]</a>
+              <a href="thread.html#4204">[ thread ]</a>
+              <a href="subject.html#4204">[ subject ]</a>
+              <a href="author.html#4204">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes a kernel crash on rmmod, in the case where the controller
+was restarted before doing the rmmod.
+
+Upstream commit is 4735f5022c97f6624ced2ec5056c61c4b437d53b
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+Index: linux-2.6.25.4/drivers/net/wireless/b43/main.c
+===================================================================
+--- linux-2.6.25.4.orig/drivers/net/wireless/b43/main.c	2008-06-06 15:36:38.000000000 +0200
++++ linux-2.6.25.4/drivers/net/wireless/b43/main.c	2008-06-06 15:36:40.000000000 +0200
+@@ -3815,13 +3815,15 @@ static void b43_chip_reset(struct work_s
+ 		err = b43_wireless_core_start(dev);
+ 		if (err) {
+ 			b43_wireless_core_exit(dev);
+ 			goto out;
+ 		}
+ 	}
+-      out:
++out:
++	if (err)
++		wl-&gt;current_dev = NULL; /* Failed to init the dev. */
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 	if (err)
+ 		b43err(wl, &quot;Controller restart FAILED\n&quot;);
+ 	else
+ 		b43info(wl, &quot;Controller restarted\n&quot;);
+ }
+@@ -3964,15 +3966,17 @@ err_powerdown:
+ 
+ static void b43_one_core_detach(struct ssb_device *dev)
+ {
+ 	struct b43_wldev *wldev;
+ 	struct b43_wl *wl;
+ 
++	/* Do not cancel ieee80211-workqueue based work here.
++	 * See comment in b43_remove(). */
++
+ 	wldev = ssb_get_drvdata(dev);
+ 	wl = wldev-&gt;wl;
+-	cancel_work_sync(&amp;wldev-&gt;restart_work);
+ 	b43_debugfs_remove_device(wldev);
+ 	b43_wireless_core_detach(wldev);
+ 	list_del(&amp;wldev-&gt;list);
+ 	wl-&gt;nr_devs--;
+ 	ssb_set_drvdata(dev, NULL);
+ 	kfree(wldev);
+@@ -4149,12 +4153,16 @@ static int b43_probe(struct ssb_device *
+ 
+ static void b43_remove(struct ssb_device *dev)
+ {
+ 	struct b43_wl *wl = ssb_get_devtypedata(dev);
+ 	struct b43_wldev *wldev = ssb_get_drvdata(dev);
+ 
++	/* We must cancel any work here before unregistering from ieee80211,
++	 * as the ieee80211 unreg will destroy the workqueue. */
++	cancel_work_sync(&amp;wldev-&gt;restart_work);
++
+ 	B43_WARN_ON(!wl);
+ 	if (wl-&gt;current_dev == wldev)
+ 		ieee80211_unregister_hw(wl-&gt;hw);
+ 
+ 	b43_one_core_detach(dev);
+ 
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004202.html">vendor/product ID's
+</A></li>
+	<LI>Next message: <A HREF="004207.html">[stable] [PATCH stable] b43: Fix controller restart crash
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4204">[ date ]</a>
+              <a href="thread.html#4204">[ thread ]</a>
+              <a href="subject.html#4204">[ subject ]</a>
+              <a href="author.html#4204">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

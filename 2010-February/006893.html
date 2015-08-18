@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 3/5] b43: N-PHY: prepare code for reapplying TX cal coeffs
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/5%5D%20b43%3A%20N-PHY%3A%20prepare%20code%20for%20reapplying%20TX%20cal%20coeffs&In-Reply-To=%3C1265282592-25491-3-git-send-email-zajec5%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006894.html">
+   <LINK REL="Next"  HREF="006890.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 3/5] b43: N-PHY: prepare code for reapplying TX cal coeffs</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/5%5D%20b43%3A%20N-PHY%3A%20prepare%20code%20for%20reapplying%20TX%20cal%20coeffs&In-Reply-To=%3C1265282592-25491-3-git-send-email-zajec5%40gmail.com%3E"
+       TITLE="[PATCH 3/5] b43: N-PHY: prepare code for reapplying TX cal coeffs">zajec5 at gmail.com
+       </A><BR>
+    <I>Thu Feb  4 12:23:10 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006894.html">[PATCH 2/5] b43: N-PHY: load generated samples
+</A></li>
+        <LI>Next message: <A HREF="006890.html">[PATCH 4/5] b43: N-PHY: save calibration for further restore
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6893">[ date ]</a>
+              <a href="thread.html#6893">[ thread ]</a>
+              <a href="subject.html#6893">[ subject ]</a>
+              <a href="author.html#6893">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_n.c |   35 ++++++++++++++++++++++++++++++++++-
+ 1 files changed, 34 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 89e9d66..e8266ed 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -2611,6 +2611,39 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev *dev,
+ 	return error;
+ }
+ 
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/ReapplyTxCalCoeffs">http://bcm-v4.sipsolutions.net/802.11/PHY/N/ReapplyTxCalCoeffs</A> */
++static void b43_nphy_reapply_tx_cal_coeffs(struct b43_wldev *dev)
++{
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
++	u8 i;
++	u16 buffer[7];
++	bool equal = true;
++
++	if (!nphy-&gt;txiqlocal_coeffsvalid || 1 /* FIXME */)
++		return;
++
++	b43_ntab_read_bulk(dev, B43_NTAB16(15, 80), 7, buffer);
++	for (i = 0; i &lt; 4; i++) {
++		if (buffer[i] != nphy-&gt;txiqlocal_bestc[i]) {
++			equal = false;
++			break;
++		}
++	}
++
++	if (!equal) {
++		b43_ntab_write_bulk(dev, B43_NTAB16(15, 80), 4,
++					nphy-&gt;txiqlocal_bestc);
++		for (i = 0; i &lt; 4; i++)
++			buffer[i] = 0;
++		b43_ntab_write_bulk(dev, B43_NTAB16(15, 88), 4,
++					buffer);
++		b43_ntab_write_bulk(dev, B43_NTAB16(15, 85), 2,
++					&amp;nphy-&gt;txiqlocal_bestc[5]);
++		b43_ntab_write_bulk(dev, B43_NTAB16(15, 93), 2,
++					&amp;nphy-&gt;txiqlocal_bestc[5]);
++	}
++}
++
+ /* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/CalRxIqRev2">http://bcm-v4.sipsolutions.net/802.11/PHY/N/CalRxIqRev2</A> */
+ static int b43_nphy_rev2_cal_rx_iq(struct b43_wldev *dev,
+ 			struct nphy_txgains target, u8 type, bool debug)
+@@ -2641,7 +2674,7 @@ static int b43_nphy_rev2_cal_rx_iq(struct b43_wldev *dev,
+ 	b43_nphy_stay_in_carrier_search(dev, 1);
+ 
+ 	if (dev-&gt;phy.rev &lt; 2)
+-		;/* TODO: Call N PHY Reapply TX Cal Coeffs */
++		b43_nphy_reapply_tx_cal_coeffs(dev);
+ 	b43_ntab_read_bulk(dev, B43_NTAB16(7, 0x110), 2, gain_save);
+ 	for (i = 0; i &lt; 2; i++) {
+ 		b43_nphy_iq_cal_gain_params(dev, i, target, &amp;cal_params[i]);
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006894.html">[PATCH 2/5] b43: N-PHY: load generated samples
+</A></li>
+	<LI>Next message: <A HREF="006890.html">[PATCH 4/5] b43: N-PHY: save calibration for further restore
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6893">[ date ]</a>
+              <a href="thread.html#6893">[ thread ]</a>
+              <a href="subject.html#6893">[ subject ]</a>
+              <a href="author.html#6893">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

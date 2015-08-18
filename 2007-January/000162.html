@@ -1,0 +1,249 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> RFC: bcm43xx-d80211: Add radio hardware switch code to mb tree
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20RFC%3A%20bcm43xx-d80211%3A%20Add%20radio%20hardware%20switch%20code%20to%20mb%20tree&In-Reply-To=%3C45b7a7de.62J5SIUzoiX1nbF8%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000159.html">
+   <LINK REL="Next"  HREF="000163.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>RFC: bcm43xx-d80211: Add radio hardware switch code to mb tree</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20RFC%3A%20bcm43xx-d80211%3A%20Add%20radio%20hardware%20switch%20code%20to%20mb%20tree&In-Reply-To=%3C45b7a7de.62J5SIUzoiX1nbF8%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="RFC: bcm43xx-d80211: Add radio hardware switch code to mb tree">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Wed Jan 24 19:39:26 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000159.html">[PATCH] bcm43xx: Fix scaling error for 'iwlist freq' information
+</A></li>
+        <LI>Next message: <A HREF="000163.html">RFC: bcm43xx-d80211: Add radio hardware switch code to mb tree
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#162">[ date ]</a>
+              <a href="thread.html#162">[ thread ]</a>
+              <a href="subject.html#162">[ subject ]</a>
+              <a href="author.html#162">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The current bcm43xx-d80211 driver ignores any wireless-enable switches on mini-PCI
+and mini-PCI-E cards. This patch implements a new routine to interrogate the
+radio hardware enabled bit in the interface, logs the initial state and any
+changes in the switch (if debugging enabled), activates the LED to show the
+state, and changes the periodic work handler to provide 1 second response
+to switch changes. The changes in the periodic work specs have not been implemented.
+
+This should be applied to <A HREF="http://bu3sch.de/git/wireless-dev.git.">http://bu3sch.de/git/wireless-dev.git.</A> 
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+
+
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h
+@@ -238,6 +238,9 @@ enum {
+ #define BCM43xx_UCODEFLAG_UNKPACTRL	0x0040
+ #define BCM43xx_UCODEFLAG_JAPAN		0x0080
+ 
++/* Hardware Radio Enable masks */
++#define BCM43xx_MMIO_RADIO_HWENABLED_HI_MASK (1 &lt;&lt; 16)
++#define BCM43xx_MMIO_RADIO_HWENABLED_LO_MASK (1 &lt;&lt; 4)
+ 
+ /* HostFlags. See bcm43xx_hf_read/write() */
+ #define BCM43xx_HF_ANTDIVHELP		0x00000001 /* ucode antenna div helper */
+@@ -735,7 +738,8 @@ struct bcm43xx_wldev {
+ 	    reg124_set_0x4:1,		/* Some variable to keep track of IRQ stuff. */
+ 	    short_preamble:1,		/* TRUE, if short preamble is enabled. */
+ 	    short_slot:1,		/* TRUE, if short slot timing is enabled. */
+-	    firmware_norelease:1;	/* Do not release the firmware. Used on suspend. */
++	    firmware_norelease:1,       /* Do not release the firmware. Used on suspend. */
++	    radio_hw_enable:1;          /* saved state of radio hardware enabled state */
+ 
+ 	/* PHY/Radio device. */
+ 	struct bcm43xx_phy phy;
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_leds.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_leds.c
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_leds.c
+@@ -27,7 +27,7 @@
+ 
+ #include &quot;bcm43xx_leds.h&quot;
+ #include &quot;bcm43xx.h&quot;
+-
++#include &quot;bcm43xx_main.h&quot;
+ 
+ static void bcm43xx_led_changestate(struct bcm43xx_led *led)
+ {
+@@ -108,6 +108,7 @@ static void bcm43xx_led_init_hardcoded(s
+ 	switch (led_index) {
+ 	case 0:
+ 		led-&gt;behaviour = BCM43xx_LED_ACTIVITY;
++		led-&gt;activelow = 1;
+ 		if (bus-&gt;board_vendor == PCI_VENDOR_ID_COMPAQ)
+ 			led-&gt;behaviour = BCM43xx_LED_RADIO_ALL;
+ 		break;
+@@ -196,18 +197,19 @@ void bcm43xx_leds_update(struct bcm43xx_
+ 			turn_on = activity;
+ 			break;
+ 		case BCM43xx_LED_RADIO_ALL:
+-			turn_on = phy-&gt;radio_on;
++			turn_on = phy-&gt;radio_on &amp;&amp; bcm43xx_is_hw_radio_enabled(dev);
+ 			break;
+ 		case BCM43xx_LED_RADIO_A:
+-			turn_on = (phy-&gt;radio_on &amp;&amp; phy-&gt;type == BCM43xx_PHYTYPE_A);
++			turn_on = (phy-&gt;radio_on &amp;&amp; bcm43xx_is_hw_radio_enabled(dev)
++				   &amp;&amp; phy-&gt;type == BCM43xx_PHYTYPE_A);
+ 			break;
+ 		case BCM43xx_LED_RADIO_B:
+-			turn_on = (phy-&gt;radio_on &amp;&amp;
++			turn_on = (phy-&gt;radio_on &amp;&amp; bcm43xx_is_hw_radio_enabled(dev) &amp;&amp;
+ 				   (phy-&gt;type == BCM43xx_PHYTYPE_B ||
+ 				    phy-&gt;type == BCM43xx_PHYTYPE_G));
+ 			break;
+ 		case BCM43xx_LED_MODE_BG:
+-			if (phy-&gt;type == BCM43xx_PHYTYPE_G &amp;&amp;
++			if (phy-&gt;type == BCM43xx_PHYTYPE_G &amp;&amp; bcm43xx_is_hw_radio_enabled(dev) &amp;&amp;
+ 			    1/*FIXME: using G rates.*/)
+ 				turn_on = 1;
+ 			break;
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+@@ -2080,6 +2080,9 @@ static int bcm43xx_chip_init(struct bcm4
+ 	if (err)
+ 		goto err_gpio_cleanup;
+ 	bcm43xx_radio_turn_on(dev);
++	dev-&gt;radio_hw_enable = bcm43xx_is_hw_radio_enabled(dev);
++	dprintk(KERN_INFO PFX &quot;Radio %s by hardware\n&quot;,
++		(dev-&gt;radio_hw_enable == 0) ? &quot;disabled&quot; : &quot;enabled&quot;);
+ 
+ 	bcm43xx_write16(dev, 0x03E6, 0x0000);
+ 	err = bcm43xx_phy_init(dev);
+@@ -2226,22 +2229,38 @@ static void bcm43xx_periodic_every15sec(
+ 	//TODO for APHY (temperature?)
+ }
+ 
++static void bcm43xx_periodic_every1sec(struct bcm43xx_wldev *dev)
++{
++	int radio_hw_enable;
++
++	/* check if radio hardware enabled status changed */
++	radio_hw_enable = bcm43xx_is_hw_radio_enabled(dev);
++	if (unlikely(dev-&gt;radio_hw_enable != radio_hw_enable)) {
++		dev-&gt;radio_hw_enable = radio_hw_enable;
++		dprintk(KERN_INFO PFX &quot;Radio hardware status changed to %s\n&quot;,
++			(radio_hw_enable == 0) ? &quot;disabled&quot; : &quot;enabled&quot;);
++		bcm43xx_leds_update(dev, 0);
++	}
++}
++
+ static void do_periodic_work(struct bcm43xx_wldev *dev)
+ {
+ 	unsigned int state;
+ 
+ 	state = dev-&gt;periodic_state;
+-	if (state % 8 == 0)
++	if (state % 120 == 0)
+ 		bcm43xx_periodic_every120sec(dev);
+-	if (state % 4 == 0)
++	if (state % 60 == 0)
+ 		bcm43xx_periodic_every60sec(dev);
+-	if (state % 2 == 0)
++	if (state % 30 == 0)
+ 		bcm43xx_periodic_every30sec(dev);
+-	if (state % 1 == 0)
++	if (state % 15 == 0)
+ 		bcm43xx_periodic_every15sec(dev);
++	bcm43xx_periodic_every1sec(dev);
++
+ 	dev-&gt;periodic_state = state + 1;
+ 
+-	schedule_delayed_work(&amp;dev-&gt;periodic_work, HZ * 15);
++	schedule_delayed_work(&amp;dev-&gt;periodic_work, HZ);
+ }
+ 
+ /* Estimate a &quot;Badness&quot; value based on the periodic work
+@@ -2252,13 +2271,13 @@ static int estimate_periodic_work_badnes
+ {
+ 	int badness = 0;
+ 
+-	if (state % 8 == 0) /* every 120 sec */
++	if (state % 120 == 0) /* every 120 sec */
+ 		badness += 10;
+-	if (state % 4 == 0) /* every 60 sec */
++	if (state % 60 == 0) /* every 60 sec */
+ 		badness += 5;
+-	if (state % 2 == 0) /* every 30 sec */
++	if (state % 30 == 0) /* every 30 sec */
+ 		badness += 1;
+-	if (state % 1 == 0) /* every 15 sec */
++	if (state % 15 == 0) /* every 15 sec */
+ 		badness += 1;
+ 
+ #define BADNESS_LIMIT	4
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.h
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.h
+@@ -109,6 +109,24 @@ int bcm43xx_is_ofdm_rate(int rate)
+ 	return !bcm43xx_is_cck_rate(rate);
+ }
+ 
++static inline
++int bcm43xx_is_hw_radio_enabled(struct bcm43xx_wldev *dev)
++{
++	/* function to return state of hardware enable of radio
++	 * returns 0 if radio disabled, 1 if radio enabled
++	 */
++	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++
++	if (phy-&gt;rev &gt;= 3)
++		return ((bcm43xx_read32(dev, BCM43xx_MMIO_RADIO_HWENABLED_HI)
++					&amp; BCM43xx_MMIO_RADIO_HWENABLED_HI_MASK)
++					== 0) ? 1 : 0;
++	else
++		return ((bcm43xx_read16(dev, BCM43xx_MMIO_RADIO_HWENABLED_LO)
++					&amp; BCM43xx_MMIO_RADIO_HWENABLED_LO_MASK)
++					== 0) ? 0 : 1;
++}
++
+ void bcm43xx_tsf_read(struct bcm43xx_wldev *dev, u64 *tsf);
+ void bcm43xx_tsf_write(struct bcm43xx_wldev *dev, u64 tsf);
+ 
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000159.html">[PATCH] bcm43xx: Fix scaling error for 'iwlist freq' information
+</A></li>
+	<LI>Next message: <A HREF="000163.html">RFC: bcm43xx-d80211: Add radio hardware switch code to mb tree
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#162">[ date ]</a>
+              <a href="thread.html#162">[ thread ]</a>
+              <a href="subject.html#162">[ subject ]</a>
+              <a href="author.html#162">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

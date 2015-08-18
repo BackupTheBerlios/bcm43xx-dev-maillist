@@ -1,0 +1,458 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb: Fix usage of struct device used for DMAing
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Fix%20usage%20of%20struct%20device%20used%20for%20DMAing&In-Reply-To=%3C200804111159.01129.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003806.html">
+   <LINK REL="Next"  HREF="003783.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb: Fix usage of struct device used for DMAing</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Fix%20usage%20of%20struct%20device%20used%20for%20DMAing&In-Reply-To=%3C200804111159.01129.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] ssb: Fix usage of struct device used for DMAing">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Apr 11 11:59:00 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003806.html">Problems with PCI (not Cardbus) BCM43xx
+</A></li>
+        <LI>Next message: <A HREF="003783.html">[PATCH] b43legacy: Fix usage of struct device used for DMAing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3782">[ date ]</a>
+              <a href="thread.html#3782">[ thread ]</a>
+              <a href="subject.html#3782">[ subject ]</a>
+              <a href="author.html#3782">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes DMA on architectures where DMA is nontrivial, like PPC64.
+We must use the host-device's (PCI) struct device for any DMA
+operation instead of the SSB device. For this we add a new
+struct device pointer to the SSB device structure that will always
+point to the right device for DMAing.
+
+Without this patch b43 and b44 drivers won't work on complex-DMA
+architectures, that for example need dev-&gt;archdata for DMA operations.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, this is a bugfix for 2.6.25
+
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2008-04-11 01:44:28.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2008-04-11 01:44:59.000000000 +0200
+@@ -328,10 +328,10 @@ static inline
+ 	dma_addr_t dmaaddr;
+ 
+ 	if (tx) {
+-		dmaaddr = dma_map_single(ring-&gt;dev-&gt;dev-&gt;dev,
++		dmaaddr = dma_map_single(ring-&gt;dev-&gt;dev-&gt;dma_dev,
+ 					 buf, len, DMA_TO_DEVICE);
+ 	} else {
+-		dmaaddr = dma_map_single(ring-&gt;dev-&gt;dev-&gt;dev,
++		dmaaddr = dma_map_single(ring-&gt;dev-&gt;dev-&gt;dma_dev,
+ 					 buf, len, DMA_FROM_DEVICE);
+ 	}
+ 
+@@ -343,9 +343,10 @@ static inline
+ 			  dma_addr_t addr, size_t len, int tx)
+ {
+ 	if (tx) {
+-		dma_unmap_single(ring-&gt;dev-&gt;dev-&gt;dev, addr, len, DMA_TO_DEVICE);
++		dma_unmap_single(ring-&gt;dev-&gt;dev-&gt;dma_dev,
++				 addr, len, DMA_TO_DEVICE);
+ 	} else {
+-		dma_unmap_single(ring-&gt;dev-&gt;dev-&gt;dev,
++		dma_unmap_single(ring-&gt;dev-&gt;dev-&gt;dma_dev,
+ 				 addr, len, DMA_FROM_DEVICE);
+ 	}
+ }
+@@ -355,7 +356,7 @@ static inline
+ 				 dma_addr_t addr, size_t len)
+ {
+ 	B43_WARN_ON(ring-&gt;tx);
+-	dma_sync_single_for_cpu(ring-&gt;dev-&gt;dev-&gt;dev,
++	dma_sync_single_for_cpu(ring-&gt;dev-&gt;dev-&gt;dma_dev,
+ 				addr, len, DMA_FROM_DEVICE);
+ }
+ 
+@@ -364,7 +365,7 @@ static inline
+ 				    dma_addr_t addr, size_t len)
+ {
+ 	B43_WARN_ON(ring-&gt;tx);
+-	dma_sync_single_for_device(ring-&gt;dev-&gt;dev-&gt;dev,
++	dma_sync_single_for_device(ring-&gt;dev-&gt;dev-&gt;dma_dev,
+ 				   addr, len, DMA_FROM_DEVICE);
+ }
+ 
+@@ -380,7 +381,7 @@ static inline
+ 
+ static int alloc_ringmemory(struct b43_dmaring *ring)
+ {
+-	struct device *dev = ring-&gt;dev-&gt;dev-&gt;dev;
++	struct device *dma_dev = ring-&gt;dev-&gt;dev-&gt;dma_dev;
+ 	gfp_t flags = GFP_KERNEL;
+ 
+ 	/* The specs call for 4K buffers for 30- and 32-bit DMA with 4K
+@@ -394,7 +395,7 @@ static int alloc_ringmemory(struct b43_d
+ 	 */
+ 	if (ring-&gt;type == B43_DMA_64BIT)
+ 		flags |= GFP_DMA;
+-	ring-&gt;descbase = dma_alloc_coherent(dev, B43_DMA_RINGMEMSIZE,
++	ring-&gt;descbase = dma_alloc_coherent(dma_dev, B43_DMA_RINGMEMSIZE,
+ 					    &amp;(ring-&gt;dmabase), flags);
+ 	if (!ring-&gt;descbase) {
+ 		b43err(ring-&gt;dev-&gt;wl, &quot;DMA ringmemory allocation failed\n&quot;);
+@@ -407,9 +408,9 @@ static int alloc_ringmemory(struct b43_d
+ 
+ static void free_ringmemory(struct b43_dmaring *ring)
+ {
+-	struct device *dev = ring-&gt;dev-&gt;dev-&gt;dev;
++	struct device *dma_dev = ring-&gt;dev-&gt;dev-&gt;dma_dev;
+ 
+-	dma_free_coherent(dev, B43_DMA_RINGMEMSIZE,
++	dma_free_coherent(dma_dev, B43_DMA_RINGMEMSIZE,
+ 			  ring-&gt;descbase, ring-&gt;dmabase);
+ }
+ 
+@@ -818,7 +819,7 @@ struct b43_dmaring *b43_setup_dmaring(st
+ 			goto err_kfree_meta;
+ 
+ 		/* test for ability to dma to txhdr_cache */
+-		dma_test = dma_map_single(dev-&gt;dev-&gt;dev,
++		dma_test = dma_map_single(dev-&gt;dev-&gt;dma_dev,
+ 					  ring-&gt;txhdr_cache,
+ 					  b43_txhdr_size(dev),
+ 					  DMA_TO_DEVICE);
+@@ -833,7 +834,7 @@ struct b43_dmaring *b43_setup_dmaring(st
+ 			if (!ring-&gt;txhdr_cache)
+ 				goto err_kfree_meta;
+ 
+-			dma_test = dma_map_single(dev-&gt;dev-&gt;dev,
++			dma_test = dma_map_single(dev-&gt;dev-&gt;dma_dev,
+ 						  ring-&gt;txhdr_cache,
+ 						  b43_txhdr_size(dev),
+ 						  DMA_TO_DEVICE);
+@@ -847,7 +848,7 @@ struct b43_dmaring *b43_setup_dmaring(st
+ 			}
+ 		}
+ 
+-		dma_unmap_single(dev-&gt;dev-&gt;dev,
++		dma_unmap_single(dev-&gt;dev-&gt;dma_dev,
+ 				 dma_test, b43_txhdr_size(dev),
+ 				 DMA_TO_DEVICE);
+ 	}
+Index: wireless-testing/drivers/ssb/main.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/main.c	2008-04-11 01:44:28.000000000 +0200
++++ wireless-testing/drivers/ssb/main.c	2008-04-11 11:26:39.000000000 +0200
+@@ -462,15 +462,18 @@ static int ssb_devices_register(struct s
+ #ifdef CONFIG_SSB_PCIHOST
+ 			sdev-&gt;irq = bus-&gt;host_pci-&gt;irq;
+ 			dev-&gt;parent = &amp;bus-&gt;host_pci-&gt;dev;
++			sdev-&gt;dma_dev = &amp;bus-&gt;host_pci-&gt;dev;
+ #endif
+ 			break;
+ 		case SSB_BUSTYPE_PCMCIA:
+ #ifdef CONFIG_SSB_PCMCIAHOST
+ 			sdev-&gt;irq = bus-&gt;host_pcmcia-&gt;irq.AssignedIRQ;
+ 			dev-&gt;parent = &amp;bus-&gt;host_pcmcia-&gt;dev;
++			sdev-&gt;dma_dev = &amp;bus-&gt;host_pcmcia-&gt;dev;
+ #endif
+ 			break;
+ 		case SSB_BUSTYPE_SSB:
++			sdev-&gt;dma_dev = dev;
+ 			break;
+ 		}
+ 
+@@ -1164,15 +1167,14 @@ EXPORT_SYMBOL(ssb_dma_translation);
+ 
+ int ssb_dma_set_mask(struct ssb_device *ssb_dev, u64 mask)
+ {
+-	struct device *dev = ssb_dev-&gt;dev;
++	struct device *dma_dev = ssb_dev-&gt;dma_dev;
+ 
+ #ifdef CONFIG_SSB_PCIHOST
+-	if (ssb_dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_PCI &amp;&amp;
+-	    !dma_supported(dev, mask))
+-		return -EIO;
++	if (ssb_dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_PCI)
++		return dma_set_mask(dma_dev, mask);
+ #endif
+-	dev-&gt;coherent_dma_mask = mask;
+-	dev-&gt;dma_mask = &amp;dev-&gt;coherent_dma_mask;
++	dma_dev-&gt;coherent_dma_mask = mask;
++	dma_dev-&gt;dma_mask = &amp;dma_dev-&gt;coherent_dma_mask;
+ 
+ 	return 0;
+ }
+Index: wireless-testing/include/linux/ssb/ssb.h
+===================================================================
+--- wireless-testing.orig/include/linux/ssb/ssb.h	2008-04-11 01:44:28.000000000 +0200
++++ wireless-testing/include/linux/ssb/ssb.h	2008-04-11 01:44:59.000000000 +0200
+@@ -137,6 +137,10 @@ struct ssb_device {
+ 	const struct ssb_bus_ops *ops;
+ 
+ 	struct device *dev;
++	/* Pointer to the device that has to be used for
++	 * any DMA related operation. */
++	struct device *dma_dev;
++
+ 	struct ssb_bus *bus;
+ 	struct ssb_device_id id;
+ 
+Index: wireless-testing/drivers/net/b44.c
+===================================================================
+--- wireless-testing.orig/drivers/net/b44.c	2008-04-11 01:44:28.000000000 +0200
++++ wireless-testing/drivers/net/b44.c	2008-04-11 01:44:59.000000000 +0200
+@@ -148,7 +148,7 @@ static inline void b44_sync_dma_desc_for
+ 						unsigned long offset,
+ 						enum dma_data_direction dir)
+ {
+-	dma_sync_single_range_for_device(sdev-&gt;dev, dma_base,
++	dma_sync_single_range_for_device(sdev-&gt;dma_dev, dma_base,
+ 					 offset &amp; dma_desc_align_mask,
+ 					 dma_desc_sync_size, dir);
+ }
+@@ -158,7 +158,7 @@ static inline void b44_sync_dma_desc_for
+ 					     unsigned long offset,
+ 					     enum dma_data_direction dir)
+ {
+-	dma_sync_single_range_for_cpu(sdev-&gt;dev, dma_base,
++	dma_sync_single_range_for_cpu(sdev-&gt;dma_dev, dma_base,
+ 				      offset &amp; dma_desc_align_mask,
+ 				      dma_desc_sync_size, dir);
+ }
+@@ -613,7 +613,7 @@ static void b44_tx(struct b44 *bp)
+ 
+ 		BUG_ON(skb == NULL);
+ 
+-		dma_unmap_single(bp-&gt;sdev-&gt;dev,
++		dma_unmap_single(bp-&gt;sdev-&gt;dma_dev,
+ 				 rp-&gt;mapping,
+ 				 skb-&gt;len,
+ 				 DMA_TO_DEVICE);
+@@ -653,7 +653,7 @@ static int b44_alloc_rx_skb(struct b44 *
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	mapping = dma_map_single(bp-&gt;sdev-&gt;dev, skb-&gt;data,
++	mapping = dma_map_single(bp-&gt;sdev-&gt;dma_dev, skb-&gt;data,
+ 				 RX_PKT_BUF_SZ,
+ 				 DMA_FROM_DEVICE);
+ 
+@@ -663,19 +663,19 @@ static int b44_alloc_rx_skb(struct b44 *
+ 		mapping + RX_PKT_BUF_SZ &gt; DMA_30BIT_MASK) {
+ 		/* Sigh... */
+ 		if (!dma_mapping_error(mapping))
+-			dma_unmap_single(bp-&gt;sdev-&gt;dev, mapping,
++			dma_unmap_single(bp-&gt;sdev-&gt;dma_dev, mapping,
+ 					RX_PKT_BUF_SZ, DMA_FROM_DEVICE);
+ 		dev_kfree_skb_any(skb);
+ 		skb = __netdev_alloc_skb(bp-&gt;dev, RX_PKT_BUF_SZ, GFP_ATOMIC|GFP_DMA);
+ 		if (skb == NULL)
+ 			return -ENOMEM;
+-		mapping = dma_map_single(bp-&gt;sdev-&gt;dev, skb-&gt;data,
++		mapping = dma_map_single(bp-&gt;sdev-&gt;dma_dev, skb-&gt;data,
+ 					 RX_PKT_BUF_SZ,
+ 					 DMA_FROM_DEVICE);
+ 		if (dma_mapping_error(mapping) ||
+ 			mapping + RX_PKT_BUF_SZ &gt; DMA_30BIT_MASK) {
+ 			if (!dma_mapping_error(mapping))
+-				dma_unmap_single(bp-&gt;sdev-&gt;dev, mapping, RX_PKT_BUF_SZ,DMA_FROM_DEVICE);
++				dma_unmap_single(bp-&gt;sdev-&gt;dma_dev, mapping, RX_PKT_BUF_SZ,DMA_FROM_DEVICE);
+ 			dev_kfree_skb_any(skb);
+ 			return -ENOMEM;
+ 		}
+@@ -750,7 +750,7 @@ static void b44_recycle_rx(struct b44 *b
+ 					     dest_idx * sizeof(dest_desc),
+ 					     DMA_BIDIRECTIONAL);
+ 
+-	dma_sync_single_for_device(bp-&gt;sdev-&gt;dev, le32_to_cpu(src_desc-&gt;addr),
++	dma_sync_single_for_device(bp-&gt;sdev-&gt;dma_dev, le32_to_cpu(src_desc-&gt;addr),
+ 				   RX_PKT_BUF_SZ,
+ 				   DMA_FROM_DEVICE);
+ }
+@@ -772,7 +772,7 @@ static int b44_rx(struct b44 *bp, int bu
+ 		struct rx_header *rh;
+ 		u16 len;
+ 
+-		dma_sync_single_for_cpu(bp-&gt;sdev-&gt;dev, map,
++		dma_sync_single_for_cpu(bp-&gt;sdev-&gt;dma_dev, map,
+ 					    RX_PKT_BUF_SZ,
+ 					    DMA_FROM_DEVICE);
+ 		rh = (struct rx_header *) skb-&gt;data;
+@@ -806,7 +806,7 @@ static int b44_rx(struct b44 *bp, int bu
+ 			skb_size = b44_alloc_rx_skb(bp, cons, bp-&gt;rx_prod);
+ 			if (skb_size &lt; 0)
+ 				goto drop_it;
+-			dma_unmap_single(bp-&gt;sdev-&gt;dev, map,
++			dma_unmap_single(bp-&gt;sdev-&gt;dma_dev, map,
+ 					 skb_size, DMA_FROM_DEVICE);
+ 			/* Leave out rx_header */
+                 	skb_put(skb, len + RX_PKT_OFFSET);
+@@ -966,24 +966,24 @@ static int b44_start_xmit(struct sk_buff
+ 		goto err_out;
+ 	}
+ 
+-	mapping = dma_map_single(bp-&gt;sdev-&gt;dev, skb-&gt;data, len, DMA_TO_DEVICE);
++	mapping = dma_map_single(bp-&gt;sdev-&gt;dma_dev, skb-&gt;data, len, DMA_TO_DEVICE);
+ 	if (dma_mapping_error(mapping) || mapping + len &gt; DMA_30BIT_MASK) {
+ 		struct sk_buff *bounce_skb;
+ 
+ 		/* Chip can't handle DMA to/from &gt;1GB, use bounce buffer */
+ 		if (!dma_mapping_error(mapping))
+-			dma_unmap_single(bp-&gt;sdev-&gt;dev, mapping, len,
++			dma_unmap_single(bp-&gt;sdev-&gt;dma_dev, mapping, len,
+ 					DMA_TO_DEVICE);
+ 
+ 		bounce_skb = __dev_alloc_skb(len, GFP_ATOMIC | GFP_DMA);
+ 		if (!bounce_skb)
+ 			goto err_out;
+ 
+-		mapping = dma_map_single(bp-&gt;sdev-&gt;dev, bounce_skb-&gt;data,
++		mapping = dma_map_single(bp-&gt;sdev-&gt;dma_dev, bounce_skb-&gt;data,
+ 					 len, DMA_TO_DEVICE);
+ 		if (dma_mapping_error(mapping) || mapping + len &gt; DMA_30BIT_MASK) {
+ 			if (!dma_mapping_error(mapping))
+-				dma_unmap_single(bp-&gt;sdev-&gt;dev, mapping,
++				dma_unmap_single(bp-&gt;sdev-&gt;dma_dev, mapping,
+ 					 len, DMA_TO_DEVICE);
+ 			dev_kfree_skb_any(bounce_skb);
+ 			goto err_out;
+@@ -1082,7 +1082,7 @@ static void b44_free_rings(struct b44 *b
+ 
+ 		if (rp-&gt;skb == NULL)
+ 			continue;
+-		dma_unmap_single(bp-&gt;sdev-&gt;dev, rp-&gt;mapping, RX_PKT_BUF_SZ,
++		dma_unmap_single(bp-&gt;sdev-&gt;dma_dev, rp-&gt;mapping, RX_PKT_BUF_SZ,
+ 					DMA_FROM_DEVICE);
+ 		dev_kfree_skb_any(rp-&gt;skb);
+ 		rp-&gt;skb = NULL;
+@@ -1094,7 +1094,7 @@ static void b44_free_rings(struct b44 *b
+ 
+ 		if (rp-&gt;skb == NULL)
+ 			continue;
+-		dma_unmap_single(bp-&gt;sdev-&gt;dev, rp-&gt;mapping, rp-&gt;skb-&gt;len,
++		dma_unmap_single(bp-&gt;sdev-&gt;dma_dev, rp-&gt;mapping, rp-&gt;skb-&gt;len,
+ 					DMA_TO_DEVICE);
+ 		dev_kfree_skb_any(rp-&gt;skb);
+ 		rp-&gt;skb = NULL;
+@@ -1117,12 +1117,12 @@ static void b44_init_rings(struct b44 *b
+ 	memset(bp-&gt;tx_ring, 0, B44_TX_RING_BYTES);
+ 
+ 	if (bp-&gt;flags &amp; B44_FLAG_RX_RING_HACK)
+-		dma_sync_single_for_device(bp-&gt;sdev-&gt;dev, bp-&gt;rx_ring_dma,
++		dma_sync_single_for_device(bp-&gt;sdev-&gt;dma_dev, bp-&gt;rx_ring_dma,
+ 			                  DMA_TABLE_BYTES,
+ 			                  DMA_BIDIRECTIONAL);
+ 
+ 	if (bp-&gt;flags &amp; B44_FLAG_TX_RING_HACK)
+-		dma_sync_single_for_device(bp-&gt;sdev-&gt;dev, bp-&gt;tx_ring_dma,
++		dma_sync_single_for_device(bp-&gt;sdev-&gt;dma_dev, bp-&gt;tx_ring_dma,
+ 			                  DMA_TABLE_BYTES,
+ 			                  DMA_TO_DEVICE);
+ 
+@@ -1144,24 +1144,24 @@ static void b44_free_consistent(struct b
+ 	bp-&gt;tx_buffers = NULL;
+ 	if (bp-&gt;rx_ring) {
+ 		if (bp-&gt;flags &amp; B44_FLAG_RX_RING_HACK) {
+-			dma_unmap_single(bp-&gt;sdev-&gt;dev, bp-&gt;rx_ring_dma,
++			dma_unmap_single(bp-&gt;sdev-&gt;dma_dev, bp-&gt;rx_ring_dma,
+ 					DMA_TABLE_BYTES,
+ 					DMA_BIDIRECTIONAL);
+ 			kfree(bp-&gt;rx_ring);
+ 		} else
+-			dma_free_coherent(bp-&gt;sdev-&gt;dev, DMA_TABLE_BYTES,
++			dma_free_coherent(bp-&gt;sdev-&gt;dma_dev, DMA_TABLE_BYTES,
+ 					    bp-&gt;rx_ring, bp-&gt;rx_ring_dma);
+ 		bp-&gt;rx_ring = NULL;
+ 		bp-&gt;flags &amp;= ~B44_FLAG_RX_RING_HACK;
+ 	}
+ 	if (bp-&gt;tx_ring) {
+ 		if (bp-&gt;flags &amp; B44_FLAG_TX_RING_HACK) {
+-			dma_unmap_single(bp-&gt;sdev-&gt;dev, bp-&gt;tx_ring_dma,
++			dma_unmap_single(bp-&gt;sdev-&gt;dma_dev, bp-&gt;tx_ring_dma,
+ 					DMA_TABLE_BYTES,
+ 					DMA_TO_DEVICE);
+ 			kfree(bp-&gt;tx_ring);
+ 		} else
+-			dma_free_coherent(bp-&gt;sdev-&gt;dev, DMA_TABLE_BYTES,
++			dma_free_coherent(bp-&gt;sdev-&gt;dma_dev, DMA_TABLE_BYTES,
+ 					    bp-&gt;tx_ring, bp-&gt;tx_ring_dma);
+ 		bp-&gt;tx_ring = NULL;
+ 		bp-&gt;flags &amp;= ~B44_FLAG_TX_RING_HACK;
+@@ -1187,7 +1187,7 @@ static int b44_alloc_consistent(struct b
+ 		goto out_err;
+ 
+ 	size = DMA_TABLE_BYTES;
+-	bp-&gt;rx_ring = dma_alloc_coherent(bp-&gt;sdev-&gt;dev, size, &amp;bp-&gt;rx_ring_dma, gfp);
++	bp-&gt;rx_ring = dma_alloc_coherent(bp-&gt;sdev-&gt;dma_dev, size, &amp;bp-&gt;rx_ring_dma, gfp);
+ 	if (!bp-&gt;rx_ring) {
+ 		/* Allocation may have failed due to pci_alloc_consistent
+ 		   insisting on use of GFP_DMA, which is more restrictive
+@@ -1199,7 +1199,7 @@ static int b44_alloc_consistent(struct b
+ 		if (!rx_ring)
+ 			goto out_err;
+ 
+-		rx_ring_dma = dma_map_single(bp-&gt;sdev-&gt;dev, rx_ring,
++		rx_ring_dma = dma_map_single(bp-&gt;sdev-&gt;dma_dev, rx_ring,
+ 			                    DMA_TABLE_BYTES,
+ 			                    DMA_BIDIRECTIONAL);
+ 
+@@ -1214,7 +1214,7 @@ static int b44_alloc_consistent(struct b
+ 		bp-&gt;flags |= B44_FLAG_RX_RING_HACK;
+ 	}
+ 
+-	bp-&gt;tx_ring = dma_alloc_coherent(bp-&gt;sdev-&gt;dev, size, &amp;bp-&gt;tx_ring_dma, gfp);
++	bp-&gt;tx_ring = dma_alloc_coherent(bp-&gt;sdev-&gt;dma_dev, size, &amp;bp-&gt;tx_ring_dma, gfp);
+ 	if (!bp-&gt;tx_ring) {
+ 		/* Allocation may have failed due to dma_alloc_coherent
+ 		   insisting on use of GFP_DMA, which is more restrictive
+@@ -1226,7 +1226,7 @@ static int b44_alloc_consistent(struct b
+ 		if (!tx_ring)
+ 			goto out_err;
+ 
+-		tx_ring_dma = dma_map_single(bp-&gt;sdev-&gt;dev, tx_ring,
++		tx_ring_dma = dma_map_single(bp-&gt;sdev-&gt;dma_dev, tx_ring,
+ 			                    DMA_TABLE_BYTES,
+ 			                    DMA_TO_DEVICE);
+ 
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003806.html">Problems with PCI (not Cardbus) BCM43xx
+</A></li>
+	<LI>Next message: <A HREF="003783.html">[PATCH] b43legacy: Fix usage of struct device used for DMAing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3782">[ date ]</a>
+              <a href="thread.html#3782">[ thread ]</a>
+              <a href="subject.html#3782">[ subject ]</a>
+              <a href="author.html#3782">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

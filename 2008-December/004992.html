@@ -1,0 +1,128 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43legacy does not work
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43legacy%20does%20not%20work&In-Reply-To=%3C4955449D.70102%40web.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004991.html">
+   <LINK REL="Next"  HREF="004993.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43legacy does not work</H1>
+    <B>Ulf Dambacher</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43legacy%20does%20not%20work&In-Reply-To=%3C4955449D.70102%40web.de%3E"
+       TITLE="b43legacy does not work">ulf.dambacher at web.de
+       </A><BR>
+    <I>Fri Dec 26 21:54:53 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004991.html">b43legacy: My laptop has no button for rfkill but the driver	sais it has...
+</A></li>
+        <LI>Next message: <A HREF="004993.html">b43legacy does not work
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4992">[ date ]</a>
+              <a href="thread.html#4992">[ thread ]</a>
+              <a href="subject.html#4992">[ subject ]</a>
+              <a href="author.html#4992">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Ulf Dambacher schrieb:
+&gt;<i> Yes, thats a point. I'll start with a 2.6.24.7 as this is a kernel with 
+</I>&gt;<i> both drivers and I'll config it equally but for the drivers.
+</I>&gt;<i> I'll try with minimum options first and if that works,  I'll start to 
+</I>&gt;<i> activate all that gimmicks that fiddle with bios, acpi, dmi, smb, wms, 
+</I>&gt;<i> i2c or dell laptops.
+</I>
+Ok it works now, but dont ask why, Im just scrutinizing it
+I need kernel 2.6.27.9 for b43legacy, 2.6.22 for bcm43xx, kernels in 
+between just hang on loading the modules.
+
+Multiple reboots and hangs later I think I have 3 different bugs to deal
+with:
+
+Bug#1: If I load the modules ( b43legacy or bcm43xx) togehter with b44
+(my  network device sitting on the mainboard) the system hangs hard.
+Unfortionatly this was done in the ubuntu ramdisk -until I disabled it
+
+This happens after initializing ssb wich in tune autoloads the other
+modules. Just after the  second module initializes even sysreq does not
+show up anymore. I find this from  2.6.23 onward.
+At manually inserting the b44 after b43legacy  I got following error 
+message on console:
+sbb: FATAL ERROR bus powered down while accessing PCI MMIO space
+the message repeated infinitly until I hit poweroff - sysreq was not 
+working.
+
+I can get away from this for testing if I prevent modprobe from seeing
+more than one  of bcm43xx.ko b43legacy.ko or b44.ko e.g. by renaming them.
+
+tell me what information you need to track this one down...
+
+Bug#2: something is disabling the rfkill line on my minipci card slot
+
+@Michael Buesch: You were indeed right! Somewhere between 2.6.22 and
+current the rfkill gets switched on on my laptop, I presume by some new
+acpi or wmi initializing function.
+
+The bcm4301 module is on a mini-pci card and pin 13 is the rfkill switch
+input signal. The people of the madwifi project have some info about
+this on their web site and they say &quot;put selotape on this pin if nothing
+else works&quot;. I did so and i could see rfkill/../state=0 with selotape 
+and rfkill/../state=1 without.
+
+BUT: in my current configurateion the UNMODIFIED driver is happy with it !!
+At least did not bring the &quot;hardware disabled&quot; message anymore and is 
+happily transmitting in either state.
+I had them messages before, and I will look for what caused the 
+difference in my configuration.
+
+@Matthew Garret: I commented ou the vendor match of dell-laptop.c
+(becaus my dmi sais &quot;Dell Computer Corporation&quot;) and tried it, it loads,
+but rfkill is not registered and toggeling the backlight has no effect. 
+so I unloaded it.
+
+But either the dbcbas patch or the wmi interface enabled my backlight 
+toggling. Now I get fancy symbol messages on gnome if I hit the buttons 
+of backlight and volume.
+
+Bug#3:
+I said I could associate but not send packets. No wonder if you get the 
+web key wrong by just one digit. But there was not a single error 
+message about it. just found it while diffing some command output. *GRR*
+
+bye
+Ulf
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004991.html">b43legacy: My laptop has no button for rfkill but the driver	sais it has...
+</A></li>
+	<LI>Next message: <A HREF="004993.html">b43legacy does not work
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4992">[ date ]</a>
+              <a href="thread.html#4992">[ thread ]</a>
+              <a href="subject.html#4992">[ subject ]</a>
+              <a href="author.html#4992">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

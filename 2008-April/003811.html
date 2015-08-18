@@ -1,0 +1,167 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Failures - BCM94311MCG/14e4:4311 using b43 on 2.6.24 or	2.6.25-rc8
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Failures%20-%20BCM94311MCG/14e4%3A4311%20using%20b43%20on%202.6.24%20or%092.6.25-rc8&In-Reply-To=%3C4803EAA9.6030603%40f-box.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003810.html">
+   <LINK REL="Next"  HREF="003813.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Failures - BCM94311MCG/14e4:4311 using b43 on 2.6.24 or	2.6.25-rc8</H1>
+    <B>Daniel</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Failures%20-%20BCM94311MCG/14e4%3A4311%20using%20b43%20on%202.6.24%20or%092.6.25-rc8&In-Reply-To=%3C4803EAA9.6030603%40f-box.org%3E"
+       TITLE="Failures - BCM94311MCG/14e4:4311 using b43 on 2.6.24 or	2.6.25-rc8">dan at f-box.org
+       </A><BR>
+    <I>Tue Apr 15 01:37:13 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003810.html">Failures - BCM94311MCG/14e4:4311 using b43 on 2.6.24 or	2.6.25-rc8
+</A></li>
+        <LI>Next message: <A HREF="003813.html">[PATCH] b43: Add fastpath to b43_mac_suspend()
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3811">[ date ]</a>
+              <a href="thread.html#3811">[ thread ]</a>
+              <a href="subject.html#3811">[ subject ]</a>
+              <a href="author.html#3811">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello All,
+
+Here is some further debugging on when the error occured. But I cannot 
+spot anything new. The connection did stay up for a couple of hours this 
+time.
+
+######## The wireless was fine at this point.
+
+c-box vpn0.f-box.org # iwconfig wlan0; ifconfig wlan0
+wlan0     IEEE 802.11g  ESSID:&quot;W52EA&quot;
+           Mode:Managed  Frequency:2.422 GHz  Access Point: 
+00:90:D0:F4:18:D4
+           Bit Rate=48 Mb/s   Tx-Power=27 dBm
+           Retry min limit:7   RTS thr:off   Fragment thr=2352 B
+           Encryption key:AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AAAA [2]
+           Link Quality=69/100  Signal level=-72 dBm  Noise level=-72 dBm
+           Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+           Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+wlan0     Link encap:Ethernet  HWaddr 00:1A:73:AF:FD:F9
+           inet addr:192.168.123.101  Bcast:192.168.123.255 
+Mask:255.255.255.0
+           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+           RX packets:1932899 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:1537599 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:1000
+           RX bytes:2302745362 (2196.0 Mb)  TX bytes:336185181 (320.6 Mb)
+
+######## This is when it bailed out.
+
+c-box incoming # iwconfig wlan0; ifconfig wlan0
+wlan0     IEEE 802.11g  ESSID:&quot;W52EA&quot;
+           Mode:Managed  Frequency:2.422 GHz  Access Point: 
+00:90:D0:F4:18:D4
+           Bit Rate=48 Mb/s   Tx-Power=27 dBm
+           Retry min limit:7   RTS thr:off   Fragment thr=2352 B
+           Encryption key:AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AAAA [2]
+           Link Quality=55/100  Signal level=-81 dBm  Noise level=-72 dBm
+           Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+           Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+wlan0     Link encap:Ethernet  HWaddr 00:1A:73:AF:FD:F9
+           inet addr:192.168.123.101  Bcast:192.168.123.255 
+Mask:255.255.255.0
+           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+           RX packets:3138529 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:2465631 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:1000
+           RX bytes:3742329041 (3568.9 Mb)  TX bytes:445087801 (424.4 Mb)
+
+c-box incoming # dmesg
+wlan0: wrong buffer size&lt;3&gt;b43-phy18 ERROR: MAC suspend failed
+wlan0: wrong buffer size&lt;6&gt;
+wlan0: wrong buffer size&lt;5&gt;
+wlan0: wrong buffer size&lt;7&gt;wlan0: wrong buffer size&lt;7&gt;wlan0: wrong 
+buffer size&lt;7&gt;wlan0: wrong buffer size&lt;7&gt;wlan0: wrong buffer size
+
+And yes I did mask out my WPA key ;)
+
+And actually, stopping and starting the interface+wpa_supplicant worked 
+this time. Here is the dmesg output post fact:
+
+c-box linux # dmesg
+wlan0: deauthenticate(reason=3)
+b43-phy18: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy18: Radio turned off by software
+b43-phy18: Radio turned on by software
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:16:b6:c2:80:0e
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:16:b6:c2:80:0e
+wlan0: RX authentication from 00:16:b6:c2:80:0e (alg=0 transaction=2 
+status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:16:b6:c2:80:0e
+wlan0: authentication frame received from 00:16:b6:c2:80:0e, but not in 
+authenticate state - ignored
+wlan0: RX AssocResp from 00:16:b6:c2:80:0e (capab=0x401 status=0 aid=1)
+wlan0: associated
+wlan0: switched to long barker preamble (BSSID=00:16:b6:c2:80:0e)
+wlan0: WMM queue=2 aci=0 acm=0 aifs=3 cWmin=15 cWmax=1023 burst=0
+wlan0: WMM queue=3 aci=1 acm=0 aifs=7 cWmin=15 cWmax=1023 burst=0
+wlan0: WMM queue=1 aci=2 acm=0 aifs=2 cWmin=7 cWmax=15 burst=30
+wlan0: WMM queue=0 aci=3 acm=0 aifs=2 cWmin=3 cWmax=7 burst=15
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:90:d0:f4:18:d4
+wlan0: RX authentication from 00:90:d0:f4:18:d4 (alg=0 transaction=2 
+status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:90:d0:f4:18:d4
+wlan0: RX AssocResp from 00:90:d0:f4:18:d4 (capab=0x411 status=0 aid=1)
+wlan0: associated
+wlan0: WMM queue=2 aci=0 acm=0 aifs=3 cWmin=15 cWmax=1023 burst=0
+wlan0: WMM queue=3 aci=1 acm=0 aifs=7 cWmin=15 cWmax=1023 burst=0
+wlan0: WMM queue=1 aci=2 acm=0 aifs=2 cWmin=7 cWmax=15 burst=30
+wlan0: WMM queue=0 aci=3 acm=0 aifs=2 cWmin=3 cWmax=7 burst=15
+
+Ideas anyone? Anyone know of patches that haven't been merged into 
+2.6.25-rc8 yet? Should I take a look at the wireless-git tree? (Not that 
+I am certain if it will be of a higher revision..?)
+
+
+
+Cheers,
+
+DanB.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003810.html">Failures - BCM94311MCG/14e4:4311 using b43 on 2.6.24 or	2.6.25-rc8
+</A></li>
+	<LI>Next message: <A HREF="003813.html">[PATCH] b43: Add fastpath to b43_mac_suspend()
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3811">[ date ]</a>
+              <a href="thread.html#3811">[ thread ]</a>
+              <a href="subject.html#3811">[ subject ]</a>
+              <a href="author.html#3811">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

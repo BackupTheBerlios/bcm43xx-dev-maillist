@@ -1,0 +1,161 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BCM4306 and Virtual AP
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4306%20and%20Virtual%20AP&In-Reply-To=%3C48919BE6.9040402%40cortland.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004448.html">
+   <LINK REL="Next"  HREF="004450.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BCM4306 and Virtual AP</H1>
+    <B>Steve Brown</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4306%20and%20Virtual%20AP&In-Reply-To=%3C48919BE6.9040402%40cortland.com%3E"
+       TITLE="BCM4306 and Virtual AP">sbrown at cortland.com
+       </A><BR>
+    <I>Thu Jul 31 13:03:02 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004448.html">BCM4306 and Virtual AP
+</A></li>
+        <LI>Next message: <A HREF="004450.html">BCM4306 and Virtual AP
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4449">[ date ]</a>
+              <a href="thread.html#4449">[ thread ]</a>
+              <a href="subject.html#4449">[ subject ]</a>
+              <a href="author.html#4449">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> On Wednesday 30 July 2008 19:31:00 Steve Brown wrote:
+</I>&gt;<i>   
+</I>&gt;&gt;<i> Guillermo Javier Nardoni wrote:
+</I>&gt;&gt;<i>     
+</I>&gt;&gt;&gt;<i> Hi guys, once again... Me.....
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> I'm wandering if BCM43xx actually does support for virtual AP, 
+</I>&gt;&gt;&gt;<i> What i mean for VAP is to bradcast more than one SSID being in AP mode or
+</I>&gt;&gt;&gt;<i> AdHoc mode
+</I>&gt;&gt;&gt;<i> For example: PUBLIC_SSID for those who want to connect to the AP and
+</I>&gt;&gt;&gt;<i> PRIVATE_SSID (for
+</I>&gt;&gt;&gt;<i> nodes links with Encryption)
+</I>&gt;&gt;&gt;<i> According to dd-wrt it does actually support.
+</I>&gt;&gt;&gt;<i> I've tried showing the SSID of one of them and hidding the other one but i
+</I>&gt;&gt;&gt;<i> only see and
+</I>&gt;&gt;&gt;<i> Can connect just with one. 
+</I>&gt;&gt;&gt;<i> Is about driver issues?, am i doing something wrong?
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> Thanks again.-
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> Regards
+</I>&gt;&gt;&gt;<i> Guillermo Nardoni
+</I>&gt;&gt;&gt;<i>   
+</I>&gt;&gt;&gt;<i>       
+</I>&gt;&gt;<i> I've tried something similar with 2 mesh interfaces. However, only one 
+</I>&gt;&gt;<i> can be brought up at a time. Bringing up the second interface yields a 
+</I>&gt;&gt;<i> &quot;SIOCSIFFLAGS: Operation not supported&quot;. It's probably the test at the 
+</I>&gt;&gt;<i> beginning of b43_op_add_interface. I haven't any idea what's involved in 
+</I>&gt;&gt;<i> removing that restriction.
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> The firmware doesn't support that, out of the box. So we return
+</I>&gt;<i> -EOPNOTSUPP
+</I>&gt;<i>   
+</I>I ran the following experiment on the 2.4 openwrt kamikaze on a Buffalo 
+hp-g54 (bcm5352).
+
+I was able to connect to either VAP with my laptop running XP, dhcp gave 
+me an address, etc. and all worked.
+
+This seems to be the same v4 firmware used by b43. Is this more a 
+reverse engineering issue than firmware?
+
+Steve
+
+---
+
+Comments:
+Initially both interfaces came up with OpenWrt2 as the ssid, but with 
+unique bssid's. I manually changed wl0 to OpenWrt1 using iwconfig. 
+Probably a pilot error or bug, but not significant to the experiment.
+
+/etc/config/wireless:
+config wifi-device  wl0
+        option type     broadcom
+        option channel  6
+config wifi-iface
+        option device   wl0
+        option network  lan
+        option mode     ap
+        option ssid     OpenWrt1
+        option encryption none
+config wifi-iface
+        option device   wl0
+        option network  lan
+        option mode     ap
+        option ssid     OpenWrt2
+        option encryption none
+
+iwconfig output - note the unique bssid's
+wl0       IEEE 802.11-DS  ESSID:&quot;OpenWrt1&quot; 
+          Mode:Master  Frequency:2.437 GHz  Access Point: 
+00:16:01:2E:0C:4B  
+          Bit Rate=54 Mb/s   Tx-Power:32 dBm  
+          Retry min limit:7   RTS thr:off   Fragment thr:off
+          Link Quality:5  Signal level:0  Noise level:175
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+wl0.1     IEEE 802.11-DS  ESSID:&quot;OpenWrt2&quot; 
+          Mode:Master  Channel:6  Access Point: 02:16:01:2E:0C:48  
+          Bit Rate=54 Mb/s  
+          RTS thr:off   Fragment thr:off
+
+Firmware:
+wl0: wlc_attach: chiprev 0 coreunit 0 corerev 9 cccap 0x4787a2 maccap 
+0x0 band 2.4G, phy_type 2 phy_rev 7 ana_rev 2
+wl0: Broadcom BCM4318 802.11 Wireless Controller 4.150.10.5
+
+Wireshark beacon dump:
+Attached.
+
+
+
+
+
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: multi-ssid.log
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080731/6443a39a/attachment.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080731/6443a39a/attachment.ksh</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004448.html">BCM4306 and Virtual AP
+</A></li>
+	<LI>Next message: <A HREF="004450.html">BCM4306 and Virtual AP
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4449">[ date ]</a>
+              <a href="thread.html#4449">[ thread ]</a>
+              <a href="subject.html#4449">[ subject ]</a>
+              <a href="author.html#4449">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

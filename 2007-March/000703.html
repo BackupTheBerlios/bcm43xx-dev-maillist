@@ -1,0 +1,215 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> RFC: bcm43xx_mac80211: A first cut at fixing the oops for USB cores	on PCI devices
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20RFC%3A%20bcm43xx_mac80211%3A%20A%20first%20cut%20at%20fixing%20the%20oops%20for%20USB%20cores%0A%09on%20PCI%20devices&In-Reply-To=%3C45EF0548.2090402%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000699.html">
+   <LINK REL="Next"  HREF="000704.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>RFC: bcm43xx_mac80211: A first cut at fixing the oops for USB cores	on PCI devices</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20RFC%3A%20bcm43xx_mac80211%3A%20A%20first%20cut%20at%20fixing%20the%20oops%20for%20USB%20cores%0A%09on%20PCI%20devices&In-Reply-To=%3C45EF0548.2090402%40lwfinger.net%3E"
+       TITLE="RFC: bcm43xx_mac80211: A first cut at fixing the oops for USB cores	on PCI devices">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Wed Mar  7 19:32:40 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000699.html">Broadcom BCM94311MCG
+</A></li>
+        <LI>Next message: <A HREF="000704.html">RFC: bcm43xx_mac80211: A first cut at fixing the oops for USB	cores on PCI devices
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#703">[ date ]</a>
+              <a href="thread.html#703">[ thread ]</a>
+              <a href="subject.html#703">[ subject ]</a>
+              <a href="author.html#703">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael,
+
+The patch below fixes the problem of the kernel oops associated with having a dangling USB core on a
+chip using a PCIe interface. The patch should also fix problems associated with having extra 802.11
+cores.
+
+I still have a problem in that bcm43xx_mac80211 will not unload with this patch - the machine
+crashes, but I wanted to get your feedback before degugging that issue.
+
+Larry
+
+======================
+
+Index: wireless-mb/drivers/ssb/scan.c
+===================================================================
+--- wireless-mb.orig/drivers/ssb/scan.c
++++ wireless-mb/drivers/ssb/scan.c
+@@ -255,6 +255,8 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 	int dev_i, i;
+ 	struct ssb_device *dev;
+ 	int nr_80211_cores = 0;
++	int usb_core_found = 0;
++	int pci_core_found = 0;
+
+ 	mmio = ssb_ioremap(bus, baseaddr);
+ 	if (!mmio)
+@@ -317,6 +319,7 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 		bus-&gt;mmio = mmio;
+ 	}
+
++	bus-&gt;core_ignore_flags = 0;
+ 	/* Fetch basic information about each core/device */
+ 	for (i = 0, dev_i = 0; i &lt; bus-&gt;nr_devices; i++) {
+ 		err = scan_switchcore(bus, i);
+@@ -346,6 +349,7 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 				if (!we_support_multiple_80211_cores(bus)) {
+ 					ssb_dprintk(KERN_INFO PFX &quot;Ignoring additional &quot;
+ 						    &quot;802.11 core\n&quot;);
++					bus-&gt;core_ignore_flags |= (1 &lt;&lt;i);
+ 					continue;
+ 				}
+ 			}
+@@ -355,6 +359,7 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 			if (bus-&gt;extif.dev) {
+ 				ssb_printk(KERN_WARNING PFX
+ 					   &quot;WARNING: Multiple EXTIFs found\n&quot;);
++				bus-&gt;core_ignore_flags |= (1 &lt;&lt;i);
+ 				break;
+ 			}
+ 			bus-&gt;extif.dev = dev;
+@@ -364,6 +369,7 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 			if (bus-&gt;chipco.dev) {
+ 				ssb_printk(KERN_WARNING PFX
+ 					   &quot;WARNING: Multiple ChipCommon found\n&quot;);
++				bus-&gt;core_ignore_flags |= (1 &lt;&lt;i);
+ 				break;
+ 			}
+ 			bus-&gt;chipco.dev = dev;
+@@ -374,6 +380,7 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 			if (bus-&gt;mipscore.dev) {
+ 				ssb_printk(KERN_WARNING PFX
+ 					   &quot;WARNING: Multiple MIPS cores found\n&quot;);
++				bus-&gt;core_ignore_flags |= (1 &lt;&lt;i);
+ 				break;
+ 			}
+ 			bus-&gt;mipscore.dev = dev;
+@@ -381,15 +388,20 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 			break;
+ 		case SSB_DEV_PCI:
+ 		case SSB_DEV_PCIE:
++			pci_core_found = 1;
+ #ifdef CONFIG_SSB_DRIVER_PCICORE
+ 			if (bus-&gt;pcicore.dev) {
+ 				ssb_printk(KERN_WARNING PFX
+ 					   &quot;WARNING: Multiple PCI(E) cores found\n&quot;);
++				bus-&gt;core_ignore_flags |= (1 &lt;&lt;i);
+ 				break;
+ 			}
+ 			bus-&gt;pcicore.dev = dev;
+ #endif /* CONFIG_SSB_DRIVER_PCICORE */
+ 			break;
++		case SSB_DEV_USB11_HOST:
++		case SSB_DEV_USB20_HOST:
++			usb_core_found = i;
+ 		default:
+ 			break;
+ 		}
+@@ -397,7 +409,11 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 		dev_i++;
+ 	}
+ 	bus-&gt;nr_devices = dev_i;
+-
++	if (pci_core_found &amp;&amp; usb_core_found) {
++		ssb_printk(KERN_WARNING PFX
++			   &quot;WARNING: USB Host ignored\n&quot;);
++		bus-&gt;core_ignore_flags |= (1 &lt;&lt; usb_core_found);
++	}
+ 	err = 0;
+ out:
+ 	return err;
+Index: wireless-mb/include/linux/ssb/ssb.h
+===================================================================
+--- wireless-mb.orig/include/linux/ssb/ssb.h
++++ wireless-mb/include/linux/ssb/ssb.h
+@@ -323,6 +323,8 @@ struct ssb_bus {
+ 	struct ssb_mipscore mipscore;
+ 	/* The EXTif-core device (if available). */
+ 	struct ssb_extif extif;
++	/* A word with flags for each core to ignore. */
++	u16 core_ignore_flags;
+
+ 	/* Internal. */
+ 	struct list_head list;
+Index: wireless-mb/drivers/ssb/core.c
+===================================================================
+--- wireless-mb.orig/drivers/ssb/core.c
++++ wireless-mb/drivers/ssb/core.c
+@@ -160,6 +160,8 @@ int ssb_devices_freeze(struct ssb_bus *b
+ 	pm_message_t state = PMSG_FREEZE;
+
+ 	for (i = 0; i &lt; bus-&gt;nr_devices; i++) {
++		if (bus-&gt;core_ignore_flags &amp; (1 &lt;&lt;i))
++			continue;
+ 		dev = &amp;(bus-&gt;devices[i]);
+ 		if (!dev-&gt;dev-&gt;driver)
+ 			continue;
+@@ -182,6 +184,8 @@ int ssb_devices_thaw(struct ssb_bus *bus
+ 	int i;
+
+ 	for (i = 0; i &lt; bus-&gt;nr_devices; i++) {
++		if (bus-&gt;core_ignore_flags &amp; (1 &lt;&lt;i))
++			continue;
+ 		dev = &amp;(bus-&gt;devices[i]);
+ 		if (!dev-&gt;dev-&gt;driver)
+ 			continue;
+@@ -297,6 +301,8 @@ static void ssb_devices_unregister(struc
+ 	int i;
+
+ 	for (i = bus-&gt;nr_devices - 1; i &gt;= 0; i--) {
++		if (bus-&gt;core_ignore_flags &amp; (1 &lt;&lt;i))
++			continue;
+ 		sdev = &amp;(bus-&gt;devices[i]);
+ 		if (sdev-&gt;dev)
+ 			device_unregister(sdev-&gt;dev);
+@@ -329,6 +335,8 @@ static int ssb_devices_register(struct s
+ 	int dev_idx = 0;
+
+ 	for (i = 0; i &lt; bus-&gt;nr_devices; i++) {
++		if (bus-&gt;core_ignore_flags &amp; (1 &lt;&lt;i))
++			continue;
+ 		sdev = &amp;(bus-&gt;devices[i]);
+
+ 		/* We don't register SSB-system devices to the kernel,
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000699.html">Broadcom BCM94311MCG
+</A></li>
+	<LI>Next message: <A HREF="000704.html">RFC: bcm43xx_mac80211: A first cut at fixing the oops for USB	cores on PCI devices
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#703">[ date ]</a>
+              <a href="thread.html#703">[ thread ]</a>
+              <a href="subject.html#703">[ subject ]</a>
+              <a href="author.html#703">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

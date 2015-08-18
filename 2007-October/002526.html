@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Leds spinlock SMP compilefix
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Leds%20spinlock%20SMP%20compilefix&In-Reply-To=%3C20071002202053.GB29361%40tuxdriver.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   <LINK REL="Next"  HREF="002527.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Leds spinlock SMP compilefix</H1>
+    <B>John W. Linville</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Leds%20spinlock%20SMP%20compilefix&In-Reply-To=%3C20071002202053.GB29361%40tuxdriver.com%3E"
+       TITLE="[PATCH] b43: Leds spinlock SMP compilefix">linville at tuxdriver.com
+       </A><BR>
+    <I>Tue Oct  2 22:20:53 CEST 2007</I>
+    <P><UL>
+        
+        <LI>Next message: <A HREF="002527.html">[PATCH] b43: Leds spinlock SMP compilefix
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2526">[ date ]</a>
+              <a href="thread.html#2526">[ thread ]</a>
+              <a href="subject.html#2526">[ subject ]</a>
+              <a href="author.html#2526">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I'll just roll this into the &quot;b43: LED triggers support&quot; patch.
+
+Thanks,
+
+John
+
+On Sun, Sep 30, 2007 at 12:04:36AM +0200, Michael Buesch wrote:
+&gt;<i> This was missing an address operator.
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+</I>&gt;<i> 
+</I>&gt;<i> Index: wireless-2.6/drivers/net/wireless/b43/leds.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-2.6.orig/drivers/net/wireless/b43/leds.c	2007-09-29 12:44:08.000000000 +0200
+</I>&gt;<i> +++ wireless-2.6/drivers/net/wireless/b43/leds.c	2007-09-30 00:02:18.000000000 +0200
+</I>&gt;<i> @@ -37,14 +37,14 @@ static void b43_led_turn_on(struct b43_w
+</I>&gt;<i>  	unsigned long flags;
+</I>&gt;<i>  	u16 ctl;
+</I>&gt;<i>  
+</I>&gt;<i> -	spin_lock_irqsave(wl-&gt;leds_lock, flags);
+</I>&gt;<i> +	spin_lock_irqsave(&amp;wl-&gt;leds_lock, flags);
+</I>&gt;<i>  	ctl = b43_read16(dev, B43_MMIO_GPIO_CONTROL);
+</I>&gt;<i>  	if (activelow)
+</I>&gt;<i>  		ctl &amp;= ~(1 &lt;&lt; led_index);
+</I>&gt;<i>  	else
+</I>&gt;<i>  		ctl |= (1 &lt;&lt; led_index);
+</I>&gt;<i>  	b43_write16(dev, B43_MMIO_GPIO_CONTROL, ctl);
+</I>&gt;<i> -	spin_unlock_irqrestore(wl-&gt;leds_lock, flags);
+</I>&gt;<i> +	spin_unlock_irqrestore(&amp;wl-&gt;leds_lock, flags);
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i>  static void b43_led_turn_off(struct b43_wldev *dev, u8 led_index,
+</I>&gt;<i> @@ -54,14 +54,14 @@ static void b43_led_turn_off(struct b43_
+</I>&gt;<i>  	unsigned long flags;
+</I>&gt;<i>  	u16 ctl;
+</I>&gt;<i>  
+</I>&gt;<i> -	spin_lock_irqsave(wl-&gt;leds_lock, flags);
+</I>&gt;<i> +	spin_lock_irqsave(&amp;wl-&gt;leds_lock, flags);
+</I>&gt;<i>  	ctl = b43_read16(dev, B43_MMIO_GPIO_CONTROL);
+</I>&gt;<i>  	if (activelow)
+</I>&gt;<i>  		ctl |= (1 &lt;&lt; led_index);
+</I>&gt;<i>  	else
+</I>&gt;<i>  		ctl &amp;= ~(1 &lt;&lt; led_index);
+</I>&gt;<i>  	b43_write16(dev, B43_MMIO_GPIO_CONTROL, ctl);
+</I>&gt;<i> -	spin_unlock_irqrestore(wl-&gt;leds_lock, flags);
+</I>&gt;<i> +	spin_unlock_irqrestore(&amp;wl-&gt;leds_lock, flags);
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i>  /* Callback from the LED subsystem. */
+</I>
+-- 
+John W. Linville
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	<LI>Next message: <A HREF="002527.html">[PATCH] b43: Leds spinlock SMP compilefix
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2526">[ date ]</a>
+              <a href="thread.html#2526">[ thread ]</a>
+              <a href="subject.html#2526">[ subject ]</a>
+              <a href="author.html#2526">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

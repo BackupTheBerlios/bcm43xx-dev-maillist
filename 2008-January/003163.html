@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add NPHY kconfig option
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20NPHY%20kconfig%20option&In-Reply-To=%3C200801041706.29704.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003161.html">
+   <LINK REL="Next"  HREF="003162.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add NPHY kconfig option</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20NPHY%20kconfig%20option&In-Reply-To=%3C200801041706.29704.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add NPHY kconfig option">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jan  4 17:06:29 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003161.html">b43 won't connect to access point: deauthentication reason=7 ??
+</A></li>
+        <LI>Next message: <A HREF="003162.html">b43 module 2.6.24-rc6 doesn't work.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3163">[ date ]</a>
+              <a href="thread.html#3163">[ thread ]</a>
+              <a href="subject.html#3163">[ subject ]</a>
+              <a href="author.html#3163">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds a new Kconfig option for enabling probing of N-PHYs.
+This option will be removed again once the stuff works.
+For now it is to help in development. This way real users won't
+execute the broken N-PHY codepaths, but the developers can easily
+enable N-PHY stuff.
+
+To enable N-PHY probing simply remove the BROKEN dependency
+and enable the option in the kernel config.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+2.6.25 stuff.
+
+Index: wireless-2.6/drivers/net/wireless/b43/Kconfig
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/Kconfig	2008-01-04 15:01:42.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/Kconfig	2008-01-04 16:59:38.000000000 +0100
+@@ -61,6 +61,16 @@ config B43_PCMCIA
+ 
+ 	  If unsure, say N.
+ 
++config B43_NPHY
++	bool &quot;Pre IEEE 802.11n support (BROKEN)&quot;
++	depends on B43 &amp;&amp; EXPERIMENTAL &amp;&amp; BROKEN
++	---help---
++	  Support for the IEEE 802.11n draft.
++
++	  THIS IS BROKEN AND DOES NOT WORK YET.
++
++	  SAY N.
++
+ # This config option automatically enables b43 LEDS support,
+ # if it's possible.
+ config B43_LEDS
+Index: wireless-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/main.c	2008-01-04 15:01:42.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/main.c	2008-01-04 16:57:24.000000000 +0100
+@@ -81,6 +81,7 @@ static const struct ssb_device_id b43_ss
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 7),
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 9),
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 10),
++	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 11),
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 13),
+ 	SSB_DEVTABLE_END
+ };
+@@ -3097,6 +3098,12 @@ static int b43_phy_versioning(struct b43
+ 		if (phy_rev &gt; 9)
+ 			unsupported = 1;
+ 		break;
++#ifdef CONFIG_B43_NPHY
++	case B43_PHYTYPE_N:
++		if (phy_rev &gt; 1)
++			unsupported = 1;
++		break;
++#endif
+ 	default:
+ 		unsupported = 1;
+ 	};
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003161.html">b43 won't connect to access point: deauthentication reason=7 ??
+</A></li>
+	<LI>Next message: <A HREF="003162.html">b43 module 2.6.24-rc6 doesn't work.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3163">[ date ]</a>
+              <a href="thread.html#3163">[ thread ]</a>
+              <a href="subject.html#3163">[ subject ]</a>
+              <a href="author.html#3163">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

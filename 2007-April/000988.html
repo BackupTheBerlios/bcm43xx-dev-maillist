@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 2/3] bcm43xx-mac80211: Fix error path memory leak
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/3%5D%20bcm43xx-mac80211%3A%20Fix%20error%20path%20memory%20leak&In-Reply-To=%3C11760933831510-git-send-email-will.dyson%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001035.html">
+   <LINK REL="Next"  HREF="000989.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 2/3] bcm43xx-mac80211: Fix error path memory leak</H1>
+    <B>Will Dyson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/3%5D%20bcm43xx-mac80211%3A%20Fix%20error%20path%20memory%20leak&In-Reply-To=%3C11760933831510-git-send-email-will.dyson%40gmail.com%3E"
+       TITLE="[PATCH 2/3] bcm43xx-mac80211: Fix error path memory leak">will.dyson at gmail.com
+       </A><BR>
+    <I>Mon Apr  9 06:36:22 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001035.html">[PATCH 1/3] bcm43xx-mac80211: Catch dma mapping failures.
+</A></li>
+        <LI>Next message: <A HREF="000989.html">[PATCH 3/3] bcm43xx-mac80211: Work around 30bit DMA limitation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#988">[ date ]</a>
+              <a href="thread.html#988">[ thread ]</a>
+              <a href="subject.html#988">[ subject ]</a>
+              <a href="author.html#988">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>When doing setup for the dma ring, the txhdr_cache must be freed if there is an
+error after it is allocated.
+
+Signed-off-by: Will Dyson &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">will.dyson at gmail.com</A>&gt;
+---
+ .../net/wireless/mac80211/bcm43xx/bcm43xx_dma.c    |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
+index c0f83b7..d93e219 100644
+--- a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
++++ b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
+@@ -777,7 +777,7 @@ struct bcm43xx_dmaring * bcm43xx_setup_dmaring(struct bcm43xx_wldev *dev,
+ 
+ 	err = alloc_ringmemory(ring);
+ 	if (err)
+-		goto err_kfree_meta;
++		goto err_kfree_txhdr_cache;
+ 	err = dmacontroller_setup(ring);
+ 	if (err)
+ 		goto err_free_ringmemory;
+@@ -787,6 +787,8 @@ out:
+ 
+ err_free_ringmemory:
+ 	free_ringmemory(ring);
++err_kfree_txhdr_cache:
++	kfree(ring-&gt;txhdr_cache);
+ err_kfree_meta:
+ 	kfree(ring-&gt;meta);
+ err_kfree_ring:
+-- 
+1.5.1
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001035.html">[PATCH 1/3] bcm43xx-mac80211: Catch dma mapping failures.
+</A></li>
+	<LI>Next message: <A HREF="000989.html">[PATCH 3/3] bcm43xx-mac80211: Work around 30bit DMA limitation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#988">[ date ]</a>
+              <a href="thread.html#988">[ thread ]</a>
+              <a href="subject.html#988">[ subject ]</a>
+              <a href="author.html#988">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

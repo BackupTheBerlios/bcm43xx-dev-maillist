@@ -1,0 +1,128 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] mac80211: Report correct wireless statistics
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20mac80211%3A%20Report%20correct%20wireless%20statistics&In-Reply-To=%3C461877ea.cyxM3SSnr6WhYkjX%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000966.html">
+   <LINK REL="Next"  HREF="000969.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] mac80211: Report correct wireless statistics</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20mac80211%3A%20Report%20correct%20wireless%20statistics&In-Reply-To=%3C461877ea.cyxM3SSnr6WhYkjX%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] mac80211: Report correct wireless statistics">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sun Apr  8 07:04:42 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000966.html">[PATCH] bcm43xx: Fix PPC machine checks and update to match	loopback gain specifications
+</A></li>
+        <LI>Next message: <A HREF="000969.html">bcm-43xx HORRIBLY slow with 4311 card and 2.6.20
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#967">[ date ]</a>
+              <a href="thread.html#967">[ thread ]</a>
+              <a href="subject.html#967">[ subject ]</a>
+              <a href="author.html#967">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>In mac80211 the 'qual' and 'level' values are interchanged. The patch also
+places the 'qual' value on a 0 - 100 scale and calculated using the formula
+contained in iwlib.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John and Michael,
+
+This fix is meant for the wireless-dev and mb git trees.
+
+Larry
+
+ ieee80211_ioctl.c |   16 +++++++++++-----
+ ieee80211_sta.c   |    9 +++++++--
+ 2 files changed, 18 insertions(+), 7 deletions(-)
+
+Index: wireless-mb/net/mac80211/ieee80211_sta.c
+===================================================================
+--- wireless-mb.orig/net/mac80211/ieee80211_sta.c
++++ wireless-mb/net/mac80211/ieee80211_sta.c
+@@ -2822,8 +2822,10 @@ ieee80211_sta_scan_result(struct net_dev
+ 
+ 	memset(&amp;iwe, 0, sizeof(iwe));
+ 	iwe.cmd = IWEVQUAL;
+-	iwe.u.qual.qual = bss-&gt;signal;
+-	iwe.u.qual.level = bss-&gt;rssi;
++	iwe.u.qual.level = bss-&gt;signal;
++	if (unlikely(local-&gt;hw.max_rssi == 0))
++		local-&gt;hw.max_rssi = 100;
++	iwe.u.qual.qual = (100 * bss-&gt;rssi) / local-&gt;hw.max_rssi;
+ 	iwe.u.qual.noise = bss-&gt;noise;
+ 	iwe.u.qual.updated = local-&gt;wstats_flags;
+ 	current_ev = iwe_stream_add_event(current_ev, end_buf, &amp;iwe,
+Index: wireless-mb/net/mac80211/ieee80211_ioctl.c
+===================================================================
+--- wireless-mb.orig/net/mac80211/ieee80211_ioctl.c
++++ wireless-mb/net/mac80211/ieee80211_ioctl.c
+@@ -1593,12 +1593,12 @@ static int ieee80211_ioctl_giwrange(stru
+ 	range-&gt;min_frag = 256;
+ 	range-&gt;max_frag = 2346;
+ 
+-	range-&gt;max_qual.qual = local-&gt;hw.max_signal;
+-	range-&gt;max_qual.level = local-&gt;hw.max_rssi;
++	range-&gt;max_qual.qual = 100;
++	range-&gt;max_qual.level = local-&gt;hw.max_signal;
+ 	range-&gt;max_qual.noise = local-&gt;hw.max_noise;
+ 	range-&gt;max_qual.updated = local-&gt;wstats_flags;
+ 
+-	range-&gt;avg_qual.qual = local-&gt;hw.max_signal/2;
++	range-&gt;avg_qual.qual = 50;
+ 	range-&gt;avg_qual.level = 0;
+ 	range-&gt;avg_qual.noise = 0;
+ 	range-&gt;avg_qual.updated = local-&gt;wstats_flags;
+@@ -3087,8 +3087,10 @@ static struct iw_statistics *ieee80211_g
+ 		wstats-&gt;qual.noise = 0;
+ 		wstats-&gt;qual.updated = IW_QUAL_ALL_INVALID;
+ 	} else {
+-		wstats-&gt;qual.level = sta-&gt;last_rssi;
+-		wstats-&gt;qual.qual = sta-&gt;last_signal;
++		if (unlikely(local-&gt;hw.max_rssi == 0))
++			local-&gt;hw.max_rssi = 100;
++		wstats-&gt;qual.qual = (100 * sta-&gt;last_rssi) / local-&gt;hw.max_rssi;
++		wstats-&gt;qual.level = sta-&gt;last_signal;
+ 		wstats-&gt;qual.noise = sta-&gt;last_noise;
+ 		wstats-&gt;qual.updated = local-&gt;wstats_flags;
+ 		sta_info_put(sta);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000966.html">[PATCH] bcm43xx: Fix PPC machine checks and update to match	loopback gain specifications
+</A></li>
+	<LI>Next message: <A HREF="000969.html">bcm-43xx HORRIBLY slow with 4311 card and 2.6.20
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#967">[ date ]</a>
+              <a href="thread.html#967">[ thread ]</a>
+              <a href="subject.html#967">[ subject ]</a>
+              <a href="author.html#967">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

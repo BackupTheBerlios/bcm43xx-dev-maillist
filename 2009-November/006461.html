@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Rewrite DMA Tx status handling sanity checks
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Rewrite%20DMA%20Tx%20status%20handling%20sanity%20checks&In-Reply-To=%3C200911231149.38494.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006458.html">
+   <LINK REL="Next"  HREF="006463.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Rewrite DMA Tx status handling sanity checks</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Rewrite%20DMA%20Tx%20status%20handling%20sanity%20checks&In-Reply-To=%3C200911231149.38494.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Rewrite DMA Tx status handling sanity checks">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Nov 23 11:49:36 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006458.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+        <LI>Next message: <A HREF="006463.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6461">[ date ]</a>
+              <a href="thread.html#6461">[ thread ]</a>
+              <a href="subject.html#6461">[ subject ]</a>
+              <a href="author.html#6461">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 23 November 2009 05:45:47 Larry Finger wrote:
+&gt;<i> On 11/19/2009 03:24 PM, Michael Buesch wrote:
+</I>&gt;<i> &gt; This rewrites the error handling policies in the TX status handler.
+</I>&gt;<i> &gt; It tries to be error-tolerant as in &quot;try hard to not crash the machine&quot;.
+</I>&gt;<i> &gt; It won't recover from errors (that are bugs in the firmware or driver),
+</I>&gt;<i> &gt; because that's impossible. However, it will return a more or less useful
+</I>&gt;<i> &gt; error message and bail out. It also tries hard to use rate-limited messages
+</I>&gt;<i> &gt; to not flood the syslog in case of a failure.
+</I>&gt;<i> 
+</I>&gt;<i> This patch definitely helped open-source firmware, but it is not a complete fix.
+</I>
+It is no fix _at_ _all_.
+The patch does not change a single line of code that wasn't either an assertion
+or a machine crash before.
+So it just transforms assertions into more verbose assertions and crashes into
+assertions without a crash.
+
+&gt;<i> debug: Out of order TX status report on DMA ring 1. Expected 114, but got 146
+</I>
+Ok, this is what I expected.
+
+Let's see what's going on. Here's the ring. o is unused, * is used.
+
+ooooooooooooooo***************************************************ooooooooooooooooooooooooooo
+               ^               ^                                 ^
+               114             146                               newest
+               oldest
+
+So as you can see, the firmware reported a TX status for a frame right in the middle of
+the ringbuffer. The new code detects this now before getting a double free and/or silent
+memory corruption (freeing of used memory).
+
+It really is illegal to report a TX status for a frame that's not the oldest one in the ring.
+The firmware is required to process all frames in-order on one ring.
+
+So how can this failure happen? I think there basically are three ways this can happen.
+
+- First is that the ordering within one ring really gets messed up and it loses track
+  of its ring pointers. I'm not sure if this is likely. Probably not.
+- It messes up the ring membership. So it reports a TX status on the wrong ring.
+  Note that the &quot;ring&quot; kernel pointer in the TX status report handler is derived
+  from the cookie (and so also the number in the message &quot;Out of order TX status
+  report on DMA ring 1&quot; is derived from the cookie). So it's untrustworthy in case of
+  broken firmware. The firmware has QoS-alike mechanisms, even if QoS is disabled. Maybe
+  these mechanisms are broken.
+- Third is the possibility of a driver bug. I rule that out as long as nobody is
+  able to reproduce it with proprietary firmware.
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006458.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+	<LI>Next message: <A HREF="006463.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6461">[ date ]</a>
+              <a href="thread.html#6461">[ thread ]</a>
+              <a href="subject.html#6461">[ subject ]</a>
+              <a href="author.html#6461">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

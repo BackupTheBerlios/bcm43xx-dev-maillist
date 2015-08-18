@@ -1,0 +1,133 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.24-rc5 the LED does not come on after a switch-off switch-on
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.24-rc5%20the%20LED%20does%20not%20come%20on%20after%20a%20switch-off%20switch-on&In-Reply-To=%3C200712181646.19410.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003102.html">
+   <LINK REL="Next"  HREF="003104.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.24-rc5 the LED does not come on after a switch-off switch-on</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.24-rc5%20the%20LED%20does%20not%20come%20on%20after%20a%20switch-off%20switch-on&In-Reply-To=%3C200712181646.19410.mb%40bu3sch.de%3E"
+       TITLE="2.6.24-rc5 the LED does not come on after a switch-off switch-on">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Dec 18 16:46:18 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003102.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+        <LI>Next message: <A HREF="003104.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3103">[ date ]</a>
+              <a href="thread.html#3103">[ thread ]</a>
+              <a href="subject.html#3103">[ subject ]</a>
+              <a href="author.html#3103">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tuesday 18 December 2007 15:41:04 Ehud Gavron wrote:
+&gt;<i> 
+</I>&gt;<i> Michael Buesch wrote:
+</I>&gt;<i> &gt; On Tuesday 18 December 2007 13:31:20 Ehud Gavron wrote:
+</I>&gt;<i> &gt;   
+</I>&gt;<i> &gt;&gt; Michael Buesch wrote:
+</I>&gt;<i> &gt;&gt;     
+</I>&gt;<i> &gt;&gt;&gt; On Tuesday 18 December 2007 12:37:04 Ehud Gavron wrote:
+</I>&gt;<i> &gt;&gt;&gt;   
+</I>&gt;<i> &gt;&gt;&gt;       
+</I>&gt;<i> &gt;&gt;&gt;&gt; Ehud Gavron wrote:
+</I>&gt;<i> &gt;&gt;&gt;&gt;     
+</I>&gt;<i> &gt;&gt;&gt;&gt;         
+</I>&gt;<i> &gt;&gt;&gt;&gt;&gt; If I manually turn the LED on (with the keyboard sequence for 
+</I>&gt;<i> &gt;&gt;&gt;&gt;&gt; KEY_WLAN), rfkill will turn the LED off when I turn the radio off 
+</I>&gt;<i> &gt;&gt;&gt;&gt;&gt; consistently but without the wait will never turn the LED back on.
+</I>&gt;<i> &gt;&gt;&gt;&gt;&gt;       
+</I>&gt;<i> &gt;&gt;&gt;&gt;&gt;           
+</I>&gt;<i> &gt;&gt;&gt;&gt; That makes no sense; let me rephrase.
+</I>&gt;<i> &gt;&gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt;&gt; I can turn the LED on manually.  Then when I turn the radio switch off, 
+</I>&gt;<i> &gt;&gt;&gt;&gt; rfkill turns the LED off every time.
+</I>&gt;<i> &gt;&gt;&gt;&gt; So the &quot;LED OFF by rfkill&quot; works fine.
+</I>&gt;<i> &gt;&gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt;&gt; No matter what I do... without that delay, rfkill will not turn the LED 
+</I>&gt;<i> &gt;&gt;&gt;&gt; back on, despite the event clearly being called by code.
+</I>&gt;<i> &gt;&gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt;&gt;     
+</I>&gt;<i> &gt;&gt;&gt;&gt;         
+</I>&gt;<i> &gt;&gt;&gt; What happens if you completely remove the code that sends the two events?
+</I>&gt;<i> &gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt;   
+</I>&gt;<i> &gt;&gt;&gt;       
+</I>&gt;<i> &gt;&gt; The LED never comes on. 
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; I can make it come on/off with the key function, and if it's on and the 
+</I>&gt;<i> &gt;&gt; radio is turned off the LED goes off.
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; In other words I'm sure the hardware is turning the LED (and the BT LED) 
+</I>&gt;<i> &gt;&gt; off.
+</I>&gt;<i> &gt;&gt; I'm also sure the hardware is not turning the LED back on.
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; What other tests would you like me to do?
+</I>&gt;<i> &gt;&gt;     
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; I have no idea. But I don't understand why waiting a random time up to 1000ms fails
+</I>&gt;<i> &gt; and a random time up to 1000ms + 1ms succeeds.
+</I>&gt;<i> &gt;   
+</I>&gt;<i> You are right.  Here are the tests I've done:
+</I>&gt;<i> 1. msleep(0) doesn't work.   msleep(1) or higher does
+</I>&gt;<i> 2. remove msleep and set the poll interval to 3000ms, and I turn the 
+</I>&gt;<i> radio on... and 2-3 seconds later b43 says &quot;ENABLED&quot; but the LED does 
+</I>&gt;<i> not work.
+</I>&gt;<i> 3. the code in b43_rfkill_poll between the &quot;ENABLED&quot; message and where 
+</I>&gt;<i> I'm putting the msleep() is one mutex unlock which was acquired ten 
+</I>&gt;<i> lines previously so I can't see how that's relevant. 
+</I>&gt;<i> 
+</I>&gt;<i> Unless there's some weird race condition where  releasing the mutex 
+</I>&gt;<i> allows something else to happen which in its first 1msec prevents the 
+</I>&gt;<i> keyboard event... I don't get it.
+</I>&gt;<i> 
+</I>&gt;<i> Would there be any harm in moving the mutex to after the 
+</I>&gt;<i> input_report_key sequence? 
+</I>
+It is possible that reading the &quot;hw radio enabled&quot; bit from
+hardware has some sideeffect that needs one msec to trigger.
+But I doubt this myself. :)
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003102.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+	<LI>Next message: <A HREF="003104.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3103">[ date ]</a>
+              <a href="thread.html#3103">[ thread ]</a>
+              <a href="subject.html#3103">[ subject ]</a>
+              <a href="author.html#3103">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

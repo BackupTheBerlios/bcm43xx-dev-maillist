@@ -1,0 +1,155 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20net%3A%20wireless%3A%20bcm43xx%3A%20big_buffer_sem%20semaphore%20to%0A%09mutex&In-Reply-To=%3C200712142038.58400.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003045.html">
+   <LINK REL="Next"  HREF="003047.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20net%3A%20wireless%3A%20bcm43xx%3A%20big_buffer_sem%20semaphore%20to%0A%09mutex&In-Reply-To=%3C200712142038.58400.mb%40bu3sch.de%3E"
+       TITLE="[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Dec 14 20:38:57 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003045.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+        <LI>Next message: <A HREF="003047.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3046">[ date ]</a>
+              <a href="thread.html#3046">[ thread ]</a>
+              <a href="subject.html#3046">[ subject ]</a>
+              <a href="author.html#3046">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 14 December 2007 20:25:39 Ray Lee wrote:
+&gt;<i> &gt; I'm sorry. The patch that _you_ quoted fixes a blinking LED
+</I>&gt;<i> &gt; and nothing else.
+</I>&gt;<i> 
+</I>&gt;<i> Well, you're wrong. Sorry, but that's just the way it is. See below.
+</I>&gt;<i> 
+</I>&gt;<i> &gt; It does _not_ fix loading of rfkill or b43 in any way.
+</I>&gt;<i> &gt; It does, however, fix loading of rfkill-input. But the b43 module
+</I>&gt;<i> &gt; operation does _not_ depend in any way on the rfkill-input module, except
+</I>&gt;<i> &gt; the tiny LED that doesn't blink if it's not loaded.
+</I>&gt;<i> &gt; I hope you understood now that the thread on bcm43xx-dev was NOT about
+</I>&gt;<i> &gt; your requirement to load rfkill before b43.
+</I>&gt;<i> 
+</I>&gt;<i> *AGAIN*, please read your message here, in particular item number
+</I>&gt;<i> seven on Larry's list:
+</I>&gt;<i> 
+</I>&gt;<i> <A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/006472.html">https://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/006472.html</A>
+</I>&gt;<i> 
+</I>&gt;<i> For the last fscking time, if rfkill and rfkill-input are not loaded,
+</I>&gt;<i> not one line comes out in dmesg when b43 and ssb are loaded. In
+</I>&gt;<i> particular, your pretty little message about needing newer firmware
+</I>&gt;<i> also does not print. So, yeah, not loading rfkill{,-input} *does*
+</I>&gt;<i> cause issues with b43 working, as there's no damn way to find out
+</I>&gt;<i> what's broken!
+</I>
+Guy... .
+I KNOW what the patch above does.
+What do you think does the following line?
+	err = request_module(&quot;rfkill-input&quot;);
+Does it load the &quot;rfkill-input&quot; or the &quot;rfkill&quot; module.
+That's the million dollar question. You only have one try.
+
+This patch is NOT about the &quot;rfkill&quot; module. I don't know how
+often I have to say that. It is _obvious_.
+
+Let's also quote Larry's sevenths point here, that you referred to
+now for the second time:
+&quot; (7) If rfkill-input is built as a module, it is not automatically loaded.&quot;
+
+I am not sure how I can make this any more clear.
+It does load the &quot;rfkill-input&quot; module from within b43.
+It does NOT load &quot;rfkill&quot;
+It does NOT load &quot;rfkill-input&quot; BEFORE b43 was loaded.
+
+This patch does exactly ONE thing. It does make sure a LED does blink.
+Nothing more.
+I signed this patch off. So you can be 100% sure I know what it does.
+I do NOT sign off patches for which I don't know what they do.
+
+&gt;<i> &gt; &gt; I have complete current userspace as of yesterday's Ubuntu Hardy Heron
+</I>&gt;<i> &gt; &gt; development archives.
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; Ok. I will install a copy of Ubuntu Hardy Heron and check if I can
+</I>&gt;<i> &gt; reproduce this.
+</I>&gt;<i> 
+</I>&gt;<i> I'm not asking you to do that, this particular bug will be fixed by
+</I>&gt;<i> Larry's patch, whether you believe that or not.
+</I>
+Did you try that?
+How can b43 load get fixed by a patch that adds a request_module()
+to the b43 module? That is a chicken and egg problem!
+
+&gt;<i> &gt; However the fact that this does not happen on older Ubuntu platforms
+</I>&gt;<i> &gt; and does not happen on Fedora leads to the conclusion that it
+</I>&gt;<i> &gt; is a bug in Hardy Heron that I am not responsible for.
+</I>&gt;<i> 
+</I>&gt;<i> The kernel does not exist in a vacuum. It's the kernel's job to make
+</I>&gt;<i> sure it works with properly written userspace. Broken userspace, sure,
+</I>&gt;<i> then we can talk about breaking it.
+</I>
+yes properly written userspace.
+
+&gt;<i> &gt; And you also do realise that Hardy Heron is the current development
+</I>&gt;<i> &gt; version of Ubuntu? Development versions have bugs.
+</I>&gt;<i> 
+</I>&gt;<i> Oy vay. I'm not an idiot. Yes, it's the current develoment version.
+</I>&gt;<i> But tracking the latest kernel.org kernel has in the past required the
+</I>&gt;<i> latest develoment version of the distribution, so I upgrade it as
+</I>&gt;<i> well.
+</I>
+I am running wireless-2.6 on feisty. So the kernel does _not_ require
+an update of the distribution.
+q.e.d.
+
+&gt;<i> I'm not blaming it on you. I'm merely reporting a fucking
+</I>&gt;<i> incompatibility. Read my messages again from the top, and stop taking
+</I>&gt;<i> this all so damn personally, will you?
+</I>
+You are telling me that I don't understand patches that I sign off
+and I should not take this personally?
+That is challenging.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003045.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+	<LI>Next message: <A HREF="003047.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3046">[ date ]</a>
+              <a href="thread.html#3046">[ thread ]</a>
+              <a href="subject.html#3046">[ subject ]</a>
+              <a href="author.html#3046">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

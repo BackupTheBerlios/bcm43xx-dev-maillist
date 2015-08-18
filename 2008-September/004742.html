@@ -1,0 +1,161 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BCM4318 authentication problems
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4318%20authentication%20problems&In-Reply-To=%3C20080923221618.4e9bbfe8.dennisn%40dennisn.dyndns.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004770.html">
+   <LINK REL="Next"  HREF="004743.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BCM4318 authentication problems</H1>
+    <B>Dennis Nezic</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4318%20authentication%20problems&In-Reply-To=%3C20080923221618.4e9bbfe8.dennisn%40dennisn.dyndns.org%3E"
+       TITLE="BCM4318 authentication problems">dennisn at dennisn.dyndns.org
+       </A><BR>
+    <I>Wed Sep 24 04:16:18 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004770.html">Multiple station interfaces
+</A></li>
+        <LI>Next message: <A HREF="004743.html">BCM4318 authentication problems
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4742">[ date ]</a>
+              <a href="thread.html#4742">[ thread ]</a>
+              <a href="subject.html#4742">[ subject ]</a>
+              <a href="author.html#4742">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Even with the latest stable linux kernel 2.6.26.5, the b43 driver has
+trouble authenticating--mainly after cold boots after long periods of
+being offline. My AP doesn't have any encryption, and the problem
+exists regardless of my proximity to it.
+
+The system log would look like this:
+
+20:52:32 firmware: requesting b43/ucode5.fw
+20:52:32 firmware: requesting b43/pcm5.fw
+20:52:32 firmware: requesting b43/b0g0initvals5.fw
+20:52:32 firmware: requesting b43/b0g0bsinitvals5.fw
+20:52:33 b43-phy0: Loading firmware version 410.2160 (2007-05-26
+   15:32:10)
+20:52:34 ADDRCONF(NETDEV_UP): wlan0: link is not ready
+20:52:35 wlan0: Initial auth_alg=0
+20:52:35 wlan0: authenticate with AP 00:11:95:be:b5:a9
+20:52:35 wlan0: authenticate with AP 00:11:95:be:b5:a9
+20:52:35 wlan0: authenticate with AP 00:11:95:be:b5:a9
+20:52:35 wlan0: authentication with AP 00:11:95:be:b5:a9 timed out
+20:52:36 /etc/init.d/net.wlan0[2035]: WEP key is not set for &quot;konoba&quot; -
+   not connecting
+20:52:36 wlan0: Initial auth_alg=0
+20:52:36 wlan0: authenticate with AP 00:11:95:be:b5:a9
+20:52:37 wlan0: authenticate with AP 00:11:95:be:b5:a9
+20:52:37 wlan0: authenticate with AP 00:11:95:be:b5:a9
+20:52:37 wlan0: authentication with AP 00:11:95:be:b5:a9 timed out
+20:52:46 /etc/init.d/net.wlan0[2097]: WEP key is not set for &quot;NETGEAR&quot;
+   - not connecting
+20:52:46 /etc/init.d/net.wlan0[2098]: Couldn't associate with any
+access points on wlan0
+20:52:46 /etc/init.d/net.wlan0 [2099]: Failed to configure wireless for
+wlan0 20:52:46 wlan0: Initial auth_alg=0
+20:52:46 wlan0: authenticate with AP 00:11:95:be:b5:a9
+20:52:46 wlan0: Initial auth_alg=0
+20:52:46 wlan0: authenticate with AP 00:11:95:be:b5:a9
+20:52:46 b43-phy0: Radio turned off by software
+20:52:46 /etc/init.d/net.wlan0[1766]: ERROR: net.wlan0 failed to start
+
+It does /eventually/ authenticate, after MANY retries. Usually about
+10-20. (I currently have a bash script that iterates through 30
+retries :P). Sometimes it won't even work after 30 consecutive retries.
+Incidentally, if I take a break for a minute or so, and then try to
+authenticate, it usually tends to work :/.
+
+
+The successful attempt would look something like:
+
+20:56:08 b43-phy0: Radio turned on by software
+20:56:08 wlan0: Initial auth_alg=0
+20:56:08 wlan0: authenticate with AP 00:11:95:be:b5:a9
+20:56:08 wlan0: Initial auth_alg=0
+20:56:08 wlan0: authenticate with AP 00:11:95:be:b5:a9
+20:56:08 wlan0: RX authentication from 00:11:95:be:b5:a9 (alg=0
+   transaction=2 status=0)
+20:56:08 wlan0: authenticated
+20:56:08 wlan0: associate with AP 00:11:95:be:b5:a9
+20:56:08 wlan0: authentication frame received from 00:11:95:be:b5:a9,
+   but not in authenticate state - ignored
+20:56:08 wlan0: RX AssocResp from 00:11:95:be:b5:a9 (capab=0x421
+   status=0 aid=2)
+20:56:08 wlan0: associated
+20:56:08 wlan0: switched to short barker preamble
+   (BSSID=00:11:95:be:b5:a9)
+20:56:11 wlan0: Initial auth_alg=0
+20:56:11 wlan0: authenticate with AP 00:11:95:be:b5:a9
+20:56:11 wlan0: RX authentication from 00:11:95:be:b5:a9 (alg=0
+   transaction=2 status=0)
+20:56:11 wlan0: authenticated
+20:56:11 wlan0: associate with AP 00:11:95:be:b5:a9
+20:56:11 wlan0: RX ReassocResp from 00:11:95:be:b5:a9 (capab=0x421
+    status=0 aid=2)
+20:56:11 wlan0: associated
+20:56:11 wlan0: Initial auth_alg=0
+20:56:11 wlan0: authenticate with AP 00:11:95:be:b5:a9
+20:56:11 wlan0: RX authentication from 00:11:95:be:b5:a9 (alg=0
+   transaction=2 status=0)
+20:56:11 wlan0: authenticated
+20:56:11 wlan0: associate with AP 00:11:95:be:b5:a9
+20:56:11 wlan0: RX ReassocResp from 00:11:95:be:b5:a9 (capab=0x421
+   status=0 aid=2)
+20:56:11 wlan0: associated
+
+Notice that there is one &quot;RX AssocResp&quot; message, then it would claim to
+be associated, and then three seconds later it would continue to try to
+authenticate, and receive two other &quot;RX ReassocResp&quot; messages, each of
+which would produce another &quot;associated&quot; message. This triple
+broadcasting for authentication seems a little strange to me?
+
+
+My wlan0 card is:
+
+Broadcom Corporation BCM4318 [AirForce One 54g]
+802.11g Wireless LAN Controller (rev 02)
+Subsystem: AMBIT Microsystem Corp. Aspire 3022WLMi, 5024WLMi, 5020
+
+06:02.0 0280: 14e4:4318 (rev 02)
+   Subsystem: 1468:0311
+   Latency: 64 Interrupt: pin A routed to IRQ 21
+   Region 0: Memory at c0304000 (32-bit, non-prefetchable) [size=8K]
+   Kernel driver in use: b43-pci-bridge
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004770.html">Multiple station interfaces
+</A></li>
+	<LI>Next message: <A HREF="004743.html">BCM4318 authentication problems
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4742">[ date ]</a>
+              <a href="thread.html#4742">[ thread ]</a>
+              <a href="subject.html#4742">[ subject ]</a>
+              <a href="author.html#4742">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

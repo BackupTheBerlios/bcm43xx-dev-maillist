@@ -1,0 +1,189 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/6] b43: N-PHY: add b43_nphy_calc_rx_iq_comp
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/6%5D%20b43%3A%20N-PHY%3A%20add%20b43_nphy_calc_rx_iq_comp&In-Reply-To=%3Cop.u6jn1ijm9lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006746.html">
+   <LINK REL="Next"  HREF="006748.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/6] b43: N-PHY: add b43_nphy_calc_rx_iq_comp</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/6%5D%20b43%3A%20N-PHY%3A%20add%20b43_nphy_calc_rx_iq_comp&In-Reply-To=%3Cop.u6jn1ijm9lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 1/6] b43: N-PHY: add b43_nphy_calc_rx_iq_comp">zajec5 at gmail.com
+       </A><BR>
+    <I>Thu Jan 14 23:42:44 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006746.html">[PATCH 2/2] b43: N-PHY: follow kernel coding style for struct 	declaration
+</A></li>
+        <LI>Next message: <A HREF="006748.html">[PATCH 2/6] b43: N-PHY: add TX cal radio setup for rev &lt; 3
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6747">[ date ]</a>
+              <a href="thread.html#6747">[ thread ]</a>
+              <a href="subject.html#6747">[ subject ]</a>
+              <a href="author.html#6747">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+  drivers/net/wireless/b43/phy_n.c |  101 +++++++++++++++++++++++++++++++++++++-
+  1 files changed, 100 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index fbdabfe..75eb0e6 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -533,6 +533,105 @@ static void b43_nphy_rx_iq_est(struct b43_wldev *dev, struct nphy_iq_est *est,
+  	memset(est, 0, sizeof(*est));
+  }
+
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/CalcRxIqComp">http://bcm-v4.sipsolutions.net/802.11/PHY/N/CalcRxIqComp</A> */
++static void b43_nphy_calc_rx_iq_comp(struct b43_wldev *dev, u8 mask)
++{
++	int i;
++	s32 iq;
++	u32 ii;
++	u32 qq;
++	int iq_nbits, qq_nbits;
++	int arsh, brsh;
++	u16 tmp, a, b;
++
++	struct nphy_iq_est est;
++	struct b43_phy_n_iq_comp old;
++	struct b43_phy_n_iq_comp new = { };
++	bool error = false;
++
++	if (mask == 0)
++		return;
++
++	b43_nphy_rx_iq_coeffs(dev, false, &amp;old);
++	b43_nphy_rx_iq_coeffs(dev, true, &amp;new);
++	b43_nphy_rx_iq_est(dev, &amp;est, 0x4000, 32, false);
++	new = old;
++
++	for (i = 0; i &lt; 2; i++) {
++		if (i == 0 &amp;&amp; (mask &amp; 1)) {
++			iq = est.iq0_prod;
++			ii = est.i0_pwr;
++			qq = est.q0_pwr;
++		} else if (i == 1 &amp;&amp; (mask &amp; 2)) {
++			iq = est.iq1_prod;
++			ii = est.i1_pwr;
++			qq = est.q1_pwr;
++		} else {
++			B43_WARN_ON(1);
++			continue;
++		}
++
++		if (ii + qq &lt; 2) {
++			error = true;
++			break;
++		}
++
++		iq_nbits = phy_nbits(iq);
++		qq_nbits = phy_nbits(qq);
++
++		arsh = iq_nbits - 20;
++		if (arsh &gt;= 0) {
++			a = -((iq &lt;&lt; (30 - iq_nbits)) + (ii &gt;&gt; (1 + arsh)));
++			tmp = ii &gt;&gt; arsh;
++		} else {
++			a = -((iq &lt;&lt; (30 - iq_nbits)) + (ii &lt;&lt; (-1 - arsh)));
++			tmp = ii &lt;&lt; -arsh;
++		}
++		if (tmp == 0) {
++			error = true;
++			break;
++		}
++		a /= tmp;
++
++		brsh = qq_nbits - 11;
++		if (brsh &gt;= 0) {
++			b = (qq &lt;&lt; (31 - qq_nbits));
++			tmp = ii &gt;&gt; brsh;
++		} else {
++			b = (qq &lt;&lt; (31 - qq_nbits));
++			tmp = ii &lt;&lt; -brsh;
++		}
++		if (tmp == 0) {
++			error = true;
++			break;
++		}
++		b = int_sqrt(b / tmp - a * a) - (1 &lt;&lt; 10);
++
++		if (i == 0 &amp;&amp; (mask &amp; 0x1)) {
++			if (dev-&gt;phy.rev &gt;= 3) {
++				new.a0 = a &amp; 0x3FF;
++				new.b0 = b &amp; 0x3FF;
++			} else {
++				new.a0 = b &amp; 0x3FF;
++				new.b0 = a &amp; 0x3FF;
++			}
++		} else if (i == 1 &amp;&amp; (mask &amp; 0x2)) {
++			if (dev-&gt;phy.rev &gt;= 3) {
++				new.a1 = a &amp; 0x3FF;
++				new.b1 = b &amp; 0x3FF;
++			} else {
++				new.a1 = b &amp; 0x3FF;
++				new.b1 = a &amp; 0x3FF;
++			}
++		}
++	}
++
++	if (error)
++		new = old;
++
++	b43_nphy_rx_iq_coeffs(dev, true, &amp;new);
++}
++
+  /* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/IqCalGainParams">http://bcm-v4.sipsolutions.net/802.11/PHY/N/IqCalGainParams</A> */
+  static void b43_nphy_iq_cal_gain_params(struct b43_wldev *dev, u16 core,
+  					struct nphy_txgains target,
+@@ -734,7 +833,7 @@ static int b43_nphy_rev2_cal_rx_iq(struct b43_wldev *dev,
+  					}
+  					power[i] = ((real + imag) / 1024) + 1;
+  				} else {
+-					//TODO: Call N PHY Calc RX IQ Comp with (1 &lt;&lt; i) as argument
++					b43_nphy_calc_rx_iq_comp(dev, 1 &lt;&lt; i);
+  				}
+  				//TODO: Call N PHY Stop Playback
+  			}
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006746.html">[PATCH 2/2] b43: N-PHY: follow kernel coding style for struct 	declaration
+</A></li>
+	<LI>Next message: <A HREF="006748.html">[PATCH 2/6] b43: N-PHY: add TX cal radio setup for rev &lt; 3
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6747">[ date ]</a>
+              <a href="thread.html#6747">[ thread ]</a>
+              <a href="subject.html#6747">[ subject ]</a>
+              <a href="author.html#6747">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

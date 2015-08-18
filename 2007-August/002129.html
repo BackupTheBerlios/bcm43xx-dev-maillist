@@ -1,0 +1,160 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Lock problem with latest b43 patches
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Lock%20problem%20with%20latest%20b43%20patches&In-Reply-To=%3C46C7CACC.2000000%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002189.html">
+   <LINK REL="Next"  HREF="002131.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Lock problem with latest b43 patches</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Lock%20problem%20with%20latest%20b43%20patches&In-Reply-To=%3C46C7CACC.2000000%40lwfinger.net%3E"
+       TITLE="Lock problem with latest b43 patches">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sun Aug 19 06:45:00 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002189.html">[patch 6/6] b43: New firmware file format
+</A></li>
+        <LI>Next message: <A HREF="002131.html">Lock problem with latest b43 patches
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2129">[ date ]</a>
+              <a href="thread.html#2129">[ thread ]</a>
+              <a href="subject.html#2129">[ subject ]</a>
+              <a href="author.html#2129">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Using the latest set of 6 patches posted about 5 hours ago, I get the following locking problem with 
+a BCM4311 using WPA-PSK TKIP encryption controlled by NetworkManager:
+
+b43-phy1 ERROR: Adjusting Local Oscillator to an uncalibrated control pair: rfatt=3,no-padmix bbatt=0
+eth1: Initial auth_alg=0
+eth1: authenticate with AP 00:1a:70:46:ba:b1
+eth1: RX authentication from 00:1a:70:46:ba:b1 (alg=0 transaction=2 status=0)
+eth1: authenticated
+eth1: associate with AP 00:1a:70:46:ba:b1
+eth1: RX AssocResp from 00:1a:70:46:ba:b1 (capab=0x431 status=0 aid=1)
+eth1: associated
+eth1: switched to short barker preamble (BSSID=00:1a:70:46:ba:b1)
+
+=======================================================
+[ INFO: possible circular locking dependency detected ]
+2.6.23-rc3-Ldev-gf5a42059-dirty #16
+-------------------------------------------------------
+NetworkManager/4114 is trying to acquire lock:
+  (&amp;mm-&gt;mmap_sem){----}, at: [&lt;ffffffff80224401&gt;] do_page_fault+0x38e/0x835
+
+but task is already holding lock:
+  (&amp;inode-&gt;i_mutex){--..}, at: [&lt;ffffffff803fe515&gt;] mutex_lock+0x2a/0x2e
+
+which lock already depends on the new lock.
+
+
+the existing dependency chain (in reverse order) is:
+
+-&gt; #1 (&amp;inode-&gt;i_mutex){--..}:
+        [&lt;ffffffff80252d52&gt;] __lock_acquire+0xad4/0xcf0
+        [&lt;ffffffff803fe515&gt;] mutex_lock+0x2a/0x2e
+        [&lt;ffffffff80252ff3&gt;] lock_acquire+0x85/0xa9
+        [&lt;ffffffff803fe515&gt;] mutex_lock+0x2a/0x2e
+        [&lt;ffffffff803fe34a&gt;] __mutex_lock_slowpath+0xef/0x290
+        [&lt;ffffffff803fe515&gt;] mutex_lock+0x2a/0x2e
+        [&lt;ffffffff88600d7d&gt;] nfs_revalidate_mapping+0x6d/0xac [nfs]
+        [&lt;ffffffff885fe7e1&gt;] nfs_file_mmap+0x4d/0x65 [nfs]
+        [&lt;ffffffff80284371&gt;] mmap_region+0x222/0x431
+        [&lt;ffffffff803ff491&gt;] __down_write_nested+0x1a/0xab
+        [&lt;ffffffff80284a67&gt;] do_mmap_pgoff+0x2ce/0x333
+        [&lt;ffffffff802122eb&gt;] sys_mmap+0x90/0x119
+        [&lt;ffffffff8020c07e&gt;] system_call+0x7e/0x83
+        [&lt;ffffffffffffffff&gt;] 0xffffffffffffffff
+
+-&gt; #0 (&amp;mm-&gt;mmap_sem){----}:
+        [&lt;ffffffff80252c50&gt;] __lock_acquire+0x9d2/0xcf0
+        [&lt;ffffffff802fecdc&gt;] __down_read_trylock+0x16/0x46
+        [&lt;ffffffff80224401&gt;] do_page_fault+0x38e/0x835
+        [&lt;ffffffff80252ff3&gt;] lock_acquire+0x85/0xa9
+        [&lt;ffffffff80224401&gt;] do_page_fault+0x38e/0x835
+        [&lt;ffffffff8024d161&gt;] down_read+0x3e/0x4a
+        [&lt;ffffffff80224401&gt;] do_page_fault+0x38e/0x835
+        [&lt;ffffffff80252f20&gt;] __lock_acquire+0xca2/0xcf0
+        [&lt;ffffffff803fe515&gt;] mutex_lock+0x2a/0x2e
+        [&lt;ffffffff80251be9&gt;] mark_held_locks+0x4a/0x6a
+        [&lt;ffffffff803fe4d2&gt;] __mutex_lock_slowpath+0x277/0x290
+        [&lt;ffffffff804001fd&gt;] error_exit+0x0/0x96
+        [&lt;ffffffff803fe515&gt;] mutex_lock+0x2a/0x2e
+        [&lt;ffffffff8029f7fc&gt;] pipe_read+0x106/0x374
+        [&lt;ffffffff8029f7c3&gt;] pipe_read+0xcd/0x374
+        [&lt;ffffffff80298c81&gt;] do_sync_read+0xe2/0x126
+        [&lt;ffffffff8024a4e4&gt;] autoremove_wake_function+0x0/0x38
+        [&lt;ffffffff802ce09e&gt;] dnotify_parent+0x6b/0x73
+        [&lt;ffffffff802994c4&gt;] vfs_read+0xcc/0x155
+        [&lt;ffffffff80299889&gt;] sys_read+0x47/0x6f
+        [&lt;ffffffff8020c07e&gt;] system_call+0x7e/0x83
+        [&lt;ffffffffffffffff&gt;] 0xffffffffffffffff
+
+other info that might help us debug this:
+
+1 lock held by NetworkManager/4114:
+  #0:  (&amp;inode-&gt;i_mutex){--..}, at: [&lt;ffffffff803fe515&gt;] mutex_lock+0x2a/0x2e
+
+stack backtrace:
+
+Call Trace:
+  [&lt;ffffffff80251023&gt;] print_circular_bug_tail+0x70/0x7b
+  [&lt;ffffffff80252c50&gt;] __lock_acquire+0x9d2/0xcf0
+  [&lt;ffffffff802fecdc&gt;] __down_read_trylock+0x16/0x46
+  [&lt;ffffffff80224401&gt;] do_page_fault+0x38e/0x835
+  [&lt;ffffffff80252ff3&gt;] lock_acquire+0x85/0xa9
+  [&lt;ffffffff80224401&gt;] do_page_fault+0x38e/0x835
+  [&lt;ffffffff8024d161&gt;] down_read+0x3e/0x4a
+  [&lt;ffffffff80224401&gt;] do_page_fault+0x38e/0x835
+  [&lt;ffffffff80252f20&gt;] __lock_acquire+0xca2/0xcf0
+  [&lt;ffffffff803fe515&gt;] mutex_lock+0x2a/0x2e
+  [&lt;ffffffff80251be9&gt;] mark_held_locks+0x4a/0x6a
+  [&lt;ffffffff803fe4d2&gt;] __mutex_lock_slowpath+0x277/0x290
+  [&lt;ffffffff804001fd&gt;] error_exit+0x0/0x96
+  [&lt;ffffffff803fe515&gt;] mutex_lock+0x2a/0x2e
+  [&lt;ffffffff8029f7fc&gt;] pipe_read+0x106/0x374
+  [&lt;ffffffff8029f7c3&gt;] pipe_read+0xcd/0x374
+  [&lt;ffffffff80298c81&gt;] do_sync_read+0xe2/0x126
+  [&lt;ffffffff8024a4e4&gt;] autoremove_wake_function+0x0/0x38
+  [&lt;ffffffff802ce09e&gt;] dnotify_parent+0x6b/0x73
+  [&lt;ffffffff802994c4&gt;] vfs_read+0xcc/0x155
+  [&lt;ffffffff80299889&gt;] sys_read+0x47/0x6f
+  [&lt;ffffffff8020c07e&gt;] system_call+0x7e/0x83
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002189.html">[patch 6/6] b43: New firmware file format
+</A></li>
+	<LI>Next message: <A HREF="002131.html">Lock problem with latest b43 patches
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2129">[ date ]</a>
+              <a href="thread.html#2129">[ thread ]</a>
+              <a href="subject.html#2129">[ subject ]</a>
+              <a href="author.html#2129">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,245 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] b43: A patch for control of the radio LED using rfkill
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43%3A%20A%20patch%20for%20control%20of%20the%20radio%20LED%20using%20rfkill&In-Reply-To=%3C200809181931.49636.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004685.html">
+   <LINK REL="Next"  HREF="004689.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] b43: A patch for control of the radio LED using rfkill</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43%3A%20A%20patch%20for%20control%20of%20the%20radio%20LED%20using%20rfkill&In-Reply-To=%3C200809181931.49636.mb%40bu3sch.de%3E"
+       TITLE="[RFC] b43: A patch for control of the radio LED using rfkill">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Sep 18 19:31:49 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004685.html">[RFC] b43: A patch for control of the radio LED using rfkill
+</A></li>
+        <LI>Next message: <A HREF="004689.html">[RFC] b43: A patch for control of the radio LED using rfkill
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4698">[ date ]</a>
+              <a href="thread.html#4698">[ thread ]</a>
+              <a href="subject.html#4698">[ subject ]</a>
+              <a href="author.html#4698">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Thursday 18 September 2008 07:07:51 Larry Finger wrote:
+&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> @@ -44,13 +44,11 @@ static bool b43_is_hw_radio_enabled(stru
+</I>&gt;<i>  	return 0;
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i> -/* The poll callback for the hardware button. */
+</I>&gt;<i> -static void b43_rfkill_poll(struct input_polled_dev *poll_dev)
+</I>&gt;<i> +static void b43_rfkill_update(struct b43_wldev *dev)
+</I>&gt;<i>  {
+</I>&gt;<i> -	struct b43_wldev *dev = poll_dev-&gt;private;
+</I>&gt;<i>  	struct b43_wl *wl = dev-&gt;wl;
+</I>&gt;<i>  	bool enabled;
+</I>&gt;<i> -	bool report_change = 0;
+</I>&gt;<i> +	struct b43_rfkill *rfk = &amp;(dev-&gt;wl-&gt;rfkill);
+</I>&gt;<i>  
+</I>&gt;<i>  	mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;<i>  	if (unlikely(b43_status(dev) &lt; B43_STAT_INITIALIZED)) {
+</I>&gt;<i> @@ -60,18 +58,40 @@ static void b43_rfkill_poll(struct input
+</I>&gt;<i>  	enabled = b43_is_hw_radio_enabled(dev);
+</I>&gt;<i>  	if (unlikely(enabled != dev-&gt;radio_hw_enable)) {
+</I>&gt;<i>  		dev-&gt;radio_hw_enable = enabled;
+</I>&gt;<i> -		report_change = 1;
+</I>&gt;<i>  		b43info(wl, &quot;Radio hardware status changed to %s\n&quot;,
+</I>&gt;<i>  			enabled ? &quot;ENABLED&quot; : &quot;DISABLED&quot;);
+</I>&gt;<i> +		if (!enabled)
+</I>&gt;<i> +			rfkill_force_state(rfk-&gt;rfkill,
+</I>&gt;<i> +					   RFKILL_STATE_HARD_BLOCKED);
+</I>&gt;<i> +		else {
+</I>&gt;<i> +			if (!dev-&gt;phy.radio_on)
+</I>&gt;<i> +				rfkill_force_state(rfk-&gt;rfkill,
+</I>&gt;<i> +						   RFKILL_STATE_SOFT_BLOCKED);
+</I>&gt;<i> +			else
+</I>&gt;<i> +				rfkill_force_state(rfk-&gt;rfkill,
+</I>&gt;<i> +						   RFKILL_STATE_UNBLOCKED);
+</I>&gt;<i> +		}
+</I>&gt;<i>  	}
+</I>&gt;<i>  	mutex_unlock(&amp;wl-&gt;mutex);
+</I>
+Can rfkill_force_state recurse into b43_rfkill_soft_toggle()?
+input_report_key could do this in the past (Dunno if that's still true now),
+so that's why it's done outside of the lock to avoid deadlocks.
+
+Also keep in mind that N and LP(?) devices report state through interrupt.
+
+&gt;<i> +}
+</I>&gt;<i>  
+</I>&gt;<i> -	/* send the radio switch event to the system - note both a key press
+</I>&gt;<i> -	 * and a release are required */
+</I>&gt;<i> -	if (unlikely(report_change)) {
+</I>&gt;<i> -		input_report_key(poll_dev-&gt;input, KEY_WLAN, 1);
+</I>&gt;<i> -		input_report_key(poll_dev-&gt;input, KEY_WLAN, 0);
+</I>&gt;<i> -	}
+</I>&gt;<i> +static void b43_rfkill_poll(unsigned long data)
+</I>&gt;<i> +{
+</I>&gt;<i> +	struct b43_rfkill *rfkill = (struct b43_rfkill *)data;
+</I>&gt;<i> +	schedule_work(&amp;rfkill-&gt;poll_queue);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void b43_rfkill_work(struct work_struct *work)
+</I>&gt;<i> +{
+</I>&gt;<i> +	struct b43_rfkill *rfk = container_of(work, struct b43_rfkill,
+</I>&gt;<i> +					      poll_queue);
+</I>&gt;<i> +	struct b43_wl *wl = container_of(rfk, struct b43_wl, rfkill);
+</I>&gt;<i> +	struct b43_wldev *dev = wl-&gt;current_dev;
+</I>&gt;<i> +
+</I>&gt;<i> +	b43_rfkill_update(dev);
+</I>&gt;<i> +	rfk-&gt;poll_timer.function = b43_rfkill_poll;
+</I>&gt;<i> +	rfk-&gt;poll_timer.expires = round_jiffies(jiffies + HZ);
+</I>&gt;<i> +	add_timer(&amp;rfk-&gt;poll_timer);
+</I>&gt;<i>  }
+</I>
+Why not using delayed work instead of reinventing the wheel?
+Also please schedule it on the mac80211 workqueue to avoid possible
+deadlocks with the networking core.
+
+&gt;<i>  /* Called when the RFKILL toggled in software. */
+</I>&gt;<i> @@ -141,48 +161,23 @@ void b43_rfkill_init(struct b43_wldev *d
+</I>&gt;<i>  	rfk-&gt;rfkill-&gt;toggle_radio = b43_rfkill_soft_toggle;
+</I>&gt;<i>  	rfk-&gt;rfkill-&gt;user_claim_unsupported = 1;
+</I>&gt;<i>  
+</I>&gt;<i> -	rfk-&gt;poll_dev = input_allocate_polled_device();
+</I>&gt;<i> -	if (!rfk-&gt;poll_dev) {
+</I>&gt;<i> -		rfkill_free(rfk-&gt;rfkill);
+</I>&gt;<i> -		goto err_freed_rfk;
+</I>&gt;<i> -	}
+</I>&gt;<i> -
+</I>&gt;<i> -	rfk-&gt;poll_dev-&gt;private = dev;
+</I>&gt;<i> -	rfk-&gt;poll_dev-&gt;poll = b43_rfkill_poll;
+</I>&gt;<i> -	rfk-&gt;poll_dev-&gt;poll_interval = 1000; /* msecs */
+</I>&gt;<i> -
+</I>&gt;<i> -	rfk-&gt;poll_dev-&gt;input-&gt;name = rfk-&gt;name;
+</I>&gt;<i> -	rfk-&gt;poll_dev-&gt;input-&gt;id.bustype = BUS_HOST;
+</I>&gt;<i> -	rfk-&gt;poll_dev-&gt;input-&gt;id.vendor = dev-&gt;dev-&gt;bus-&gt;boardinfo.vendor;
+</I>&gt;<i> -	rfk-&gt;poll_dev-&gt;input-&gt;evbit[0] = BIT(EV_KEY);
+</I>&gt;<i> -	set_bit(KEY_WLAN, rfk-&gt;poll_dev-&gt;input-&gt;keybit);
+</I>&gt;<i> -
+</I>&gt;<i>  	err = rfkill_register(rfk-&gt;rfkill);
+</I>&gt;<i>  	if (err)
+</I>&gt;<i> -		goto err_free_polldev;
+</I>&gt;<i> +		goto err_free_rfk;
+</I>&gt;<i>  
+</I>&gt;<i> -#ifdef CONFIG_RFKILL_INPUT_MODULE
+</I>&gt;<i> -	/* B43 RF-kill isn't useful without the rfkill-input subsystem.
+</I>&gt;<i> -	 * Try to load the module. */
+</I>&gt;<i> -	err = request_module(&quot;rfkill-input&quot;);
+</I>&gt;<i> -	if (err)
+</I>&gt;<i> -		b43warn(wl, &quot;Failed to load the rfkill-input module. &quot;
+</I>&gt;<i> -			&quot;The built-in radio LED will not work.\n&quot;);
+</I>&gt;<i> -#endif /* CONFIG_RFKILL_INPUT */
+</I>&gt;<i> +	rfk-&gt;registered = 1;
+</I>&gt;<i>  
+</I>&gt;<i> -	err = input_register_polled_device(rfk-&gt;poll_dev);
+</I>&gt;<i> -	if (err)
+</I>&gt;<i> -		goto err_unreg_rfk;
+</I>&gt;<i> +	INIT_WORK(&amp;rfk-&gt;poll_queue, b43_rfkill_work);
+</I>&gt;<i>  
+</I>&gt;<i> -	rfk-&gt;registered = 1;
+</I>&gt;<i> +	init_timer(&amp;rfk-&gt;poll_timer);
+</I>&gt;<i> +	rfk-&gt;poll_timer.function = b43_rfkill_poll;
+</I>&gt;<i> +	rfk-&gt;poll_timer.expires = round_jiffies(jiffies + HZ);
+</I>&gt;<i> +	rfk-&gt;poll_timer.data = (unsigned long)rfk;
+</I>&gt;<i> +	add_timer(&amp;rfk-&gt;poll_timer);
+</I>&gt;<i>  
+</I>&gt;<i>  	return;
+</I>&gt;<i> -err_unreg_rfk:
+</I>&gt;<i> -	rfkill_unregister(rfk-&gt;rfkill);
+</I>&gt;<i> -err_free_polldev:
+</I>&gt;<i> -	input_free_polled_device(rfk-&gt;poll_dev);
+</I>&gt;<i> -	rfk-&gt;poll_dev = NULL;
+</I>&gt;<i> -err_freed_rfk:
+</I>&gt;<i> +err_free_rfk:
+</I>&gt;<i> +	rfkill_free(rfk-&gt;rfkill);
+</I>&gt;<i>  	rfk-&gt;rfkill = NULL;
+</I>&gt;<i>  out_error:
+</I>&gt;<i>  	rfk-&gt;registered = 0;
+</I>&gt;<i> @@ -197,9 +192,8 @@ void b43_rfkill_exit(struct b43_wldev *d
+</I>&gt;<i>  		return;
+</I>&gt;<i>  	rfk-&gt;registered = 0;
+</I>&gt;<i>  
+</I>&gt;<i> -	input_unregister_polled_device(rfk-&gt;poll_dev);
+</I>&gt;<i> +	del_timer(&amp;rfk-&gt;poll_timer);
+</I>&gt;<i> +
+</I>
+cancel the work. I'm not sure whether to do it here, however.
+One must take care to avoid deadlocks for wl-&gt;mutex.
+I don't know from the top of my head whether b43_rfkill_exit is called
+with the mutex locked or not. However, in case it is, dropping and
+reaquireing the lock is not an option.
+
+&gt;<i>  	rfkill_unregister(rfk-&gt;rfkill);
+</I>&gt;<i> -	input_free_polled_device(rfk-&gt;poll_dev);
+</I>&gt;<i> -	rfk-&gt;poll_dev = NULL;
+</I>&gt;<i>  	rfk-&gt;rfkill = NULL;
+</I>&gt;<i>  }
+</I>&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/rfkill.h
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/rfkill.h
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/rfkill.h
+</I>&gt;<i> @@ -7,14 +7,14 @@ struct b43_wldev;
+</I>&gt;<i>  #ifdef CONFIG_B43_RFKILL
+</I>&gt;<i>  
+</I>&gt;<i>  #include &lt;linux/rfkill.h&gt;
+</I>&gt;<i> -#include &lt;linux/input-polldev.h&gt;
+</I>&gt;<i> -
+</I>&gt;<i>  
+</I>&gt;<i>  struct b43_rfkill {
+</I>&gt;<i>  	/* The RFKILL subsystem data structure */
+</I>&gt;<i>  	struct rfkill *rfkill;
+</I>&gt;<i> -	/* The poll device for the RFKILL input button */
+</I>&gt;<i> -	struct input_polled_dev *poll_dev;
+</I>&gt;<i> +	/* The timer list for the RFKILL polling */
+</I>&gt;<i> +	struct timer_list poll_timer;
+</I>&gt;<i> +	/* Workqueue for the RFKILL polling */
+</I>&gt;<i> +	struct work_struct poll_queue;
+</I>&gt;<i>  	/* Did initialization succeed? Used for freeing. */
+</I>&gt;<i>  	bool registered;
+</I>&gt;<i>  	/* The unique name of this rfkill switch */
+</I>
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004685.html">[RFC] b43: A patch for control of the radio LED using rfkill
+</A></li>
+	<LI>Next message: <A HREF="004689.html">[RFC] b43: A patch for control of the radio LED using rfkill
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4698">[ date ]</a>
+              <a href="thread.html#4698">[ thread ]</a>
+              <a href="subject.html#4698">[ subject ]</a>
+              <a href="author.html#4698">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,651 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43, 4306: DMA mode doesn't work
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%2C%204306%3A%20DMA%20mode%20doesn%27t%20work&In-Reply-To=%3C200802041947.56568.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003348.html">
+   <LINK REL="Next"  HREF="003350.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43, 4306: DMA mode doesn't work</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%2C%204306%3A%20DMA%20mode%20doesn%27t%20work&In-Reply-To=%3C200802041947.56568.mb%40bu3sch.de%3E"
+       TITLE="b43, 4306: DMA mode doesn't work">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Feb  4 19:47:56 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003348.html">b43, 4306: DMA mode doesn't work
+</A></li>
+        <LI>Next message: <A HREF="003350.html">b43, 4306: DMA mode doesn't work
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3349">[ date ]</a>
+              <a href="thread.html#3349">[ thread ]</a>
+              <a href="subject.html#3349">[ subject ]</a>
+              <a href="author.html#3349">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 04 February 2008, Michael Buesch wrote:
+&gt;<i> On Monday 04 February 2008 18:21:42 Matti Viljanen wrote:
+</I>&gt;<i> &gt; Michael Buesch kirjoitti:
+</I>&gt;<i> &gt; &gt; On Sunday 03 February 2008 22:15:57 David Cohen wrote:
+</I>&gt;<i> &gt; &gt;&gt;&gt; b43-phy0 ERROR: Fatal DMA error: 0x00001000, 0x00000000, 0x00000000,
+</I>&gt;<i> &gt; &gt;&gt;&gt; 0x00000000, 0x00000000, 0x00000000
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; This is a &quot;Descriptor Protocol Error&quot; on the RX DMA engine.
+</I>&gt;<i> &gt; &gt; On which architecture are you running the card and how much RAM
+</I>&gt;<i> &gt; &gt; do you have?
+</I>&gt;<i> &gt; &gt; It seems that the descriptor ring is allocated in a memory region
+</I>&gt;<i> &gt; &gt; not accessible to the DMA engine (above 1G).
+</I>&gt;<i> &gt; &gt; Or the wrong DMA address is passed to the DMA engine, but I'd
+</I>&gt;<i> &gt; &gt; rule that out, as it works for everybody else.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; I am running 2.6.24-git13 i386 kernel on Athlon64 with 2GiB of RAM
+</I>&gt;<i> &gt; (Gentoo updates tend to kill HD's...)
+</I>&gt;<i> 
+</I>&gt;<i> Try an x86_64 kernel. I bet it will work.
+</I>&gt;<i> 
+</I>
+Can you also try the following patch on an i386 kernel?
+
+Index: wireless-2.6/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/dma.c	2008-01-25 00:39:08.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/dma.c	2008-02-04 19:44:00.000000000 +0100
+@@ -334,13 +334,13 @@ static inline int txring_to_priority(str
+ 	index = ring-&gt;index;
+ 	if (B43_WARN_ON(index &gt;= ARRAY_SIZE(idx_to_prio)))
+ 		index = 0;
+ 	return idx_to_prio[index];
+ }
+ 
+-u16 b43_dmacontroller_base(int dma64bit, int controller_idx)
++static u16 b43_dmacontroller_base(enum b43_dmatype type, int controller_idx)
+ {
+ 	static const u16 map64[] = {
+ 		B43_MMIO_DMA64_BASE0,
+ 		B43_MMIO_DMA64_BASE1,
+ 		B43_MMIO_DMA64_BASE2,
+ 		B43_MMIO_DMA64_BASE3,
+@@ -353,13 +353,13 @@ u16 b43_dmacontroller_base(int dma64bit,
+ 		B43_MMIO_DMA32_BASE2,
+ 		B43_MMIO_DMA32_BASE3,
+ 		B43_MMIO_DMA32_BASE4,
+ 		B43_MMIO_DMA32_BASE5,
+ 	};
+ 
+-	if (dma64bit) {
++	if (type == B43_DMA_64BIT) {
+ 		B43_WARN_ON(!(controller_idx &gt;= 0 &amp;&amp;
+ 			      controller_idx &lt; ARRAY_SIZE(map64)));
+ 		return map64[controller_idx];
+ 	}
+ 	B43_WARN_ON(!(controller_idx &gt;= 0 &amp;&amp;
+ 		      controller_idx &lt; ARRAY_SIZE(map32)));
+@@ -434,13 +434,13 @@ static int alloc_ringmemory(struct b43_d
+ 	 * does not cross an 8K boundary.
+ 	 *
+ 	 * For unknown reasons - possibly a hardware error - the BCM4311 rev
+ 	 * 02, which uses 64-bit DMA, needs the ring buffer in very low memory,
+ 	 * which accounts for the GFP_DMA flag below.
+ 	 */
+-	if (ring-&gt;dma64)
++	if (ring-&gt;type == B43_DMA_64BIT)
+ 		flags |= GFP_DMA;
+ 	ring-&gt;descbase = dma_alloc_coherent(dev, B43_DMA_RINGMEMSIZE,
+ 					    &amp;(ring-&gt;dmabase), flags);
+ 	if (!ring-&gt;descbase) {
+ 		b43err(ring-&gt;dev-&gt;wl, &quot;DMA ringmemory allocation failed\n&quot;);
+ 		return -ENOMEM;
+@@ -456,26 +456,28 @@ static void free_ringmemory(struct b43_d
+ 
+ 	dma_free_coherent(dev, B43_DMA_RINGMEMSIZE,
+ 			  ring-&gt;descbase, ring-&gt;dmabase);
+ }
+ 
+ /* Reset the RX DMA channel */
+-int b43_dmacontroller_rx_reset(struct b43_wldev *dev, u16 mmio_base, int dma64)
++static int b43_dmacontroller_rx_reset(struct b43_wldev *dev, u16 mmio_base,
++				      enum b43_dmatype type)
+ {
+ 	int i;
+ 	u32 value;
+ 	u16 offset;
+ 
+ 	might_sleep();
+ 
+-	offset = dma64 ? B43_DMA64_RXCTL : B43_DMA32_RXCTL;
++	offset = (type == B43_DMA_64BIT) ? B43_DMA64_RXCTL : B43_DMA32_RXCTL;
+ 	b43_write32(dev, mmio_base + offset, 0);
+ 	for (i = 0; i &lt; 10; i++) {
+-		offset = dma64 ? B43_DMA64_RXSTATUS : B43_DMA32_RXSTATUS;
++		offset = (type == B43_DMA_64BIT) ? B43_DMA64_RXSTATUS :
++						   B43_DMA32_RXSTATUS;
+ 		value = b43_read32(dev, mmio_base + offset);
+-		if (dma64) {
++		if (type == B43_DMA_64BIT) {
+ 			value &amp;= B43_DMA64_RXSTAT;
+ 			if (value == B43_DMA64_RXSTAT_DISABLED) {
+ 				i = -1;
+ 				break;
+ 			}
+ 		} else {
+@@ -493,24 +495,26 @@ int b43_dmacontroller_rx_reset(struct b4
+ 	}
+ 
+ 	return 0;
+ }
+ 
+ /* Reset the TX DMA channel */
+-int b43_dmacontroller_tx_reset(struct b43_wldev *dev, u16 mmio_base, int dma64)
++static int b43_dmacontroller_tx_reset(struct b43_wldev *dev, u16 mmio_base,
++				      enum b43_dmatype type)
+ {
+ 	int i;
+ 	u32 value;
+ 	u16 offset;
+ 
+ 	might_sleep();
+ 
+ 	for (i = 0; i &lt; 10; i++) {
+-		offset = dma64 ? B43_DMA64_TXSTATUS : B43_DMA32_TXSTATUS;
++		offset = (type == B43_DMA_64BIT) ? B43_DMA64_TXSTATUS :
++						   B43_DMA32_TXSTATUS;
+ 		value = b43_read32(dev, mmio_base + offset);
+-		if (dma64) {
++		if (type == B43_DMA_64BIT) {
+ 			value &amp;= B43_DMA64_TXSTAT;
+ 			if (value == B43_DMA64_TXSTAT_DISABLED ||
+ 			    value == B43_DMA64_TXSTAT_IDLEWAIT ||
+ 			    value == B43_DMA64_TXSTAT_STOPPED)
+ 				break;
+ 		} else {
+@@ -519,18 +523,19 @@ int b43_dmacontroller_tx_reset(struct b4
+ 			    value == B43_DMA32_TXSTAT_IDLEWAIT ||
+ 			    value == B43_DMA32_TXSTAT_STOPPED)
+ 				break;
+ 		}
+ 		msleep(1);
+ 	}
+-	offset = dma64 ? B43_DMA64_TXCTL : B43_DMA32_TXCTL;
++	offset = (type == B43_DMA_64BIT) ? B43_DMA64_TXCTL : B43_DMA32_TXCTL;
+ 	b43_write32(dev, mmio_base + offset, 0);
+ 	for (i = 0; i &lt; 10; i++) {
+-		offset = dma64 ? B43_DMA64_TXSTATUS : B43_DMA32_TXSTATUS;
++		offset = (type == B43_DMA_64BIT) ? B43_DMA64_TXSTATUS :
++						   B43_DMA32_TXSTATUS;
+ 		value = b43_read32(dev, mmio_base + offset);
+-		if (dma64) {
++		if (type == B43_DMA_64BIT) {
+ 			value &amp;= B43_DMA64_TXSTAT;
+ 			if (value == B43_DMA64_TXSTAT_DISABLED) {
+ 				i = -1;
+ 				break;
+ 			}
+ 		} else {
+@@ -549,12 +554,39 @@ int b43_dmacontroller_tx_reset(struct b4
+ 	/* ensure the reset is completed. */
+ 	msleep(1);
+ 
+ 	return 0;
+ }
+ 
++/* Check if a DMA mapping address is invalid. */
++static bool b43_dma_mapping_error(struct b43_dmaring *ring,
++				  dma_addr_t addr,
++				  size_t buffersize)
++{
++	if (unlikely(dma_mapping_error(addr)))
++		return 1;
++
++	switch (ring-&gt;type) {
++	case B43_DMA_30BIT:
++		if ((u64)addr + buffersize &gt; (1ULL &lt;&lt; 30))
++			return 1;
++		break;
++	case B43_DMA_32BIT:
++		if ((u64)addr + buffersize &gt; (1ULL &lt;&lt; 32))
++			return 1;
++		break;
++	case B43_DMA_64BIT:
++		/* Currently we can't have addresses beyond
++		 * 64bit in the kernel. */
++		break;
++	}
++
++	/* The address is OK. */
++	return 0;
++}
++
+ static int setup_rx_descbuffer(struct b43_dmaring *ring,
+ 			       struct b43_dmadesc_generic *desc,
+ 			       struct b43_dmadesc_meta *meta, gfp_t gfp_flags)
+ {
+ 	struct b43_rxhdr_fw4 *rxhdr;
+ 	struct b43_hwtxstatus *txstat;
+@@ -564,26 +596,26 @@ static int setup_rx_descbuffer(struct b4
+ 	B43_WARN_ON(ring-&gt;tx);
+ 
+ 	skb = __dev_alloc_skb(ring-&gt;rx_buffersize, gfp_flags);
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
+ 	dmaaddr = map_descbuffer(ring, skb-&gt;data, ring-&gt;rx_buffersize, 0);
+-	if (dma_mapping_error(dmaaddr)) {
++	if (b43_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize)) {
+ 		/* ugh. try to realloc in zone_dma */
+ 		gfp_flags |= GFP_DMA;
+ 
+ 		dev_kfree_skb_any(skb);
+ 
+ 		skb = __dev_alloc_skb(ring-&gt;rx_buffersize, gfp_flags);
+ 		if (unlikely(!skb))
+ 			return -ENOMEM;
+ 		dmaaddr = map_descbuffer(ring, skb-&gt;data,
+ 					 ring-&gt;rx_buffersize, 0);
+ 	}
+ 
+-	if (dma_mapping_error(dmaaddr)) {
++	if (b43_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize)) {
+ 		dev_kfree_skb_any(skb);
+ 		return -EIO;
+ 	}
+ 
+ 	meta-&gt;skb = skb;
+ 	meta-&gt;dmaaddr = dmaaddr;
+@@ -642,13 +674,13 @@ static int dmacontroller_setup(struct b4
+ 	int err = 0;
+ 	u32 value;
+ 	u32 addrext;
+ 	u32 trans = ssb_dma_translation(ring-&gt;dev-&gt;dev);
+ 
+ 	if (ring-&gt;tx) {
+-		if (ring-&gt;dma64) {
++		if (ring-&gt;type == B43_DMA_64BIT) {
+ 			u64 ringbase = (u64) (ring-&gt;dmabase);
+ 
+ 			addrext = ((ringbase &gt;&gt; 32) &amp; SSB_DMA_TRANSLATION_MASK)
+ 			    &gt;&gt; SSB_DMA_TRANSLATION_SHIFT;
+ 			value = B43_DMA64_TXENABLE;
+ 			value |= (addrext &lt;&lt; B43_DMA64_TXADDREXT_SHIFT)
+@@ -674,13 +706,13 @@ static int dmacontroller_setup(struct b4
+ 				      | trans);
+ 		}
+ 	} else {
+ 		err = alloc_initial_descbuffers(ring);
+ 		if (err)
+ 			goto out;
+-		if (ring-&gt;dma64) {
++		if (ring-&gt;type == B43_DMA_64BIT) {
+ 			u64 ringbase = (u64) (ring-&gt;dmabase);
+ 
+ 			addrext = ((ringbase &gt;&gt; 32) &amp; SSB_DMA_TRANSLATION_MASK)
+ 			    &gt;&gt; SSB_DMA_TRANSLATION_SHIFT;
+ 			value = (ring-&gt;frameoffset &lt;&lt; B43_DMA64_RXFROFF_SHIFT);
+ 			value |= B43_DMA64_RXENABLE;
+@@ -719,22 +751,22 @@ out:
+ 
+ /* Shutdown the DMA controller. */
+ static void dmacontroller_cleanup(struct b43_dmaring *ring)
+ {
+ 	if (ring-&gt;tx) {
+ 		b43_dmacontroller_tx_reset(ring-&gt;dev, ring-&gt;mmio_base,
+-					   ring-&gt;dma64);
+-		if (ring-&gt;dma64) {
++					   ring-&gt;type);
++		if (ring-&gt;type == B43_DMA_64BIT) {
+ 			b43_dma_write(ring, B43_DMA64_TXRINGLO, 0);
+ 			b43_dma_write(ring, B43_DMA64_TXRINGHI, 0);
+ 		} else
+ 			b43_dma_write(ring, B43_DMA32_TXRING, 0);
+ 	} else {
+ 		b43_dmacontroller_rx_reset(ring-&gt;dev, ring-&gt;mmio_base,
+-					   ring-&gt;dma64);
+-		if (ring-&gt;dma64) {
++					   ring-&gt;type);
++		if (ring-&gt;type == B43_DMA_64BIT) {
+ 			b43_dma_write(ring, B43_DMA64_RXRINGLO, 0);
+ 			b43_dma_write(ring, B43_DMA64_RXRINGHI, 0);
+ 		} else
+ 			b43_dma_write(ring, B43_DMA32_RXRING, 0);
+ 	}
+ }
+@@ -783,22 +815,24 @@ static u64 supported_dma_mask(struct b43
+ }
+ 
+ /* Main initialization function. */
+ static
+ struct b43_dmaring *b43_setup_dmaring(struct b43_wldev *dev,
+ 				      int controller_index,
+-				      int for_tx, int dma64)
++				      int for_tx,
++				      enum b43_dmatype type)
+ {
+ 	struct b43_dmaring *ring;
+ 	int err;
+ 	int nr_slots;
+ 	dma_addr_t dma_test;
+ 
+ 	ring = kzalloc(sizeof(*ring), GFP_KERNEL);
+ 	if (!ring)
+ 		goto out;
++	ring-&gt;type = type;
+ 
+ 	nr_slots = B43_RXRING_SLOTS;
+ 	if (for_tx)
+ 		nr_slots = B43_TXRING_SLOTS;
+ 
+ 	ring-&gt;meta = kcalloc(nr_slots, sizeof(struct b43_dmadesc_meta),
+@@ -815,13 +849,13 @@ struct b43_dmaring *b43_setup_dmaring(st
+ 		/* test for ability to dma to txhdr_cache */
+ 		dma_test = dma_map_single(dev-&gt;dev-&gt;dev,
+ 					  ring-&gt;txhdr_cache,
+ 					  b43_txhdr_size(dev),
+ 					  DMA_TO_DEVICE);
+ 
+-		if (dma_mapping_error(dma_test)) {
++		if (b43_dma_mapping_error(ring, dma_test, b43_txhdr_size(dev))) {
+ 			/* ugh realloc */
+ 			kfree(ring-&gt;txhdr_cache);
+ 			ring-&gt;txhdr_cache = kcalloc(nr_slots,
+ 						    b43_txhdr_size(dev),
+ 						    GFP_KERNEL | GFP_DMA);
+ 			if (!ring-&gt;txhdr_cache)
+@@ -829,27 +863,27 @@ struct b43_dmaring *b43_setup_dmaring(st
+ 
+ 			dma_test = dma_map_single(dev-&gt;dev-&gt;dev,
+ 						  ring-&gt;txhdr_cache,
+ 						  b43_txhdr_size(dev),
+ 						  DMA_TO_DEVICE);
+ 
+-			if (dma_mapping_error(dma_test))
++			if (b43_dma_mapping_error(ring, dma_test,
++						  b43_txhdr_size(dev)))
+ 				goto err_kfree_txhdr_cache;
+ 		}
+ 
+ 		dma_unmap_single(dev-&gt;dev-&gt;dev,
+ 				 dma_test, b43_txhdr_size(dev),
+ 				 DMA_TO_DEVICE);
+ 	}
+ 
+ 	ring-&gt;dev = dev;
+ 	ring-&gt;nr_slots = nr_slots;
+-	ring-&gt;mmio_base = b43_dmacontroller_base(dma64, controller_index);
++	ring-&gt;mmio_base = b43_dmacontroller_base(type, controller_index);
+ 	ring-&gt;index = controller_index;
+-	ring-&gt;dma64 = !!dma64;
+-	if (dma64)
++	if (type == B43_DMA_64BIT)
+ 		ring-&gt;ops = &amp;dma64_ops;
+ 	else
+ 		ring-&gt;ops = &amp;dma32_ops;
+ 	if (for_tx) {
+ 		ring-&gt;tx = 1;
+ 		ring-&gt;current_slot = -1;
+@@ -893,14 +927,14 @@ struct b43_dmaring *b43_setup_dmaring(st
+ /* Main cleanup function. */
+ static void b43_destroy_dmaring(struct b43_dmaring *ring)
+ {
+ 	if (!ring)
+ 		return;
+ 
+-	b43dbg(ring-&gt;dev-&gt;wl, &quot;DMA-%s 0x%04X (%s) max used slots: %d/%d\n&quot;,
+-	       (ring-&gt;dma64) ? &quot;64&quot; : &quot;32&quot;,
++	b43dbg(ring-&gt;dev-&gt;wl, &quot;DMA-%u 0x%04X (%s) max used slots: %d/%d\n&quot;,
++	       (unsigned int)(ring-&gt;type),
+ 	       ring-&gt;mmio_base,
+ 	       (ring-&gt;tx) ? &quot;TX&quot; : &quot;RX&quot;, ring-&gt;max_used_slots, ring-&gt;nr_slots);
+ 	/* Device IRQs are disabled prior entering this function,
+ 	 * so no need to take care of concurrency with rx handler stuff.
+ 	 */
+ 	dmacontroller_cleanup(ring);
+@@ -938,75 +972,84 @@ void b43_dma_free(struct b43_wldev *dev)
+ int b43_dma_init(struct b43_wldev *dev)
+ {
+ 	struct b43_dma *dma = &amp;dev-&gt;dma;
+ 	struct b43_dmaring *ring;
+ 	int err;
+ 	u64 dmamask;
+-	int dma64 = 0;
++	enum b43_dmatype type;
+ 
+ 	dmamask = supported_dma_mask(dev);
+-	if (dmamask == DMA_64BIT_MASK)
+-		dma64 = 1;
+-
++	switch (dmamask) {
++	default:
++		B43_WARN_ON(1);
++	case DMA_30BIT_MASK:
++		type = B43_DMA_30BIT;
++		break;
++	case DMA_32BIT_MASK:
++		type = B43_DMA_32BIT;
++		break;
++	case DMA_64BIT_MASK:
++		type = B43_DMA_64BIT;
++		break;
++	}
+ 	err = ssb_dma_set_mask(dev-&gt;dev, dmamask);
+ 	if (err) {
+ 		b43err(dev-&gt;wl, &quot;The machine/kernel does not support &quot;
+ 		       &quot;the required DMA mask (0x%08X%08X)\n&quot;,
+ 		       (unsigned int)((dmamask &amp; 0xFFFFFFFF00000000ULL) &gt;&gt; 32),
+ 		       (unsigned int)(dmamask &amp; 0x00000000FFFFFFFFULL));
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+ 	err = -ENOMEM;
+ 	/* setup TX DMA channels. */
+-	ring = b43_setup_dmaring(dev, 0, 1, dma64);
++	ring = b43_setup_dmaring(dev, 0, 1, type);
+ 	if (!ring)
+ 		goto out;
+ 	dma-&gt;tx_ring0 = ring;
+ 
+-	ring = b43_setup_dmaring(dev, 1, 1, dma64);
++	ring = b43_setup_dmaring(dev, 1, 1, type);
+ 	if (!ring)
+ 		goto err_destroy_tx0;
+ 	dma-&gt;tx_ring1 = ring;
+ 
+-	ring = b43_setup_dmaring(dev, 2, 1, dma64);
++	ring = b43_setup_dmaring(dev, 2, 1, type);
+ 	if (!ring)
+ 		goto err_destroy_tx1;
+ 	dma-&gt;tx_ring2 = ring;
+ 
+-	ring = b43_setup_dmaring(dev, 3, 1, dma64);
++	ring = b43_setup_dmaring(dev, 3, 1, type);
+ 	if (!ring)
+ 		goto err_destroy_tx2;
+ 	dma-&gt;tx_ring3 = ring;
+ 
+-	ring = b43_setup_dmaring(dev, 4, 1, dma64);
++	ring = b43_setup_dmaring(dev, 4, 1, type);
+ 	if (!ring)
+ 		goto err_destroy_tx3;
+ 	dma-&gt;tx_ring4 = ring;
+ 
+-	ring = b43_setup_dmaring(dev, 5, 1, dma64);
++	ring = b43_setup_dmaring(dev, 5, 1, type);
+ 	if (!ring)
+ 		goto err_destroy_tx4;
+ 	dma-&gt;tx_ring5 = ring;
+ 
+ 	/* setup RX DMA channels. */
+-	ring = b43_setup_dmaring(dev, 0, 0, dma64);
++	ring = b43_setup_dmaring(dev, 0, 0, type);
+ 	if (!ring)
+ 		goto err_destroy_tx5;
+ 	dma-&gt;rx_ring0 = ring;
+ 
+ 	if (dev-&gt;dev-&gt;id.revision &lt; 5) {
+-		ring = b43_setup_dmaring(dev, 3, 0, dma64);
++		ring = b43_setup_dmaring(dev, 3, 0, type);
+ 		if (!ring)
+ 			goto err_destroy_rx0;
+ 		dma-&gt;rx_ring3 = ring;
+ 	}
+ 
+-	b43dbg(dev-&gt;wl, &quot;%d-bit DMA initialized\n&quot;,
+-	       (dmamask == DMA_64BIT_MASK) ? 64 :
+-	       (dmamask == DMA_32BIT_MASK) ? 32 : 30);
++	b43dbg(dev-&gt;wl, &quot;%u-bit DMA initialized\n&quot;,
++	       (unsigned int)type);
+ 	err = 0;
+       out:
+ 	return err;
+ 
+       err_destroy_rx0:
+ 	b43_destroy_dmaring(dma-&gt;rx_ring0);
+@@ -1143,13 +1186,13 @@ static int dma_tx_fragment(struct b43_dm
+ 		ring-&gt;used_slots = old_used_slots;
+ 		return err;
+ 	}
+ 
+ 	meta_hdr-&gt;dmaaddr = map_descbuffer(ring, (unsigned char *)header,
+ 					   hdrsize, 1);
+-	if (dma_mapping_error(meta_hdr-&gt;dmaaddr)) {
++	if (b43_dma_mapping_error(ring, meta_hdr-&gt;dmaaddr, hdrsize)) {
+ 		ring-&gt;current_slot = old_top_slot;
+ 		ring-&gt;used_slots = old_used_slots;
+ 		return -EIO;
+ 	}
+ 	ops-&gt;fill_descriptor(ring, desc, meta_hdr-&gt;dmaaddr,
+ 			     hdrsize, 1, 0, 0);
+@@ -1162,13 +1205,13 @@ static int dma_tx_fragment(struct b43_dm
+ 	memcpy(&amp;meta-&gt;txstat.control, ctl, sizeof(*ctl));
+ 	meta-&gt;skb = skb;
+ 	meta-&gt;is_last_fragment = 1;
+ 
+ 	meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+ 	/* create a bounce buffer in zone_dma on mapping failure. */
+-	if (dma_mapping_error(meta-&gt;dmaaddr)) {
++	if (b43_dma_mapping_error(ring, meta-&gt;dmaaddr, skb-&gt;len)) {
+ 		bounce_skb = __dev_alloc_skb(skb-&gt;len, GFP_ATOMIC | GFP_DMA);
+ 		if (!bounce_skb) {
+ 			ring-&gt;current_slot = old_top_slot;
+ 			ring-&gt;used_slots = old_used_slots;
+ 			err = -ENOMEM;
+ 			goto out_unmap_hdr;
+@@ -1176,13 +1219,13 @@ static int dma_tx_fragment(struct b43_dm
+ 
+ 		memcpy(skb_put(bounce_skb, skb-&gt;len), skb-&gt;data, skb-&gt;len);
+ 		dev_kfree_skb_any(skb);
+ 		skb = bounce_skb;
+ 		meta-&gt;skb = skb;
+ 		meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+-		if (dma_mapping_error(meta-&gt;dmaaddr)) {
++		if (b43_dma_mapping_error(ring, meta-&gt;dmaaddr, skb-&gt;len)) {
+ 			ring-&gt;current_slot = old_top_slot;
+ 			ring-&gt;used_slots = old_used_slots;
+ 			err = -EIO;
+ 			goto out_free_bounce;
+ 		}
+ 	}
+Index: wireless-2.6/drivers/net/wireless/b43/dma.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/dma.h	2008-01-09 16:59:33.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/dma.h	2008-02-04 19:19:21.000000000 +0100
+@@ -200,12 +200,18 @@ struct b43_dma_ops {
+ 	void (*tx_suspend) (struct b43_dmaring * ring);
+ 	void (*tx_resume) (struct b43_dmaring * ring);
+ 	int (*get_current_rxslot) (struct b43_dmaring * ring);
+ 	void (*set_current_rxslot) (struct b43_dmaring * ring, int slot);
+ };
+ 
++enum b43_dmatype {
++	B43_DMA_30BIT	= 30,
++	B43_DMA_32BIT	= 32,
++	B43_DMA_64BIT	= 64,
++};
++
+ struct b43_dmaring {
+ 	/* Lowlevel DMA ops. */
+ 	const struct b43_dma_ops *ops;
+ 	/* Kernel virtual base address of the ring memory. */
+ 	void *descbase;
+ 	/* Meta data about all descriptors. */
+@@ -232,14 +238,14 @@ struct b43_dmaring {
+ 	/* The MMIO base register of the DMA controller. */
+ 	u16 mmio_base;
+ 	/* DMA controller index number (0-5). */
+ 	int index;
+ 	/* Boolean. Is this a TX ring? */
+ 	bool tx;
+-	/* Boolean. 64bit DMA if true, 32bit DMA otherwise. */
+-	bool dma64;
++	/* The type of DMA engine used. */
++	enum b43_dmatype type;
+ 	/* Boolean. Is this ring stopped at ieee80211 level? */
+ 	bool stopped;
+ 	/* Lock, only used for TX. */
+ 	spinlock_t lock;
+ 	struct b43_wldev *dev;
+ #ifdef CONFIG_B43_DEBUG
+@@ -252,28 +258,20 @@ struct b43_dmaring {
+ 
+ static inline u32 b43_dma_read(struct b43_dmaring *ring, u16 offset)
+ {
+ 	return b43_read32(ring-&gt;dev, ring-&gt;mmio_base + offset);
+ }
+ 
+-static inline
+-    void b43_dma_write(struct b43_dmaring *ring, u16 offset, u32 value)
++static inline void b43_dma_write(struct b43_dmaring *ring, u16 offset, u32 value)
+ {
+ 	b43_write32(ring-&gt;dev, ring-&gt;mmio_base + offset, value);
+ }
+ 
+ int b43_dma_init(struct b43_wldev *dev);
+ void b43_dma_free(struct b43_wldev *dev);
+ 
+-int b43_dmacontroller_rx_reset(struct b43_wldev *dev,
+-			       u16 dmacontroller_mmio_base, int dma64);
+-int b43_dmacontroller_tx_reset(struct b43_wldev *dev,
+-			       u16 dmacontroller_mmio_base, int dma64);
+-
+-u16 b43_dmacontroller_base(int dma64bit, int dmacontroller_idx);
+-
+ void b43_dma_tx_suspend(struct b43_wldev *dev);
+ void b43_dma_tx_resume(struct b43_wldev *dev);
+ 
+ void b43_dma_get_tx_stats(struct b43_wldev *dev,
+ 			  struct ieee80211_tx_queue_stats *stats);
+ 
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003348.html">b43, 4306: DMA mode doesn't work
+</A></li>
+	<LI>Next message: <A HREF="003350.html">b43, 4306: DMA mode doesn't work
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3349">[ date ]</a>
+              <a href="thread.html#3349">[ thread ]</a>
+              <a href="subject.html#3349">[ subject ]</a>
+              <a href="author.html#3349">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

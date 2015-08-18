@@ -1,0 +1,486 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] b43-utilities: ssb-vsprom: Add program to create on-disk,	virtual SPROM
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43-utilities%3A%20ssb-vsprom%3A%20Add%20program%20to%20create%20on-disk%2C%0A%09virtual%20SPROM&In-Reply-To=%3C4ba52cfe.WVIpy0wWJxQ3cils%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="007120.html">
+   <LINK REL="Next"  HREF="007128.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] b43-utilities: ssb-vsprom: Add program to create on-disk,	virtual SPROM</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43-utilities%3A%20ssb-vsprom%3A%20Add%20program%20to%20create%20on-disk%2C%0A%09virtual%20SPROM&In-Reply-To=%3C4ba52cfe.WVIpy0wWJxQ3cils%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[RFC] b43-utilities: ssb-vsprom: Add program to create on-disk,	virtual SPROM">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Mar 20 21:15:58 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="007120.html">RFC: A workaround for BCM43XX devices with no on-board SPROM
+</A></li>
+        <LI>Next message: <A HREF="007128.html">[PATCH] ssb: Implement virtual SPROM on disk
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7127">[ date ]</a>
+              <a href="thread.html#7127">[ thread ]</a>
+              <a href="subject.html#7127">[ subject ]</a>
+              <a href="author.html#7127">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Some of the new implementations of BCM43xx devices do not have a
+physical SPROM on the device. The necessary data for such a device
+could be embedded in the kernel; however, we have a need to supply
+a unique and reproducible MAC address.
+
+This patch implements a user-space utility that has an embedded
+Rev. 8 SPROM taken from a BCM4315. A random number generator is used
+to create a MAC address that should be unique. To make this address
+reproducible, it is written to the firmware directory where the PCI
+initialization portion of ssb can read it. This program checks for
+an existing virtual SPROM, and will operwrite it only when the appropriate
+switch is used when starting the program.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: sprom/vsprom/vsprom.c
+===================================================================
+--- /dev/null
++++ sprom/vsprom/vsprom.c
+@@ -0,0 +1,344 @@
++/*
++ * virtual SPROM image writer for broadcom 43xx wireless devices
++ *
++ * This program creates an on-disk image of an SPROM for those BCM43xx
++ * devices that do not have a built-in SPROM. The image is created from
++ * one obtained from a BCM4315 with a random MAC address.
++ *
++ * Copyright (c) 2010 Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
++ *
++ * Some routines copied from b43-fwcutter, which is
++ *
++ * Copyright (c) 2005 Martin Langer &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">martin-langer at gmx.de</A>&gt;,
++ *               2005-2007 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
++ *		 2005 Alex Beregszaszi
++ *		 2007 Johannes Berg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">johannes at sipsolutions.net</A>&gt;
++ *
++ * Other routines from ssb_sprom, which is
++ *
++ * Copyright (c) 2006-2008 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
++ * Copyright (c) 2008 Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
++ *
++ *   Redistribution and use in source and binary forms, with or without
++ *   modification, are permitted provided that the following conditions
++ *   are met:
++ *
++ *     1. Redistributions of source code must retain the above copyright
++ *        notice, this list of conditions and the following disclaimer.
++ *     2. Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials provided
++ *        with the distribution.
++ *
++ *   THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
++ *   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ *   OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ *   DISCLAIMED. IN NO EVENT SHALL THE CONTRIBUTORS BE LIABLE FOR ANY
++ *   DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++ *   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
++ *   GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ *   INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ *   WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
++ *   OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
++ *   EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include &lt;stdio.h&gt;
++#include &lt;stdlib.h&gt;
++#include &lt;string.h&gt;
++#include &lt;time.h&gt;
++#include &lt;stdint.h&gt;
++#include &lt;errno.h&gt;
++#include &lt;errno.h&gt;
++#include &lt;sys/stat.h&gt;
++#include &lt;sys/types.h&gt;
++
++#include &quot;vsprom.h&quot;
++
++static struct cmdline_args cmdargs;
++
++uint8_t crc8(uint8_t crc, uint8_t data)
++{
++	static const uint8_t t[] = {
++		0x00, 0xF7, 0xB9, 0x4E, 0x25, 0xD2, 0x9C, 0x6B,
++		0x4A, 0xBD, 0xF3, 0x04, 0x6F, 0x98, 0xD6, 0x21,
++		0x94, 0x63, 0x2D, 0xDA, 0xB1, 0x46, 0x08, 0xFF,
++		0xDE, 0x29, 0x67, 0x90, 0xFB, 0x0C, 0x42, 0xB5,
++		0x7F, 0x88, 0xC6, 0x31, 0x5A, 0xAD, 0xE3, 0x14,
++		0x35, 0xC2, 0x8C, 0x7B, 0x10, 0xE7, 0xA9, 0x5E,
++		0xEB, 0x1C, 0x52, 0xA5, 0xCE, 0x39, 0x77, 0x80,
++		0xA1, 0x56, 0x18, 0xEF, 0x84, 0x73, 0x3D, 0xCA,
++		0xFE, 0x09, 0x47, 0xB0, 0xDB, 0x2C, 0x62, 0x95,
++		0xB4, 0x43, 0x0D, 0xFA, 0x91, 0x66, 0x28, 0xDF,
++		0x6A, 0x9D, 0xD3, 0x24, 0x4F, 0xB8, 0xF6, 0x01,
++		0x20, 0xD7, 0x99, 0x6E, 0x05, 0xF2, 0xBC, 0x4B,
++		0x81, 0x76, 0x38, 0xCF, 0xA4, 0x53, 0x1D, 0xEA,
++		0xCB, 0x3C, 0x72, 0x85, 0xEE, 0x19, 0x57, 0xA0,
++		0x15, 0xE2, 0xAC, 0x5B, 0x30, 0xC7, 0x89, 0x7E,
++		0x5F, 0xA8, 0xE6, 0x11, 0x7A, 0x8D, 0xC3, 0x34,
++		0xAB, 0x5C, 0x12, 0xE5, 0x8E, 0x79, 0x37, 0xC0,
++		0xE1, 0x16, 0x58, 0xAF, 0xC4, 0x33, 0x7D, 0x8A,
++		0x3F, 0xC8, 0x86, 0x71, 0x1A, 0xED, 0xA3, 0x54,
++		0x75, 0x82, 0xCC, 0x3B, 0x50, 0xA7, 0xE9, 0x1E,
++		0xD4, 0x23, 0x6D, 0x9A, 0xF1, 0x06, 0x48, 0xBF,
++		0x9E, 0x69, 0x27, 0xD0, 0xBB, 0x4C, 0x02, 0xF5,
++		0x40, 0xB7, 0xF9, 0x0E, 0x65, 0x92, 0xDC, 0x2B,
++		0x0A, 0xFD, 0xB3, 0x44, 0x2F, 0xD8, 0x96, 0x61,
++		0x55, 0xA2, 0xEC, 0x1B, 0x70, 0x87, 0xC9, 0x3E,
++		0x1F, 0xE8, 0xA6, 0x51, 0x3A, 0xCD, 0x83, 0x74,
++		0xC1, 0x36, 0x78, 0x8F, 0xE4, 0x13, 0x5D, 0xAA,
++		0x8B, 0x7C, 0x32, 0xC5, 0xAE, 0x59, 0x17, 0xE0,
++		0x2A, 0xDD, 0x93, 0x64, 0x0F, 0xF8, 0xB6, 0x41,
++		0x60, 0x97, 0xD9, 0x2E, 0x45, 0xB2, 0xFC, 0x0B,
++		0xBE, 0x49, 0x07, 0xF0, 0x9B, 0x6C, 0x22, 0xD5,
++		0xF4, 0x03, 0x4D, 0xBA, 0xD1, 0x26, 0x68, 0x9F,
++	};
++	return t[crc ^ data];
++}
++
++static uint8_t sprom_crc(uint8_t *sprom, int sprom_size)
++{
++	int i;
++	uint8_t crc = 0xFF;
++
++	for (i = 0; i &lt; sprom_size - 1; i++)
++		crc = crc8(crc, sprom[i]);
++	crc ^= 0xFF;
++
++	return crc;
++}
++
++static int validate_input(uint8_t *sprom, int sprom_size)
++{
++	uint8_t crc, expected_crc;
++
++	crc = sprom_crc(sprom, sprom_size);
++	expected_crc = sprom[sprom_size - 1];
++	if (crc != expected_crc) {
++		fprintf(stderr, &quot;Corrupt input data (crc: 0x%02X, expected: 0x%02X)\n&quot;,
++			crc, expected_crc);
++		return 1;
++	}
++	return 0;
++}
++
++static void output_sprom_image(void)
++{
++	char nbuf[1024];
++	FILE *fd;
++	int i, r;
++	int sprom_size;
++
++	/* Rev 8 SPROM data copied from a BCM4312 */
++	uint8_t sprom_data[] = {
++		0x01, 0x28, 0x00, 0x00, 0x7C, 0x13, 0x3C, 0x10, 0x78, 0x00,
++		0xBE, 0x6D, 0x00, 0x00, 0xC4, 0x2B, 0x64, 0x2A, 0x64, 0x29,
++		0x64, 0x2C, 0xE7, 0x3C, 0xFF, 0x46, 0x7F, 0x47, 0x00, 0x0C,
++		0x40, 0x78, 0xA0, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x15, 0x43, 0x00, 0x80,
++		0x02, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x18, 0x00, 0x00,
++		0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x72, 0x53,
++		0x11, 0x12, 0x01, 0x0A, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00,
++		0x1A, 0x00, 0xFE, 0x73, 0x64, 0xAD, 0x53, 0x55, 0x01, 0x00,
++		0xFF, 0x83, 0xFF, 0xFF, 0xFF, 0xFF, 0x03, 0x00, 0x02, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0x0F, 0x00, 0xFF, 0xFF, 0x6C, 0x00,
++		0xFF, 0xFF, 0xFA, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0x4A, 0x3E, 0x57, 0x1A, 0x8A, 0xF9, 0x91, 0xFE,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0x08, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x08, 0x5C
++	};
++
++	sprom_size = sizeof(sprom_data);
++	if (validate_input(sprom_data, sprom_size))
++		return;;
++	/* Initialize the random number generator */
++	srand(time(NULL));
++	/* generate a random MAC */
++	for (i = 0; i &lt; 6; i++)
++		sprom_data[0x8C + i] = rand() % 64;
++	/* Adjust the random MAC to satisfy the following:
++	 * 1. Clear the multicast bit - lsb of first byte
++	 * 2. Set the LAA bit - bit 1 of first byte
++	 */
++	sprom_data[0x8C] = (sprom_data[0x8C] &amp; ~1) | 2;
++	/* calculate the new CRC and store it */
++	sprom_data[sprom_size - 1] = sprom_crc(sprom_data, sprom_size);
++
++	r = snprintf(nbuf, sizeof(nbuf),
++		     &quot;%s/ssb&quot;, cmdargs.target_dir);
++	if (r &gt;= sizeof(nbuf)) {
++		fprintf(stderr, &quot;name too long&quot;);
++		exit(2);
++	}
++
++	r = mkdir(nbuf, 0770);
++	if (r &amp;&amp; errno != EEXIST) {
++		perror(&quot;failed to create output directory&quot;);
++		exit(2);
++	}
++
++	/* output the massaged SPROM image */
++	r = snprintf(nbuf, sizeof(nbuf), &quot;%s/ssb/vsprom_image&quot;, cmdargs.target_dir);
++	if (r &gt;= sizeof(nbuf)) {
++		fprintf(stderr, &quot;name too long&quot;);
++		exit(2);
++	}
++	fd = fopen(nbuf, &quot;r&quot;);
++	if (fd &amp;&amp; !cmdargs.overwrite) {
++		printf(&quot;The virtual sprom already exists.&quot;
++			&quot; To overwite, use the -O switch\n&quot;);
++		fclose(fd);
++		return;
++	}
++	fd = fopen(nbuf, &quot;w&quot;);
++	if (!fd) {
++		printf(&quot;Failed to open SPROM image file\n&quot;);
++		return;
++	}
++	if (fwrite(sprom_data, sizeof(sprom_data), 1, fd) != 1)
++		printf(&quot;Error writing SPROM image file\n&quot;);
++	else
++		printf(&quot;Wrote virtual SPROM image at %s\n&quot;, nbuf);
++	fclose(fd);
++}
++
++static void print_usage(int argc, char *argv[])
++{
++	printf(&quot;\n%s\n&quot;, argv[0]);
++	printf(&quot;\nA tool to create an on-disk SPROM image for a Broadcom 43xx device\n&quot;);
++	printf(&quot;\nUsage: %s [OPTION]\n&quot;, argv[0]);
++	printf(&quot;  -O|--overwrite        &quot;
++	       &quot;Overwrite an existing image\n&quot;);
++	printf(&quot;  -w|--target-dir DIR   &quot;
++	       &quot;Write SPROM image to DIR (sub-directory /ssb is implicit)\n&quot;);
++	printf(&quot;  -h|--help             &quot;
++	       &quot;Print this help\n&quot;);
++	printf(&quot;\nExample: %s -w /lib/firmware\n&quot;
++	       &quot;         to store an SPROM image in /lib/firmware/ssb\n&quot;,
++	       argv[0]);
++}
++
++static int do_cmp_arg(char **argv, int *pos,
++		      const char *template,
++		      int allow_merged,
++		      char **param)
++{
++	char *arg;
++	char *next_arg;
++	size_t arg_len, template_len;
++
++	arg = argv[*pos];
++	next_arg = argv[*pos + 1];
++	arg_len = strlen(arg);
++	template_len = strlen(template);
++
++	if (param) {
++		/* Maybe we have a merged parameter here.
++		 * A merged parameter is &quot;-pfoobar&quot; for example.
++		 */
++		if (allow_merged &amp;&amp; arg_len &gt; template_len) {
++			if (memcmp(arg, template, template_len) == 0) {
++				*param = arg + template_len;
++				return ARG_MATCH;
++			}
++			return ARG_NOMATCH;
++		} else if (arg_len != template_len)
++			return ARG_NOMATCH;
++		*param = next_arg;
++	}
++	if (strcmp(arg, template) == 0) {
++		if (param) {
++			/* Skip the parameter on the next iteration. */
++			(*pos)++;
++			if (!*param) {
++				printf(&quot;%s needs a parameter\n&quot;, arg);
++				return ARG_ERROR;
++			}
++		}
++		return ARG_MATCH;
++	}
++
++	return ARG_NOMATCH;
++}
++
++/* Simple and lean command line argument parsing. */
++static int cmp_arg(char **argv, int *pos,
++		   const char *long_template,
++		   const char *short_template,
++		   char **param)
++{
++	int err;
++
++	if (long_template) {
++		err = do_cmp_arg(argv, pos, long_template, 0, param);
++		if (err == ARG_MATCH || err == ARG_ERROR)
++			return err;
++	}
++	err = ARG_NOMATCH;
++	if (short_template)
++		err = do_cmp_arg(argv, pos, short_template, 1, param);
++	return err;
++}
++
++int main(int argc, char **argv)
++{
++	int i, res;
++	char *param;
++
++	cmdargs.overwrite = 0;
++	cmdargs.target_dir = &quot;.&quot;;
++	for (i = 0; i &lt; argc; i++) {
++		res = cmp_arg(argv, &amp;i, &quot;--target-dir&quot;, &quot;-w&quot;, &amp;param);
++		if (res == ARG_MATCH) {
++			cmdargs.target_dir = param;
++			continue;
++		} else if (res == ARG_ERROR)
++			goto out;
++		res = cmp_arg(argv, &amp;i, &quot;--overwrite&quot;, &quot;-O&quot;, NULL);
++		if (res == ARG_MATCH) {
++			cmdargs.overwrite = 1;
++			continue;
++		} else if (res == ARG_ERROR)
++			goto out;
++		res = cmp_arg(argv, &amp;i, &quot;--help&quot;, &quot;-h&quot;, NULL);
++		if (res == ARG_MATCH) {
++			goto out;
++			return 0;
++		} else if (res == ARG_ERROR)
++			goto out;
++	}
++	output_sprom_image();
++	return 0;
++out:
++	print_usage(argc, argv);
++	return 1;
++}
+Index: sprom/vsprom/Makefile
+===================================================================
+--- /dev/null
++++ sprom/vsprom/Makefile
+@@ -0,0 +1,37 @@
++CC		= gcc
++
++PREFIX ?= /usr/local
++CFLAGS		?= -Os -fomit-frame-pointer
++CFLAGS		+= -std=c99 -Wall -pedantic -D_BSD_SOURCE
++LDFLAGS		?=
++
++SRCS = vsprom.c
++BIN	= ssb-vsprom
++
++.SUFFIXES:
++.PHONY: all install clean distclean
++.DEFAULT_GOAL := all
++.SILENT:
++
++OBJS = vsprom.o
++
++# Generate object files
++$(OBJS): $(SRCS) vsprom.h
++	echo Compiling $&lt;
++	$(CC) -o $@ -c $(CFLAGS) $&lt;
++
++all: $(BIN)
++
++$(BIN): $(OBJS)
++	echo Linking $(BIN)
++	$(CC) $(CFLAGS) -o $(BIN) $(OBJS) $(LDFLAGS)
++
++install: all
++	install -d -o 0 -g 0 -m 755 $(PREFIX)/bin/
++	install -o 0 -g 0 -m 755 $(BIN) $(PREFIX)/bin/
++
++clean:
++	-rm -Rf obj dep *.orig *.rej *~
++
++distclean: clean
++	-rm -f *.fw $(BIN)
+Index: sprom/vsprom/vsprom.h
+===================================================================
+--- /dev/null
++++ sprom/vsprom/vsprom.h
+@@ -0,0 +1,13 @@
++#ifndef VSPROM_H
++#define VSPROM_H
++
++struct cmdline_args {
++	const char *target_dir;
++	int overwrite;
++};
++
++#define ARG_MATCH	0
++#define ARG_NOMATCH	1
++#define ARG_ERROR	-1
++
++#endif /* VSPROM_H */
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="007120.html">RFC: A workaround for BCM43XX devices with no on-board SPROM
+</A></li>
+	<LI>Next message: <A HREF="007128.html">[PATCH] ssb: Implement virtual SPROM on disk
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7127">[ date ]</a>
+              <a href="thread.html#7127">[ thread ]</a>
+              <a href="subject.html#7127">[ subject ]</a>
+              <a href="author.html#7127">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

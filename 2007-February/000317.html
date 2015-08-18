@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Bcm43xx oops after suspend to disk
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Bcm43xx%20oops%20after%20suspend%20to%20disk&In-Reply-To=%3C45C61B09.7010102%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000316.html">
+   <LINK REL="Next"  HREF="000322.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Bcm43xx oops after suspend to disk</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Bcm43xx%20oops%20after%20suspend%20to%20disk&In-Reply-To=%3C45C61B09.7010102%40lwfinger.net%3E"
+       TITLE="Bcm43xx oops after suspend to disk">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Sun Feb  4 18:42:33 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000316.html">Free Linux Driver Development!
+</A></li>
+        <LI>Next message: <A HREF="000322.html">Bcm43xx oops after suspend to disk
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#317">[ date ]</a>
+              <a href="thread.html#317">[ thread ]</a>
+              <a href="subject.html#317">[ subject ]</a>
+              <a href="author.html#317">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>roucaries bastien wrote:
+&gt;<i> 
+</I>&gt;<i> Sorry for the delay it works. This time I can use iwlist eth scan.
+</I>&gt;<i> I have some difficulties to associate and I need to rmmod/modprobe in
+</I>&gt;<i> order to associate but it is another problem linked to a really weak
+</I>&gt;<i> power.
+</I>
+Bastien,
+
+Please try this patch instead.
+
+Thanks,
+
+Larry
+
+============================
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -3638,6 +3638,7 @@ error:
+ static int bcm43xx_init_board(struct bcm43xx_private *bcm)
+ {
+ 	int err;
++	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+
+ 	mutex_lock(&amp;(bcm)-&gt;mutex);
+
+@@ -3658,6 +3659,8 @@ static int bcm43xx_init_board(struct bcm
+ 	if (err)
+ 		goto err_sysfs_unreg;
+ 	bcm43xx_periodic_tasks_setup(bcm);
++	/* force initial LO calibration */
++	phy-&gt;lo_control-&gt;txctl2 = 0xFFFF;
+
+ 	/*FIXME: This should be handled by softmac instead. */
+ 	schedule_delayed_work(&amp;bcm-&gt;softmac-&gt;associnfo.work, 0);
+@@ -3763,7 +3766,6 @@ static int bcm43xx_read_phyinfo(struct b
+ 		phy-&gt;lo_control = kzalloc(sizeof(*(phy-&gt;lo_control)), GFP_KERNEL);
+ 		if (!phy-&gt;lo_control)
+ 			return -ENOMEM;
+-		phy-&gt;lo_control-&gt;txctl2 = 0xFFFF;//FIXME this is the wrong place
+ 	}
+
+ 	return 0;
+
+----
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000316.html">Free Linux Driver Development!
+</A></li>
+	<LI>Next message: <A HREF="000322.html">Bcm43xx oops after suspend to disk
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#317">[ date ]</a>
+              <a href="thread.html#317">[ thread ]</a>
+              <a href="subject.html#317">[ subject ]</a>
+              <a href="author.html#317">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

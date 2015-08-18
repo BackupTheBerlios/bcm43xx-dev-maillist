@@ -1,0 +1,233 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC/T] b43: Implement the BCM94311MCG rev 02 card with a rev 13	802.11 core
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/T%5D%20b43%3A%20Implement%20the%20BCM94311MCG%20rev%2002%20card%20with%20a%20rev%2013%0A%09802.11%20core&In-Reply-To=%3C200711151138.17468.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002785.html">
+   <LINK REL="Next"  HREF="002787.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC/T] b43: Implement the BCM94311MCG rev 02 card with a rev 13	802.11 core</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/T%5D%20b43%3A%20Implement%20the%20BCM94311MCG%20rev%2002%20card%20with%20a%20rev%2013%0A%09802.11%20core&In-Reply-To=%3C200711151138.17468.mb%40bu3sch.de%3E"
+       TITLE="[RFC/T] b43: Implement the BCM94311MCG rev 02 card with a rev 13	802.11 core">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Nov 15 11:38:16 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002785.html">b43 with BCM4318 [AirForce One 54g] gets 2Mb/sec
+</A></li>
+        <LI>Next message: <A HREF="002787.html">[RFC/T] b43: Implement the BCM94311MCG rev 02 card with a rev	13 802.11 core
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2786">[ date ]</a>
+              <a href="thread.html#2786">[ thread ]</a>
+              <a href="subject.html#2786">[ subject ]</a>
+              <a href="author.html#2786">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Thursday 15 November 2007 06:55:42 Larry Finger wrote:
+&gt;<i> This patch file will enable the usage of the b43 driver with the
+</I>&gt;<i> BCM94311MCG wlan mini-PCI (rev 02), which has not been supported.
+</I>&gt;<i> This PCIe card uses 64-bit DMA. Most of the changes were needed
+</I>&gt;<i> to implement this mode. It has been tested on the x86_64 architecture,
+</I>&gt;<i> but should work on all platforms. FYI, full 64-bit DMA addressing
+</I>&gt;<i> is implemented and the driver should work with a full 2^(64) bytes
+</I>&gt;<i> of RAM. No, I have not tested that feature!
+</I>&gt;<i> 
+</I>&gt;<i> This patch is intended to be applied to the everything branch of
+</I>&gt;<i> the wireless-2.6 git tree. For it to work, the set of 6 patches to
+</I>&gt;<i> modify the SPROM handling code of ssb that I recently submitted must
+</I>&gt;<i> be applied as well.
+</I>&gt;<i> 
+</I>&gt;<i> There is one anomaly with the code. When it initializes the DMA, and
+</I>&gt;<i> enables interrupts for the first time, a single &quot;PHY TX Error&quot; is
+</I>&gt;<i> generated. I have code to suppress that error message; however, it was
+</I>&gt;<i> in the bottom-half interrupt handler, and I'm still trying to fix it
+</I>&gt;<i> in less critical code.
+</I>&gt;<i> 
+</I>&gt;<i> The commitment text is shown below:
+</I>
+&gt;<i> Index: wireless-2.6/drivers/net/wireless/b43/dma.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-2.6.orig/drivers/net/wireless/b43/dma.c
+</I>&gt;<i> +++ wireless-2.6/drivers/net/wireless/b43/dma.c
+</I>&gt;<i> @@ -165,7 +165,7 @@ static void op64_fill_descriptor(struct 
+</I>&gt;<i>  	addrhi = (((u64) dmaaddr &gt;&gt; 32) &amp; ~SSB_DMA_TRANSLATION_MASK);
+</I>&gt;<i>  	addrext = (((u64) dmaaddr &gt;&gt; 32) &amp; SSB_DMA_TRANSLATION_MASK)
+</I>&gt;<i>  	    &gt;&gt; SSB_DMA_TRANSLATION_SHIFT;
+</I>&gt;<i> -	addrhi |= ssb_dma_translation(ring-&gt;dev-&gt;dev);
+</I>&gt;<i> +	addrhi |= (ssb_dma_translation(ring-&gt;dev-&gt;dev) &lt;&lt; 1);
+</I>&gt;<i>  	if (slot == ring-&gt;nr_slots - 1)
+</I>&gt;<i>  		ctl0 |= B43_DMA64_DCTL0_DTABLEEND;
+</I>&gt;<i>  	if (start)
+</I>
+Wait, this looks broken to me. It looks like the bug is more
+inside of the ssb_dma_translation function, rather than here.
+
+&gt;<i> @@ -426,14 +426,15 @@ static inline
+</I>&gt;<i>  static int alloc_ringmemory(struct b43_dmaring *ring)
+</I>&gt;<i>  {
+</I>&gt;<i>  	struct device *dev = ring-&gt;dev-&gt;dev-&gt;dev;
+</I>&gt;<i> +	int size = (ring-&gt;dma64) ? 8192 : B43_DMA_RINGMEMSIZE;
+</I>
+Uhm, a page is also 4k in x86_64?
+Why doesn't using a page here work? What does happen?
+
+&gt;<i> -	ring-&gt;descbase = dma_alloc_coherent(dev, B43_DMA_RINGMEMSIZE,
+</I>&gt;<i> +	ring-&gt;descbase = dma_alloc_coherent(dev, size,
+</I>&gt;<i>  					    &amp;(ring-&gt;dmabase), GFP_KERNEL);
+</I>&gt;<i>  	if (!ring-&gt;descbase) {
+</I>&gt;<i>  		b43err(ring-&gt;dev-&gt;wl, &quot;DMA ringmemory allocation failed\n&quot;);
+</I>&gt;<i>  		return -ENOMEM;
+</I>&gt;<i>  	}
+</I>&gt;<i> -	memset(ring-&gt;descbase, 0, B43_DMA_RINGMEMSIZE);
+</I>&gt;<i> +	memset(ring-&gt;descbase, 0, size);
+</I>&gt;<i>  
+</I>&gt;<i>  	return 0;
+</I>&gt;<i>  }
+</I>&gt;<i> @@ -483,7 +484,7 @@ int b43_dmacontroller_rx_reset(struct b4
+</I>&gt;<i>  	return 0;
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i> -/* Reset the RX DMA channel */
+</I>&gt;<i> +/* Reset the TX DMA channel */
+</I>&gt;<i>  int b43_dmacontroller_tx_reset(struct b43_wldev *dev, u16 mmio_base, int dma64)
+</I>&gt;<i>  {
+</I>&gt;<i>  	int i;
+</I>&gt;<i> @@ -636,18 +637,13 @@ static int dmacontroller_setup(struct b4
+</I>&gt;<i>  		if (ring-&gt;dma64) {
+</I>&gt;<i>  			u64 ringbase = (u64) (ring-&gt;dmabase);
+</I>&gt;<i>  
+</I>&gt;<i> -			addrext = ((ringbase &gt;&gt; 32) &amp; SSB_DMA_TRANSLATION_MASK)
+</I>&gt;<i> -			    &gt;&gt; SSB_DMA_TRANSLATION_SHIFT;
+</I>&gt;<i> -			value = B43_DMA64_TXENABLE;
+</I>&gt;<i> -			value |= (addrext &lt;&lt; B43_DMA64_TXADDREXT_SHIFT)
+</I>&gt;<i> -			    &amp; B43_DMA64_TXADDREXT_MASK;
+</I>&gt;<i> -			b43_dma_write(ring, B43_DMA64_TXCTL, value);
+</I>&gt;<i> +			b43_dma_write(ring, B43_DMA64_TXCTL,
+</I>&gt;<i> +				      B43_DMA64_TXENABLE);
+</I>
+Ehm, why are you removing this?
+
+&gt;<i>  			b43_dma_write(ring, B43_DMA64_TXRINGLO,
+</I>&gt;<i>  				      (ringbase &amp; 0xFFFFFFFF));
+</I>&gt;<i>  			b43_dma_write(ring, B43_DMA64_TXRINGHI,
+</I>&gt;<i>  				      ((ringbase &gt;&gt; 32) &amp;
+</I>&gt;<i> -				       ~SSB_DMA_TRANSLATION_MASK)
+</I>&gt;<i> -				      | trans);
+</I>&gt;<i> +				       0xFFFFFFFF));
+</I>
+Huh?
+
+&gt;<i>  		} else {
+</I>&gt;<i>  			u32 ringbase = (u32) (ring-&gt;dmabase);
+</I>&gt;<i>  
+</I>&gt;<i> @@ -668,20 +664,16 @@ static int dmacontroller_setup(struct b4
+</I>&gt;<i>  		if (ring-&gt;dma64) {
+</I>&gt;<i>  			u64 ringbase = (u64) (ring-&gt;dmabase);
+</I>&gt;<i>  
+</I>&gt;<i> -			addrext = ((ringbase &gt;&gt; 32) &amp; SSB_DMA_TRANSLATION_MASK)
+</I>&gt;<i> -			    &gt;&gt; SSB_DMA_TRANSLATION_SHIFT;
+</I>&gt;<i> -			value = (ring-&gt;frameoffset &lt;&lt; B43_DMA64_RXFROFF_SHIFT);
+</I>&gt;<i> -			value |= B43_DMA64_RXENABLE;
+</I>&gt;<i> -			value |= (addrext &lt;&lt; B43_DMA64_RXADDREXT_SHIFT)
+</I>&gt;<i> -			    &amp; B43_DMA64_RXADDREXT_MASK;
+</I>&gt;<i> +			value = (ring-&gt;frameoffset &lt;&lt; B43_DMA64_RXFROFF_SHIFT)
+</I>&gt;<i> +				| B43_DMA64_RXENABLE;
+</I>&gt;<i>  			b43_dma_write(ring, B43_DMA64_RXCTL, value);
+</I>&gt;<i>  			b43_dma_write(ring, B43_DMA64_RXRINGLO,
+</I>&gt;<i>  				      (ringbase &amp; 0xFFFFFFFF));
+</I>&gt;<i>  			b43_dma_write(ring, B43_DMA64_RXRINGHI,
+</I>&gt;<i>  				      ((ringbase &gt;&gt; 32) &amp;
+</I>&gt;<i> -				       ~SSB_DMA_TRANSLATION_MASK)
+</I>&gt;<i> -				      | trans);
+</I>&gt;<i> -			b43_dma_write(ring, B43_DMA64_RXINDEX, 200);
+</I>&gt;<i> +				       0xFFFFFFFF));
+</I>&gt;<i> +			b43_dma_write(ring, B43_DMA64_RXINDEX, ring-&gt;nr_slots *
+</I>&gt;<i> +				      sizeof(struct b43_dmadesc64));
+</I>
+Same here.
+
+&gt;<i>  		} else {
+</I>&gt;<i>  			u32 ringbase = (u32) (ring-&gt;dmabase);
+</I>&gt;<i>  
+</I>&gt;<i> @@ -695,11 +687,12 @@ static int dmacontroller_setup(struct b4
+</I>&gt;<i>  			b43_dma_write(ring, B43_DMA32_RXRING,
+</I>&gt;<i>  				      (ringbase &amp; ~SSB_DMA_TRANSLATION_MASK)
+</I>&gt;<i>  				      | trans);
+</I>&gt;<i> -			b43_dma_write(ring, B43_DMA32_RXINDEX, 200);
+</I>&gt;<i> +			b43_dma_write(ring, B43_DMA32_RXINDEX, ring-&gt;nr_slots *
+</I>&gt;<i> +				      sizeof(struct b43_dmadesc32));
+</I>
+I'm not sure why you do this change.
+
+&gt;<i>  		}
+</I>&gt;<i>  	}
+</I>&gt;<i>  
+</I>&gt;<i> -      out:
+</I>&gt;<i> +out:
+</I>&gt;<i>  	return err;
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i> Index: wireless-2.6/drivers/net/wireless/b43/dma.h
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-2.6.orig/drivers/net/wireless/b43/dma.h
+</I>&gt;<i> +++ wireless-2.6/drivers/net/wireless/b43/dma.h
+</I>&gt;<i> @@ -260,6 +260,13 @@ static inline u32 b43_dma_read(struct b4
+</I>&gt;<i>  static inline
+</I>&gt;<i>      void b43_dma_write(struct b43_dmaring *ring, u16 offset, u32 value)
+</I>&gt;<i>  {
+</I>&gt;<i> +	/* temporary debugging code */
+</I>&gt;<i> +	if (((offset == 8) || (offset == 0x28)) &amp;&amp; ring-&gt;dma64 &amp;&amp;
+</I>&gt;<i> +	     ((value &amp; 0x1FFF) != 0)) {
+</I>&gt;<i> +		printk(KERN_ERR &quot;b43: bad desc ring address for 64-bit DMA&quot;
+</I>&gt;<i> +		       &quot; - offset, value: 0x%.2X 0x%.4X\n&quot;, offset, value);
+</I>&gt;<i> +		dump_stack();
+</I>&gt;<i> +	}
+</I>
+Ok, temporary. You know what that means :)
+
+&gt;<i>  	b43_write32(ring-&gt;dev, ring-&gt;mmio_base + offset, value);
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002785.html">b43 with BCM4318 [AirForce One 54g] gets 2Mb/sec
+</A></li>
+	<LI>Next message: <A HREF="002787.html">[RFC/T] b43: Implement the BCM94311MCG rev 02 card with a rev	13 802.11 core
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2786">[ date ]</a>
+              <a href="thread.html#2786">[ thread ]</a>
+              <a href="subject.html#2786">[ subject ]</a>
+              <a href="author.html#2786">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,149 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Rewrite DMA Tx status handling sanity checks
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Rewrite%20DMA%20Tx%20status%20handling%20sanity%20checks&In-Reply-To=%3C4B0A137B.7050604%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006459.html">
+   <LINK REL="Next"  HREF="006461.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Rewrite DMA Tx status handling sanity checks</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Rewrite%20DMA%20Tx%20status%20handling%20sanity%20checks&In-Reply-To=%3C4B0A137B.7050604%40lwfinger.net%3E"
+       TITLE="[PATCH] b43: Rewrite DMA Tx status handling sanity checks">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Mon Nov 23 05:45:47 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006459.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+        <LI>Next message: <A HREF="006461.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6458">[ date ]</a>
+              <a href="thread.html#6458">[ thread ]</a>
+              <a href="subject.html#6458">[ subject ]</a>
+              <a href="author.html#6458">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 11/19/2009 03:24 PM, Michael Buesch wrote:
+&gt;<i> This rewrites the error handling policies in the TX status handler.
+</I>&gt;<i> It tries to be error-tolerant as in &quot;try hard to not crash the machine&quot;.
+</I>&gt;<i> It won't recover from errors (that are bugs in the firmware or driver),
+</I>&gt;<i> because that's impossible. However, it will return a more or less useful
+</I>&gt;<i> error message and bail out. It also tries hard to use rate-limited messages
+</I>&gt;<i> to not flood the syslog in case of a failure.
+</I>
+This patch definitely helped open-source firmware, but it is not a complete fix.
+Usually, a failure occurs within minutes to a few hours under heavy load. For my
+system, the load is repeating tcpperf transmits in one terminal, and a flood
+ping in a second. This time, the system ran for ~25 hours before failing. After
+removing the header to eliminate wrap-around, the messages logged are:
+
+b43 ssb0:0: firmware: requesting b43-open/pcm5.fw
+Loading OpenSource firmware version 410.31754
+Hardware crypto acceleration not supported by firmware
+QoS not supported by firmware
+debug: Chip initialized
+debug: 32-bit DMA initialized
+debug: QoS disabled
+debug: Wireless interface started
+debug: Adding Interface type 2
+wlan0: direct probe to AP 00:14:bf:85:49:fa (try 1)
+wlan0: direct probe responded
+wlan0: authenticate with AP 00:14:bf:85:49:fa (try 1)
+wlan0: authenticated
+wlan0: associate with AP 00:14:bf:85:49:fa (try 1)
+wlan0: RX ReassocResp from 00:14:bf:85:49:fa (capab=0x411 status=12 aid=0)
+wlan0: AP denied association (code=12)
+wlan0: associate with AP 00:14:bf:85:49:fa (try 1)
+wlan0: RX ReassocResp from 00:14:bf:85:49:fa (capab=0x411 status=12 aid=0)
+wlan0: AP denied association (code=12)
+wlan0: deauthenticating from 00:14:bf:85:49:fa by local choice (reason=3)
+wlan0: direct probe to AP 00:14:bf:85:49:fa (try 1)
+wlan0: direct probe to AP 00:14:bf:85:49:fa (try 1)
+wlan0: direct probe responded
+wlan0: authenticate with AP 00:14:bf:85:49:fa (try 1)
+wlan0: authenticated
+wlan0: associate with AP 00:14:bf:85:49:fa (try 1)
+wlan0: RX ReassocResp from 00:14:bf:85:49:fa (capab=0x411 status=0 aid=2)
+wlan0: associated
+spurious 8259A interrupt: IRQ15.
+SFW2-INext-DROP-DEFLT IN=wlan0 OUT=
+MAC=00:18:39:5e:90:f9:00:14:bf:85:49:f8:08:00 SRC=192.168.1.1 DST=192.168.1.107
+LEN=336 TOS=0x00 PREC=0x00 TTL=64 ID=64124 PROTO=UDP SPT=67 DPT=68 LEN=316
+SFW2-INext-DROP-DEFLT IN=wlan0 OUT=
+MAC=00:18:39:5e:90:f9:00:14:bf:85:49:f8:08:00 SRC=192.168.1.1 DST=192.168.1.107
+LEN=336 TOS=0x00 PREC=0x00 TTL=64 ID=6664 PROTO=UDP SPT=67 DPT=68 LEN=316
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 146
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 148
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 118
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 150
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 152
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 154
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 156
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 158
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 160
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 162
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 164
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 134
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 166
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 168
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 170
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 172
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 174
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 176
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 178
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 180
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 182
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 184
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 154
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 186
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 156
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 188
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 158
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 190
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 160
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 192
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 162
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 194
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 196
+debug: Out of order TX status report on DMA ring 1. Expected 114, but got 198
+
+These messages continued. Unloading and reloading the driver restored the network.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006459.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+	<LI>Next message: <A HREF="006461.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6458">[ date ]</a>
+              <a href="thread.html#6458">[ thread ]</a>
+              <a href="subject.html#6458">[ subject ]</a>
+              <a href="author.html#6458">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

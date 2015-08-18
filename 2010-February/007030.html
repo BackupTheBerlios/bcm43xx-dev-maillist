@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH V2 08/10] b43: N-PHY: isloate 2055 radio setup
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%2008/10%5D%20b43%3A%20N-PHY%3A%20isloate%202055%20radio%20setup&In-Reply-To=%3C1267272221-1873-9-git-send-email-zajec5%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="007029.html">
+   <LINK REL="Next"  HREF="007031.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH V2 08/10] b43: N-PHY: isloate 2055 radio setup</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%2008/10%5D%20b43%3A%20N-PHY%3A%20isloate%202055%20radio%20setup&In-Reply-To=%3C1267272221-1873-9-git-send-email-zajec5%40gmail.com%3E"
+       TITLE="[PATCH V2 08/10] b43: N-PHY: isloate 2055 radio setup">zajec5 at gmail.com
+       </A><BR>
+    <I>Sat Feb 27 13:03:39 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="007029.html">[PATCH V2 07/10] b43: N-PHY: adjust gain table
+</A></li>
+        <LI>Next message: <A HREF="007031.html">[PATCH V2 09/10] b43: N-PHY: implement chanspec setup
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7030">[ date ]</a>
+              <a href="thread.html#7030">[ thread ]</a>
+              <a href="subject.html#7030">[ subject ]</a>
+              <a href="author.html#7030">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+V2: unconditional flush
+---
+ drivers/net/wireless/b43/phy_n.c |   23 +++++++++++++++++------
+ 1 files changed, 17 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 30f8bf2..ffe2622 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -155,6 +155,22 @@ static void b43_nphy_tx_power_fix(struct b43_wldev *dev)
+ 	//TODO
+ }
+ 
++
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/Radio/2055Setup">http://bcm-v4.sipsolutions.net/802.11/PHY/Radio/2055Setup</A> */
++static void b43_radio_2055_setup(struct b43_wldev *dev,
++				const struct b43_nphy_channeltab_entry *e)
++{
++	B43_WARN_ON(dev-&gt;phy.rev &gt;= 3);
++
++	b43_chantab_radio_upload(dev, e);
++	udelay(50);
++	b43_radio_write(dev, B2055_VCO_CAL10, 5);
++	b43_radio_write(dev, B2055_VCO_CAL10, 45);
++	b43_read32(dev, B43_MMIO_MACCTL); /* flush writes */
++	b43_radio_write(dev, B2055_VCO_CAL10, 65);
++	udelay(300);
++}
++
+ /* Tune the hardware to a new channel. */
+ static int nphy_channel_switch(struct b43_wldev *dev, unsigned int channel)
+ {
+@@ -169,12 +185,7 @@ static int nphy_channel_switch(struct b43_wldev *dev, unsigned int channel)
+ 		b43_radio_maskset(dev, B2055_MASTER1, 0xFF8F, 0x20);
+ 	else
+ 		b43_radio_maskset(dev, B2055_MASTER1, 0xFF8F, 0x50);
+-	b43_chantab_radio_upload(dev, tabent);
+-	udelay(50);
+-	b43_radio_write16(dev, B2055_VCO_CAL10, 5);
+-	b43_radio_write16(dev, B2055_VCO_CAL10, 45);
+-	b43_radio_write16(dev, B2055_VCO_CAL10, 65);
+-	udelay(300);
++	b43_radio_2055_setup(dev, tabent);
+ 	if (0 /*FIXME 5Ghz*/)
+ 		b43_phy_set(dev, B43_NPHY_BANDCTL, B43_NPHY_BANDCTL_5GHZ);
+ 	else
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="007029.html">[PATCH V2 07/10] b43: N-PHY: adjust gain table
+</A></li>
+	<LI>Next message: <A HREF="007031.html">[PATCH V2 09/10] b43: N-PHY: implement chanspec setup
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7030">[ date ]</a>
+              <a href="thread.html#7030">[ thread ]</a>
+              <a href="subject.html#7030">[ subject ]</a>
+              <a href="author.html#7030">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,146 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH RFC/RFT] b43: Improve TX power recalculation under load
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RFC/RFT%5D%20b43%3A%20Improve%20TX%20power%20recalculation%20under%20load&In-Reply-To=%3C48B32D95.2000105%40wetwork.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004512.html">
+   <LINK REL="Next"  HREF="004515.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH RFC/RFT] b43: Improve TX power recalculation under load</H1>
+    <B>Ehud Gavron</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RFC/RFT%5D%20b43%3A%20Improve%20TX%20power%20recalculation%20under%20load&In-Reply-To=%3C48B32D95.2000105%40wetwork.net%3E"
+       TITLE="[PATCH RFC/RFT] b43: Improve TX power recalculation under load">gavron at wetwork.net
+       </A><BR>
+    <I>Tue Aug 26 00:09:25 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004512.html">[PATCH RFC/RFT] b43: Improve TX power recalculation under load
+</A></li>
+        <LI>Next message: <A HREF="004515.html">[PATCH RFC/RFT] b43: Improve TX power recalculation under load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4513">[ date ]</a>
+              <a href="thread.html#4513">[ thread ]</a>
+              <a href="subject.html#4513">[ subject ]</a>
+              <a href="author.html#4513">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> On Monday 25 August 2008 21:54:18 Michael Buesch wrote:
+</I>&gt;<i>   
+</I>&gt;&gt;<i> The patch is available here:
+</I>&gt;&gt;<i> <A HREF="http://bu3sch.de/patches/wireless-testing/20080825-2146/patches/004-b43-NEW-rewrite-txpower-adjusting.patch">http://bu3sch.de/patches/wireless-testing/20080825-2146/patches/004-b43-NEW-rewrite-txpower-adjusting.patch</A>
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> Here's an updated version with a major bug fixed:
+</I>&gt;<i> <A HREF="http://bu3sch.de/patches/wireless-testing/20080825-2227/patches/004-b43-NEW-rewrite-txpower-adjusting.patch">http://bu3sch.de/patches/wireless-testing/20080825-2227/patches/004-b43-NEW-rewrite-txpower-adjusting.patch</A>
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>iperf, wget, speedtest.net, and sftp all show similar performance.
+
+Ehud
+0c:00.0 Network controller: Broadcom Corporation BCM4311 802.11b/g WLAN 
+(rev 01)
+    Subsystem: Dell Wireless 1390 WLAN Mini-Card
+    Flags: bus master, fast devsel, latency 0, IRQ 17
+    Memory at ecffc000 (32-bit, non-prefetchable) [size=16K]
+    Capabilities: [40] Power Management version 2
+    Capabilities: [58] Message Signalled Interrupts: Mask- 64bit- 
+Queue=0/0 Enable-
+    Capabilities: [d0] Express Legacy Endpoint IRQ 0
+    Capabilities: [100] Advanced Error Reporting
+    Capabilities: [13c] Virtual Channel
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A>:~# uname -a
+Linux egdell 2.6.27-rc3-20080825-wl #1 SMP Mon Aug 25 14:08:15 MST 2008 
+x86_64 GNU/Linux
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A>:~# dmesg | grep b43
+b43-pci-bridge 0000:0c:00.0: PCI INT A -&gt; GSI 17 (level, low) -&gt; IRQ 17
+b43-pci-bridge 0000:0c:00.0: setting latency timer to 64
+b43-phy0: Broadcom 4311 WLAN found
+b43-phy0 debug: Found PHY: Analog 4, Type 2, Revision 8
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+input: b43-phy0 as /class/input/input8
+firmware: requesting b43/ucode5.fw
+firmware: requesting b43/pcm5.fw
+firmware: requesting b43/b0g0initvals5.fw
+firmware: requesting b43/b0g0bsinitvals5.fw
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 32-bit DMA initialized
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+b43-phy0: Radio turned on by software
+b43-phy0 debug: Using hardware based encryption for keyidx: 0, mac: 
+ff:ff:ff:ff:ff:ff
+b43-phy0 debug: Disabling hardware based encryption for keyidx: 0, mac: 
+ff:ff:ff:ff:ff:ff
+b43-phy0 debug: Removing Interface type 2
+b43-phy0 debug: Wireless interface stopped
+b43-phy0 debug: DMA-32 rx_ring: Used slots 32/64, Failed frames 0/0 = 
+0.0%, Average tries 0.00
+b43-phy0 debug: DMA-32 tx_ring_AC_BK: Used slots 0/128, Failed frames 
+0/0 = 0.0%, Average tries 0.00
+b43-phy0 debug: DMA-32 tx_ring_AC_BE: Used slots 128/128, Failed frames 
+42/41538 = 0.1%, Average tries 1.24
+b43-phy0 debug: DMA-32 tx_ring_AC_VI: Used slots 0/128, Failed frames 
+0/0 = 0.0%, Average tries 0.00
+b43-phy0 debug: DMA-32 tx_ring_AC_VO: Used slots 2/128, Failed frames 
+0/86 = 0.0%, Average tries 1.00
+b43-phy0 debug: DMA-32 tx_ring_mcast: Used slots 0/128, Failed frames 
+0/0 = 0.0%, Average tries 0.00
+input: b43-phy0 as /class/input/input9
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 32-bit DMA initialized
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+b43-phy0 debug: Using hardware based encryption for keyidx: 0, mac: 
+ff:ff:ff:ff:ff:ff
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/x-pkcs7-signature
+Size: 3296 bytes
+Desc: S/MIME Cryptographic Signature
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080825/6c038e41/attachment.bin">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080825/6c038e41/attachment.bin</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004512.html">[PATCH RFC/RFT] b43: Improve TX power recalculation under load
+</A></li>
+	<LI>Next message: <A HREF="004515.html">[PATCH RFC/RFT] b43: Improve TX power recalculation under load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4513">[ date ]</a>
+              <a href="thread.html#4513">[ thread ]</a>
+              <a href="subject.html#4513">[ subject ]</a>
+              <a href="author.html#4513">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

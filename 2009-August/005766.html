@@ -1,0 +1,144 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Initialize TX power control
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Initialize%20TX%20power%20control&In-Reply-To=%3C69e28c910908130712j28465ca0qae8eaad0a4a490ee%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005765.html">
+   <LINK REL="Next"  HREF="005762.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Initialize TX power control</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Initialize%20TX%20power%20control&In-Reply-To=%3C69e28c910908130712j28465ca0qae8eaad0a4a490ee%40mail.gmail.com%3E"
+       TITLE="[PATCH] b43: LP-PHY: Initialize TX power control">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Thu Aug 13 16:12:51 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005765.html">[PATCH] b43: LP-PHY: Initialize TX power control
+</A></li>
+        <LI>Next message: <A HREF="005762.html">[PATCH v3] b43: Implement RC calibration for rev.0/1 LP-PHYs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5766">[ date ]</a>
+              <a href="thread.html#5766">[ thread ]</a>
+              <a href="subject.html#5766">[ subject ]</a>
+              <a href="author.html#5766">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>2009/8/13 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;:
+&gt;<i> On Wednesday 12 August 2009 22:42:40 G&#225;bor Stefanik wrote:
+</I>&gt;&gt;<i> The HW TX power control init still needs work.
+</I>&gt;&gt;<i> The SW init is complete according to the specs.
+</I>&gt;<i>
+</I>&gt;<i> HW PCTL needs a serious amount of work in the common code, too.
+</I>&gt;<i> For now I would focus to SW PCTL and fix HW PCTL later.
+</I>&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+</I>&gt;&gt;<i> ---
+</I>&gt;&gt;<i> This depends on both the rev0/1 RC calibration patch and the
+</I>&gt;&gt;<i> V4 dummy transmission patch I submitted earlier.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Larry, please check the SPEC TODO/SPEC FIXME comments.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;drivers/net/wireless/b43/phy_lp.c | &#160;104 ++++++++++++++++++++++++++++++++++---
+</I>&gt;&gt;<i> &#160;drivers/net/wireless/b43/phy_lp.h | &#160; &#160;5 ++
+</I>&gt;&gt;<i> &#160;2 files changed, 102 insertions(+), 7 deletions(-)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> index e05981b..6ebaeb2 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> @@ -1258,18 +1258,108 @@ static void lpphy_calibration(struct b43_wldev *dev)
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_mac_enable(dev);
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> +static void lpphy_set_tssi_mux(struct b43_wldev *dev, enum tssi_mux_mode mode)
+</I>&gt;&gt;<i> +{
+</I>&gt;&gt;<i> + &#160; &#160; if (mode != TSSI_MUX_EXT) {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_radio_set(dev, B2063_PA_SP1, 0x2);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_set(dev, B43_PHY_OFDM(0xF3), 0x1000);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_radio_write(dev, B2063_PA_CTL10, 0x51);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; if (mode == TSSI_MUX_POSTPA) {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_radio_mask(dev, B2063_PA_SP1, 0xFFFE);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_mask(dev, B43_LPPHY_AFE_CTL_OVRVAL, 0xFFC7);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; } else {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_radio_maskset(dev, B2063_PA_SP1, 0xFFFE, 0x1);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_AFE_CTL_OVRVAL,
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; 0xFFC7, 0x20);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; }
+</I>&gt;&gt;<i> + &#160; &#160; } else {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; //SPEC TODO
+</I>&gt;&gt;<i> + &#160; &#160; }
+</I>&gt;&gt;<i> +}
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> +static void lpphy_tx_pctl_init_hw(struct b43_wldev *dev)
+</I>&gt;&gt;<i> +{
+</I>&gt;&gt;<i> + &#160; &#160; u16 tmp;
+</I>&gt;&gt;<i> + &#160; &#160; int i;
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> + &#160; &#160; //SPEC TODO Call LP PHY Clear TX Power offsets
+</I>&gt;&gt;<i> + &#160; &#160; for (i = 0; i &lt; 64; i++) {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; if (dev-&gt;phy.rev &gt;= 2)
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_lptab_write(dev, B43_LPTAB32(7, i+1), i);
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;^^^
+</I>&gt;<i> Please keep in mind to use spaces all the time. It is our coding style and I think
+</I>&gt;<i> we should stick with it.
+</I>
+Will do.
+
+&gt;<i>
+</I>&gt;&gt;<i> + &#160; &#160; tmp = b43_phy_read(dev, B43_LPPHY_TX_PWR_CTL_STAT);
+</I>&gt;&gt;<i> + &#160; &#160; if (tmp &amp; 0x8000)
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_TX_PWR_CTL_IDLETSSI,
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; 0xFFC0, (tmp &amp; 0xFF) - 32);
+</I>&gt;<i>
+</I>&gt;<i> Curly brackets for multiline indents, please.
+</I>
+Will do.
+V2 will also be updated for the dummy transmission change.
+
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i> Greetings, Michael.
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005765.html">[PATCH] b43: LP-PHY: Initialize TX power control
+</A></li>
+	<LI>Next message: <A HREF="005762.html">[PATCH v3] b43: Implement RC calibration for rev.0/1 LP-PHYs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5766">[ date ]</a>
+              <a href="thread.html#5766">[ thread ]</a>
+              <a href="subject.html#5766">[ subject ]</a>
+              <a href="author.html#5766">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

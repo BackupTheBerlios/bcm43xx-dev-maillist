@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> ad-hoc mode implementation
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20ad-hoc%20mode%20implementation&In-Reply-To=%3CF1FAF4F1-E45A-461D-8D46-5D1B1A1BBAE2%40ing.unibs.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005145.html">
+   <LINK REL="Next"  HREF="005155.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>ad-hoc mode implementation</H1>
+    <B>Francesco Gringoli</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20ad-hoc%20mode%20implementation&In-Reply-To=%3CF1FAF4F1-E45A-461D-8D46-5D1B1A1BBAE2%40ing.unibs.it%3E"
+       TITLE="ad-hoc mode implementation">francesco.gringoli at ing.unibs.it
+       </A><BR>
+    <I>Fri Jan 30 19:09:35 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005145.html">UNSUSCRIBE
+</A></li>
+        <LI>Next message: <A HREF="005155.html">[PATCH] b43: Add LP-PHY register definitions
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5147">[ date ]</a>
+              <a href="thread.html#5147">[ thread ]</a>
+              <a href="subject.html#5147">[ subject ]</a>
+              <a href="author.html#5147">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello,
+
+I began testing the opensource firmware on b43 when running ad-hoc  
+mode and I faced a strange problem that drove me to investigate about  
+how ad-hoc mode is implemented inside the wireless stack. Note that  
+what follows holds for both Broadcom original firmware and opensource  
+one, however I did all these tests switching back to original BCM  
+firmware.
+
+It turned out that Apple Macs with 4328 hardware (bot a/b/g and n)  
+running different version of OSX never succeed in joining ad-hoc  
+networks initiated by b43 while they can join without problems ad-hoc  
+networks run by ath5k (with initiated or run I mean &quot;the first node  
+that is configured with that SSID&quot;). I attach a complete description  
+of the tests at the end of this message.
+
+I then captured some traffic and it seems that b43 never sends beacon  
+when initiating ad-hoc networks, it just sends probes to itself and  
+responds to broadcast probe requests. Note that ath5k instead sends  
+beacons as long as it is the first node. Probably I'm missing  
+something, so just responding to broadcast probes could be a correct  
+alternative procedure to advertise ad-hoc network, however this seems  
+to be the only difference to explain the different behavior of newer  
+Apple Macs when joining ath5k or b43 ad-hoc initiated networks.
+
+Please note that if I invert roles (ad-hoc initiated by those Apple  
+Macs, b43 joining the network) everything is fine, so this is not an  
+issue involving send and receive operations, nodes do not have  
+communication problems.
+
+Has anyone ever experienced such issues? Is it correct to not send  
+beacon when starting an ad-hoc network? I did some tests and OSX does  
+send beacon when initiating an ad-hoc network (as ath5k does).
+
+Cheers,
+-FG
+
+----- testbed scenarios
+
+When I initiate an ad-hoc network on a Linux PC with a 4306 card, I  
+can't join it using any of my Apple Macs equipped with BCM hardware.
+
+I tried two different Apple, one is a new MacBook Pro with 4328 BCM N- 
+PHY, the other is a two years old iMac 17 with a a/b/g  4328 BCM  
+hardware. The Kernel I used on the x86 PC was 2.6.29-rc2-wl, the  
+firmware was the original Broadcom ucode5, I did not use encryption. I  
+did extensive testing but I never succeeded.
+
+I then tried the same setup, using this time a 4318 card to initiate  
+the ad-hoc network on the Linux box, and I got the same behavior.  
+Finally I repeated the experiment this time initiating the ad-hoc  
+network with a Linksys WRT54GL (BCM 4320), same result, the two Apple  
+Macs never joined the network, they reported a generic error and  
+nothing more.
+
+Please note that if I repeat the experiments using a MacBook Pro with  
+Atheros hardware everything works fine. Also all other Linux PC I have  
+do not have problems in joining these b43-run ad-hoc networks  
+independently of the kind of Atheros or BCM hardware they use.
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005145.html">UNSUSCRIBE
+</A></li>
+	<LI>Next message: <A HREF="005155.html">[PATCH] b43: Add LP-PHY register definitions
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5147">[ date ]</a>
+              <a href="thread.html#5147">[ thread ]</a>
+              <a href="subject.html#5147">[ subject ]</a>
+              <a href="author.html#5147">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

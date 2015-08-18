@@ -1,0 +1,130 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 4/4] mac80211: Remove old names for statistics variables
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%204/4%5D%20mac80211%3A%20Remove%20old%20names%20for%20statistics%20variables&In-Reply-To=%3C46211a33.JlaK27J9HyTa6JIz%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001077.html">
+   <LINK REL="Next"  HREF="001084.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 4/4] mac80211: Remove old names for statistics variables</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%204/4%5D%20mac80211%3A%20Remove%20old%20names%20for%20statistics%20variables&In-Reply-To=%3C46211a33.JlaK27J9HyTa6JIz%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH 4/4] mac80211: Remove old names for statistics variables">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Apr 14 20:15:15 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001077.html">[PATCH 3/4] mac80211 - drivers: Convert drivers that use mac80211 to	new statistics variable names
+</A></li>
+        <LI>Next message: <A HREF="001084.html">[PATCH 0/4] mac80211 and drivers: Improve wireless statistics
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1078">[ date ]</a>
+              <a href="thread.html#1078">[ thread ]</a>
+              <a href="subject.html#1078">[ subject ]</a>
+              <a href="author.html#1078">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Patch 4/4: Remove old stats variables from mac80211 structs.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: wireless-dev/include/net/mac80211.h
+===================================================================
+--- wireless-dev.orig/include/net/mac80211.h
++++ wireless-dev/include/net/mac80211.h
+@@ -227,8 +227,6 @@ struct ieee80211_rx_status {
+ 	int freq; /* receive frequency in Mhz */
+ 	int channel;
+ 	int phymode;
+-	int ssi;
+-	int signal; /* used as qual in statistics reporting */
+ 	int level;  /* used in statistics reporting */
+ 	int qual; /* used in statistics reporting */
+ 	int noise;
+@@ -544,9 +542,7 @@ struct ieee80211_hw {
+ 	int channel_change_time;
+ 	/* Maximum values for various statistics.
+ 	 * Leave at 0 to indicate no support. Use negative numbers for dBm. */
+-	s8 max_rssi;
+ 	s8 max_level;
+-	s8 max_signal;
+ 	s8 max_qual;
+ 	s8 max_noise;
+ 
+Index: wireless-dev/net/mac80211/ieee80211.c
+===================================================================
+--- wireless-dev.orig/net/mac80211/ieee80211.c
++++ wireless-dev/net/mac80211/ieee80211.c
+@@ -4211,7 +4211,7 @@ void ieee80211_rx_irqsafe(struct ieee802
+ {
+ 	struct ieee80211_local *local = hw_to_local(hw);
+ 
+-//	BUILD_BUG_ON(sizeof(struct ieee80211_rx_status) &gt; sizeof(skb-&gt;cb));
++	BUILD_BUG_ON(sizeof(struct ieee80211_rx_status) &gt; sizeof(skb-&gt;cb));
+ 
+ 	skb-&gt;dev = local-&gt;mdev;
+ 	/* copy status into skb-&gt;cb for use by tasklet */
+Index: wireless-dev/net/mac80211/ieee80211_i.h
+===================================================================
+--- wireless-dev.orig/net/mac80211/ieee80211_i.h
++++ wireless-dev/net/mac80211/ieee80211_i.h
+@@ -82,7 +82,6 @@ struct ieee80211_sta_bss {
+ 	int hw_mode;
+ 	int channel;
+ 	int freq;
+-	int rssi, signal;
+ 	int level, qual, noise;
+ 	u8 *wpa_ie;
+ 	size_t wpa_ie_len;
+Index: wireless-dev/net/mac80211/sta_info.h
+===================================================================
+--- wireless-dev.orig/net/mac80211/sta_info.h
++++ wireless-dev/net/mac80211/sta_info.h
+@@ -83,10 +83,8 @@ struct sta_info {
+ 	unsigned long rx_fragments; /* number of received MPDUs */
+ 	unsigned long rx_dropped; /* number of dropped MPDUs from this STA */
+ 
+-	int last_rssi; /* RSSI of last received frame from this STA */
+-	int last_signal; /* signal of last received frame from this STA */
+ 	int last_level; /* level of last received frame from this STA */
+-	int last_qual; /* qual of last received frame from this STA */
++	int last_qual; /* quality value of last received frame from this STA */
+ 	int last_noise; /* noise of last received frame from this STA */
+ 	int last_ack_rssi[3]; /* RSSI of last received ACKs from this STA */
+ 	unsigned long last_ack;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001077.html">[PATCH 3/4] mac80211 - drivers: Convert drivers that use mac80211 to	new statistics variable names
+</A></li>
+	<LI>Next message: <A HREF="001084.html">[PATCH 0/4] mac80211 and drivers: Improve wireless statistics
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1078">[ date ]</a>
+              <a href="thread.html#1078">[ thread ]</a>
+              <a href="subject.html#1078">[ subject ]</a>
+              <a href="author.html#1078">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

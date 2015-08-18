@@ -1,0 +1,202 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Update LP-PHY rev2+ baseband init to match the specs
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Update%20LP-PHY%20rev2%2B%20baseband%20init%20to%20match%20the%20specs&In-Reply-To=%3C4A806A19.2070209%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005745.html">
+   <LINK REL="Next"  HREF="005734.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Update LP-PHY rev2+ baseband init to match the specs</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Update%20LP-PHY%20rev2%2B%20baseband%20init%20to%20match%20the%20specs&In-Reply-To=%3C4A806A19.2070209%40gmail.com%3E"
+       TITLE="[PATCH] b43: Update LP-PHY rev2+ baseband init to match the specs">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Mon Aug 10 20:42:33 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005745.html">[PATCH] b43: Implement LP-PHY baseband table initialization
+</A></li>
+        <LI>Next message: <A HREF="005734.html">[PATCH] b43: Update LP-PHY rev2+ baseband init to match the specs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5732">[ date ]</a>
+              <a href="thread.html#5732">[ thread ]</a>
+              <a href="subject.html#5732">[ subject ]</a>
+              <a href="author.html#5732">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The rev2+ BB init spec has changed behind us, and thus the code is
+no longer up to date. Update the code to match the current specs.
+Also implement &quot;save/restore dig filt state&quot;, as required by the
+new specification (implemented as 2 separate functions).
+
+Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_lp.c |   73 +++++++++++++++++++++++++++++++++++--
+ drivers/net/wireless/b43/phy_lp.h |    3 ++
+ 2 files changed, 72 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+index d2af924..128d75a 100644
+--- a/drivers/net/wireless/b43/phy_lp.c
++++ b/drivers/net/wireless/b43/phy_lp.c
+@@ -195,6 +195,56 @@ static void lpphy_baseband_rev0_1_init(struct b43_wldev *dev)
+ 	}
+ }
+ 
++static void lpphy_save_dig_flt_state(struct b43_wldev *dev)
++{
++	static const u16 addr[] = {
++		B43_PHY_OFDM(0xC1),
++		B43_PHY_OFDM(0xC2),
++		B43_PHY_OFDM(0xC3),
++		B43_PHY_OFDM(0xC4),
++		B43_PHY_OFDM(0xC5),
++		B43_PHY_OFDM(0xC6),
++		B43_PHY_OFDM(0xC7),
++		B43_PHY_OFDM(0xC8),
++		B43_PHY_OFDM(0xCF),
++	};
++
++	static const u16 coeffs[] = {
++		0xDE5E, 0xE832, 0xE331, 0x4D26,
++		0x0026, 0x1420, 0x0020, 0xFE08,
++		0x0008,
++	};
++
++	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
++	int i;
++
++	for (i = 0; i &lt; 9; i++) {
++		lpphy-&gt;dig_flt_state[i] = b43_phy_read(dev, addr[i]);
++		b43_phy_write(dev, addr[i], coefs[i]);
++	}
++}
++
++static void lpphy_restore_dig_flt_state(struct b43_wldev *dev)
++{
++	static const u16 addr[] = {
++		B43_PHY_OFDM(0xC1),
++		B43_PHY_OFDM(0xC2),
++		B43_PHY_OFDM(0xC3),
++		B43_PHY_OFDM(0xC4),
++		B43_PHY_OFDM(0xC5),
++		B43_PHY_OFDM(0xC6),
++		B43_PHY_OFDM(0xC7),
++		B43_PHY_OFDM(0xC8),
++		B43_PHY_OFDM(0xCF),
++	};
++
++	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
++	int i;
++
++	for (i = 0; i &lt; 9; i++)
++		b43_phy_write(dev, addr[i], lpphy-&gt;dig_flt_state[i]);
++}
++
+ static void lpphy_baseband_rev2plus_init(struct b43_wldev *dev)
+ {
+ 	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+@@ -209,7 +259,7 @@ static void lpphy_baseband_rev2plus_init(struct b43_wldev *dev)
+ 	b43_phy_write(dev, B43_PHY_OFDM(0xF9), 0);
+ 	b43_phy_write(dev, B43_LPPHY_TR_LOOKUP_1, 0);
+ 	b43_phy_set(dev, B43_LPPHY_ADC_COMPENSATION_CTL, 0x10);
+-	b43_phy_maskset(dev, B43_LPPHY_OFDMSYNCTHRESH0, 0xFF00, 0x78);
++	b43_phy_maskset(dev, B43_LPPHY_OFDMSYNCTHRESH0, 0xFF00, 0xB4);
+ 	b43_phy_maskset(dev, B43_LPPHY_DCOFFSETTRANSIENT, 0xF8FF, 0x200);
+ 	b43_phy_maskset(dev, B43_LPPHY_DCOFFSETTRANSIENT, 0xFF00, 0x7F);
+ 	b43_phy_maskset(dev, B43_LPPHY_GAINDIRECTMISMATCH, 0xFF0F, 0x40);
+@@ -217,7 +267,12 @@ static void lpphy_baseband_rev2plus_init(struct b43_wldev *dev)
+ 	b43_phy_mask(dev, B43_LPPHY_CRSGAIN_CTL, ~0x4000);
+ 	b43_phy_mask(dev, B43_LPPHY_CRSGAIN_CTL, ~0x2000);
+ 	b43_phy_set(dev, B43_PHY_OFDM(0x10A), 0x1);
+-	b43_phy_maskset(dev, B43_PHY_OFDM(0x10A), 0xFF01, 0x10);
++	if (bus-&gt;boardinfo.rev &gt;= 0x18) {
++		b43_lptab_write(dev, B43_LPTAB32(17, 65), 0xEC);
++		b43_phy_maskset(dev, B43_PHY_OFDM(0x10A), 0xFF01, 0x14);
++	} else {
++		b43_phy_maskset(dev, B43_PHY_OFDM(0x10A), 0xFF01, 0x10);
++	}
+ 	b43_phy_maskset(dev, B43_PHY_OFDM(0xDF), 0xFF00, 0xF4);
+ 	b43_phy_maskset(dev, B43_PHY_OFDM(0xDF), 0x00FF, 0xF100);
+ 	b43_phy_write(dev, B43_LPPHY_CLIPTHRESH, 0x48);
+@@ -247,8 +302,10 @@ static void lpphy_baseband_rev2plus_init(struct b43_wldev *dev)
+ 	b43_phy_maskset(dev, B43_LPPHY_CLIPCTRTHRESH, 0xFFE0, 0x12);
+ 	b43_phy_maskset(dev, B43_LPPHY_GAINMISMATCH, 0x0FFF, 0x9000);
+ 
+-	b43_lptab_write(dev, B43_LPTAB16(0x08, 0x14), 0);
+-	b43_lptab_write(dev, B43_LPTAB16(0x08, 0x12), 0x40);
++	if ((bus-&gt;chip_id == 0x4325) &amp;&amp; (bus-&gt;chip_rev == 1)) {
++		b43_lptab_write(dev, B43_LPTAB16(0x08, 0x14), 0);
++		b43_lptab_write(dev, B43_LPTAB16(0x08, 0x12), 0x40);
++	}
+ 
+ 	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
+ 		b43_phy_set(dev, B43_LPPHY_CRSGAIN_CTL, 0x40);
+@@ -268,6 +325,14 @@ static void lpphy_baseband_rev2plus_init(struct b43_wldev *dev)
+ 	b43_phy_write(dev, B43_LPPHY_AFE_RSSI_CTL_1,
+ 		      0x2000 | ((u16)lpphy-&gt;rssi_gs &lt;&lt; 10) |
+ 		      ((u16)lpphy-&gt;rssi_vc &lt;&lt; 4) | lpphy-&gt;rssi_vf);
++
++	if ((bus-&gt;chip_id == 0x4325) &amp;&amp; (bus-&gt;chip_rev == 0)) {
++		b43_phy_set(dev, B43_LPPHY_AFE_ADC_CTL_0, 0x1C);
++		b43_phy_maskset(dev, B43_LPPHY_AFE_CTL, 0x00FF, 0x8800);
++		b43_phy_maskset(dev, B43_LPPHY_AFE_ADC_CTL_1, 0xFC3C, 0x0400);
++	}
++
++	lpphy_save_dig_flt_state(dev);
+ }
+ 
+ static void lpphy_baseband_init(struct b43_wldev *dev)
+diff --git a/drivers/net/wireless/b43/phy_lp.h b/drivers/net/wireless/b43/phy_lp.h
+index 829b2bb..13d89ea 100644
+--- a/drivers/net/wireless/b43/phy_lp.h
++++ b/drivers/net/wireless/b43/phy_lp.h
+@@ -865,6 +865,9 @@ struct b43_phy_lp {
+ 	/* Transmit iqlocal best coeffs */
+ 	bool tx_iqloc_best_coeffs_valid;
+ 	u8 tx_iqloc_best_coeffs[11];
++
++	/* Used for &quot;Save/Restore Dig Filt State&quot; */
++	u16 dig_flt_state[9];
+ };
+ 
+ 
+-- 
+1.6.2.4
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005745.html">[PATCH] b43: Implement LP-PHY baseband table initialization
+</A></li>
+	<LI>Next message: <A HREF="005734.html">[PATCH] b43: Update LP-PHY rev2+ baseband init to match the specs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5732">[ date ]</a>
+              <a href="thread.html#5732">[ thread ]</a>
+              <a href="subject.html#5732">[ subject ]</a>
+              <a href="author.html#5732">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

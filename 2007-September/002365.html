@@ -1,0 +1,947 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Simplify debugfs
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Simplify%20debugfs&In-Reply-To=%3C46e56427.mxTGpcMPk134swg1%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002364.html">
+   <LINK REL="Next"  HREF="002366.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Simplify debugfs</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Simplify%20debugfs&In-Reply-To=%3C46e56427.mxTGpcMPk134swg1%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43legacy: Simplify debugfs">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Mon Sep 10 17:35:03 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002364.html">[PATCH] b43legacy: Add debugfs file to dump shared memory
+</A></li>
+        <LI>Next message: <A HREF="002366.html">[PATCH] b43legacy: Don't cancel the restart workqueue in	wireless_core_exit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2365">[ date ]</a>
+              <a href="thread.html#2365">[ thread ]</a>
+              <a href="subject.html#2365">[ subject ]</a>
+              <a href="author.html#2365">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+This is a major cleanup and simplification of the debugfs
+infrastructure. All the debugfs related FS handling code (copy_*_user, etc...)
+and the locking is handled in common functions. The debugging implementation
+files only have to care about their actual job anymore.
+This shrinks the function size.
+
+A few macros were also added to simplify adding new files.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">larry.finger at lwfinger.net</A>&gt;
+---
+
+ drivers/net/wireless/b43legacy/debugfs.c |  652 ++++++++++++-------------------
+ drivers/net/wireless/b43legacy/debugfs.h |   29 -
+ 2 files changed, 287 insertions(+), 394 deletions(-)
+
+
+Index: wireless-dev/drivers/net/wireless/b43legacy/debugfs.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/debugfs.h
++++ wireless-dev/drivers/net/wireless/b43legacy/debugfs.h
+@@ -23,22 +23,26 @@ struct dentry;
+ struct b43legacy_txstatus_log {
+ 	struct b43legacy_txstatus *log;
+ 	int end;
+-	int printing;
+-	char printbuf[(B43legacy_NR_LOGGED_TXSTATUS * 70) + 200];
+-	size_t buf_avail;
+ 	spinlock_t lock;	/* lock for debugging */
+ };
+ 
++struct b43legacy_dfs_file {
++	struct dentry *dentry;
++	char *buffer;
++	size_t data_len;
++};
++
+ struct b43legacy_dfsentry {
++	struct b43legacy_wldev *dev;
+ 	struct dentry *subdir;
+-	struct dentry *dentry_tsf;
+-	struct dentry *dentry_ucode_regs;
+-	struct dentry *dentry_shm;
+-	struct dentry *dentry_txstat;
+-	struct dentry *dentry_restart;
+-	struct dentry *dentry_power;
+ 
+-	struct b43legacy_wldev *dev;
++	struct b43legacy_dfs_file file_tsf;
++	struct b43legacy_dfs_file file_ucode_regs;
++	struct b43legacy_dfs_file file_shm;
++	struct b43legacy_dfs_file file_txstat;
++	struct b43legacy_dfs_file file_txpower_g;
++	struct b43legacy_dfs_file file_restart;
++	struct b43legacy_dfs_file file_loctls;
+ 
+ 	struct b43legacy_txstatus_log txstatlog;
+ 
+@@ -48,11 +52,6 @@ struct b43legacy_dfsentry {
+ 	struct dentry *dyn_debug_dentries[__B43legacy_NR_DYNDBG];
+ };
+ 
+-struct b43legacy_debugfs {
+-	struct dentry *root;
+-	struct dentry *dentry_driverinfo;
+-};
+-
+ int b43legacy_debug(struct b43legacy_wldev *dev,
+ 		    enum b43legacy_dyndbg feature);
+ 
+Index: wireless-dev/drivers/net/wireless/b43legacy/debugfs.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/debugfs.c
++++ wireless-dev/drivers/net/wireless/b43legacy/debugfs.c
+@@ -4,7 +4,7 @@
+ 
+   debugfs driver debugging code
+ 
+-  Copyright (c) 2005 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
++  Copyright (c) 2005-2007 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+ 
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+@@ -23,8 +23,6 @@
+ 
+ */
+ 
+-
+-
+ #include &lt;linux/fs.h&gt;
+ #include &lt;linux/debugfs.h&gt;
+ #include &lt;linux/slab.h&gt;
+@@ -39,410 +37,317 @@
+ #include &quot;pio.h&quot;
+ #include &quot;xmit.h&quot;
+ 
+-#define REALLY_BIG_BUFFER_SIZE	(1024 * 256)
+ 
+-static struct b43legacy_debugfs fs;
+-static char big_buffer[REALLY_BIG_BUFFER_SIZE];
+-static DEFINE_MUTEX(big_buffer_mutex);
++/* The root directory. */
++struct dentry *rootdir;
+ 
++struct b43legacy_debugfs_fops {
++	ssize_t (*read)(struct b43legacy_wldev *dev, char *buf, size_t bufsize);
++	int (*write)(struct b43legacy_wldev *dev, const char *buf, size_t count);
++	struct file_operations fops;
++	/* Offset of struct b43legacy_dfs_file in struct b43legacy_dfsentry */
++	size_t file_struct_offset;
++	/* Take wl-&gt;irq_lock before calling read/write? */
++	bool take_irqlock;
++};
+ 
+-static ssize_t write_file_dummy(struct file *file, const char __user *buf,
+-				size_t count, loff_t *ppos)
++static inline
++struct b43legacy_dfs_file * fops_to_dfs_file(struct b43legacy_wldev *dev,
++				       const struct b43legacy_debugfs_fops *dfops)
+ {
+-	return count;
+-}
++	void *p;
+ 
+-static int open_file_generic(struct inode *inode, struct file *file)
+-{
+-	file-&gt;private_data = inode-&gt;i_private;
+-	return 0;
++	p = dev-&gt;dfsentry;
++	p += dfops-&gt;file_struct_offset;
++
++	return p;
+ }
+ 
+-#define fappend(fmt, x...)	pos += snprintf(buf + pos, len - pos, fmt , ##x)
+ 
+-static ssize_t drvinfo_read_file(struct file *file, char __user *userbuf,
+-				 size_t count, loff_t *ppos)
++#define fappend(fmt, x...)	\
++	do {							\
++		if (bufsize - count)				\
++			count += snprintf(buf + count,		\
++					  bufsize - count,	\
++					  fmt , ##x);		\
++		else						\
++			printk(KERN_ERR &quot;b43legacy: fappend overflow\n&quot;); \
++	} while (0)
++
++
++/* wl-&gt;irq_lock is locked */
++ssize_t tsf_read_file(struct b43legacy_wldev *dev, char *buf, size_t bufsize)
+ {
+-	const size_t len = ARRAY_SIZE(big_buffer);
+-	char *buf = big_buffer;
+-	size_t pos = 0;
+-	ssize_t res;
+-
+-	mutex_lock(&amp;big_buffer_mutex);
+-	/* This is where the information is written to the &quot;driver&quot; file */
+-	fappend(KBUILD_MODNAME &quot; driver\n&quot;);
+-	fappend(&quot;Compiled at: %s %s\n&quot;, __DATE__, __TIME__);
+-	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+-	mutex_unlock(&amp;big_buffer_mutex);
+-
+-	return res;
+-}
+-
+-static ssize_t tsf_read_file(struct file *file, char __user *userbuf,
+-			     size_t count, loff_t *ppos)
+-{
+-	struct b43legacy_wldev *dev = file-&gt;private_data;
+-	const size_t len = ARRAY_SIZE(big_buffer);
+-	char *buf = big_buffer;
+-	size_t pos = 0;
+-	ssize_t res;
+-	unsigned long flags;
++	ssize_t count = 0;
+ 	u64 tsf;
+ 
+-	mutex_lock(&amp;big_buffer_mutex);
+-	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+-	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	if (b43legacy_status(dev) &lt; B43legacy_STAT_STARTED) {
+-		fappend(&quot;Board not initialized.\n&quot;);
+-		goto out;
+-	}
+ 	b43legacy_tsf_read(dev, &amp;tsf);
+ 	fappend(&quot;0x%08x%08x\n&quot;,
+ 		(unsigned int)((tsf &amp; 0xFFFFFFFF00000000ULL) &gt;&gt; 32),
+ 		(unsigned int)(tsf &amp; 0xFFFFFFFFULL));
+ 
+-out:
+-	spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
+-	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+-	mutex_unlock(&amp;big_buffer_mutex);
+-
+-	return res;
++	return count;
+ }
+ 
+-static ssize_t tsf_write_file(struct file *file, const char __user *user_buf,
+-			      size_t count, loff_t *ppos)
++/* wl-&gt;irq_lock is locked */
++int tsf_write_file(struct b43legacy_wldev *dev, const char *buf, size_t count)
+ {
+-	struct b43legacy_wldev *dev = file-&gt;private_data;
+-	char *buf = big_buffer;
+-	ssize_t buf_size;
+-	ssize_t res;
+-	unsigned long flags;
+ 	u64 tsf;
+ 
+-	mutex_lock(&amp;big_buffer_mutex);
+-	buf_size = min(count, ARRAY_SIZE(big_buffer) - 1);
+-	if (copy_from_user(buf, user_buf, buf_size)) {
+-		res = -EFAULT;
+-		goto out_unlock_bb;
+-	}
+-	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+-	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	if (b43legacy_status(dev) &lt; B43legacy_STAT_STARTED) {
+-		b43legacyerr(dev-&gt;wl, &quot;debugfs: Board not initialized.\n&quot;);
+-		res = -EFAULT;
+-		goto out_unlock;
+-	}
+-	if (sscanf(buf, &quot;%llu&quot;, (unsigned long long *)(&amp;tsf)) != 1) {
+-		b43legacyerr(dev-&gt;wl, &quot;debugfs: Invalid values for TSF\n&quot;);
+-		res = -EINVAL;
+-		goto out_unlock;
+-	}
++	if (sscanf(buf, &quot;%llu&quot;, (unsigned long long *)(&amp;tsf)) != 1)
++		return -EINVAL;
+ 	b43legacy_tsf_write(dev, tsf);
+-	mmiowb();
+-	res = buf_size;
+-
+-out_unlock:
+-	spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
+-out_unlock_bb:
+-	mutex_unlock(&amp;big_buffer_mutex);
+ 
+-	return res;
++	return 0;
+ }
+ 
+-static ssize_t shm_read_file(struct file *file, char __user * userbuf,
+-			     size_t count, loff_t * ppos)
++/* wl-&gt;irq_lock is locked */
++ssize_t ucode_regs_read_file(struct b43legacy_wldev *dev, char *buf, size_t bufsize)
+ {
+-	struct b43legacy_wldev *dev = file-&gt;private_data;
+-	const size_t len = ARRAY_SIZE(big_buffer);
+-	u8 *buf = big_buffer;
+-	__le16 *le16buf = (__le16*)big_buffer;
+-	size_t pos = 0;
+-	ssize_t res;
+-	unsigned long flags;
++	ssize_t count = 0;
+ 	int i;
+-	u16 tmp;
+ 
+-	mutex_lock(&amp;big_buffer_mutex);
+-	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+-	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	if (b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED) {
+-		fappend(&quot;Board not initialized.\n&quot;);
+-		goto out;
++	for (i = 0; i &lt; 64; i++) {
++		fappend(&quot;r%d = 0x%04x\n&quot;, i,
++			b43legacy_shm_read16(dev, B43legacy_SHM_WIRELESS, i));
+ 	}
+ 
++	return count;
++}
++
++/* wl-&gt;irq_lock is locked */
++ssize_t shm_read_file(struct b43legacy_wldev *dev, char *buf, size_t bufsize)
++{
++	ssize_t count = 0;
++	int i;
++	u16 tmp;
++	__le16 *le16buf = (__le16 *)buf;
++
+ 	for (i = 0; i &lt; 0x1000; i++) {
++		if (bufsize &lt;= 0)
++			break;
+ 		tmp = b43legacy_shm_read16(dev, B43legacy_SHM_SHARED, 2 * i);
+ 		le16buf[i] = cpu_to_le16(tmp);
+-		pos += sizeof(tmp);
++		count += sizeof(tmp);
++		bufsize -= sizeof(tmp);
+ 	}
+ 
+-out:
+-	spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
+-	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+-	mutex_unlock(&amp;big_buffer_mutex);
+-
+-	return res;
++	return count;
+ }
+ 
+-static ssize_t ucode_regs_read_file(struct file *file, char __user * userbuf,
+-				    size_t count, loff_t * ppos)
++ssize_t txstat_read_file(struct b43legacy_wldev *dev, char *buf, size_t bufsize)
+ {
+-	struct b43legacy_wldev *dev = file-&gt;private_data;
+-	const size_t len = ARRAY_SIZE(big_buffer);
+-	char *buf = big_buffer;
+-	size_t pos = 0;
+-	ssize_t res;
++	struct b43legacy_txstatus_log *log = &amp;dev-&gt;dfsentry-&gt;txstatlog;
++	ssize_t count = 0;
+ 	unsigned long flags;
+-	int i;
++	int i, idx;
++	struct b43legacy_txstatus *stat;
+ 
+-	mutex_lock(&amp;big_buffer_mutex);
+-	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+-	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	if (b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED) {
+-		fappend(&quot;Board not initialized.\n&quot;);
+-		goto out;
++	spin_lock_irqsave(&amp;log-&gt;lock, flags);
++	if (log-&gt;end &lt; 0) {
++		fappend(&quot;Nothing transmitted, yet\n&quot;);
++		goto out_unlock;
+ 	}
+-
+-	for (i = 0; i &lt; 64; i++) {
+-		fappend(&quot;r%d = 0x%04x\n&quot;, i,
+-			b43legacy_shm_read16(dev, B43legacy_SHM_WIRELESS, i));
++	fappend(&quot;b43legacy TX status reports:\n\n&quot;
++		&quot;index | cookie | seq | phy_stat | frame_count | &quot;
++		&quot;rts_count | supp_reason | pm_indicated | &quot;
++		&quot;intermediate | for_ampdu | acked\n&quot; &quot;---\n&quot;);
++	i = log-&gt;end + 1;
++	idx = 0;
++	while (1) {
++		if (i == B43legacy_NR_LOGGED_TXSTATUS)
++			i = 0;
++		stat = &amp;(log-&gt;log[i]);
++		if (stat-&gt;cookie) {
++			fappend(&quot;%03d | &quot;
++				&quot;0x%04X | 0x%04X | 0x%02X | &quot;
++				&quot;0x%X | 0x%X | &quot;
++				&quot;%u | %u | &quot;
++				&quot;%u | %u | %u\n&quot;,
++				idx,
++				stat-&gt;cookie, stat-&gt;seq, stat-&gt;phy_stat,
++				stat-&gt;frame_count, stat-&gt;rts_count,
++				stat-&gt;supp_reason, stat-&gt;pm_indicated,
++				stat-&gt;intermediate, stat-&gt;for_ampdu,
++				stat-&gt;acked);
++			idx++;
++		}
++		if (i == log-&gt;end)
++			break;
++		i++;
+ 	}
++out_unlock:
++	spin_unlock_irqrestore(&amp;log-&gt;lock, flags);
+ 
+-out:
+-	spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
+-	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+-	mutex_unlock(&amp;big_buffer_mutex);
+-
+-	return res;
++	return count;
+ }
+ 
+-static ssize_t power_read_file(struct file *file, char __user *userbuf,
+-			     size_t count, loff_t *ppos)
++/* wl-&gt;irq_lock is locked */
++int restart_write_file(struct b43legacy_wldev *dev, const char *buf, size_t count)
+ {
+-	struct b43legacy_wldev *dev = file-&gt;private_data;
+-	const size_t len = ARRAY_SIZE(big_buffer);
+-	char *buf = big_buffer;
+-	size_t pos = 0;
+-	ssize_t res;
+-	unsigned long flags;
++	int err = 0;
+ 
+-	mutex_lock(&amp;big_buffer_mutex);
+-	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+-	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	if (b43legacy_status(dev) &lt; B43legacy_STAT_STARTED) {
+-		fappend(&quot;Board not initialized.\n&quot;);
+-		goto out;
+-	}
+-	fappend(&quot;%d dBm\n&quot;, dev-&gt;phy.power_level);
++	if (count &gt; 0 &amp;&amp; buf[0] == '1') {
++		b43legacy_controller_restart(dev, &quot;manually restarted&quot;);
++	} else
++		err = -EINVAL;
+ 
+-out:
+-	spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
+-	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+-	mutex_unlock(&amp;big_buffer_mutex);
++	return err;
++}
++
++#undef fappend
+ 
+-	return res;
++static int b43legacy_debugfs_open(struct inode *inode, struct file *file)
++{
++	file-&gt;private_data = inode-&gt;i_private;
++	return 0;
+ }
+ 
+-static ssize_t power_write_file(struct file *file, const char __user *user_buf,
+-			      size_t count, loff_t *ppos)
++static ssize_t b43legacy_debugfs_read(struct file *file, char __user *userbuf,
++				size_t count, loff_t *ppos)
+ {
+-	struct b43legacy_wldev *dev = file-&gt;private_data;
+-	char *buf = big_buffer;
+-	ssize_t buf_size;
+-	ssize_t res;
+-	unsigned long flags;
+-	int power;
++	struct b43legacy_wldev *dev;
++	struct b43legacy_debugfs_fops *dfops;
++	struct b43legacy_dfs_file *dfile;
++	ssize_t ret = 0;
++	char *buf;
++	const size_t bufsize = 1024 * 128;
++	const size_t buforder = get_order(bufsize);
++	int err = 0;
++
++	if (!count)
++		return 0;
++	dev = file-&gt;private_data;
++	if (!dev)
++		return -ENODEV;
+ 
+-	mutex_lock(&amp;big_buffer_mutex);
+-	buf_size = min(count, ARRAY_SIZE(big_buffer) - 1);
+-	if (copy_from_user(buf, user_buf, buf_size)) {
+-		res = -EFAULT;
+-		goto out_unlock_bb;
+-	}
+ 	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+-	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	if (b43legacy_status(dev) &lt; B43legacy_STAT_STARTED) {
+-		b43legacyerr(dev-&gt;wl, &quot;debugfs: Board not initialized.\n&quot;);
+-		res = -EFAULT;
++	if (b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED) {
++		err = -ENODEV;
+ 		goto out_unlock;
+ 	}
+-	if ((sscanf(buf, &quot;%d&quot;, &amp;power) != 1) || (power &gt; 18 || power &lt; 5)) {
+-		b43legacyerr(dev-&gt;wl, &quot;debugfs: Invalid values for power&quot;
+-			     &quot; level\n&quot;);
+-		res = -EINVAL;
++
++	dfops = container_of(file-&gt;f_op, struct b43legacy_debugfs_fops, fops);
++	if (!dfops-&gt;read) {
++		err = -ENOSYS;
+ 		goto out_unlock;
+ 	}
+-	dev-&gt;phy.power_level = power;
+-	res = buf_size;
++	dfile = fops_to_dfs_file(dev, dfops);
+ 
++	if (!dfile-&gt;buffer) {
++		buf = (char *)__get_free_pages(GFP_KERNEL, buforder);
++		if (!buf) {
++			err = -ENOMEM;
++			goto out_unlock;
++		}
++		memset(buf, 0, bufsize);
++		if (dfops-&gt;take_irqlock) {
++			spin_lock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
++			ret = dfops-&gt;read(dev, buf, bufsize);
++			spin_unlock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
++		} else
++			ret = dfops-&gt;read(dev, buf, bufsize);
++		if (ret &lt;= 0) {
++			free_pages((unsigned long)buf, buforder);
++			err = ret;
++			goto out_unlock;
++		}
++		dfile-&gt;data_len = ret;
++		dfile-&gt;buffer = buf;
++	}
++
++	ret = simple_read_from_buffer(userbuf, count, ppos,
++				      dfile-&gt;buffer,
++				      dfile-&gt;data_len);
++	if (*ppos &gt;= dfile-&gt;data_len) {
++		free_pages((unsigned long)dfile-&gt;buffer, buforder);
++		dfile-&gt;buffer = NULL;
++		dfile-&gt;data_len = 0;
++	}
+ out_unlock:
+-	spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+ 	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
+-out_unlock_bb:
+-	mutex_unlock(&amp;big_buffer_mutex);
+ 
+-	return res;
++	return err ? err : ret;
+ }
+ 
+-static ssize_t txstat_read_file(struct file *file, char __user *userbuf,
+-				size_t count, loff_t *ppos)
++static ssize_t b43legacy_debugfs_write(struct file *file,
++				 const char __user *userbuf,
++				 size_t count, loff_t *ppos)
+ {
+-	struct b43legacy_wldev *dev = file-&gt;private_data;
+-	struct b43legacy_dfsentry *e = dev-&gt;dfsentry;
+-	struct b43legacy_txstatus_log *log = &amp;e-&gt;txstatlog;
+-	unsigned long flags;
+-	char *buf = log-&gt;printbuf;
+-	const size_t len = ARRAY_SIZE(log-&gt;printbuf);
+-	size_t pos = 0;
+-	ssize_t res;
+-	int i;
+-	int idx;
+-	struct b43legacy_txstatus *stat;
++	struct b43legacy_wldev *dev;
++	struct b43legacy_debugfs_fops *dfops;
++	char *buf;
++	int err = 0;
++
++	if (!count)
++		return 0;
++	if (count &gt; PAGE_SIZE)
++		return -E2BIG;
++	dev = file-&gt;private_data;
++	if (!dev)
++		return -ENODEV;
+ 
+-	mutex_lock(&amp;big_buffer_mutex);
+-	spin_lock_irqsave(&amp;log-&gt;lock, flags);
+-	if (!log-&gt;printing) {
+-		log-&gt;printing = 1;
+-		fappend(&quot;b43legacy TX status reports:\n\n&quot;
+-			&quot;index | cookie | seq | phy_stat | frame_count | &quot;
+-			&quot;rts_count | supp_reason | pm_indicated | &quot;
+-			&quot;intermediate | for_ampdu | acked\n&quot;
+-			&quot;---\n&quot;);
+-		i = log-&gt;end + 1;
+-		idx = 0;
+-		while (1) {
+-			if (log-&gt;end &lt; 0) {
+-				fappend(&quot;Nothing transmitted, yet\n&quot;);
+-				break;
+-			}
+-			if (i == B43legacy_NR_LOGGED_TXSTATUS)
+-				i = 0;
+-			stat = &amp;(log-&gt;log[i]);
+-			if (stat-&gt;cookie) {
+-				fappend(&quot;%03d | &quot;
+-					&quot;0x%04X | 0x%04X | 0x%02X | &quot;
+-					&quot;0x%X | 0x%X | &quot;
+-					&quot;%u | %u | &quot;
+-					&quot;%u | %u | %u\n&quot;,
+-					idx,
+-					stat-&gt;cookie, stat-&gt;seq, stat-&gt;phy_stat,
+-					stat-&gt;frame_count, stat-&gt;rts_count,
+-					stat-&gt;supp_reason, stat-&gt;pm_indicated,
+-					stat-&gt;intermediate, stat-&gt;for_ampdu,
+-					stat-&gt;acked);
+-				idx++;
+-			}
+-			if (i == log-&gt;end)
+-				break;
+-			i++;
+-		}
+-		log-&gt;buf_avail = pos;
++	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
++	if (b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED) {
++		err = -ENODEV;
++		goto out_unlock;
+ 	}
+-	memcpy(big_buffer, buf,
+-	       min(log-&gt;buf_avail, ARRAY_SIZE(big_buffer)));
+-	spin_unlock_irqrestore(&amp;log-&gt;lock, flags);
+-
+-	res = simple_read_from_buffer(userbuf, count, ppos,
+-				      big_buffer,
+-				      log-&gt;buf_avail);
+-	if (*ppos == log-&gt;buf_avail) {
+-		spin_lock_irqsave(&amp;log-&gt;lock, flags);
+-		log-&gt;printing = 0;
+-		spin_unlock_irqrestore(&amp;log-&gt;lock, flags);
+-	}
+-	mutex_unlock(&amp;big_buffer_mutex);
+-
+-	return res;
+-}
+-
+-static ssize_t restart_write_file(struct file *file,
+-				  const char __user *user_buf,
+-				  size_t count, loff_t *ppos)
+-{
+-	struct b43legacy_wldev *dev = file-&gt;private_data;
+-	char *buf = big_buffer;
+-	ssize_t buf_size;
+-	ssize_t res;
+-	unsigned long flags;
+ 
+-	mutex_lock(&amp;big_buffer_mutex);
+-	buf_size = min(count, ARRAY_SIZE(big_buffer) - 1);
+-	if (copy_from_user(buf, user_buf, buf_size)) {
+-		res = -EFAULT;
+-		goto out_unlock_bb;
++	dfops = container_of(file-&gt;f_op, struct b43legacy_debugfs_fops, fops);
++	if (!dfops-&gt;write) {
++		err = -ENOSYS;
++		goto out_unlock;
+ 	}
+-	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+-	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	if (b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED) {
+-		b43legacyerr(dev-&gt;wl, &quot;debugfs: Board not initialized.\n&quot;);
+-		res = -EFAULT;
++
++	buf = (char *)get_zeroed_page(GFP_KERNEL);
++	if (!buf) {
++		err = -ENOMEM;
+ 		goto out_unlock;
+ 	}
+-	if (count &gt; 0 &amp;&amp; buf[0] == '1') {
+-		b43legacy_controller_restart(dev, &quot;manually restarted&quot;);
+-		res = count;
++	if (copy_from_user(buf, userbuf, count)) {
++		err = -EFAULT;
++		goto out_freepage;
++	}
++	if (dfops-&gt;take_irqlock) {
++		spin_lock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
++		err = dfops-&gt;write(dev, buf, count);
++		spin_unlock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+ 	} else
+-		res = -EINVAL;
++		err = dfops-&gt;write(dev, buf, count);
++	if (err)
++		goto out_freepage;
+ 
++out_freepage:
++	free_page((unsigned long)buf);
+ out_unlock:
+-	spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+ 	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
+-out_unlock_bb:
+-	mutex_unlock(&amp;big_buffer_mutex);
+ 
+-	return res;
++	return err ? err : count;
+ }
+ 
+-#undef fappend
+-
+-
+-static struct file_operations drvinfo_fops = {
+-	.read = drvinfo_read_file,
+-	.write = write_file_dummy,
+-	.open = open_file_generic,
+-};
+-
+-static struct file_operations tsf_fops = {
+-	.read = tsf_read_file,
+-	.write = tsf_write_file,
+-	.open = open_file_generic,
+-};
+-
+-static struct file_operations ucode_regs_fops = {
+-	.read = ucode_regs_read_file,
+-	.open = open_file_generic,
+-};
+-
+-static struct file_operations shm_fops = {
+-	.read = shm_read_file,
+-	.open = open_file_generic,
+-};
+-
+-static struct file_operations txstat_fops = {
+-	.read = txstat_read_file,
+-	.write = write_file_dummy,
+-	.open = open_file_generic,
+-};
+ 
+-static struct file_operations restart_fops = {
+-	.write = restart_write_file,
+-	.open = open_file_generic,
+-};
++#define B43legacy_DEBUGFS_FOPS(name, _read, _write, _take_irqlock)	\
++	static struct b43legacy_debugfs_fops fops_##name = {		\
++		.read	= _read,				\
++		.write	= _write,				\
++		.fops	= {					\
++			.open	= b43legacy_debugfs_open,		\
++			.read	= b43legacy_debugfs_read,		\
++			.write	= b43legacy_debugfs_write,		\
++		},						\
++		.file_struct_offset = offsetof(struct b43legacy_dfsentry, \
++					       file_##name),	\
++		.take_irqlock	= _take_irqlock,		\
++	}
+ 
+-static struct file_operations power_fops = {
+-	.read = power_read_file,
+-	.write = power_write_file,
+-	.open = open_file_generic,
+-};
++B43legacy_DEBUGFS_FOPS(tsf, tsf_read_file, tsf_write_file, 1);
++B43legacy_DEBUGFS_FOPS(ucode_regs, ucode_regs_read_file, NULL, 1);
++B43legacy_DEBUGFS_FOPS(shm, shm_read_file, NULL, 1);
++B43legacy_DEBUGFS_FOPS(txstat, txstat_read_file, NULL, 0);
++B43legacy_DEBUGFS_FOPS(restart, NULL, restart_write_file, 1);
+ 
+ 
+-int b43legacy_debug(struct b43legacy_wldev *dev,
+-		    enum b43legacy_dyndbg feature)
++int b43legacy_debug(struct b43legacy_wldev *dev, enum b43legacy_dyndbg feature)
+ {
+ 	return !!(dev-&gt;dfsentry &amp;&amp; dev-&gt;dfsentry-&gt;dyn_debug[feature]);
+ }
+@@ -484,20 +389,18 @@ void b43legacy_debugfs_add_device(struct
+ 	struct b43legacy_txstatus_log *log;
+ 	char devdir[16];
+ 
+-	B43legacy_BUG_ON(!dev);
++	B43legacy_WARN_ON(!dev);
+ 	e = kzalloc(sizeof(*e), GFP_KERNEL);
+ 	if (!e) {
+-		b43legacyerr(dev-&gt;wl, &quot;debugfs: OOM while adding device\n&quot;);
++		b43legacyerr(dev-&gt;wl, &quot;debugfs: add device OOM\n&quot;);
+ 		return;
+ 	}
+ 	e-&gt;dev = dev;
+ 	log = &amp;e-&gt;txstatlog;
+ 	log-&gt;log = kcalloc(B43legacy_NR_LOGGED_TXSTATUS,
+-			   sizeof(struct b43legacy_txstatus),
+-			   GFP_KERNEL);
++			   sizeof(struct b43legacy_txstatus), GFP_KERNEL);
+ 	if (!log-&gt;log) {
+-		b43legacyerr(dev-&gt;wl, &quot;debugfs: OOM while adding device&quot;
+-			     &quot; txstatus\n&quot;);
++		b43legacyerr(dev-&gt;wl, &quot;debugfs: add device txstatus OOM\n&quot;);
+ 		kfree(e);
+ 		return;
+ 	}
+@@ -507,41 +410,40 @@ void b43legacy_debugfs_add_device(struct
+ 	dev-&gt;dfsentry = e;
+ 
+ 	snprintf(devdir, sizeof(devdir), &quot;%s&quot;, wiphy_name(dev-&gt;wl-&gt;hw-&gt;wiphy));
+-	e-&gt;subdir = debugfs_create_dir(devdir, fs.root);
++	e-&gt;subdir = debugfs_create_dir(devdir, rootdir);
+ 	if (!e-&gt;subdir || IS_ERR(e-&gt;subdir)) {
+-		b43legacyerr(dev-&gt;wl, &quot;debugfs: cannot create %s directory\n&quot;,
+-		       devdir);
++		if (e-&gt;subdir == ERR_PTR(-ENODEV)) {
++			b43legacydbg(dev-&gt;wl, &quot;DebugFS (CONFIG_DEBUG_FS) not &quot;
++			       &quot;enabled in kernel config\n&quot;);
++		} else {
++			b43legacyerr(dev-&gt;wl, &quot;debugfs: cannot create %s directory\n&quot;,
++			       devdir);
++		}
+ 		dev-&gt;dfsentry = NULL;
+ 		kfree(log-&gt;log);
+ 		kfree(e);
+ 		return;
+ 	}
+ 
+-	e-&gt;dentry_tsf = debugfs_create_file(&quot;tsf&quot;, 0600, e-&gt;subdir,
+-					     dev, &amp;tsf_fops);
+-	if (IS_ERR(e-&gt;dentry_tsf))
+-		e-&gt;dentry_tsf = NULL;
+-	e-&gt;dentry_ucode_regs = debugfs_create_file(&quot;ucode_regs&quot;, 0400, e-&gt;subdir,
+-						   dev, &amp;ucode_regs_fops);
+-	if (IS_ERR(e-&gt;dentry_ucode_regs))
+-		e-&gt;dentry_ucode_regs = NULL;
+-	e-&gt;dentry_shm = debugfs_create_file(&quot;shm&quot;, 0400, e-&gt;subdir,
+-					    dev, &amp;shm_fops);
+-	if (IS_ERR(e-&gt;dentry_shm))
+-		e-&gt;dentry_shm = NULL;
+-	e-&gt;dentry_txstat = debugfs_create_file(&quot;tx_status&quot;, 0400, e-&gt;subdir,
+-						dev, &amp;txstat_fops);
+-	if (IS_ERR(e-&gt;dentry_txstat))
+-		e-&gt;dentry_txstat = NULL;
+-	e-&gt;dentry_restart = debugfs_create_file(&quot;restart&quot;, 0200, e-&gt;subdir,
+-						dev, &amp;restart_fops);
+-	if (IS_ERR(e-&gt;dentry_restart))
+-		e-&gt;dentry_restart = NULL;
+-
+-	e-&gt;dentry_power = debugfs_create_file(&quot;power_level&quot;, 0600, e-&gt;subdir,
+-					     dev, &amp;power_fops);
+-	if (IS_ERR(e-&gt;dentry_power))
+-		e-&gt;dentry_power = NULL;
++#define ADD_FILE(name, mode)	\
++	do {							\
++		struct dentry *d;				\
++		d = debugfs_create_file(__stringify(name),	\
++					mode, e-&gt;subdir, dev,	\
++					&amp;fops_##name.fops);	\
++		e-&gt;file_##name.dentry = NULL;			\
++		if (!IS_ERR(d))					\
++			e-&gt;file_##name.dentry = d;		\
++	} while (0)
++
++
++	ADD_FILE(tsf, 0600);
++	ADD_FILE(ucode_regs, 0400);
++	ADD_FILE(shm, 0400);
++	ADD_FILE(txstat, 0400);
++	ADD_FILE(restart, 0200);
++
++#undef ADD_FILE
+ 
+ 	b43legacy_add_dynamic_debug(dev);
+ }
+@@ -552,24 +454,24 @@ void b43legacy_debugfs_remove_device(str
+ 
+ 	if (!dev)
+ 		return;
+-
+ 	e = dev-&gt;dfsentry;
+ 	if (!e)
+ 		return;
+ 	b43legacy_remove_dynamic_debug(dev);
+-	debugfs_remove(e-&gt;dentry_tsf);
+-	debugfs_remove(e-&gt;dentry_ucode_regs);
+-	debugfs_remove(e-&gt;dentry_shm);
+-	debugfs_remove(e-&gt;dentry_txstat);
+-	debugfs_remove(e-&gt;dentry_restart);
+-	debugfs_remove(e-&gt;dentry_power);
++
++	debugfs_remove(e-&gt;file_tsf.dentry);
++	debugfs_remove(e-&gt;file_ucode_regs.dentry);
++	debugfs_remove(e-&gt;file_shm.dentry);
++	debugfs_remove(e-&gt;file_txstat.dentry);
++	debugfs_remove(e-&gt;file_restart.dentry);
++
+ 	debugfs_remove(e-&gt;subdir);
+ 	kfree(e-&gt;txstatlog.log);
+ 	kfree(e);
+ }
+ 
+ void b43legacy_debugfs_log_txstat(struct b43legacy_wldev *dev,
+-				  const struct b43legacy_txstatus *status)
++			    const struct b43legacy_txstatus *status)
+ {
+ 	struct b43legacy_dfsentry *e = dev-&gt;dfsentry;
+ 	struct b43legacy_txstatus_log *log;
+@@ -592,20 +494,12 @@ void b43legacy_debugfs_log_txstat(struct
+ 
+ void b43legacy_debugfs_init(void)
+ {
+-	memset(&amp;fs, 0, sizeof(fs));
+-	fs.root = debugfs_create_dir(KBUILD_MODNAME, NULL);
+-	if (!fs.root || IS_ERR(fs.root)) {
+-		fs.root = NULL;
+-		return;
+-	}
+-	fs.dentry_driverinfo = debugfs_create_file(&quot;driver&quot;, 0444, fs.root,
+-						   NULL, &amp;drvinfo_fops);
+-	if (IS_ERR(fs.dentry_driverinfo))
+-		fs.dentry_driverinfo = NULL;
++	rootdir = debugfs_create_dir(KBUILD_MODNAME, NULL);
++	if (IS_ERR(rootdir))
++		rootdir = NULL;
+ }
+ 
+ void b43legacy_debugfs_exit(void)
+ {
+-	debugfs_remove(fs.dentry_driverinfo);
+-	debugfs_remove(fs.root);
++	debugfs_remove(rootdir);
+ }
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002364.html">[PATCH] b43legacy: Add debugfs file to dump shared memory
+</A></li>
+	<LI>Next message: <A HREF="002366.html">[PATCH] b43legacy: Don't cancel the restart workqueue in	wireless_core_exit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2365">[ date ]</a>
+              <a href="thread.html#2365">[ thread ]</a>
+              <a href="subject.html#2365">[ subject ]</a>
+              <a href="author.html#2365">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

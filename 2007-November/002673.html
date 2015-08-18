@@ -1,0 +1,211 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/7] b43legacy: use the retry limits provided by mac80211
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/7%5D%20b43legacy%3A%20use%20the%20retry%20limits%20provided%20by%20mac80211&In-Reply-To=%3C20071106224812.6d144692%40morte%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002671.html">
+   <LINK REL="Next"  HREF="002674.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/7] b43legacy: use the retry limits provided by mac80211</H1>
+    <B>Stefano Brivio</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/7%5D%20b43legacy%3A%20use%20the%20retry%20limits%20provided%20by%20mac80211&In-Reply-To=%3C20071106224812.6d144692%40morte%3E"
+       TITLE="[PATCH 1/7] b43legacy: use the retry limits provided by mac80211">stefano.brivio at polimi.it
+       </A><BR>
+    <I>Tue Nov  6 22:48:12 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002671.html">[RFC 6 of 6] ssb: Remove the old, now unused, data structure
+</A></li>
+        <LI>Next message: <A HREF="002674.html">[PATCH 2/7] b43legacy: use a consistent naming scheme for the ops
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2673">[ date ]</a>
+              <a href="thread.html#2673">[ thread ]</a>
+              <a href="subject.html#2673">[ subject ]</a>
+              <a href="author.html#2673">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Use the retry limits provided by mac80211.
+
+The patch to b43 by Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; has been ported to
+b43legacy.
+
+
+Signed-off-by: Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+
+----
+
+Index: wireless-2.6/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-2.6/drivers/net/wireless/b43legacy/main.c
+@@ -75,14 +75,6 @@ module_param_named(bad_frames_preempt, m
+ MODULE_PARM_DESC(bad_frames_preempt, &quot;enable(1) / disable(0) Bad Frames&quot;
+ 		 &quot; Preemption&quot;);
+ 
+-static int modparam_short_retry = B43legacy_DEFAULT_SHORT_RETRY_LIMIT;
+-module_param_named(short_retry, modparam_short_retry, int, 0444);
+-MODULE_PARM_DESC(short_retry, &quot;Short-Retry-Limit (0 - 15)&quot;);
+-
+-static int modparam_long_retry = B43legacy_DEFAULT_LONG_RETRY_LIMIT;
+-module_param_named(long_retry, modparam_long_retry, int, 0444);
+-MODULE_PARM_DESC(long_retry, &quot;Long-Retry-Limit (0 - 15)&quot;);
+-
+ static char modparam_fwpostfix[16];
+ module_param_string(fwpostfix, modparam_fwpostfix, 16, 0444);
+ MODULE_PARM_DESC(fwpostfix, &quot;Postfix for the firmware files to load.&quot;);
+@@ -2927,6 +2919,20 @@ static void b43legacy_imcfglo_timeouts_w
+ #endif /* CONFIG_SSB_DRIVER_PCICORE */
+ }
+ 
++/* Write the short and long frame retry limit values. */
++static void b43legacy_set_retry_limits(struct b43legacy_wldev *dev,
++				       unsigned int short_retry,
++				       unsigned int long_retry)
++{
++	/* The retry limit is a 4-bit counter. Enforce this to avoid overflowing
++	 * the chip-internal counter. */
++	short_retry = min(short_retry, (unsigned int)0xF);
++	long_retry = min(long_retry, (unsigned int)0xF);
++
++	b43legacy_shm_write16(dev, B43legacy_SHM_WIRELESS, 0x0006, short_retry);
++	b43legacy_shm_write16(dev, B43legacy_SHM_WIRELESS, 0x0007, long_retry);
++}
++
+ /* Shutdown a wireless core */
+ /* Locking: wl-&gt;mutex */
+ static void b43legacy_wireless_core_exit(struct b43legacy_wldev *dev)
+@@ -3064,16 +3070,9 @@ static int b43legacy_wireless_core_init(
+ 	}
+ 	b43legacy_hf_write(dev, hf);
+ 
+-	/* Short/Long Retry Limit.
+-	 * The retry-limit is a 4-bit counter. Enforce this to avoid overflowing
+-	 * the chip-internal counter.
+-	 */
+-	tmp = limit_value(modparam_short_retry, 0, 0xF);
+-	b43legacy_shm_write16(dev, B43legacy_SHM_WIRELESS,
+-			      0x0006, tmp);
+-	tmp = limit_value(modparam_long_retry, 0, 0xF);
+-	b43legacy_shm_write16(dev, B43legacy_SHM_WIRELESS,
+-			      0x0007, tmp);
++	b43legacy_set_retry_limits(dev,
++				   B43legacy_DEFAULT_SHORT_RETRY_LIMIT,
++				   B43legacy_DEFAULT_LONG_RETRY_LIMIT);
+ 
+ 	b43legacy_shm_write16(dev, B43legacy_SHM_SHARED,
+ 			      0x0044, 3);
+@@ -3250,19 +3249,41 @@ static void b43legacy_stop(struct ieee80
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ }
+ 
++static int b43legacy_op_set_retry_limit(struct ieee80211_hw *hw,
++					u32 short_retry_limit,
++					u32 long_retry_limit)
++{
++	struct b43legacy_wl *wl = hw_to_b43legacy_wl(hw);
++	struct b43legacy_wldev *dev;
++	int err = 0;
++
++	mutex_lock(&amp;wl-&gt;mutex);
++	dev = wl-&gt;current_dev;
++	if (unlikely(!dev ||
++		     (b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED))) {
++		err = -ENODEV;
++		goto out_unlock;
++	}
++	b43legacy_set_retry_limits(dev, short_retry_limit, long_retry_limit);
++out_unlock:
++	mutex_unlock(&amp;wl-&gt;mutex);
++
++	return err;
++}
+ 
+ static const struct ieee80211_ops b43legacy_hw_ops = {
+-	.tx = b43legacy_tx,
+-	.conf_tx = b43legacy_conf_tx,
+-	.add_interface = b43legacy_add_interface,
+-	.remove_interface = b43legacy_remove_interface,
+-	.config = b43legacy_dev_config,
+-	.config_interface = b43legacy_config_interface,
+-	.configure_filter = b43legacy_configure_filter,
+-	.get_stats = b43legacy_get_stats,
+-	.get_tx_stats = b43legacy_get_tx_stats,
+-	.start = b43legacy_start,
+-	.stop = b43legacy_stop,
++	.tx			= b43legacy_tx,
++	.conf_tx		= b43legacy_conf_tx,
++	.add_interface		= b43legacy_add_interface,
++	.remove_interface	= b43legacy_remove_interface,
++	.config			= b43legacy_dev_config,
++	.config_interface	= b43legacy_config_interface,
++	.configure_filter	= b43legacy_configure_filter,
++	.get_stats		= b43legacy_get_stats,
++	.get_tx_stats		= b43legacy_get_tx_stats,
++	.start			= b43legacy_start,
++	.stop			= b43legacy_stop,
++	.set_retry_limit	= b43legacy_op_set_retry_limit,
+ };
+ 
+ /* Hard-reset the chip. Do not call this directly.
+Index: wireless-2.6/drivers/net/wireless/b43legacy/xmit.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/xmit.c
++++ wireless-2.6/drivers/net/wireless/b43legacy/xmit.c
+@@ -290,6 +290,8 @@ static void generate_txhdr_fw3(struct b4
+ 		mac_ctl |= B43legacy_TX4_MAC_STMSDU;
+ 	if (rate_fb_ofdm)
+ 		mac_ctl |= B43legacy_TX4_MAC_FALLBACKOFDM;
++	if (txctl-&gt;flags &amp; IEEE80211_TXCTL_LONG_RETRY_LIMIT)
++		mac_ctl |= B43legacy_TX4_MAC_LONGFRAME;
+ 
+ 	/* Generate the RTS or CTS-to-self frame */
+ 	if ((txctl-&gt;flags &amp; IEEE80211_TXCTL_USE_RTS_CTS) ||
+@@ -335,7 +337,6 @@ static void generate_txhdr_fw3(struct b4
+ 					    len, rts_rate_fb);
+ 		hdr = (struct ieee80211_hdr *)(&amp;txhdr-&gt;rts_frame);
+ 		txhdr-&gt;rts_dur_fb = hdr-&gt;duration_id;
+-		mac_ctl |= B43legacy_TX4_MAC_LONGFRAME;
+ 	}
+ 
+ 	/* Magic cookie */
+
+
+
+-- 
+Ciao
+Stefano
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002671.html">[RFC 6 of 6] ssb: Remove the old, now unused, data structure
+</A></li>
+	<LI>Next message: <A HREF="002674.html">[PATCH 2/7] b43legacy: use a consistent naming scheme for the ops
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2673">[ date ]</a>
+              <a href="thread.html#2673">[ thread ]</a>
+              <a href="subject.html#2673">[ subject ]</a>
+              <a href="author.html#2673">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

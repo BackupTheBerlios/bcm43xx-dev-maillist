@@ -1,0 +1,162 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm94321
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm94321&In-Reply-To=%3CD63EFFC5-D294-45B9-83A6-B817A1CA67E8%40daleenterprise.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004241.html">
+   <LINK REL="Next"  HREF="004251.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm94321</H1>
+    <B>Dale Walsh</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm94321&In-Reply-To=%3CD63EFFC5-D294-45B9-83A6-B817A1CA67E8%40daleenterprise.com%3E"
+       TITLE="bcm94321">dale at daleenterprise.com
+       </A><BR>
+    <I>Fri Jun 13 04:38:38 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004241.html">bcm94321
+</A></li>
+        <LI>Next message: <A HREF="004251.html">bcm94321
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4250">[ date ]</a>
+              <a href="thread.html#4250">[ thread ]</a>
+              <a href="subject.html#4250">[ subject ]</a>
+              <a href="author.html#4250">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+On Jun 12, 2008, at 05:16 AM, Michael Buesch wrote:
+
+&gt;<i> On Thursday 12 June 2008 04:20:04 Larry Finger wrote:
+</I>&gt;&gt;<i> Dale Walsh wrote:
+</I>&gt;&gt;&gt;<i> I've been in touch with Broadcom a since I am considering having  
+</I>&gt;&gt;&gt;<i> a card
+</I>&gt;&gt;&gt;<i> OEM'ed and it was discussed acquiring the API and a framework for  
+</I>&gt;&gt;&gt;<i> driver
+</I>&gt;&gt;&gt;<i> programming in a custom OS so now I'm just waiting on approval.
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> Is there any other action I can take that would help???
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> Here is some information on the 11n based cards I have, I'm  
+</I>&gt;&gt;&gt;<i> working on
+</I>&gt;&gt;&gt;<i> getting the b43 driver to recognize the card in the hopes that I can
+</I>&gt;&gt;&gt;<i> obtain a dump of the sprom data in case it's usefull.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> I'm not sure the SPROM data will have any value at this time;  
+</I>&gt;&gt;<i> however,
+</I>&gt;&gt;<i> you need to have ssb recognize the device in order to get to the  
+</I>&gt;&gt;<i> SPROM
+</I>&gt;&gt;<i> values. That requires the PCI ID in ssb's tables. You will also  
+</I>&gt;&gt;<i> need a
+</I>&gt;&gt;<i> fairly recent kernel (2.6.26-rcX) if the devices have a 400 byte  
+</I>&gt;&gt;<i> SPROM
+</I>&gt;&gt;<i>   that is not rev 4. It may be necessary for b43 to be loaded, but  
+</I>&gt;&gt;<i> the
+</I>&gt;&gt;<i> SPROM can be read even if b43 doesn't recognize the device.
+</I>&gt;<i>
+</I>&gt;<i> You don't need to load b43. Just modify ssb, load it and read the  
+</I>&gt;<i> sprom
+</I>&gt;<i> via /sys/foobar/ssb_sprom
+</I>&gt;<i>
+</I>&gt;<i> -- 
+</I>&gt;<i> Greetings Michael.
+</I>&gt;<i>
+</I>
+
+ok, got the new kernel (2.6.26-rc5) installed as recommended.
+
+Booted machine with WMP300N installed and did the following:
+_______________________________
+
+sudo -s
+
+uname -r
+	2.6.26.rc5-wifi-testing
+
+modprobe b43
+
+cd $(dirname $(find /sys/devices|grep sprom))
+
+cp ssb_sprom ${HOME}/orig_sprom; # try using cp
+
+ssb-sprom -i ${HOME}/orig_sprom -P
+	Corrupt input data (crc: 0xA9, expected: 0xFF)
+
+rm ${HOME}/orig_sprom; # delete the file just in case
+
+cat ssb_sprom &gt; ${HOME}/orig_sprom; # try using cat
+
+ssb-sprom -i ${HOME}/orig_sprom -P
+	Corrupt input data (crc: 0xA9, expected: 0xFF)
+
+dmesg
+	[19374.906129] ssb: Sonics Silicon Backplane found on PCI device  
+0000:04:00.0
+	[19374.936377] b43-phy2: Broadcom 4321 WLAN found
+	[19374.977459] b43-phy2 ERROR: FOUND UNSUPPORTED PHY (Analog 5, Type  
+4, Revision 1)
+	[19374.977482] b43: probe of ssb0:0 failed with error -95
+	[19374.977506] Broadcom 43xx driver loaded [ Features: PLR, Firmware- 
+ID: FW13 ]
+_______________________________
+
+The results are the same for the WLI-PCI-G300N and as far as I can  
+tell they physically appear to be the same card.
+
+I have verified by viewing the subsystem_device and subsystem_vendor  
+files do contain the correct information for the installed card so I  
+can confirm it is working to some degree, at least it's recognizing  
+the cards.
+
+As I said, I don't need the wireless lan to be functional, just the  
+ability to read/write the sprom data at this time.
+
+
+-- Dale
+
+
+
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080612/a2163b27/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080612/a2163b27/attachment.html</A>&gt;
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: PGP.sig
+Type: application/pgp-signature
+Size: 188 bytes
+Desc: This is a digitally signed message part
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080612/a2163b27/attachment.pgp">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080612/a2163b27/attachment.pgp</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004241.html">bcm94321
+</A></li>
+	<LI>Next message: <A HREF="004251.html">bcm94321
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4250">[ date ]</a>
+              <a href="thread.html#4250">[ thread ]</a>
+              <a href="subject.html#4250">[ subject ]</a>
+              <a href="author.html#4250">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

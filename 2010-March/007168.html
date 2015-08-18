@@ -1,0 +1,231 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH V4] ssb: Implement virtual SPROM
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V4%5D%20ssb%3A%20Implement%20virtual%20SPROM&In-Reply-To=%3C201003260718.04857.gene.heskett%40verizon.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="007167.html">
+   <LINK REL="Next"  HREF="007169.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH V4] ssb: Implement virtual SPROM</H1>
+    <B>Gene Heskett</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V4%5D%20ssb%3A%20Implement%20virtual%20SPROM&In-Reply-To=%3C201003260718.04857.gene.heskett%40verizon.net%3E"
+       TITLE="[PATCH V4] ssb: Implement virtual SPROM">gene.heskett at verizon.net
+       </A><BR>
+    <I>Fri Mar 26 12:18:04 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="007167.html">[PATCH V4] ssb: Implement virtual SPROM
+</A></li>
+        <LI>Next message: <A HREF="007169.html">[PATCH V4] ssb: Implement virtual SPROM
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7168">[ date ]</a>
+              <a href="thread.html#7168">[ thread ]</a>
+              <a href="subject.html#7168">[ subject ]</a>
+              <a href="author.html#7168">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 26 March 2010, Larry Finger wrote:
+&gt;<i>Some recent BCM43XX devices lack an on-board SPROM. The pertinent data
+</I>&gt;<i>from the SPROM could be included in the kernel; however, this presents
+</I>&gt;<i>a problem in the generation of a unique, reproducible MAC address. The
+</I>&gt;<i>solution is to initialize the address to a known, workable value. Thus,
+</I>&gt;<i>the device will work without any further code. For an address that is
+</I>&gt;<i>preserved across reloads or reboots, a set of udev routines has been
+</I>&gt;<i>prepared that detect the special address and assign a random value that
+</I>&gt;<i>is preserved in a second udev rule file. The random address should be
+</I>&gt;<i>unique except for the case where a given box has more than one of these
+</I>&gt;<i>cards. This case is handles by adding the DEVPATH to the recognition
+</I>&gt;<i> rules.
+</I>&gt;<i>
+</I>&gt;<i>Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>
+This I assume does not do anything for the idiot vendor who ships thousands 
+of bt dongles all with 11:11:11:11:11:11 set as the mac address?  I got 
+stung with 2 of those things.
+
+&gt;<i>---
+</I>&gt;<i>
+</I>&gt;<i>John,
+</I>&gt;<i>
+</I>&gt;<i>It has been a long path, but this solution satisfies all the criticisms
+</I>&gt;<i>that have been posted.
+</I>&gt;<i>
+</I>&gt;<i>I suspect it is a little to invasive for 2.6.34. In addition, it fixes
+</I>&gt;<i>a bug, but not a regression. As to introducing a regression, that could
+</I>&gt;<i>only happen if ssb_is_sprom_available() returns false for some device
+</I>&gt;<i>that does have an SPROM.
+</I>&gt;<i>
+</I>&gt;<i>Larry
+</I>&gt;<i>---
+</I>&gt;<i>
+</I>&gt;<i>V2 - make virtual SPROM loading asynchronous.
+</I>&gt;<i>V3 - eliminate the need for a special external utility
+</I>&gt;<i>   - set for unique MAC address even if a box has more than one of these
+</I>&gt;<i>     devices
+</I>&gt;<i>V4 - handle the requirements without any &quot;firmware&quot; routines.
+</I>&gt;<i>
+</I>&gt;<i>Index: wireless-testing/drivers/ssb/pci.c
+</I>&gt;<i>===================================================================
+</I>&gt;<i>--- wireless-testing.orig/drivers/ssb/pci.c
+</I>&gt;<i>+++ wireless-testing/drivers/ssb/pci.c
+</I>&gt;<i>@@ -613,6 +613,67 @@ static int sprom_extract(struct ssb_bus
+</I>&gt;<i> 	return 0;
+</I>&gt;<i> }
+</I>&gt;<i>
+</I>&gt;<i>+static void ssb_get_vsprom(struct ssb_sprom *sprom)
+</I>&gt;<i>+{
+</I>&gt;<i>+	/* Get values that would have been extracted from SPROM.
+</I>&gt;<i>+	 * If sprom_extract_r8() is changed, this section must be
+</I>&gt;<i>+	 * changed as well. For any device with 5GHz capability,
+</I>&gt;<i>+	 * some variables will have to be changed.
+</I>&gt;<i>+	 */
+</I>&gt;<i>+	sprom-&gt;revision = 8;
+</I>&gt;<i>+	sprom-&gt;boardflags_lo = 0x0A01;
+</I>&gt;<i>+	sprom-&gt;boardflags_hi = 0x0006;
+</I>&gt;<i>+	sprom-&gt;boardflags2_lo = 0x0000;
+</I>&gt;<i>+	sprom-&gt;boardflags2_hi = 0x0000;
+</I>&gt;<i>+	sprom-&gt;ant_available_a = 0x00;
+</I>&gt;<i>+	sprom-&gt;ant_available_bg = 0x03;
+</I>&gt;<i>+	sprom-&gt;maxpwr_bg = 0x4A;
+</I>&gt;<i>+	sprom-&gt;itssi_bg = 0x3E;
+</I>&gt;<i>+	sprom-&gt;maxpwr_a = 0xFF;
+</I>&gt;<i>+	sprom-&gt;itssi_a = 0xFF;
+</I>&gt;<i>+	sprom-&gt;maxpwr_ah = 0xFF;
+</I>&gt;<i>+	sprom-&gt;maxpwr_al = 0xFF;
+</I>&gt;<i>+	sprom-&gt;gpio0 = 0x83;
+</I>&gt;<i>+	sprom-&gt;gpio1 = 0xFF;
+</I>&gt;<i>+	sprom-&gt;gpio2 = 0xFF;
+</I>&gt;<i>+	sprom-&gt;gpio3 = 0xFF;
+</I>&gt;<i>+	sprom-&gt;tri2g = 0x6C;
+</I>&gt;<i>+	sprom-&gt;tri5g = 0x00;
+</I>&gt;<i>+	sprom-&gt;tri5gl = 0xFF;
+</I>&gt;<i>+	sprom-&gt;tri5gh = 0xFF;
+</I>&gt;<i>+	sprom-&gt;rxpo2g = 0xFA;
+</I>&gt;<i>+	sprom-&gt;rxpo5g = 0xFF;
+</I>&gt;<i>+	sprom-&gt;rssismf2g = 0x0F;
+</I>&gt;<i>+	sprom-&gt;rssismc2g = 0x00;
+</I>&gt;<i>+	sprom-&gt;rssisav2g = 0x00;
+</I>&gt;<i>+	sprom-&gt;bxa2g = 0x00;
+</I>&gt;<i>+	sprom-&gt;rssismf5g = 0x0F;
+</I>&gt;<i>+	sprom-&gt;rssismc5g = 0x0F;
+</I>&gt;<i>+	sprom-&gt;rssisav5g = 0x07;
+</I>&gt;<i>+	sprom-&gt;bxa5g = 0x03;
+</I>&gt;<i>+	sprom-&gt;pa0b0 = 0x1a57;
+</I>&gt;<i>+	sprom-&gt;pa0b1 = 0xF98A;
+</I>&gt;<i>+	sprom-&gt;pa0b2 = 0xFE91;
+</I>&gt;<i>+	sprom-&gt;pa1b0 = 0xFFFF;
+</I>&gt;<i>+	sprom-&gt;pa1b1 = 0xFFFF;
+</I>&gt;<i>+	sprom-&gt;pa1b2 = 0xFFFF;
+</I>&gt;<i>+	sprom-&gt;pa1lob0 = 0xFFFF;
+</I>&gt;<i>+	sprom-&gt;pa1lob1 = 0xFFFF;
+</I>&gt;<i>+	sprom-&gt;pa1lob2 = 0xFFFF;
+</I>&gt;<i>+	sprom-&gt;pa1hib0 = 0xFFFF;
+</I>&gt;<i>+	sprom-&gt;pa1hib1 = 0xFFFF;
+</I>&gt;<i>+	sprom-&gt;pa1hib2 = 0xFFFF;
+</I>&gt;<i>+	sprom-&gt;cck2gpo = 0xFFFF;
+</I>&gt;<i>+	sprom-&gt;ofdm2gpo = 0x00000002;
+</I>&gt;<i>+	sprom-&gt;ofdm5glpo = 0xFFFFFFFF;
+</I>&gt;<i>+	sprom-&gt;ofdm5gpo = 0xFFFFFFFF;
+</I>&gt;<i>+	sprom-&gt;ofdm5ghpo = 0xFFFFFFFF;
+</I>&gt;<i>+	/* assign a dummy, but usable, MAC address */
+</I>&gt;<i>+	memset(sprom-&gt;il0mac, 0x82, 6);
+</I>&gt;<i>+	memset(sprom-&gt;et0mac, 0xFF, 6);
+</I>&gt;<i>+	memset(sprom-&gt;et1mac, 0xFF, 6);
+</I>&gt;<i>+}
+</I>&gt;<i>+
+</I>&gt;<i> static int ssb_pci_sprom_get(struct ssb_bus *bus,
+</I>&gt;<i> 			     struct ssb_sprom *sprom)
+</I>&gt;<i> {
+</I>&gt;<i>@@ -621,8 +682,9 @@ static int ssb_pci_sprom_get(struct ssb_
+</I>&gt;<i> 	u16 *buf;
+</I>&gt;<i>
+</I>&gt;<i> 	if (!ssb_is_sprom_available(bus)) {
+</I>&gt;<i>-		ssb_printk(KERN_ERR PFX &quot;No SPROM available!\n&quot;);
+</I>&gt;<i>-		return -ENODEV;
+</I>&gt;<i>+		/* This device has no SPROM. Get values from a real SPROM */
+</I>&gt;<i>+		ssb_get_vsprom(sprom);
+</I>&gt;<i>+		return 0;
+</I>&gt;<i> 	}
+</I>&gt;<i>
+</I>&gt;<i> 	buf = kcalloc(SSB_SPROMSIZE_WORDS_R123, sizeof(u16), GFP_KERNEL);
+</I>&gt;<i>Index: wireless-testing/drivers/net/wireless/b43/main.c
+</I>&gt;<i>===================================================================
+</I>&gt;<i>--- wireless-testing.orig/drivers/net/wireless/b43/main.c
+</I>&gt;<i>+++ wireless-testing/drivers/net/wireless/b43/main.c
+</I>&gt;<i>@@ -4395,6 +4395,7 @@ static int b43_op_add_interface(struct i
+</I>&gt;<i> 	struct b43_wl *wl = hw_to_b43_wl(hw);
+</I>&gt;<i> 	struct b43_wldev *dev;
+</I>&gt;<i> 	int err = -EOPNOTSUPP;
+</I>&gt;<i>+	u8 test_addr[] = {0x82, 0x82, 0x82, 0x82, 0x82, 0x82};
+</I>&gt;<i>
+</I>&gt;<i> 	/* TODO: allow WDS/AP devices to coexist */
+</I>&gt;<i>
+</I>&gt;<i>@@ -4417,6 +4418,19 @@ static int b43_op_add_interface(struct i
+</I>&gt;<i> 	wl-&gt;if_type = vif-&gt;type;
+</I>&gt;<i> 	memcpy(wl-&gt;mac_addr, vif-&gt;addr, ETH_ALEN);
+</I>&gt;<i>
+</I>&gt;<i>+	/* Check if address given when device has no SPROM is still present */
+</I>&gt;<i>+	if (compare_ether_addr(wl-&gt;mac_addr, test_addr) == 0) {
+</I>&gt;<i>+		printk(KERN_INFO &quot;b43: **************************\n&quot;);
+</I>&gt;<i>+		printk(KERN_INFO &quot;     The hardware address matches the one &quot;
+</I>&gt;<i>+				       &quot;assigned for devices\n&quot;);
+</I>&gt;<i>+		printk(KERN_INFO &quot;     with no SPROM. To ensure that your address&quot;
+</I>&gt;<i>+				       &quot; is unique go to\n&quot;);
+</I>&gt;<i>+		printk(KERN_INFO &quot;     <A HREF="http://wireless.kernel.org/en/users/">http://wireless.kernel.org/en/users/</A>&quot;
+</I>&gt;<i>+				       &quot;Drivers/b43&quot;);
+</I>&gt;<i>+		printk(KERN_INFO &quot;     to download and install the necessary&quot;
+</I>&gt;<i>+				       &quot; udev rules.\n&quot;);
+</I>&gt;<i>+		printk(KERN_INFO &quot;     **************************\n&quot;);
+</I>&gt;<i>+	}
+</I>&gt;<i> 	b43_adjust_opmode(dev);
+</I>&gt;<i> 	b43_set_pretbtt(dev);
+</I>&gt;<i> 	b43_set_synth_pu_delay(dev, 0);
+</I>&gt;<i>_______________________________________________
+</I>&gt;<i>Bcm43xx-dev mailing list
+</I>&gt;<i><A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i><A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>&gt;<i>
+</I>
+
+-- 
+Cheers, Gene
+&quot;There are four boxes to be used in defense of liberty:
+ soap, ballot, jury, and ammo. Please use in that order.&quot;
+-Ed Howdershelt (Author)
+
+If at first you do succeed, try to hide your astonishment.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="007167.html">[PATCH V4] ssb: Implement virtual SPROM
+</A></li>
+	<LI>Next message: <A HREF="007169.html">[PATCH V4] ssb: Implement virtual SPROM
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7168">[ date ]</a>
+              <a href="thread.html#7168">[ thread ]</a>
+              <a href="subject.html#7168">[ subject ]</a>
+              <a href="author.html#7168">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

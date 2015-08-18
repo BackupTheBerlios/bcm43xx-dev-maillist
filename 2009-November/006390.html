@@ -1,0 +1,363 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Enforce DMA descriptor memory constraints
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Enforce%20DMA%20descriptor%20memory%20constraints&In-Reply-To=%3C200911182053.05488.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006380.html">
+   <LINK REL="Next"  HREF="006391.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Enforce DMA descriptor memory constraints</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Enforce%20DMA%20descriptor%20memory%20constraints&In-Reply-To=%3C200911182053.05488.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Enforce DMA descriptor memory constraints">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Nov 18 20:53:05 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006380.html">PHY Transmission error and radio turned off with b43legacy
+</A></li>
+        <LI>Next message: <A HREF="006391.html">[PATCH] b43: Enforce DMA descriptor memory constraints
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6390">[ date ]</a>
+              <a href="thread.html#6390">[ thread ]</a>
+              <a href="subject.html#6390">[ subject ]</a>
+              <a href="author.html#6390">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Enforce all device constraints on the descriptor memory region.
+
+There are several constraints on the descriptor memory, as documented
+in the specification. The current code does not enforce them and/or
+incorrectly enforces them.
+
+Those constraints are:
+- The address limitations on 30/32bit engines, that also apply to
+  the skbs.
+- The 4k alignment requirement on 30/32bit engines.
+- The 8k alignment requirement on 64bit engines.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+It's not entirely clear if any 64bit devices exist that _really_ need the 8k
+alignment. However, I think it does not hurt much if we enforce it anyway.
+The patch removes the always-set-GFP_DMA-on-64bit-devices hack. The combination of
+the new enforcements should be enough to keep every device happy, including those
+which needed the GFP_DMA hack. The new code will dynamically check if GFP_DMA is
+required, instead of statically doing it all the time.
+John, please queue for the next feature release. This patch still needs a fair
+amount of testing. I think the best way to get it is to simply apply it. If this
+causes any regressions, we can (temporary) revert it.
+
+This also is a candidate for a b43legacy backport.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-11-18 19:09:38.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-11-18 19:21:17.000000000 +0100
+@@ -383,44 +383,160 @@ static inline
+ 	}
+ }
+ 
++/* Check if a DMA region fits the device constraints.
++ * Returns true, if the region is OK for usage with this device. */
++static inline bool b43_dma_address_ok(struct b43_dmaring *ring,
++				      dma_addr_t addr, size_t size)
++{
++	switch (ring-&gt;type) {
++	case B43_DMA_30BIT:
++		if ((u64)addr + size &gt; (1ULL &lt;&lt; 30))
++			return 0;
++		break;
++	case B43_DMA_32BIT:
++		if ((u64)addr + size &gt; (1ULL &lt;&lt; 32))
++			return 0;
++		break;
++	case B43_DMA_64BIT:
++		/* Currently we can't have addresses beyond
++		 * 64bit in the kernel. */
++		break;
++	}
++	return 1;
++}
++
++#define is_4k_aligned(addr)	(((u64)(addr) &amp; 0x0FFFull) == 0)
++#define is_8k_aligned(addr)	(((u64)(addr) &amp; 0x1FFFull) == 0)
++
++static void b43_unmap_and_free_ringmem(struct b43_dmaring *ring, void *base,
++				       dma_addr_t dmaaddr, size_t size)
++{
++	ssb_dma_unmap_single(ring-&gt;dev-&gt;dev, dmaaddr, size, DMA_TO_DEVICE);
++	free_pages((unsigned long)base, get_order(size));
++}
++
++static void * __b43_get_and_map_ringmem(struct b43_dmaring *ring,
++					dma_addr_t *dmaaddr, size_t size,
++					gfp_t gfp_flags)
++{
++	void *base;
++
++	base = (void *)__get_free_pages(gfp_flags, get_order(size));
++	if (!base)
++		return NULL;
++	memset(base, 0, size);
++	*dmaaddr = ssb_dma_map_single(ring-&gt;dev-&gt;dev, base, size,
++				      DMA_TO_DEVICE);
++	if (ssb_dma_mapping_error(ring-&gt;dev-&gt;dev, *dmaaddr)) {
++		free_pages((unsigned long)base, get_order(size));
++		return NULL;
++	}
++
++	return base;
++}
++
++static void * b43_get_and_map_ringmem(struct b43_dmaring *ring,
++				      dma_addr_t *dmaaddr, size_t size)
++{
++	void *base;
++
++	base = __b43_get_and_map_ringmem(ring, dmaaddr, size,
++					 GFP_KERNEL);
++	if (!base) {
++		b43err(ring-&gt;dev-&gt;wl, &quot;Failed to allocate or map pages &quot;
++		       &quot;for DMA ringmemory\n&quot;);
++		return NULL;
++	}
++	if (!b43_dma_address_ok(ring, *dmaaddr, size)) {
++		/* The memory does not fit our device constraints.
++		 * Retry with GFP_DMA set to get lower memory. */
++		b43_unmap_and_free_ringmem(ring, base, *dmaaddr, size);
++		base = __b43_get_and_map_ringmem(ring, dmaaddr, size,
++						 GFP_KERNEL | GFP_DMA);
++		if (!base) {
++			b43err(ring-&gt;dev-&gt;wl, &quot;Failed to allocate or map pages &quot;
++			       &quot;in the GFP_DMA region for DMA ringmemory\n&quot;);
++			return NULL;
++		}
++		if (!b43_dma_address_ok(ring, *dmaaddr, size)) {
++			b43_unmap_and_free_ringmem(ring, base, *dmaaddr, size);
++			b43err(ring-&gt;dev-&gt;wl, &quot;Failed to allocate DMA &quot;
++			       &quot;ringmemory that fits device constraints\n&quot;);
++			return NULL;
++		}
++	}
++	/* We expect the memory to be 4k aligned, at least. */
++	if (B43_WARN_ON(!is_4k_aligned(*dmaaddr))) {
++		b43_unmap_and_free_ringmem(ring, base, *dmaaddr, size);
++		return NULL;
++	}
++
++	return base;
++}
++
+ static int alloc_ringmemory(struct b43_dmaring *ring)
+ {
+-	gfp_t flags = GFP_KERNEL;
++	unsigned int required;
++	void *base;
++	dma_addr_t dmaaddr;
+ 
+-	/* The specs call for 4K buffers for 30- and 32-bit DMA with 4K
+-	 * alignment and 8K buffers for 64-bit DMA with 8K alignment. Testing
+-	 * has shown that 4K is sufficient for the latter as long as the buffer
+-	 * does not cross an 8K boundary.
+-	 *
+-	 * For unknown reasons - possibly a hardware error - the BCM4311 rev
+-	 * 02, which uses 64-bit DMA, needs the ring buffer in very low memory,
+-	 * which accounts for the GFP_DMA flag below.
+-	 *
+-	 * The flags here must match the flags in free_ringmemory below!
++	/* There are several requirements to the descriptor ring memory:
++	 * - The memory region needs to fit the address constraints for the
++	 *   device (same as for frame buffers).
++	 * - For 30/32bit DMA devices, the descriptor ring must be 4k aligned.
++	 * - For 64bit DMA devices, the descriptor ring must be 8k aligned.
+ 	 */
++
+ 	if (ring-&gt;type == B43_DMA_64BIT)
+-		flags |= GFP_DMA;
+-	ring-&gt;descbase = ssb_dma_alloc_consistent(ring-&gt;dev-&gt;dev,
+-						  B43_DMA_RINGMEMSIZE,
+-						  &amp;(ring-&gt;dmabase), flags);
+-	if (!ring-&gt;descbase) {
+-		b43err(ring-&gt;dev-&gt;wl, &quot;DMA ringmemory allocation failed\n&quot;);
++		required = ring-&gt;nr_slots * sizeof(struct b43_dmadesc64);
++	else
++		required = ring-&gt;nr_slots * sizeof(struct b43_dmadesc32);
++	if (B43_WARN_ON(required &gt; 0x1000))
+ 		return -ENOMEM;
+-	}
+-	memset(ring-&gt;descbase, 0, B43_DMA_RINGMEMSIZE);
++
++	ring-&gt;alloc_descsize = 0x1000;
++	base = b43_get_and_map_ringmem(ring, &amp;dmaaddr, ring-&gt;alloc_descsize);
++	if (!base)
++		return -ENOMEM;
++	ring-&gt;alloc_descbase = base;
++	ring-&gt;alloc_dmabase = dmaaddr;
++
++	if ((ring-&gt;type != B43_DMA_64BIT) || is_8k_aligned(dmaaddr)) {
++		/* We're on &lt;=32bit DMA, or we already got 8k aligned memory.
++		 * That's all we need, so we're fine. */
++		ring-&gt;descbase = base;
++		ring-&gt;dmabase = dmaaddr;
++		return 0;
++	}
++	b43_unmap_and_free_ringmem(ring, base, dmaaddr, ring-&gt;alloc_descsize);
++
++	/* Ok, we failed at the 8k alignment requirement.
++	 * Try to force-align the memory region now. */
++	ring-&gt;alloc_descsize = 0x2000;
++	base = b43_get_and_map_ringmem(ring, &amp;dmaaddr, ring-&gt;alloc_descsize);
++	if (!base)
++		return -ENOMEM;
++	ring-&gt;alloc_descbase = base;
++	ring-&gt;alloc_dmabase = dmaaddr;
++
++	if (is_8k_aligned(dmaaddr)) {
++		/* We're already 8k aligned. That Ok, too. */
++		ring-&gt;descbase = base;
++		ring-&gt;dmabase = dmaaddr;
++		return 0;
++	}
++	/* Force-align it to 8k */
++	ring-&gt;descbase = (void *)((u8 *)base + 0x1000);
++	ring-&gt;dmabase = dmaaddr + 0x1000;
++	B43_WARN_ON(!is_8k_aligned(ring-&gt;dmabase));
+ 
+ 	return 0;
+ }
+ 
+ static void free_ringmemory(struct b43_dmaring *ring)
+ {
+-	gfp_t flags = GFP_KERNEL;
+-
+-	if (ring-&gt;type == B43_DMA_64BIT)
+-		flags |= GFP_DMA;
+-
+-	ssb_dma_free_consistent(ring-&gt;dev-&gt;dev, B43_DMA_RINGMEMSIZE,
+-				ring-&gt;descbase, ring-&gt;dmabase, flags);
++	b43_unmap_and_free_ringmem(ring, ring-&gt;alloc_descbase,
++				   ring-&gt;alloc_dmabase, ring-&gt;alloc_descsize);
+ }
+ 
+ /* Reset the RX DMA channel */
+@@ -530,29 +646,14 @@ static bool b43_dma_mapping_error(struct
+ 	if (unlikely(ssb_dma_mapping_error(ring-&gt;dev-&gt;dev, addr)))
+ 		return 1;
+ 
+-	switch (ring-&gt;type) {
+-	case B43_DMA_30BIT:
+-		if ((u64)addr + buffersize &gt; (1ULL &lt;&lt; 30))
+-			goto address_error;
+-		break;
+-	case B43_DMA_32BIT:
+-		if ((u64)addr + buffersize &gt; (1ULL &lt;&lt; 32))
+-			goto address_error;
+-		break;
+-	case B43_DMA_64BIT:
+-		/* Currently we can't have addresses beyond
+-		 * 64bit in the kernel. */
+-		break;
++	if (!b43_dma_address_ok(ring, addr, buffersize)) {
++		/* We can't support this address. Unmap it again. */
++		unmap_descbuffer(ring, addr, buffersize, dma_to_device);
++		return 1;
+ 	}
+ 
+ 	/* The address is OK. */
+ 	return 0;
+-
+-address_error:
+-	/* We can't support this address. Unmap it again. */
+-	unmap_descbuffer(ring, addr, buffersize, dma_to_device);
+-
+-	return 1;
+ }
+ 
+ static bool b43_rx_buffer_is_poisoned(struct b43_dmaring *ring, struct sk_buff *skb)
+@@ -614,6 +715,9 @@ static int setup_rx_descbuffer(struct b4
+ 	meta-&gt;dmaaddr = dmaaddr;
+ 	ring-&gt;ops-&gt;fill_descriptor(ring, desc, dmaaddr,
+ 				   ring-&gt;rx_buffersize, 0, 0, 0);
++	ssb_dma_sync_single_for_device(ring-&gt;dev-&gt;dev,
++				       ring-&gt;alloc_dmabase,
++				       ring-&gt;alloc_descsize, DMA_TO_DEVICE);
+ 
+ 	return 0;
+ }
+@@ -1246,6 +1350,9 @@ static int dma_tx_fragment(struct b43_dm
+ 	}
+ 	/* Now transfer the whole frame. */
+ 	wmb();
++	ssb_dma_sync_single_for_device(ring-&gt;dev-&gt;dev,
++				       ring-&gt;alloc_dmabase,
++				       ring-&gt;alloc_descsize, DMA_TO_DEVICE);
+ 	ops-&gt;poke_tx(ring, next_slot(ring, slot));
+ 	return 0;
+ 
+Index: wireless-testing/drivers/net/wireless/b43/dma.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.h	2009-11-18 19:09:38.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.h	2009-11-18 19:29:49.000000000 +0100
+@@ -157,7 +157,6 @@ struct b43_dmadesc_generic {
+ } __attribute__ ((__packed__));
+ 
+ /* Misc DMA constants */
+-#define B43_DMA_RINGMEMSIZE		PAGE_SIZE
+ #define B43_DMA0_RX_FRAMEOFFSET		30
+ 
+ /* DMA engine tuning knobs */
+@@ -243,6 +242,12 @@ struct b43_dmaring {
+ 	/* The QOS priority assigned to this ring. Only used for TX rings.
+ 	 * This is the mac80211 &quot;queue&quot; value. */
+ 	u8 queue_prio;
++	/* Pointers and size of the originally allocated and mapped memory
++	 * region for the descriptor ring. */
++	void *alloc_descbase;
++	dma_addr_t alloc_dmabase;
++	unsigned int alloc_descsize;
++	/* Pointer to our wireless device. */
+ 	struct b43_wldev *dev;
+ #ifdef CONFIG_B43_DEBUG
+ 	/* Maximum number of used slots. */
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006380.html">PHY Transmission error and radio turned off with b43legacy
+</A></li>
+	<LI>Next message: <A HREF="006391.html">[PATCH] b43: Enforce DMA descriptor memory constraints
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6390">[ date ]</a>
+              <a href="thread.html#6390">[ thread ]</a>
+              <a href="subject.html#6390">[ subject ]</a>
+              <a href="author.html#6390">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

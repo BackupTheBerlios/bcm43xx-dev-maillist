@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC PATCH] b43: Implement LP-PHY baseband table initialization
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%20PATCH%5D%20b43%3A%20Implement%20LP-PHY%20baseband%20table%20initialization&In-Reply-To=%3C4A7F811F.4070908%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005719.html">
+   <LINK REL="Next"  HREF="005721.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC PATCH] b43: Implement LP-PHY baseband table initialization</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%20PATCH%5D%20b43%3A%20Implement%20LP-PHY%20baseband%20table%20initialization&In-Reply-To=%3C4A7F811F.4070908%40lwfinger.net%3E"
+       TITLE="[RFC PATCH] b43: Implement LP-PHY baseband table initialization">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Mon Aug 10 04:08:31 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005719.html">[RFC PATCH] b43: Implement LP-PHY baseband table initialization
+</A></li>
+        <LI>Next message: <A HREF="005721.html">[RFC PATCH] b43: Implement LP-PHY baseband table initialization
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5720">[ date ]</a>
+              <a href="thread.html#5720">[ thread ]</a>
+              <a href="subject.html#5720">[ subject ]</a>
+              <a href="author.html#5720">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>G&#225;bor Stefanik wrote:
+&gt;<i> Implement LP-PHY baseband table init for all revisions.
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+</I>&gt;<i> 
+</I>&gt;<i> ---
+</I>&gt;<i> Sorry for the size; it's difficult to cut short changes like this
+</I>&gt;<i> (most of the patch is just table data). Please review, there may always be
+</I>&gt;<i> bugs that I failed to catch while reading through the code. I have added
+</I>&gt;<i> comments to places that were not quite clear to me.
+</I>&gt;<i> 
+</I>&gt;<i> phy_lp.c       |   41 tables_lpphy.c | 3223
+</I>&gt;<i> +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+</I>&gt;<i> tables_lpphy.h |    3 3 files changed, 3263 insertions(+), 4 deletions(-)
+</I>&gt;<i> 
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> index 27eadee..cf17489 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> @@ -59,9 +59,43 @@ static void b43_lpphy_op_free(struct b43_wldev *dev)
+</I>&gt;<i>     dev-&gt;phy.lp = NULL;
+</I>&gt;<i> }
+</I>&gt;<i> 
+</I>&gt;<i> +static void lpphy_adjust_gain_table(struct b43_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +    struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+</I>&gt;<i> +    u32 freq = dev-&gt;wl-&gt;hw-&gt;conf.channel-&gt;center_freq;
+</I>&gt;<i> +    u16 temp[3];
+</I>&gt;<i> +    u16 isolation;
+</I>&gt;<i> +
+</I>&gt;<i> +    B43_WARN_ON(dev-&gt;phy.rev &gt;= 2);
+</I>&gt;<i> +
+</I>&gt;<i> +    if (freq &lt; 2400) /* FIXME Can this ever happen? Should we WARN_ON? */
+</I>
+This was a typo. It should be 2500, not 2400.
+
+&gt;<i> +        isolation = lpphy-&gt;tx_isolation_med_band;
+</I>&gt;<i> +    else if (freq &lt;= 5320)
+</I>
+--snip --
+
+&gt;<i> +void lpphy_rev2plus_table_init(struct b43_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +    struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+</I>&gt;<i> +    int i;
+</I>&gt;<i> +
+</I>&gt;<i> +    B43_WARN_ON(dev-&gt;phy.rev &lt; 2);
+</I>&gt;<i> +
+</I>&gt;<i> +    //XXX should this be done using b43_lptab_write_bulk?
+</I>&gt;<i> +    for (i = 0; i &lt; 704; i++)
+</I>&gt;<i> +        b43_lptab_write(dev, B43_LPTAB32(7, i), 0);
+</I>
+No. The bulk write is for writing tables with length greater than 1.
+In this case, you have 704 different tables each of length 1.
+
+I am still looking through the patch. I'll let you know of any thing I
+find.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005719.html">[RFC PATCH] b43: Implement LP-PHY baseband table initialization
+</A></li>
+	<LI>Next message: <A HREF="005721.html">[RFC PATCH] b43: Implement LP-PHY baseband table initialization
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5720">[ date ]</a>
+              <a href="thread.html#5720">[ thread ]</a>
+              <a href="subject.html#5720">[ subject ]</a>
+              <a href="author.html#5720">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,151 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> HP Pavillion Woes
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20HP%20Pavillion%20Woes&In-Reply-To=%3C480AE316.7040101%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003849.html">
+   <LINK REL="Next"  HREF="003901.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>HP Pavillion Woes</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20HP%20Pavillion%20Woes&In-Reply-To=%3C480AE316.7040101%40lwfinger.net%3E"
+       TITLE="HP Pavillion Woes">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sun Apr 20 08:30:46 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003849.html">HP Pavillion Woes
+</A></li>
+        <LI>Next message: <A HREF="003901.html">HP Pavillion Woes
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3898">[ date ]</a>
+              <a href="thread.html#3898">[ thread ]</a>
+              <a href="subject.html#3898">[ subject ]</a>
+              <a href="author.html#3898">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 4/18/08, *Robert Williams* &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">robhwill at yahoo.com</A>
+&gt;<i>     Hi All! Been trolling for couple months trying to
+</I>&gt;<i>     learn...just when I think I know what to do &amp; in what
+</I>&gt;<i>     sequence you guys change everything!
+</I>&gt;<i>     I've an HP Pavilion dv9310us w/bcm4311 rev 2 mini-pci.
+</I>&gt;<i>     temp dual-boot xp(sp2)/opensuse 10.3. works on
+</I>&gt;<i>     xp(ugh!) did work on suse for 2 weeks, added security
+</I>&gt;<i>     &amp; other patches, hasn't worked since. kernel:
+</I>&gt;<i>     2.6.22.17-0.1-default
+</I>&gt;<i>     Prefer operate linux exclusively, but many probs
+</I>&gt;<i>     w/ndiswrapper, if-iw/config and other stuff. really
+</I>&gt;<i>     need wireless access so I can learn remote admin of
+</I>&gt;<i>     tux servers, config, etc.  course is avail &amp; free, but
+</I>&gt;<i>     i'm not up to recomp of kernel and/or reverse eng.
+</I>&gt;<i>     just yet. Anybody got a step-by-step for a n00b that
+</I>&gt;<i>     isn't convoluted?? Maybe now there is a pkg or util
+</I>&gt;<i>     which auto-magics??
+</I>
+You need to formulate your questions very carefully. For most people 
+that read this mailing list, English is a second (or higher number) 
+language. Sentences that look like the ones they learned in class are 
+a lot easier to understand.
+
+That said, I am writing this note on an HP notebook with a BCM4311/2 
+card and running openSUSE 10.3. I am NOT using ndiswrapper, and have 
+not used it for a long time. I am also not running the standard 
+openSUSE kernel. The standard 2.6.22 used in 10.3 does not work with 
+the BCM4311/2 cards, but 2.6.25 does.
+
+If you can follow simple instructions, then you can recompile the 
+kernel. It is not rocket science or brain surgery! To do so, follow 
+these &quot;simple&quot; instructions while logged into your normal 
+(unprivileged) account - DO NOT DO THIS AS ROOT:
+
+1. Download the 2.6.25 kernel source (linux-2.6.25.tar.bz2) from 
+kernel.org into your home directory.
+
+2. In a terminal window, unpack that source with 'tar jxvf 
+linux-2.6.25.tar.bz2'.
+
+3. Change directory to linux-2.6.25 where the sources were just unpacked.
+
+4. Get your current configuration with the following commands:
+    cp /proc/config.gz .
+    gunzip config.gz
+    cp config .config
+
+5. With the YaST Control Center, make sure that you have installed the 
+following packages: gcc, qt3_devel, and make.
+
+6. From your terminal in the linux-source directory of step 3, enter 
+'make xconfig'. If it reports any missing stuff, add it as in step 5. 
+Once the GUI comes up, go to Networking/Wireless and make certain that 
+&quot;Generic IEEE80211 Networking Stack (mac80211)&quot; is selected as a 
+module (has a dot). Make sure that &quot;Enable LED triggers&quot; is checked. 
+Deselect &quot;Generic IEEE80211 Networking Stack (DEPRECATED)&quot; - no dot or 
+check. Next select Device Drivers/Silicon Sonics Backplane and make 
+certain it has a dot and that SSB debugging has a check. Now select 
+Device Drivers/Network Device Support/Wireless LAN. Make certain there 
+is a dot in the box for &quot;Broadcom 43xx wireless support (mac80211 
+stack), and that there is a check in the box for Broadcom 43xx 
+debugging. Do a save, and exit the GUI.
+
+7. From that same terminal enter 'make' to build the kernel. With this 
+configuration, a lot of modules that you don't need will be built, but 
+deleting them is advanced material.
+
+8. When step 7 completes without error, issue the following command:
+
+sudo make modules_install install
+
+9. The above will prepare the new kernel for booting. To use it, use 
+the normal command to restart the system and select the new kernel 
+with GRUB.
+
+10. The final step will be to down;load and install the firmware as 
+described in 
+<A HREF="http://linuxwireless.org/en/users/Drivers/b43#firmwareinstallation">http://linuxwireless.org/en/users/Drivers/b43#firmwareinstallation</A>
+using the instructions for the &quot;bleeding-edge b43 driver&quot;.
+
+11. Use the YaST Control Center/Network Devices/Network Card to 
+configure the device. Under the &quot;Global Options&quot; tab, select 
+NetworkManager. All other configuration will be done with the NM applet.
+
+ From this point it will work.
+
+Larry
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003849.html">HP Pavillion Woes
+</A></li>
+	<LI>Next message: <A HREF="003901.html">HP Pavillion Woes
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3898">[ date ]</a>
+              <a href="thread.html#3898">[ thread ]</a>
+              <a href="subject.html#3898">[ subject ]</a>
+              <a href="author.html#3898">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

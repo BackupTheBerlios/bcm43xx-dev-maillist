@@ -1,0 +1,164 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Speed enhancement for BCM4306/2
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Speed%20enhancement%20for%20BCM4306/2&In-Reply-To=%3C48C3233D.60201%40wetwork.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004599.html">
+   <LINK REL="Next"  HREF="004596.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Speed enhancement for BCM4306/2</H1>
+    <B>gavron at wetwork.net</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Speed%20enhancement%20for%20BCM4306/2&In-Reply-To=%3C48C3233D.60201%40wetwork.net%3E"
+       TITLE="Speed enhancement for BCM4306/2">gavron at wetwork.net
+       </A><BR>
+    <I>Sun Sep  7 02:41:33 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004599.html">Speed enhancement for BCM4306/2
+</A></li>
+        <LI>Next message: <A HREF="004596.html">Speed enhancement for BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4600">[ date ]</a>
+              <a href="thread.html#4600">[ thread ]</a>
+              <a href="subject.html#4600">[ subject ]</a>
+              <a href="author.html#4600">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+
+Larry Finger wrote:
+&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">gavron at wetwork.net</A> wrote:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Try #5:
+</I>&gt;&gt;<i> # diff -uN /tmp/phy.c drivers/net/wireless/b43legacy/phy.c
+</I>&gt;&gt;<i> --- /tmp/phy.c    2008-09-06 15:13:33.000000000 -0700
+</I>&gt;<i>
+</I>&gt;<i> This one is pretty close, but I think you missed a change at line 16a 
+</I>&gt;<i> of B6PHY.
+</I>&gt;<i>
+</I>&gt;<i> One other thing - use the -uNp switch for diff.
+</I>&gt;<i>
+</I>&gt;<i> Larry
+</I>&gt;<i>
+</I>T6:
+# diff -uNp /tmp/phy.c drivers/net/wireless/b43legacy/phy.c
+--- /tmp/phy.c    2008-09-06 15:13:33.000000000 -0700
++++ drivers/net/wireless/b43legacy/phy.c    2008-09-06 
+17:40:20.000000000 -0700
+@@ -595,12 +595,14 @@ static void b43legacy_phy_initb5(struct
+                     0x0035) &amp; 0xFFC0) | 0x0064);
+         b43legacy_phy_write(dev, 0x005D, (b43legacy_phy_read(dev,
+                     0x005D) &amp; 0xFF80) | 0x000A);
++        b43legacy_phy_write(dev, 0x5B, 0x0000);
++        b43legacy_phy_write(dev, 0x5C, 0x0000);
+     }
+ 
+     if (dev-&gt;bad_frames_preempt)
+         b43legacy_phy_write(dev, B43legacy_PHY_RADIO_BITFIELD,
+                     b43legacy_phy_read(dev,
+-                    B43legacy_PHY_RADIO_BITFIELD) | (1 &lt;&lt; 11));
++                    B43legacy_PHY_RADIO_BITFIELD) | (1 &lt;&lt; 12));
+ 
+     if (phy-&gt;analog == 1) {
+         b43legacy_phy_write(dev, 0x0026, 0xCE00);
+@@ -753,7 +755,7 @@ static void b43legacy_phy_initb6(struct
+         b43legacy_radio_write16(dev, 0x0050, 0x0020);
+     }
+     if (phy-&gt;radio_rev &lt;= 2) {
+-        b43legacy_radio_write16(dev, 0x007C, 0x0020);
++        b43legacy_radio_write16(dev, 0x0050, 0x0020);
+         b43legacy_radio_write16(dev, 0x005A, 0x0070);
+         b43legacy_radio_write16(dev, 0x005B, 0x007B);
+         b43legacy_radio_write16(dev, 0x005C, 0x00B0);
+@@ -771,7 +773,7 @@ static void b43legacy_phy_initb6(struct
+         b43legacy_phy_write(dev, 0x002A, 0x8AC0);
+     b43legacy_phy_write(dev, 0x0038, 0x0668);
+     b43legacy_radio_set_txpower_bg(dev, 0xFFFF, 0xFFFF, 0xFFFF);
+-    if (phy-&gt;radio_rev &lt;= 5)
++    if (phy-&gt;radio_rev == 4 || phy-&gt;radio_rev == 5)
+         b43legacy_phy_write(dev, 0x005D, (b43legacy_phy_read(dev,
+                     0x005D) &amp; 0xFF80) | 0x0003);
+     if (phy-&gt;radio_rev &lt;= 2)
+@@ -1010,7 +1012,7 @@ static void b43legacy_phy_initg(struct b
+         b43legacy_phy_initb5(dev);
+     else
+         b43legacy_phy_initb6(dev);
+-    if (phy-&gt;rev &gt;= 2 || phy-&gt;gmode)
++    if (phy-&gt;rev &gt;= 2 &amp;&amp; phy-&gt;gmode)
+         b43legacy_phy_inita(dev);
+ 
+     if (phy-&gt;rev &gt;= 2) {
+@@ -1025,17 +1027,22 @@ static void b43legacy_phy_initg(struct b
+         b43legacy_phy_write(dev, 0x0811, 0x0400);
+         b43legacy_phy_write(dev, 0x0015, 0x00C0);
+     }
+-    if (phy-&gt;rev &gt;= 2 || phy-&gt;gmode) {
++    if (phy-&gt;gmode) {
+         tmp = b43legacy_phy_read(dev, 0x0400) &amp; 0xFF;
+-        if (tmp == 3 || tmp == 5) {
++        if (tmp == 3) {
++            b43legacy_phy_write(dev, 0x04C2, 0x1816);
++            b43legacy_phy_write(dev, 0x04C3, 0x8606);
++        }
++        if (tmp == 4 || tmp == 5) {
+             b43legacy_phy_write(dev, 0x04C2, 0x1816);
+             b43legacy_phy_write(dev, 0x04C3, 0x8006);
+-            if (tmp == 5)
+-                b43legacy_phy_write(dev, 0x04CC,
+-                            (b43legacy_phy_read(dev,
+-                             0x04CC) &amp; 0x00FF) |
+-                             0x1F00);
++            b43legacy_phy_write(dev, 0x04CC,
++                        (b43legacy_phy_read(dev,
++                        0x04CC) &amp; 0x00FF) |
++                        0x1F00);
+         }
++    }
++    if (phy-&gt;rev &gt;= 2)
+         b43legacy_phy_write(dev, 0x047E, 0x0078);
+     }
+     if (phy-&gt;radio_rev == 8) {
+@@ -1078,7 +1085,7 @@ static void b43legacy_phy_initg(struct b
+         else
+             b43legacy_phy_write(dev, 0x002F, 0x0202);
+     }
+-    if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
++    if (phy-&gt;gmode) {
+         b43legacy_phy_lo_adjust(dev, 0);
+         b43legacy_phy_write(dev, 0x080F, 0x8078);
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004599.html">Speed enhancement for BCM4306/2
+</A></li>
+	<LI>Next message: <A HREF="004596.html">Speed enhancement for BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4600">[ date ]</a>
+              <a href="thread.html#4600">[ thread ]</a>
+              <a href="subject.html#4600">[ subject ]</a>
+              <a href="author.html#4600">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> mac80211 IPv6 problems
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mac80211%20IPv6%20problems&In-Reply-To=%3C20070806170500.GE6442%40tuxdriver.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001796.html">
+   <LINK REL="Next"  HREF="002094.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>mac80211 IPv6 problems</H1>
+    <B>John W. Linville</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mac80211%20IPv6%20problems&In-Reply-To=%3C20070806170500.GE6442%40tuxdriver.com%3E"
+       TITLE="mac80211 IPv6 problems">linville at tuxdriver.com
+       </A><BR>
+    <I>Mon Aug  6 19:05:00 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001796.html">[patch 5/5] bcm43xx-mac80211: Rescale link quality output
+</A></li>
+        <LI>Next message: <A HREF="002094.html">mac80211 IPv6 problems
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1808">[ date ]</a>
+              <a href="thread.html#1808">[ thread ]</a>
+              <a href="subject.html#1808">[ subject ]</a>
+              <a href="author.html#1808">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Fri, Aug 03, 2007 at 01:02:12AM -0700, Michael Wu wrote:
+
+&gt;<i> This doesn't seem quite right. I think ieee80211_rx_h_data is a safer place 
+</I>&gt;<i> for this check (inside the IEEE80211_FCTL_FROMDS case), and allows various 
+</I>&gt;<i> statistics to be updated. ieee80211_rx_h_sta_process is another function that 
+</I>&gt;<i> might work though that would probably involve more code to add all the right 
+</I>&gt;<i> checks.
+</I>
+The patch below seems to work for me w/ an otherwise stock F-7 kernel
+w/ iwl3945.  Thoughts?
+
+From: John W. Linville &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>&gt;
+
+[PATCH] mac80211: filter locally-originated multicast frames
+
+In STA mode, the AP will echo our traffic.  This includes multicast
+traffice.
+
+Receiving these frames confuses some protocols and applications,
+notably IPv6 Duplicate Address Detection.
+
+Signed-off-by: John W. Linville &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>&gt;
+---
+
+ net/mac80211/ieee80211.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/mac80211/ieee80211.c b/net/mac80211/ieee80211.c
+index a42e70e..0097b0a 100644
+--- a/net/mac80211/ieee80211.c
++++ b/net/mac80211/ieee80211.c
+@@ -3030,9 +3030,10 @@ ieee80211_rx_h_data(struct ieee80211_txrx_data *rx)
+ 		memcpy(dst, hdr-&gt;addr1, ETH_ALEN);
+ 		memcpy(src, hdr-&gt;addr3, ETH_ALEN);
+ 
+-		if (sdata-&gt;type != IEEE80211_IF_TYPE_STA) {
++		if (sdata-&gt;type != IEEE80211_IF_TYPE_STA ||
++		    (is_multicast_ether_addr(dst) &amp;&amp;
++		     !compare_ether_addr(src, dev-&gt;dev_addr)))
+ 			return TXRX_DROP;
+-		}
+ 		break;
+ 	case 0:
+ 		/* DA SA BSSID */
+
+
+-- 
+John W. Linville
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001796.html">[patch 5/5] bcm43xx-mac80211: Rescale link quality output
+</A></li>
+	<LI>Next message: <A HREF="002094.html">mac80211 IPv6 problems
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1808">[ date ]</a>
+              <a href="thread.html#1808">[ thread ]</a>
+              <a href="subject.html#1808">[ subject ]</a>
+              <a href="author.html#1808">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

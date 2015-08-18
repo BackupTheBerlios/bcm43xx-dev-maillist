@@ -1,0 +1,198 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH V2] bcm43xx: Fix cancellation of work queue crashes
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20bcm43xx%3A%20Fix%20cancellation%20of%20work%20queue%20crashes&In-Reply-To=%3C46ddae8c.UPc5%2BAzm3rCZdJxZ%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002309.html">
+   <LINK REL="Next"  HREF="002311.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH V2] bcm43xx: Fix cancellation of work queue crashes</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20bcm43xx%3A%20Fix%20cancellation%20of%20work%20queue%20crashes&In-Reply-To=%3C46ddae8c.UPc5%2BAzm3rCZdJxZ%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH V2] bcm43xx: Fix cancellation of work queue crashes">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Tue Sep  4 21:14:20 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002309.html">[PATCH] bcm43xx: Fix cancellation of work queues crashes
+</A></li>
+        <LI>Next message: <A HREF="002311.html">[PATCH V2] bcm43xx: Fix cancellation of work queue crashes
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2310">[ date ]</a>
+              <a href="thread.html#2310">[ thread ]</a>
+              <a href="subject.html#2310">[ subject ]</a>
+              <a href="author.html#2310">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>A crash upon booting that is caused by bcm43xx has been reported [1] and
+found to be due to a work queue being reinitialized while work on that
+queue is still pending. This fix modifies the shutdown of work queues and
+prevents periodic work from being requeued during shutdown. With this patch,
+no more crashes on reboot were observed by the original reporter. I do not
+get that particular failure on my system; however, when running a large
+number of ifdown/ifup sequences, my system would kernel panic with the
+'caps lock' light blinking at roughly a 1 Hz rate. In addition, there were
+infrequent failures in the firmware that resulted in 'IRQ READY TIMEOUT'
+errors. With this patch, no more of the first type of failure occur, and
+incidence of the second type is greatly reduced.
+
+[1] <A HREF="http://bugzilla.kernel.org/show_bug.cgi?id=8937">http://bugzilla.kernel.org/show_bug.cgi?id=8937</A>
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+Sorry, I forgot to refresh the patch before sending.
+
+This fix should be sent to 2.6.23. Once it it there, I'll send it on to
+-stable.
+
+Larry
+
+
+ drivers/net/wireless/bcm43xx/bcm43xx_main.c  |   28 +++++++++++++++++++--------
+ drivers/net/wireless/bcm43xx/bcm43xx_main.h  |    2 -
+ drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c |    2 +-
+ 3 files changed, 22 insertions(+), 10 deletions(-)
+
+Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -3197,6 +3197,9 @@ static void bcm43xx_periodic_work_handle
+ 	unsigned long orig_trans_start = 0;
+ 
+ 	mutex_lock(&amp;bcm-&gt;mutex);
++	/* keep from doing and rearming periodic work if shutting down */
++	if (bcm43xx_status(bcm) == BCM43xx_STAT_UNINIT)
++		goto unlock_mutex;
+ 	if (unlikely(bcm-&gt;periodic_state % 60 == 0)) {
+ 		/* Periodic work will take a long time, so we want it to
+ 		 * be preemtible.
+@@ -3242,14 +3245,10 @@ static void bcm43xx_periodic_work_handle
+ 	mmiowb();
+ 	bcm-&gt;periodic_state++;
+ 	spin_unlock_irqrestore(&amp;bcm-&gt;irq_lock, flags);
++unlock_mutex:
+ 	mutex_unlock(&amp;bcm-&gt;mutex);
+ }
+ 
+-void bcm43xx_periodic_tasks_delete(struct bcm43xx_private *bcm)
+-{
+-	cancel_rearming_delayed_work(&amp;bcm-&gt;periodic_work);
+-}
+-
+ void bcm43xx_periodic_tasks_setup(struct bcm43xx_private *bcm)
+ {
+ 	struct delayed_work *work = &amp;bcm-&gt;periodic_work;
+@@ -3299,6 +3298,14 @@ static int bcm43xx_rng_init(struct bcm43
+ 	return err;
+ }
+ 
++void bcm43xx_cancel_work(struct bcm43xx_private *bcm)
++{
++	/* The system must be unlocked when this routine is entered.
++	 * If not, the next 2 steps may deadlock */
++	cancel_work_sync(&amp;bcm-&gt;restart_work);
++	cancel_delayed_work_sync(&amp;bcm-&gt;periodic_work);
++}
++
+ static int bcm43xx_shutdown_all_wireless_cores(struct bcm43xx_private *bcm)
+ {
+ 	int ret = 0;
+@@ -3335,7 +3342,12 @@ static void bcm43xx_free_board(struct bc
+ {
+ 	bcm43xx_rng_exit(bcm);
+ 	bcm43xx_sysfs_unregister(bcm);
+-	bcm43xx_periodic_tasks_delete(bcm);
++
++	mutex_lock(&amp;(bcm)-&gt;mutex);
++	bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
++	mutex_unlock(&amp;(bcm)-&gt;mutex);
++
++	bcm43xx_cancel_work(bcm);
+ 
+ 	mutex_lock(&amp;(bcm)-&gt;mutex);
+ 	bcm43xx_shutdown_all_wireless_cores(bcm);
+@@ -4030,7 +4042,7 @@ static int bcm43xx_net_stop(struct net_d
+ 	err = bcm43xx_disable_interrupts_sync(bcm);
+ 	assert(!err);
+ 	bcm43xx_free_board(bcm);
+-	flush_scheduled_work();
++	bcm43xx_cancel_work(bcm);
+ 
+ 	return 0;
+ }
+@@ -4162,9 +4174,9 @@ static void bcm43xx_chip_reset(struct wo
+ 	struct bcm43xx_phyinfo *phy;
+ 	int err = -ENODEV;
+ 
++	bcm43xx_cancel_work(bcm);
+ 	mutex_lock(&amp;(bcm)-&gt;mutex);
+ 	if (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED) {
+-		bcm43xx_periodic_tasks_delete(bcm);
+ 		phy = bcm43xx_current_phy(bcm);
+ 		err = bcm43xx_select_wireless_core(bcm, phy-&gt;type);
+ 		if (!err)
+Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.h
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.h
++++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.h
+@@ -122,7 +122,7 @@ void bcm43xx_wireless_core_reset(struct 
+ void bcm43xx_mac_suspend(struct bcm43xx_private *bcm);
+ void bcm43xx_mac_enable(struct bcm43xx_private *bcm);
+ 
+-void bcm43xx_periodic_tasks_delete(struct bcm43xx_private *bcm);
++void bcm43xx_cancel_work(struct bcm43xx_private *bcm);
+ void bcm43xx_periodic_tasks_setup(struct bcm43xx_private *bcm);
+ 
+ void bcm43xx_controller_restart(struct bcm43xx_private *bcm, const char *reason);
+Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
++++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
+@@ -327,7 +327,7 @@ static ssize_t bcm43xx_attr_phymode_stor
+ 		goto out;
+ 	}
+ 
+-	bcm43xx_periodic_tasks_delete(bcm);
++	bcm43xx_cancel_work(bcm);
+ 	mutex_lock(&amp;(bcm)-&gt;mutex);
+ 	err = bcm43xx_select_wireless_core(bcm, phytype);
+ 	if (!err)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002309.html">[PATCH] bcm43xx: Fix cancellation of work queues crashes
+</A></li>
+	<LI>Next message: <A HREF="002311.html">[PATCH V2] bcm43xx: Fix cancellation of work queue crashes
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2310">[ date ]</a>
+              <a href="thread.html#2310">[ thread ]</a>
+              <a href="subject.html#2310">[ subject ]</a>
+              <a href="author.html#2310">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

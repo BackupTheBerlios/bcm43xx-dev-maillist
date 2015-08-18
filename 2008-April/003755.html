@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: fix bcm4303 crash
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20fix%20bcm4303%20crash&In-Reply-To=%3C20080406170507.16992935%40polimi.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003787.html">
+   <LINK REL="Next"  HREF="003759.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: fix bcm4303 crash</H1>
+    <B>Stefano Brivio</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20fix%20bcm4303%20crash&In-Reply-To=%3C20080406170507.16992935%40polimi.it%3E"
+       TITLE="[PATCH] b43legacy: fix bcm4303 crash">stefano.brivio at polimi.it
+       </A><BR>
+    <I>Sun Apr  6 17:05:07 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003787.html">B43 problem with wireless-testing 2.6.25-rc8 from APR 8 commit -- ARPs	no longer go through
+</A></li>
+        <LI>Next message: <A HREF="003759.html">[PATCH] b43legacy: fix bcm4303 crash
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3755">[ date ]</a>
+              <a href="thread.html#3755">[ thread ]</a>
+              <a href="subject.html#3755">[ subject ]</a>
+              <a href="author.html#3755">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes an hard crash which happened upon driver loading on bcm4303 rev.
+2 devices.
+
+Signed-off-by: Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+---
+John, this is for 2.6.26.
+---
+diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
+index e123719..4bc0e8b 100644
+--- a/drivers/ssb/main.c
++++ b/drivers/ssb/main.c
+@@ -1101,6 +1101,12 @@ int ssb_bus_may_powerdown(struct ssb_bus *bus)
+ 		goto out;
+ 
+ 	cc = &amp;bus-&gt;chipco;
++
++	if (!cc-&gt;dev)
++		goto out;
++	if (cc-&gt;dev-&gt;id.revision &lt; 5)
++		goto out;
++
+ 	ssb_chipco_set_clockmode(cc, SSB_CLKMODE_SLOW);
+ 	err = ssb_pci_xtal(bus, SSB_GPIO_XTAL | SSB_GPIO_PLL, 0);
+ 	if (err)
+
+
+--
+Ciao
+Stefano
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003787.html">B43 problem with wireless-testing 2.6.25-rc8 from APR 8 commit -- ARPs	no longer go through
+</A></li>
+	<LI>Next message: <A HREF="003759.html">[PATCH] b43legacy: fix bcm4303 crash
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3755">[ date ]</a>
+              <a href="thread.html#3755">[ thread ]</a>
+              <a href="subject.html#3755">[ subject ]</a>
+              <a href="author.html#3755">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

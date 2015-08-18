@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: Fix incorrect definition of PHY revision
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20incorrect%20definition%20of%20PHY%20revision&In-Reply-To=%3C200702071514.17516.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000360.html">
+   <LINK REL="Next"  HREF="000362.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: Fix incorrect definition of PHY revision</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20incorrect%20definition%20of%20PHY%20revision&In-Reply-To=%3C200702071514.17516.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] bcm43xx: Fix incorrect definition of PHY revision">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Feb  7 15:14:16 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000360.html">[PATCH] bcm43xx: Fix incorrect definition of PHY revision
+</A></li>
+        <LI>Next message: <A HREF="000362.html">RFT: The real fix for BCM4311 and BCM4312
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#381">[ date ]</a>
+              <a href="thread.html#381">[ thread ]</a>
+              <a href="subject.html#381">[ subject ]</a>
+              <a href="author.html#381">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Wednesday 07 February 2007 04:31, Larry Finger wrote:
+&gt;<i> There is a typographical error in the spefications that interchange the PHY version
+</I>&gt;<i> and revision. Fixing this error makes all BCM43xx varieties work at full CCCK rates.
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Larry Finger&lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i> John,
+</I>&gt;<i> 
+</I>&gt;<i> This patch should be put into wireless-2.6 and into 'upstream' as soon as possible.
+</I>&gt;<i> I will be sending it to stable for inclusion in 2.6.20.1, and whatever other kernels
+</I>&gt;<i> are still being maintained by -stable.
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> ---
+</I>&gt;<i>  
+</I>&gt;<i> Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> @@ -3704,9 +3704,9 @@ static int bcm43xx_read_phyinfo(struct b
+</I>&gt;<i>  
+</I>&gt;<i>  	value = bcm43xx_read16(bcm, BCM43xx_MMIO_PHY_VER);
+</I>&gt;<i>  
+</I>&gt;<i> -	phy_version = (value &amp; 0xF000) &gt;&gt; 12;
+</I>&gt;<i> +	phy_rev = (value &amp; 0xF000) &gt;&gt; 12;
+</I>&gt;<i>  	phy_type = (value &amp; 0x0F00) &gt;&gt; 8;
+</I>&gt;<i> -	phy_rev = (value &amp; 0x000F);
+</I>&gt;<i> +	phy_version = (value &amp; 0x000F);
+</I>&gt;<i>  
+</I>&gt;<i>  	dprintk(KERN_INFO PFX &quot;Detected PHY: Version: %x, Type %x, Revision %x\n&quot;,
+</I>&gt;<i>  		phy_version, phy_type, phy_rev);
+</I>
+
+I don't think this is correct.
+From which part of the specs did you get this?
+<A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY">http://bcm-v4.sipsolutions.net/802.11/PHY</A> is where the PHY_Version
+register is explained. &quot;phy_version&quot;==&quot;AnalogType&quot;
+
+Actually it is possible that phy_revision is mask 0xFF, but that's
+not too important at the moment, as we don't have revisions&gt;0xF, yet.
+
+But besides that, it's interresting that this &quot;fixes&quot; things for you.
+
+Especially since wireless-2.6 has no support for hw-power-control, which
+is needed by cards 4318 and newer.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000360.html">[PATCH] bcm43xx: Fix incorrect definition of PHY revision
+</A></li>
+	<LI>Next message: <A HREF="000362.html">RFT: The real fix for BCM4311 and BCM4312
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#381">[ date ]</a>
+              <a href="thread.html#381">[ thread ]</a>
+              <a href="subject.html#381">[ subject ]</a>
+              <a href="author.html#381">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,142 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add debugfs firmware debugging knob
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20debugfs%20firmware%20debugging%20knob&In-Reply-To=%3C200806201802.08440.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004294.html">
+   <LINK REL="Next"  HREF="004298.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add debugfs firmware debugging knob</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20debugfs%20firmware%20debugging%20knob&In-Reply-To=%3C200806201802.08440.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add debugfs firmware debugging knob">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jun 20 18:02:08 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004294.html">[PATCH] b43: Add simple firmware watchdog
+</A></li>
+        <LI>Next message: <A HREF="004298.html">ssb-sprom discrepancy in results
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4295">[ date ]</a>
+              <a href="thread.html#4295">[ thread ]</a>
+              <a href="subject.html#4295">[ subject ]</a>
+              <a href="author.html#4295">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds a firmware debugging knob to debugfs.
+With this knob it's possible to enable advanced runtime firmware
+checks.
+For now it only implements one sanity check for the mac-suspend.
+In future there'll probably be more.
+If CONFIG_B43_DEBUG is disabled, these checks will collapse to nothing.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, please queue for 2.6.27
+
+
+
+Index: wireless-testing/drivers/net/wireless/b43/debugfs.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/debugfs.c	2008-06-20 17:38:13.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/debugfs.c	2008-06-20 17:40:09.000000000 +0200
+@@ -798,12 +798,13 @@ static void b43_add_dynamic_debug(struct
+ 	add_dyn_dbg(&quot;debug_xmitpower&quot;, B43_DBG_XMITPOWER, 0);
+ 	add_dyn_dbg(&quot;debug_dmaoverflow&quot;, B43_DBG_DMAOVERFLOW, 0);
+ 	add_dyn_dbg(&quot;debug_dmaverbose&quot;, B43_DBG_DMAVERBOSE, 0);
+ 	add_dyn_dbg(&quot;debug_pwork_fast&quot;, B43_DBG_PWORK_FAST, 0);
+ 	add_dyn_dbg(&quot;debug_pwork_stop&quot;, B43_DBG_PWORK_STOP, 0);
+ 	add_dyn_dbg(&quot;debug_lo&quot;, B43_DBG_LO, 0);
++	add_dyn_dbg(&quot;debug_firmware&quot;, B43_DBG_FIRMWARE, 0);
+ 
+ #undef add_dyn_dbg
+ }
+ 
+ void b43_debugfs_add_device(struct b43_wldev *dev)
+ {
+Index: wireless-testing/drivers/net/wireless/b43/debugfs.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/debugfs.h	2008-06-20 17:38:13.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/debugfs.h	2008-06-20 17:40:09.000000000 +0200
+@@ -8,12 +8,13 @@ enum b43_dyndbg {		/* Dynamic debugging 
+ 	B43_DBG_XMITPOWER,
+ 	B43_DBG_DMAOVERFLOW,
+ 	B43_DBG_DMAVERBOSE,
+ 	B43_DBG_PWORK_FAST,
+ 	B43_DBG_PWORK_STOP,
+ 	B43_DBG_LO,
++	B43_DBG_FIRMWARE,
+ 	__B43_NR_DYNDBG,
+ };
+ 
+ #ifdef CONFIG_B43_DEBUG
+ 
+ struct dentry;
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-06-20 17:40:06.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-06-20 17:57:06.000000000 +0200
+@@ -2485,12 +2485,25 @@ static void b43_gpio_cleanup(struct b43_
+ 	ssb_write32(gpiodev, B43_GPIO_CONTROL, 0);
+ }
+ 
+ /* <A HREF="http://bcm-specs.sipsolutions.net/EnableMac">http://bcm-specs.sipsolutions.net/EnableMac</A> */
+ void b43_mac_enable(struct b43_wldev *dev)
+ {
++	if (b43_debug(dev, B43_DBG_FIRMWARE)) {
++		u16 fwstate;
++
++		fwstate = b43_shm_read16(dev, B43_SHM_SHARED,
++					 B43_SHM_SH_UCODESTAT);
++		if ((fwstate != B43_SHM_SH_UCODESTAT_SUSP) &amp;&amp;
++		    (fwstate != B43_SHM_SH_UCODESTAT_SLEEP)) {
++			b43err(dev-&gt;wl, &quot;b43_mac_enable(): The firmware &quot;
++			       &quot;should be suspended, but current state is %u\n&quot;,
++			       fwstate);
++		}
++	}
++
+ 	dev-&gt;mac_suspended--;
+ 	B43_WARN_ON(dev-&gt;mac_suspended &lt; 0);
+ 	if (dev-&gt;mac_suspended == 0) {
+ 		b43_write32(dev, B43_MMIO_MACCTL,
+ 			    b43_read32(dev, B43_MMIO_MACCTL)
+ 			    | B43_MACCTL_ENABLED);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004294.html">[PATCH] b43: Add simple firmware watchdog
+</A></li>
+	<LI>Next message: <A HREF="004298.html">ssb-sprom discrepancy in results
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4295">[ date ]</a>
+              <a href="thread.html#4295">[ thread ]</a>
+              <a href="subject.html#4295">[ subject ]</a>
+              <a href="author.html#4295">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

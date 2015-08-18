@@ -1,0 +1,248 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43-fwcutter: unsupported file support
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43-fwcutter%3A%20unsupported%20file%20support&In-Reply-To=%3C1195816647.4149.100.camel%40johannes.berg%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002894.html">
+   <LINK REL="Next"  HREF="002885.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43-fwcutter: unsupported file support</H1>
+    <B>Johannes Berg</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43-fwcutter%3A%20unsupported%20file%20support&In-Reply-To=%3C1195816647.4149.100.camel%40johannes.berg%3E"
+       TITLE="[PATCH] b43-fwcutter: unsupported file support">johannes at sipsolutions.net
+       </A><BR>
+    <I>Fri Nov 23 12:17:26 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002894.html">timeout problems with certain APs and b43
+</A></li>
+        <LI>Next message: <A HREF="002885.html">[PATCH] b43-fwcutter: unsupported file support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2879">[ date ]</a>
+              <a href="thread.html#2879">[ thread ]</a>
+              <a href="subject.html#2879">[ subject ]</a>
+              <a href="author.html#2879">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This patch makes fwcutter support only those files we know are working
+and marks the other one unsupported. To allow developers to still work
+with such files, an --unsupported command line option is added that
+allows one to extract firmware from such unsupported files. Some code
+restructuring was necessary to support the --unsupported flag with other
+flags in any order.
+
+Also, because this is a significant change, bump the version number.
+
+Signed-off-by: Johannes Berg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">johannes at sipsolutions.net</A>&gt;
+---
+Feel free to leave out the version number change if you want to manage
+that with git branches now or simply don't like the change :)
+
+ fwcutter/Makefile        |    2 +-
+ fwcutter/fwcutter.c      |   39 ++++++++++++++++++++++++++++++---------
+ fwcutter/fwcutter.h      |   14 +++++++++++---
+ fwcutter/fwcutter_list.h |    2 +-
+ 4 files changed, 43 insertions(+), 14 deletions(-)
+
+--- a/fwcutter/Makefile
++++ b/fwcutter/Makefile
+@@ -1,4 +1,4 @@
+-VERSION = 008
++VERSION = 009
+ 
+ CC ?= cc
+ PREFIX ?= /usr/local
+--- a/fwcutter/fwcutter.c
++++ b/fwcutter/fwcutter.c
+@@ -59,6 +59,12 @@
+ static struct cmdline_args cmdargs;
+ 
+ 
++/* check whether file will be listed/extracted from */
++static int file_ok(const struct file *f)
++{
++	return !(f-&gt;flags &amp; FW_FLAG_UNSUPPORTED) || cmdargs.unsupported;
++}
++
+ /* Convert a CPU-endian 16bit integer to Big-Endian */
+ static be16_t to_be16(uint16_t v)
+ {
+@@ -398,7 +404,7 @@ static void extract_or_identify(FILE *f, const struct extract *extract,
+ 		exit(255);
+ 	}
+ 
+-	if (!cmdargs.identify_only)
++	if (cmdargs.mode == FWCM_EXTRACT)
+ 		write_file(extract-&gt;name, buf, data_length, &amp;hdr, flags);
+ 
+ 	free(buf);
+@@ -449,10 +455,10 @@ static void print_supported_files(void)
+ 	       &quot;&lt;MD5 checksum&gt;\n\n&quot;);
+ 	/* print for legacy driver first */
+ 	for (i = 0; i &lt; FILES; i++)
+-		if (!(files[i].flags &amp; FW_FLAG_V4))
++		if (file_ok(&amp;files[i]) &amp;&amp; !(files[i].flags &amp; FW_FLAG_V4))
+ 			print_file(&amp;files[i]);
+ 	for (i = 0; i &lt; FILES; i++)
+-		if (files[i].flags &amp; FW_FLAG_V4)
++		if (file_ok(&amp;files[i]) &amp;&amp; files[i].flags &amp; FW_FLAG_V4)
+ 			print_file(&amp;files[i]);
+ 	printf(&quot;\n&quot;);
+ }
+@@ -478,7 +484,8 @@ static const struct file *find_file(FILE *fd)
+ 		 signature[12], signature[13], signature[14], signature[15]);
+ 
+ 	for (i = 0; i &lt; FILES; ++i) {
+-		if (strcasecmp(md5sig, files[i].md5) == 0) {
++		if (file_ok(&amp;files[i]) &amp;&amp;
++		    strcasecmp(md5sig, files[i].md5) == 0) {
+ 			printf(&quot;This file is recognised as:\n&quot;);
+ 			printf(&quot;  filename   :  %s\n&quot;, files[i].name);
+ 			printf(&quot;  version    :  %s\n&quot;, files[i].ucode_version);
+@@ -497,6 +504,8 @@ static void print_usage(int argc, char *argv[])
+ {
+ 	print_banner();
+ 	printf(&quot;\nUsage: %s [OPTION] [driver.sys]\n&quot;, argv[0]);
++	printf(&quot;  --unsupported         &quot;
++	       &quot;Allow working on extractable but unsupported drivers\n&quot;);
+ 	printf(&quot;  -l|--list             &quot;
+ 	       &quot;List supported driver versions\n&quot;);
+ 	printf(&quot;  -i|--identify         &quot;
+@@ -584,8 +593,8 @@ static int parse_args(int argc, char *argv[])
+ 	for (i = 1; i &lt; argc; i++) {
+ 		res = cmp_arg(argv, &amp;i, &quot;--list&quot;, &quot;-l&quot;, 0);
+ 		if (res == ARG_MATCH) {
+-			print_supported_files();
+-			return 1;
++			cmdargs.mode = FWCM_LIST;
++			continue;
+ 		} else if (res == ARG_ERROR)
+ 			goto out;
+ 
+@@ -604,7 +613,14 @@ static int parse_args(int argc, char *argv[])
+ 
+ 		res = cmp_arg(argv, &amp;i, &quot;--identify&quot;, &quot;-i&quot;, 0);
+ 		if (res == ARG_MATCH) {
+-			cmdargs.identify_only = 1;
++			cmdargs.mode = FWCM_IDENTIFY;
++			continue;
++		} else if (res == ARG_ERROR)
++			goto out;
++
++		res = cmp_arg(argv, &amp;i, &quot;--unsupported&quot;, NULL, 0);
++		if (res == ARG_MATCH) {
++			cmdargs.unsupported = 1;
+ 			continue;
+ 		} else if (res == ARG_ERROR)
+ 			goto out;
+@@ -620,7 +636,7 @@ static int parse_args(int argc, char *argv[])
+ 		break;
+ 	}
+ 
+-	if (!cmdargs.infile)
++	if (!cmdargs.infile &amp;&amp; cmdargs.mode != FWCM_LIST)
+ 		goto out_usage;
+ 	return 0;
+ 
+@@ -645,6 +661,11 @@ int main(int argc, char *argv[])
+ 	else if (err != 0)
+ 		return err;
+ 
++	if (cmdargs.mode == FWCM_LIST) {
++		print_supported_files();
++		return 0;
++	}
++
+ 	fd = fopen(cmdargs.infile, &quot;rb&quot;);
+ 	if (!fd) {
+ 		fprintf(stderr, &quot;Cannot open input file %s\n&quot;, cmdargs.infile);
+@@ -664,7 +685,7 @@ int main(int argc, char *argv[])
+ 	extract = file-&gt;extract;
+ 	while (extract-&gt;name) {
+ 		printf(&quot;%s %s/%s.fw\n&quot;,
+-		       cmdargs.identify_only ? &quot;Contains&quot; : &quot;Extracting&quot;,
++		       cmdargs.mode == FWCM_IDENTIFY ? &quot;Contains&quot; : &quot;Extracting&quot;,
+ 		       dir, extract-&gt;name);
+ 		extract_or_identify(fd, extract, file-&gt;flags);
+ 		extract++;
+--- a/fwcutter/fwcutter.h
++++ b/fwcutter/fwcutter.h
+@@ -1,8 +1,9 @@
+ #ifndef _FWCUTTER_H_
+ #define _FWCUTTER_H_
+ 
+-#define FW_FLAG_LE	0x01	/* little endian? convert */
+-#define FW_FLAG_V4	0x02	/* b43 vs. b43legacy */
++#define FW_FLAG_LE		0x01	/* little endian? convert */
++#define FW_FLAG_V4		0x02	/* b43 vs. b43legacy */
++#define FW_FLAG_UNSUPPORTED	0x04	/* not supported/working */
+ 
+ #define fwcutter_stringify_1(x)	#x
+ #define fwcutter_stringify(x)	fwcutter_stringify_1(x)
+@@ -20,10 +21,17 @@ typedef uint32_t be32_t; /* Big-endian 32bit */
+ #define ARG_NOMATCH	1
+ #define ARG_ERROR	-1
+ 
++enum fwcutter_mode {
++	FWCM_EXTRACT = 0,	/* default */
++	FWCM_LIST,
++	FWCM_IDENTIFY,
++};
++
+ struct cmdline_args {
+ 	const char *infile;
+ 	const char *target_dir;
+-	int identify_only;
++	enum fwcutter_mode mode;
++	int unsupported;
+ };
+ 
+ struct insn {
+--- a/fwcutter/fwcutter_list.h
++++ b/fwcutter/fwcutter_list.h
+@@ -147,7 +147,7 @@ static const struct file files[] =
+ 		.name		= &quot;wl_ap.o&quot;,
+ 		.ucode_version	= &quot;410.2160&quot;,
+ 		.md5		= &quot;1e4763b4cb8cfbaae43e5c6d3d6b2ae7&quot;,
+-		.flags		= FW_FLAG_LE | FW_FLAG_V4,
++		.flags		= FW_FLAG_LE | FW_FLAG_V4 | FW_FLAG_UNSUPPORTED,
+ 		.extract	= _1e4763b4cb8cfbaae43e5c6d3d6b2ae7,
+ 	},
+ };
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002894.html">timeout problems with certain APs and b43
+</A></li>
+	<LI>Next message: <A HREF="002885.html">[PATCH] b43-fwcutter: unsupported file support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2879">[ date ]</a>
+              <a href="thread.html#2879">[ thread ]</a>
+              <a href="subject.html#2879">[ subject ]</a>
+              <a href="author.html#2879">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

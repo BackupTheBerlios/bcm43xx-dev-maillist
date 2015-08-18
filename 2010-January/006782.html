@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 6/7] b43: N-PHY: move RF sequence declarations top, add	missing calls
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%206/7%5D%20b43%3A%20N-PHY%3A%20move%20RF%20sequence%20declarations%20top%2C%20add%0A%09missing%20calls&In-Reply-To=%3Cop.u6oeg0uf9lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006781.html">
+   <LINK REL="Next"  HREF="006783.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 6/7] b43: N-PHY: move RF sequence declarations top, add	missing calls</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%206/7%5D%20b43%3A%20N-PHY%3A%20move%20RF%20sequence%20declarations%20top%2C%20add%0A%09missing%20calls&In-Reply-To=%3Cop.u6oeg0uf9lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 6/7] b43: N-PHY: move RF sequence declarations top, add	missing calls">zajec5 at gmail.com
+       </A><BR>
+    <I>Sun Jan 17 13:04:02 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006781.html">[PATCH 5/7] b43: N-PHY: implement chain selection
+</A></li>
+        <LI>Next message: <A HREF="006783.html">[PATCH 7/7] b43: N-PHY: store seq mode for proper restoring (follow	specs)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6782">[ date ]</a>
+              <a href="thread.html#6782">[ thread ]</a>
+              <a href="subject.html#6782">[ subject ]</a>
+              <a href="author.html#6782">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+  drivers/net/wireless/b43/phy_n.c |   28 ++++++++++++++++------------
+  1 files changed, 16 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index d24e2b4..34be98b 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -55,6 +55,18 @@ struct nphy_iq_est {
+  	u32 q1_pwr;
+  };
+
++enum b43_nphy_rf_sequence {
++	B43_RFSEQ_RX2TX,
++	B43_RFSEQ_TX2RX,
++	B43_RFSEQ_RESET2RX,
++	B43_RFSEQ_UPDATE_GAINH,
++	B43_RFSEQ_UPDATE_GAINL,
++	B43_RFSEQ_UPDATE_GAINU,
++};
++
++static void b43_nphy_force_rf_sequence(struct b43_wldev *dev,
++				       enum b43_nphy_rf_sequence seq);
++
+  void b43_nphy_set_rxantenna(struct b43_wldev *dev, int antenna)
+  {//TODO
+  }
+@@ -421,7 +433,7 @@ static void b43_nphy_reset_cca(struct b43_wldev *dev)
+  	udelay(1);
+  	b43_phy_write(dev, B43_NPHY_BBCFG, bbcfg &amp; ~B43_NPHY_BBCFG_RSTCCA);
+  	b43_nphy_bmac_clock_fgc(dev, 0);
+-	/* TODO: N PHY Force RF Seq with argument 2 */
++	b43_nphy_force_rf_sequence(dev, B43_RFSEQ_RESET2RX);
+  }
+
+  /* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/MIMOConfig">http://bcm-v4.sipsolutions.net/802.11/PHY/N/MIMOConfig</A> */
+@@ -689,7 +701,7 @@ static void b43_nphy_rx_cal_phy_setup(struct b43_wldev *dev, u8 core)
+
+  	/* TODO: Call N PHY RF Ctrl Intc Override with 2, 0, 3 as arguments */
+  	/* TODO: Call N PHY RF Intc Override with 8, 0, 3, 0 as arguments */
+-	/* TODO: Call N PHY RF Seq with 0 as argument */
++	b43_nphy_force_rf_sequence(dev, B43_RFSEQ_RX2TX);
+
+  	if (core == 0) {
+  		rxval = 1;
+@@ -872,15 +884,7 @@ static void b43_nphy_tx_pwr_ctrl_coef_setup(struct b43_wldev *dev)
+  		b43_nphy_stay_in_carrier_search(dev, false);
+  }
+
+-enum b43_nphy_rf_sequence {
+-	B43_RFSEQ_RX2TX,
+-	B43_RFSEQ_TX2RX,
+-	B43_RFSEQ_RESET2RX,
+-	B43_RFSEQ_UPDATE_GAINH,
+-	B43_RFSEQ_UPDATE_GAINL,
+-	B43_RFSEQ_UPDATE_GAINU,
+-};
+-
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/ForceRFSeq">http://bcm-v4.sipsolutions.net/802.11/PHY/N/ForceRFSeq</A> */
+  static void b43_nphy_force_rf_sequence(struct b43_wldev *dev,
+  				       enum b43_nphy_rf_sequence seq)
+  {
+@@ -2156,7 +2160,7 @@ static int b43_nphy_rev2_cal_rx_iq(struct b43_wldev *dev,
+  	}
+
+  	/* TODO: Call N PHY RF Ctrl Override with 0x400, 0, 3, 1 as arguments*/
+-	/* TODO: Call N PHY Force RF Seq with 2 as argument */
++	b43_nphy_force_rf_sequence(dev, B43_RFSEQ_RESET2RX);
+  	/* TODO: Write an N PHY Table with ID 7, length 2, offset 0x110,
+  		width 16, and data from gain_save */
+
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006781.html">[PATCH 5/7] b43: N-PHY: implement chain selection
+</A></li>
+	<LI>Next message: <A HREF="006783.html">[PATCH 7/7] b43: N-PHY: store seq mode for proper restoring (follow	specs)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6782">[ date ]</a>
+              <a href="thread.html#6782">[ thread ]</a>
+              <a href="subject.html#6782">[ subject ]</a>
+              <a href="author.html#6782">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

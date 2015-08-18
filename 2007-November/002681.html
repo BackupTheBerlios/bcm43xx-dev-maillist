@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: fix shared IRQ race condition
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20fix%20shared%20IRQ%20race%20condition&In-Reply-To=%3C20071107181611.23de23f1%40morte%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002679.html">
+   <LINK REL="Next"  HREF="002683.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: fix shared IRQ race condition</H1>
+    <B>Stefano Brivio</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20fix%20shared%20IRQ%20race%20condition&In-Reply-To=%3C20071107181611.23de23f1%40morte%3E"
+       TITLE="[PATCH] b43: fix shared IRQ race condition">stefano.brivio at polimi.it
+       </A><BR>
+    <I>Wed Nov  7 18:16:11 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002679.html">[PATCH 7/7] b43/b43legacy: fix my copyright notices
+</A></li>
+        <LI>Next message: <A HREF="002683.html">[PATCH] b43: fix shared IRQ race condition
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2681">[ date ]</a>
+              <a href="thread.html#2681">[ thread ]</a>
+              <a href="subject.html#2681">[ subject ]</a>
+              <a href="author.html#2681">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Fix an IRQ race condition in b43. If we call b43_stop_wireless_core(), it
+will set the status of the device to INITIALIZED and the IRQ handler won't
+care any longer about IRQs, thus the kernel will disable the IRQ if it's
+shared (unless we boot it with the 'irqpoll' option). So we must disable
+IRQs before changing the device status.
+
+
+Signed-off-by: Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+
+---
+
+--- wireless-2.6/drivers/net/wireless/b43/main.c.orig	2007-11-07 17:55:30.553591943 +0100
++++ wireless-2.6/drivers/net/wireless/b43/main.c	2007-11-07 17:59:23.356020048 +0100
+@@ -2979,6 +2979,16 @@
+ 
+ 	if (b43_status(dev) &lt; B43_STAT_STARTED)
+ 		return;
++
++	/* Disable and sync interrupts. We must do this before than
++	 * setting the status to INITIALIZED, as the interrupt handler
++	 * won't care about IRQs then. */
++	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
++	dev-&gt;irq_savedstate = b43_interrupt_disable(dev, B43_IRQ_ALL);
++	b43_read32(dev, B43_MMIO_GEN_IRQ_MASK);	/* flush */
++	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
++	b43_synchronize_irq(dev);
++
+ 	b43_set_status(dev, B43_STAT_INITIALIZED);
+ 
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+@@ -2989,13 +2999,6 @@
+ 
+ 	ieee80211_stop_queues(wl-&gt;hw);	//FIXME this could cause a deadlock, as mac80211 seems buggy.
+ 
+-	/* Disable and sync interrupts. */
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-	dev-&gt;irq_savedstate = b43_interrupt_disable(dev, B43_IRQ_ALL);
+-	b43_read32(dev, B43_MMIO_GEN_IRQ_MASK);	/* flush */
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+-	b43_synchronize_irq(dev);
+-
+ 	b43_mac_suspend(dev);
+ 	free_irq(dev-&gt;dev-&gt;irq, dev);
+ 	b43dbg(wl, &quot;Wireless interface stopped\n&quot;);
+
+
+-- 
+Ciao
+Stefano
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002679.html">[PATCH 7/7] b43/b43legacy: fix my copyright notices
+</A></li>
+	<LI>Next message: <A HREF="002683.html">[PATCH] b43: fix shared IRQ race condition
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2681">[ date ]</a>
+              <a href="thread.html#2681">[ thread ]</a>
+              <a href="subject.html#2681">[ subject ]</a>
+              <a href="author.html#2681">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43, b43legacy: Fix inconsistency between branches 'b43'	and 'everything' in wireless-dev
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%2C%20b43legacy%3A%20Fix%20inconsistency%20between%20branches%20%27b43%27%0A%09and%20%27everything%27%20in%20wireless-dev&In-Reply-To=%3C46ce12c4.2TC1IuG0LDupBuDr%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002171.html">
+   <LINK REL="Next"  HREF="002181.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43, b43legacy: Fix inconsistency between branches 'b43'	and 'everything' in wireless-dev</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%2C%20b43legacy%3A%20Fix%20inconsistency%20between%20branches%20%27b43%27%0A%09and%20%27everything%27%20in%20wireless-dev&In-Reply-To=%3C46ce12c4.2TC1IuG0LDupBuDr%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43, b43legacy: Fix inconsistency between branches 'b43'	and 'everything' in wireless-dev">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Aug 24 01:05:40 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002171.html">[PATCH] ssb: Add PCI id's for BCM4301
+</A></li>
+        <LI>Next message: <A HREF="002181.html">[PATCH] b43, b43legacy: Fix inconsistency between branches	'b43' and 'everything' in wireless-dev
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2180">[ date ]</a>
+              <a href="thread.html#2180">[ thread ]</a>
+              <a href="subject.html#2180">[ subject ]</a>
+              <a href="author.html#2180">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>One of Johannes's 27 patches changed the definition of the set_key callback.
+Because his change got applied to the 'everything' branch, and the changes in the
+b43 drivers to the 'b43' branch, the drivers in that branch are out of synch and an
+&quot;initialization from incompatible pointer type&quot; warning is generated. When this patch
+is applied to branch 'b43', it is internally consistent.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+I'm not sure how to handle this. In it's present state, branch 'b43' cannot be used
+to generate a working version of b43 or b43legacy. In addition,  the Kconfig and Makefile
+from b43legacy are not included, thus it is not possible to build b43legacy
+in that branch.
+
+Larry
+
+  
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index 9a0cf2b..19e9cf1 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -2861,8 +2861,8 @@ static int b43_dev_config(struct ieee80211_hw *hw, struct ieee80211_conf *conf)
+ }
+ 
+ static int b43_dev_set_key(struct ieee80211_hw *hw,
+-			   set_key_cmd cmd, const u8 *local_addr,
+-			   const u8 *addr, struct ieee80211_key_conf *key)
++			   set_key_cmd cmd, u8 *addr,
++			   struct ieee80211_key_conf *key, int aid)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev = wl-&gt;current_dev;
+diff --git a/drivers/net/wireless/b43legacy/main.c b/drivers/net/wireless/b43legacy/main.c
+index 980cb81..f9d6938 100644
+--- a/drivers/net/wireless/b43legacy/main.c
++++ b/drivers/net/wireless/b43legacy/main.c
+@@ -2686,9 +2686,8 @@ out_unlock_mutex:
+ }
+ 
+ static int b43legacy_dev_set_key(struct ieee80211_hw *hw,
+-				 set_key_cmd cmd,
+-				 const u8 *local_addr, const u8 *addr,
+-				 struct ieee80211_key_conf *key)
++				 set_key_cmd cmd, u8 *addr,
++				 struct ieee80211_key_conf *key, int aid)
+ {
+ 	struct b43legacy_wl *wl = hw_to_b43legacy_wl(hw);
+ 	struct b43legacy_wldev *dev = wl-&gt;current_dev;
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002171.html">[PATCH] ssb: Add PCI id's for BCM4301
+</A></li>
+	<LI>Next message: <A HREF="002181.html">[PATCH] b43, b43legacy: Fix inconsistency between branches	'b43' and 'everything' in wireless-dev
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2180">[ date ]</a>
+              <a href="thread.html#2180">[ thread ]</a>
+              <a href="subject.html#2180">[ subject ]</a>
+              <a href="author.html#2180">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,181 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Fix most of the sparse warnings
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20most%20of%20the%20sparse%20warnings&In-Reply-To=%3C46e56847.e8NGY1BRpVwK0qe%2B%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002367.html">
+   <LINK REL="Next"  HREF="002370.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Fix most of the sparse warnings</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20most%20of%20the%20sparse%20warnings&In-Reply-To=%3C46e56847.e8NGY1BRpVwK0qe%2B%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43legacy: Fix most of the sparse warnings">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Mon Sep 10 17:52:39 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002367.html">[PATCH] b43legacy: remove IEEE80211_CONF_SSID_HIDDEN
+</A></li>
+        <LI>Next message: <A HREF="002370.html">[PATCH V2] b43legacy: Don't cancel the restart workqueue in	wireless_core_exit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2369">[ date ]</a>
+              <a href="thread.html#2369">[ thread ]</a>
+              <a href="subject.html#2369">[ subject ]</a>
+              <a href="author.html#2369">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Fix most of the sparse warnings in b43legacy. Several are generated
+in phy.c that cannot easily be fixed.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: wireless-dev/drivers/net/wireless/b43legacy/leds.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/leds.c
++++ wireless-dev/drivers/net/wireless/b43legacy/leds.c
+@@ -33,14 +33,13 @@
+ static void b43legacy_led_changestate(struct b43legacy_led *led)
+ {
+ 	struct b43legacy_wldev *dev = led-&gt;dev;
+-	const int index = b43legacy_led_index(led);
+-	const u16 mask = (1 &lt;&lt; index);
++	const int index = led-&gt;index;
+ 	u16 ledctl;
+ 
+ 	B43legacy_WARN_ON(!(index &gt;= 0 &amp;&amp; index &lt; B43legacy_NR_LEDS));
+ 	B43legacy_WARN_ON(!led-&gt;blink_interval);
+ 	ledctl = b43legacy_read16(dev, B43legacy_MMIO_GPIO_CONTROL);
+-	ledctl = (ledctl &amp; mask) ? (ledctl &amp; ~mask) : (ledctl | mask);
++	ledctl ^= (1 &lt;&lt; index);
+ 	b43legacy_write16(dev, B43legacy_MMIO_GPIO_CONTROL, ledctl);
+ }
+ 
+@@ -72,7 +71,7 @@ static void b43legacy_led_blink_start(st
+ static void b43legacy_led_blink_stop(struct b43legacy_led *led, int sync)
+ {
+ 	struct b43legacy_wldev *dev = led-&gt;dev;
+-	const int index = b43legacy_led_index(led);
++	const int index = led-&gt;index;
+ 	u16 ledctl;
+ 
+ 	if (!led-&gt;blink_interval)
+@@ -142,6 +141,7 @@ int b43legacy_leds_init(struct b43legacy
+ 
+ 	for (i = 0; i &lt; B43legacy_NR_LEDS; i++) {
+ 		led = &amp;(dev-&gt;leds[i]);
++		led-&gt;index = i;
+ 		led-&gt;dev = dev;
+ 		setup_timer(&amp;led-&gt;blink_timer,
+ 			    b43legacy_led_blink,
+Index: wireless-dev/drivers/net/wireless/b43legacy/leds.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/leds.h
++++ wireless-dev/drivers/net/wireless/b43legacy/leds.h
+@@ -6,14 +6,14 @@
+ 
+ 
+ struct b43legacy_led {
+-	u8 behaviour:7;
+-	u8 activelow:1;
+-
++	u8 behaviour;
++	bool activelow;
++	/* Index in the &quot;leds&quot; array in b43legacy_wldev */
++	u8 index;
+ 	struct b43legacy_wldev *dev;
+ 	struct timer_list blink_timer;
+ 	unsigned long blink_interval;
+ };
+-#define b43legacy_led_index(led)	((int)((led) - (led)-&gt;dev-&gt;leds))
+ 
+ /* Delay between state changes when blinking in jiffies */
+ #define B43legacy_LEDBLINK_SLOW		(HZ / 1)
+Index: wireless-dev/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-dev/drivers/net/wireless/b43legacy/main.c
+@@ -848,7 +848,7 @@ static void handle_irq_noise(struct b43l
+ 	B43legacy_WARN_ON(!dev-&gt;noisecalc.calculation_running);
+ 	if (dev-&gt;noisecalc.channel_at_start != phy-&gt;channel)
+ 		goto drop_calculation;
+-	*((u32 *)noise) = cpu_to_le32(b43legacy_jssi_read(dev));
++	*((__le32 *)noise) = cpu_to_le32(b43legacy_jssi_read(dev));
+ 	if (noise[0] == 0x7F || noise[1] == 0x7F ||
+ 	    noise[2] == 0x7F || noise[3] == 0x7F)
+ 		goto generate_new;
+@@ -1434,8 +1434,7 @@ static int do_request_fw(struct b43legac
+ 			 const char *name,
+ 			 const struct firmware **fw)
+ {
+-	const size_t plen = sizeof(modparam_fwpostfix) + 32;
+-	char path[plen];
++	char path[sizeof(modparam_fwpostfix) + 32];
+ 	struct b43legacy_fw_header *hdr;
+ 	u32 size;
+ 	int err;
+Index: wireless-dev/drivers/net/wireless/b43legacy/xmit.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/xmit.c
++++ wireless-dev/drivers/net/wireless/b43legacy/xmit.c
+@@ -125,10 +125,12 @@ void b43legacy_generate_plcp_hdr(struct 
+ 	__u8 *raw = plcp-&gt;raw;
+ 
+ 	if (b43legacy_is_ofdm_rate(bitrate)) {
+-		*data = b43legacy_plcp_get_ratecode_ofdm(bitrate);
++		u16 d;
++
++		d = b43legacy_plcp_get_ratecode_ofdm(bitrate);
+ 		B43legacy_WARN_ON(octets &amp; 0xF000);
+-		*data |= (octets &lt;&lt; 5);
+-		*data = cpu_to_le32(*data);
++		d |= (octets &lt;&lt; 5);
++		*data = cpu_to_le32(d);
+ 	} else {
+ 		u32 plen;
+ 
+@@ -442,7 +444,7 @@ void b43legacy_rx(struct b43legacy_wldev
+ 	phystat0 = le16_to_cpu(rxhdr-&gt;phy_status0);
+ 	phystat3 = le16_to_cpu(rxhdr-&gt;phy_status3);
+ 	jssi = rxhdr-&gt;jssi;
+-	macstat = le32_to_cpu(rxhdr-&gt;mac_status);
++	macstat = le16_to_cpu(rxhdr-&gt;mac_status);
+ 	mactime = le16_to_cpu(rxhdr-&gt;mac_time);
+ 	chanstat = le16_to_cpu(rxhdr-&gt;channel);
+ 
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002367.html">[PATCH] b43legacy: remove IEEE80211_CONF_SSID_HIDDEN
+</A></li>
+	<LI>Next message: <A HREF="002370.html">[PATCH V2] b43legacy: Don't cancel the restart workqueue in	wireless_core_exit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2369">[ date ]</a>
+              <a href="thread.html#2369">[ thread ]</a>
+              <a href="subject.html#2369">[ subject ]</a>
+              <a href="author.html#2369">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

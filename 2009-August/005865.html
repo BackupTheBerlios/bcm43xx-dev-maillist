@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Two small spec updates
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Two%20small%20spec%20updates&In-Reply-To=%3C4A8B0A3F.6040106%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005889.html">
+   <LINK REL="Next"  HREF="005866.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Two small spec updates</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Two%20small%20spec%20updates&In-Reply-To=%3C4A8B0A3F.6040106%40gmail.com%3E"
+       TITLE="[PATCH] b43: LP-PHY: Two small spec updates">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Tue Aug 18 22:08:31 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005889.html">[PATCH] b43: LP-PHY: Implement spec updates and remove	resolved FIXMEs
+</A></li>
+        <LI>Next message: <A HREF="005866.html">[ANN] b43 LP-PHY support (BCM4310/4312/4315) now ready for testing!
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5865">[ date ]</a>
+              <a href="thread.html#5865">[ thread ]</a>
+              <a href="subject.html#5865">[ subject ]</a>
+              <a href="author.html#5865">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The specs are beginning to support rev3 LP-PHYs - implement one of
+the changes needed for rev3 support.
+Also, in the new MIPS driver, the &quot;Japan TX filter&quot; was renamed to
+&quot;analog TX filter init&quot; - however, calling it &quot;init&quot; is confusing,
+so name it &quot;set analog filter&quot;, with a comment for easier future
+identification.
+
+Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_lp.c |   17 ++++++++++++-----
+ 1 files changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+index 6c69cdb..65f0010 100644
+--- a/drivers/net/wireless/b43/phy_lp.c
++++ b/drivers/net/wireless/b43/phy_lp.c
+@@ -609,9 +609,14 @@ static void lpphy_2063_init(struct b43_wldev *dev)
+ 	b43_radio_write(dev, B2063_PA_SP7, 0);
+ 	b43_radio_write(dev, B2063_TX_RF_SP6, 0x20);
+ 	b43_radio_write(dev, B2063_TX_RF_SP9, 0x40);
+-	b43_radio_write(dev, B2063_PA_SP3, 0xa0);
+-	b43_radio_write(dev, B2063_PA_SP4, 0xa0);
+-	b43_radio_write(dev, B2063_PA_SP2, 0x18);
++	if (dev-&gt;phy.rev == 2) {
++		b43_radio_write(dev, B2063_PA_SP3, 0xa0);
++		b43_radio_write(dev, B2063_PA_SP4, 0xa0);
++		b43_radio_write(dev, B2063_PA_SP2, 0x18);
++	} else {
++		b43_radio_write(dev, B2063_PA_SP3, 0x20);
++		b43_radio_write(dev, B2063_PA_SP2, 0x20);
++	}
+ }
+ 
+ struct lpphy_stx_table_entry {
+@@ -1996,7 +2001,9 @@ static int lpphy_b2062_tune(struct b43_wldev *dev,
+ 	return err;
+ }
+ 
+-static void lpphy_japan_filter(struct b43_wldev *dev, int channel)
++
++/* This was previously called lpphy_japan_filter */
++static void lpphy_set_analog_filter(struct b43_wldev *dev, int channel)
+ {
+ 	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+ 	u16 tmp = (channel == 14); //SPEC FIXME check japanwidefilter!
+@@ -2165,7 +2172,7 @@ static int b43_lpphy_op_switch_channel(struct b43_wldev *dev,
+ 		err = lpphy_b2062_tune(dev, new_channel);
+ 		if (err)
+ 			return err;
+-		lpphy_japan_filter(dev, new_channel);
++		lpphy_set_analog_filter(dev, new_channel);
+ 		lpphy_adjust_gain_table(dev, channel2freq_lp(new_channel));
+ 	}
+ 
+-- 
+1.6.2.4
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005889.html">[PATCH] b43: LP-PHY: Implement spec updates and remove	resolved FIXMEs
+</A></li>
+	<LI>Next message: <A HREF="005866.html">[ANN] b43 LP-PHY support (BCM4310/4312/4315) now ready for testing!
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5865">[ date ]</a>
+              <a href="thread.html#5865">[ thread ]</a>
+              <a href="subject.html#5865">[ subject ]</a>
+              <a href="author.html#5865">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

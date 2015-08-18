@@ -1,0 +1,260 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Bug 9414] Not work light of button-led with module b43 in chipset	broadcom 4318
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BBug%209414%5D%20Not%20work%20light%20of%20button-led%20with%20module%20b43%20in%20chipset%0A%09broadcom%204318&In-Reply-To=%3C474B4599.9090007%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002915.html">
+   <LINK REL="Next"  HREF="002917.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Bug 9414] Not work light of button-led with module b43 in chipset	broadcom 4318</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BBug%209414%5D%20Not%20work%20light%20of%20button-led%20with%20module%20b43%20in%20chipset%0A%09broadcom%204318&In-Reply-To=%3C474B4599.9090007%40lwfinger.net%3E"
+       TITLE="[Bug 9414] Not work light of button-led with module b43 in chipset	broadcom 4318">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Mon Nov 26 23:15:53 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002915.html">[Bug 9414] Not work light of button-led with module b43 in chipset	broadcom 4318
+</A></li>
+        <LI>Next message: <A HREF="002917.html">[Bug 9414] Not work light of button-led with module b43 in	chipset broadcom 4318
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2916">[ date ]</a>
+              <a href="thread.html#2916">[ thread ]</a>
+              <a href="subject.html#2916">[ subject ]</a>
+              <a href="author.html#2916">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Based on the code in the rtx200 directories that has a call to input_allocate_device() that was not
+present in b43, I made a modification to drivers/net/wireless/b43/rfkill.c as follows:
+
+Index: wireless-2.6/drivers/net/wireless/b43/rfkill.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/rfkill.c
++++ wireless-2.6/drivers/net/wireless/b43/rfkill.c
+@@ -133,6 +133,16 @@ void b43_rfkill_init(struct b43_wldev *d
+ 	rfk-&gt;poll_dev-&gt;poll = b43_rfkill_poll;
+ 	rfk-&gt;poll_dev-&gt;poll_interval = 1000; /* msecs */
+
++	rfk-&gt;poll_dev-&gt;input = input_allocate_device();
++	if (!rfk-&gt;poll_dev-&gt;input)
++		goto err_free_polldev;
++
++	rfk-&gt;poll_dev-&gt;input-&gt;name = rfk-&gt;name;
++	rfk-&gt;poll_dev-&gt;input-&gt;id.bustype = BUS_HOST;
++	rfk-&gt;poll_dev-&gt;input-&gt;id.vendor = dev-&gt;dev-&gt;bus-&gt;boardinfo.vendor;
++	rfk-&gt;poll_dev-&gt;input-&gt;evbit[0] = BIT(EV_KEY);
++	set_bit(KEY_WLAN, rfk-&gt;poll_dev-&gt;input-&gt;keybit);
++
+ 	err = rfkill_register(rfk-&gt;rfkill);
+ 	if (err)
+ 		goto err_free_polldev;
+
+
+With this change, the input device is attached to b43. The message now is &quot;input: b43-phy0 as
+/class/input/input7&quot; rather than the &quot;input: Unspecified device as /class/input/input7&quot; that I had
+before. When the radio switch is toggled, I see the expected output:
+
+b43-phy0: Radio hardware status changed to DISABLED
+eth1: No ProbeResp from current AP 00:1a:70:46:ba:b1 - assume out of range
+eth1: No STA entry for own AP 00:1a:70:46:ba:b1
+b43-phy0: Radio hardware status changed to ENABLED
+
+We then get a locking problem:
+
+=======================================================
+[ INFO: possible circular locking dependency detected ]
+2.6.24-rc3-L2.6-g65d438bf-dirty #24
+-------------------------------------------------------
+events/0/9 is trying to acquire lock:
+ (&amp;wl-&gt;mutex){--..}, at: [&lt;ffffffff882a31e1&gt;] b43_rfkill_soft_toggle+0x33/0xb2 [b43]
+
+but task is already holding lock:
+ (&amp;rfkill-&gt;mutex){--..}, at: [&lt;ffffffff8040b927&gt;] rfkill_toggle_radio+0x1f/0x7d
+
+which lock already depends on the new lock.
+
+
+the existing dependency chain (in reverse order) is:
+
+-&gt; #2 (&amp;rfkill-&gt;mutex){--..}:
+       [&lt;ffffffff8025951c&gt;] __lock_acquire+0xb34/0xd47
+       [&lt;ffffffff8040b927&gt;] rfkill_toggle_radio+0x1f/0x7d
+       [&lt;ffffffff802597b4&gt;] lock_acquire+0x85/0xa9
+       [&lt;ffffffff8040b927&gt;] rfkill_toggle_radio+0x1f/0x7d
+       [&lt;ffffffff8040e32e&gt;] mutex_lock_interruptible_nested+0x113/0x31e
+       [&lt;ffffffff8040b927&gt;] rfkill_toggle_radio+0x1f/0x7d
+       [&lt;ffffffff8040b927&gt;] rfkill_toggle_radio+0x1f/0x7d
+       [&lt;ffffffff8040bd64&gt;] rfkill_register+0x9b/0x107
+       [&lt;ffffffff882a3040&gt;] b43_rfkill_init+0x15e/0x1cb [b43]
+       [&lt;ffffffff88293ad4&gt;] b43_wireless_core_init+0x682/0x784 [b43]
+       [&lt;ffffffff882948a6&gt;] b43_op_start+0x33/0x74 [b43]
+       [&lt;ffffffff881f2a76&gt;] ieee80211_open+0x1c7/0x3dd [mac80211]
+       [&lt;ffffffff803b2fda&gt;] dev_open+0x4e/0x88
+       [&lt;ffffffff803b18a2&gt;] dev_change_flags+0xaf/0x16b
+       [&lt;ffffffff803b9f9d&gt;] do_setlink+0x27a/0x346
+       [&lt;ffffffff8040fa9c&gt;] _read_unlock+0x26/0x2b
+       [&lt;ffffffff803bb233&gt;] rtnl_setlink+0xf9/0x11c
+       [&lt;ffffffff803bb0d3&gt;] rtnetlink_rcv_msg+0x1b6/0x1d5
+       [&lt;ffffffff803baf1d&gt;] rtnetlink_rcv_msg+0x0/0x1d5
+       [&lt;ffffffff803c36a5&gt;] netlink_rcv_skb+0x3e/0xaa
+       [&lt;ffffffff803baf14&gt;] rtnetlink_rcv+0x20/0x29
+       [&lt;ffffffff803c344c&gt;] netlink_unicast+0x1d9/0x23a
+       [&lt;ffffffff803ac19e&gt;] __alloc_skb+0x8a/0x138
+       [&lt;ffffffff803c3c79&gt;] netlink_sendmsg+0x2aa/0x2bd
+       [&lt;ffffffff803a6249&gt;] sock_sendmsg+0xdf/0xf8
+       [&lt;ffffffff8024db89&gt;] autoremove_wake_function+0x0/0x38
+       [&lt;ffffffff8024db89&gt;] autoremove_wake_function+0x0/0x38
+       [&lt;ffffffff8025970e&gt;] __lock_acquire+0xd26/0xd47
+       [&lt;ffffffff803a6b7f&gt;] move_addr_to_kernel+0x40/0x49
+       [&lt;ffffffff803ad5b9&gt;] verify_iovec+0x4f/0x8e
+       [&lt;ffffffff803a6443&gt;] sys_sendmsg+0x1e1/0x253
+       [&lt;ffffffff80250916&gt;] up_read+0x26/0x2a
+       [&lt;ffffffff8022581f&gt;] do_page_fault+0x3bf/0x764
+       [&lt;ffffffff803a72c4&gt;] sys_getsockname+0x66/0x8c
+       [&lt;ffffffff80258540&gt;] trace_hardirqs_on+0x11c/0x147
+       [&lt;ffffffff8040f5b8&gt;] trace_hardirqs_on_thunk+0x35/0x3a
+       [&lt;ffffffff8020c0de&gt;] system_call+0x7e/0x83
+       [&lt;ffffffffffffffff&gt;] 0xffffffffffffffff
+
+-&gt; #1 (rfkill_mutex){--..}:
+       [&lt;ffffffff8025951c&gt;] __lock_acquire+0xb34/0xd47
+       [&lt;ffffffff8040bd50&gt;] rfkill_register+0x87/0x107
+       [&lt;ffffffff802597b4&gt;] lock_acquire+0x85/0xa9
+       [&lt;ffffffff8040bd50&gt;] rfkill_register+0x87/0x107
+       [&lt;ffffffff8040bd50&gt;] rfkill_register+0x87/0x107
+       [&lt;ffffffff8040e78a&gt;] mutex_lock_nested+0x10e/0x2b6
+       [&lt;ffffffff8040bd50&gt;] rfkill_register+0x87/0x107
+       [&lt;ffffffff882a3040&gt;] b43_rfkill_init+0x15e/0x1cb [b43]
+       [&lt;ffffffff88293ad4&gt;] b43_wireless_core_init+0x682/0x784 [b43]
+       [&lt;ffffffff882948a6&gt;] b43_op_start+0x33/0x74 [b43]
+       [&lt;ffffffff881f2a76&gt;] ieee80211_open+0x1c7/0x3dd [mac80211]
+       [&lt;ffffffff803b2fda&gt;] dev_open+0x4e/0x88
+       [&lt;ffffffff803b18a2&gt;] dev_change_flags+0xaf/0x16b
+       [&lt;ffffffff803b9f9d&gt;] do_setlink+0x27a/0x346
+       [&lt;ffffffff8040fa9c&gt;] _read_unlock+0x26/0x2b
+       [&lt;ffffffff803bb233&gt;] rtnl_setlink+0xf9/0x11c
+       [&lt;ffffffff803bb0d3&gt;] rtnetlink_rcv_msg+0x1b6/0x1d5
+       [&lt;ffffffff803baf1d&gt;] rtnetlink_rcv_msg+0x0/0x1d5
+       [&lt;ffffffff803c36a5&gt;] netlink_rcv_skb+0x3e/0xaa
+       [&lt;ffffffff803baf14&gt;] rtnetlink_rcv+0x20/0x29
+       [&lt;ffffffff803c344c&gt;] netlink_unicast+0x1d9/0x23a
+       [&lt;ffffffff803ac19e&gt;] __alloc_skb+0x8a/0x138
+       [&lt;ffffffff803c3c79&gt;] netlink_sendmsg+0x2aa/0x2bd
+       [&lt;ffffffff803a6249&gt;] sock_sendmsg+0xdf/0xf8
+       [&lt;ffffffff8024db89&gt;] autoremove_wake_function+0x0/0x38
+       [&lt;ffffffff8024db89&gt;] autoremove_wake_function+0x0/0x38
+       [&lt;ffffffff8025970e&gt;] __lock_acquire+0xd26/0xd47
+       [&lt;ffffffff803a6b7f&gt;] move_addr_to_kernel+0x40/0x49
+       [&lt;ffffffff803ad5b9&gt;] verify_iovec+0x4f/0x8e
+       [&lt;ffffffff803a6443&gt;] sys_sendmsg+0x1e1/0x253
+       [&lt;ffffffff80250916&gt;] up_read+0x26/0x2a
+       [&lt;ffffffff8022581f&gt;] do_page_fault+0x3bf/0x764
+       [&lt;ffffffff803a72c4&gt;] sys_getsockname+0x66/0x8c
+       [&lt;ffffffff80258540&gt;] trace_hardirqs_on+0x11c/0x147
+       [&lt;ffffffff8040f5b8&gt;] trace_hardirqs_on_thunk+0x35/0x3a
+       [&lt;ffffffff8020c0de&gt;] system_call+0x7e/0x83
+       [&lt;ffffffffffffffff&gt;] 0xffffffffffffffff
+
+-&gt; #0 (&amp;wl-&gt;mutex){--..}:
+       [&lt;ffffffff80256dd7&gt;] print_circular_bug_entry+0x48/0x4f
+       [&lt;ffffffff8025941e&gt;] __lock_acquire+0xa36/0xd47
+       [&lt;ffffffff882a31e1&gt;] b43_rfkill_soft_toggle+0x33/0xb2 [b43]
+       [&lt;ffffffff802597b4&gt;] lock_acquire+0x85/0xa9
+       [&lt;ffffffff882a31e1&gt;] b43_rfkill_soft_toggle+0x33/0xb2 [b43]
+       [&lt;ffffffff882a31e1&gt;] b43_rfkill_soft_toggle+0x33/0xb2 [b43]
+       [&lt;ffffffff8040e78a&gt;] mutex_lock_nested+0x10e/0x2b6
+       [&lt;ffffffff8040b927&gt;] rfkill_toggle_radio+0x1f/0x7d
+       [&lt;ffffffff8040bf6f&gt;] rfkill_task_handler+0x0/0x54
+       [&lt;ffffffff882a31e1&gt;] b43_rfkill_soft_toggle+0x33/0xb2 [b43]
+       [&lt;ffffffff8040b944&gt;] rfkill_toggle_radio+0x3c/0x7d
+       [&lt;ffffffff8040be96&gt;] rfkill_switch_all+0x3e/0x78
+       [&lt;ffffffff8040bfab&gt;] rfkill_task_handler+0x3c/0x54
+       [&lt;ffffffff80249914&gt;] run_workqueue+0xeb/0x200
+       [&lt;ffffffff8024a500&gt;] worker_thread+0xed/0xfe
+       [&lt;ffffffff8024db89&gt;] autoremove_wake_function+0x0/0x38
+       [&lt;ffffffff8024a413&gt;] worker_thread+0x0/0xfe
+       [&lt;ffffffff8024da6e&gt;] kthread+0x49/0x77
+       [&lt;ffffffff8020d018&gt;] child_rip+0xa/0x12
+       [&lt;ffffffff8020c72f&gt;] restore_args+0x0/0x30
+       [&lt;ffffffff8024da25&gt;] kthread+0x0/0x77
+       [&lt;ffffffff8020d00e&gt;] child_rip+0x0/0x12
+       [&lt;ffffffffffffffff&gt;] 0xffffffffffffffff
+
+other info that might help us debug this:
+
+5 locks held by events/0/9:
+ #0:  (events){--..}, at: [&lt;ffffffff802498c9&gt;] run_workqueue+0xa0/0x200
+ #1:  (rfkill_wlan.work){--..}, at: [&lt;ffffffff802498c9&gt;] run_workqueue+0xa0/0x200
+ #2:  (rfkill_wlan.mutex){--..}, at: [&lt;ffffffff8040bf8d&gt;] rfkill_task_handler+0x1e/0x54
+ #3:  (rfkill_mutex){--..}, at: [&lt;ffffffff8040be74&gt;] rfkill_switch_all+0x1c/0x78
+ #4:  (&amp;rfkill-&gt;mutex){--..}, at: [&lt;ffffffff8040b927&gt;] rfkill_toggle_radio+0x1f/0x7d
+
+stack backtrace:
+
+Call Trace:
+ [&lt;ffffffff8025779c&gt;] print_circular_bug_tail+0x70/0x7b
+ [&lt;ffffffff80256dd7&gt;] print_circular_bug_entry+0x48/0x4f
+ [&lt;ffffffff8025941e&gt;] __lock_acquire+0xa36/0xd47
+ [&lt;ffffffff882a31e1&gt;] :b43:b43_rfkill_soft_toggle+0x33/0xb2
+ [&lt;ffffffff802597b4&gt;] lock_acquire+0x85/0xa9
+ [&lt;ffffffff882a31e1&gt;] :b43:b43_rfkill_soft_toggle+0x33/0xb2
+ [&lt;ffffffff882a31e1&gt;] :b43:b43_rfkill_soft_toggle+0x33/0xb2
+ [&lt;ffffffff8040e78a&gt;] mutex_lock_nested+0x10e/0x2b6
+ [&lt;ffffffff8040b927&gt;] rfkill_toggle_radio+0x1f/0x7d
+ [&lt;ffffffff8040bf6f&gt;] rfkill_task_handler+0x0/0x54
+ [&lt;ffffffff882a31e1&gt;] :b43:b43_rfkill_soft_toggle+0x33/0xb2
+ [&lt;ffffffff8040b944&gt;] rfkill_toggle_radio+0x3c/0x7d
+ [&lt;ffffffff8040be96&gt;] rfkill_switch_all+0x3e/0x78
+ [&lt;ffffffff8040bfab&gt;] rfkill_task_handler+0x3c/0x54
+ [&lt;ffffffff80249914&gt;] run_workqueue+0xeb/0x200
+ [&lt;ffffffff8024a500&gt;] worker_thread+0xed/0xfe
+ [&lt;ffffffff8024db89&gt;] autoremove_wake_function+0x0/0x38
+ [&lt;ffffffff8024a413&gt;] worker_thread+0x0/0xfe
+ [&lt;ffffffff8024da6e&gt;] kthread+0x49/0x77
+ [&lt;ffffffff8020d018&gt;] child_rip+0xa/0x12
+ [&lt;ffffffff8020c72f&gt;] restore_args+0x0/0x30
+ [&lt;ffffffff8024da25&gt;] kthread+0x0/0x77
+ [&lt;ffffffff8020d00e&gt;] child_rip+0x0/0x12
+
+During all this, the LED is not turned on.
+
+I'm hoping it won't be too difficult to sort this out. I've gotten in a little deeper than I want.
+
+Thanks,
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002915.html">[Bug 9414] Not work light of button-led with module b43 in chipset	broadcom 4318
+</A></li>
+	<LI>Next message: <A HREF="002917.html">[Bug 9414] Not work light of button-led with module b43 in	chipset broadcom 4318
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2916">[ date ]</a>
+              <a href="thread.html#2916">[ thread ]</a>
+              <a href="subject.html#2916">[ subject ]</a>
+              <a href="author.html#2916">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

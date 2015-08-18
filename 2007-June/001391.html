@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm4311 very unstable in kernel 2.6.21.4
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4311%20very%20unstable%20in%20kernel%202.6.21.4&In-Reply-To=%3Cb2d05de20706092223j46109ac9y2cf7aff6399eee2f%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001390.html">
+   <LINK REL="Next"  HREF="001392.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm4311 very unstable in kernel 2.6.21.4</H1>
+    <B>Brennan Ashton</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4311%20very%20unstable%20in%20kernel%202.6.21.4&In-Reply-To=%3Cb2d05de20706092223j46109ac9y2cf7aff6399eee2f%40mail.gmail.com%3E"
+       TITLE="bcm4311 very unstable in kernel 2.6.21.4">comphappy at gmail.com
+       </A><BR>
+    <I>Sun Jun 10 07:23:47 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001390.html">Fixed MAC in monitor mode
+</A></li>
+        <LI>Next message: <A HREF="001392.html">bcm4311 very unstable in kernel 2.6.21.4
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1391">[ date ]</a>
+              <a href="thread.html#1391">[ thread ]</a>
+              <a href="subject.html#1391">[ subject ]</a>
+              <a href="author.html#1391">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>My bcm4311 has become very unsable in the new 2.6.21.4 kernel. It frequently
+has core crashes, and recently when i modprobed, caused the system to crash.
+ bcm43xx: ASSERTION FAILED (!err) at:
+drivers/net/wireless/bcm43xx/bcm43xx_main.c :4095:bcm43xx_net_stop()
+
+rmmod bcm43xx
+
+never finshed running command.
+The patch that i have been using is this one
+
+Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
++++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+@@ -1225,7 +1225,7 @@ static void bcm43xx_phy_initg(struct bcm
+ 	}
+ 	if (phy-&gt;rev &lt; 3 &amp;&amp; phy-&gt;connected)
+ 		bcm43xx_phy_write(bcm, 0x047E, 0x0078);
+-	if (phy-&gt;rev &gt;= 6 &amp;&amp; phy-&gt;rev &lt;= 8) {
++	if (phy-&gt;rev &gt;= 6 &amp;&amp; phy-&gt;rev &lt; 8) {
+ 		bcm43xx_phy_write(bcm, 0x0801, bcm43xx_phy_read(bcm, 0x0801) | 0x0080);
+ 		bcm43xx_phy_write(bcm, 0x043E, bcm43xx_phy_read(bcm, 0x043E) | 0x0004);
+ 	}
+
+But after going from the 2.6.20.3 kernel to 2.6.21.4 kernel, i could not use
+the patch.  Looking at the kernel change log, this might be because of the
+change in 2.6.20.7? But that is just a guess.
+
+dmesg listing:
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at mainserv</A> ~]# dmesg | grep bcm43xx
+bcm43xx driver
+bcm43xx: Chip ID 0x4311, rev 0x1
+bcm43xx: Number of cores: 4
+bcm43xx: Core 0: ID 0x800, rev 0x11, vendor 0x4243
+bcm43xx: Core 1: ID 0x812, rev 0xa, vendor 0x4243
+bcm43xx: Core 2: ID 0x817, rev 0x3, vendor 0x4243
+bcm43xx: Core 3: ID 0x820, rev 0x1, vendor 0x4243
+bcm43xx: PHY connected
+bcm43xx: Detected PHY: Version: 4, Type 2, Revision 8
+bcm43xx: Detected Radio: ID: 2205017f (Manuf: 17f Ver: 2050 Rev: 2)
+bcm43xx: Radio turned off
+bcm43xx: Radio turned off
+bcm43xx: PHY connected
+bcm43xx: Microcode rev 0xf5, pl 0x5a (2003-12-22  20:11:25)
+bcm43xx: Radio turned on
+bcm43xx: Chip initialized
+bcm43xx: 32-bit DMA initialized
+bcm43xx: Keys cleared
+bcm43xx: Selected 802.11 core (phytype 2)
+bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
+bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
+bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
+bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
+bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
+bcm43xx: set security called, .active_key = 0, .level = 2, .enabled = 1,
+.encrypt = 1
+bcm43xx: set security called, .enabled = 1, .encrypt = 1
+bcm43xx: set security called, .enabled = 1, .encrypt = 1
+bcm43xx: set security called, .enabled = 1, .encrypt = 1
+bcm43xx: set security called, .enabled = 1, .encrypt = 1
+
+lspci listing
+
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at mainserv</A> ~]# lspci | grep Broadcom
+03:00.0 Network controller: Broadcom Corporation Dell Wireless 1390 WLAN
+Mini-PCI Card (rev 01)
+
+This card is a bcm4311
+
+-- 
+Brennan Ashton
+Bellingham, Washington
+
+&quot;The box said, 'Requires Windows 98 or better'. So I installed Linux&quot;
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070609/b020978f/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070609/b020978f/attachment.html</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001390.html">Fixed MAC in monitor mode
+</A></li>
+	<LI>Next message: <A HREF="001392.html">bcm4311 very unstable in kernel 2.6.21.4
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1391">[ date ]</a>
+              <a href="thread.html#1391">[ thread ]</a>
+              <a href="subject.html#1391">[ subject ]</a>
+              <a href="author.html#1391">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

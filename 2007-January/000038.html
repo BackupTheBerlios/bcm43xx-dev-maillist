@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH V2] bcm43xx: Fix failure to deliver PCI-E interrupts
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20bcm43xx%3A%20Fix%20failure%20to%20deliver%20PCI-E%20interrupts&In-Reply-To=%3C45a7ceb2.m02aaCgouBsadVk/%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000033.html">
+   <LINK REL="Next"  HREF="000039.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH V2] bcm43xx: Fix failure to deliver PCI-E interrupts</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20bcm43xx%3A%20Fix%20failure%20to%20deliver%20PCI-E%20interrupts&In-Reply-To=%3C45a7ceb2.m02aaCgouBsadVk/%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH V2] bcm43xx: Fix failure to deliver PCI-E interrupts">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Jan 12 19:08:50 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000033.html">What is in bcm43xx-wireless-dev.git?
+</A></li>
+        <LI>Next message: <A HREF="000039.html">[PATCH V2] bcm43xx: Fix failure to deliver PCI-E interrupts
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#38">[ date ]</a>
+              <a href="thread.html#38">[ thread ]</a>
+              <a href="subject.html#38">[ subject ]</a>
+              <a href="author.html#38">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The PCI-E modifications to bcm43xx do not set up the interrupt vector
+correctly. Tested with BCM4311 (PCI-E) on x86_64 and BCM4306 (PCI) on i386.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+This fix should be applied to wireless-2.6 _AND_ pushed upstream to
+2.6.20-rcX. Without this patch, none of the PCI-E interfaces will work.
+This version incorporates Michael Buesch's comments, and forgoes some
+code clean-ups that were in the first version/
+
+Larry
+
+
+Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -2704,8 +2704,8 @@ static int bcm43xx_probe_cores(struct bc
+ 		sb_id_hi = bcm43xx_read32(bcm, BCM43xx_CIR_SB_ID_HI);
+ 
+ 		/* extract core_id, core_rev, core_vendor */
+-		core_id = (sb_id_hi &amp; 0xFFF0) &gt;&gt; 4;
+-		core_rev = (sb_id_hi &amp; 0xF);
++		core_id = (sb_id_hi &amp; 0x8FF0) &gt;&gt; 4;
++		core_rev = ((sb_id_hi &amp; 0xF) | ((sb_id_hi &amp; 0x7000) &gt;&gt; 8));
+ 		core_vendor = (sb_id_hi &amp; 0xFFFF0000) &gt;&gt; 16;
+ 
+ 		dprintk(KERN_INFO PFX &quot;Core %d: ID 0x%x, rev 0x%x, vendor 0x%x\n&quot;,
+@@ -2876,7 +2876,10 @@ static int bcm43xx_wireless_core_init(st
+ 		sbimconfiglow = bcm43xx_read32(bcm, BCM43xx_CIR_SBIMCONFIGLOW);
+ 		sbimconfiglow &amp;= ~ BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
+ 		sbimconfiglow &amp;= ~ BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
+-		sbimconfiglow |= 0x32;
++		if (bcm-&gt;bustype == BCM43xx_BUSTYPE_PCI)
++			sbimconfiglow |= 0x32;
++		else
++			sbimconfiglow |= 0x53;
+ 		bcm43xx_write32(bcm, BCM43xx_CIR_SBIMCONFIGLOW, sbimconfiglow);
+ 	}
+ 
+@@ -3080,7 +3083,7 @@ static int bcm43xx_setup_backplane_pci_c
+ 	if (err)
+ 		goto out;
+ 
+-	if (bcm-&gt;current_core-&gt;rev &lt; 6 ||
++	if (bcm-&gt;current_core-&gt;rev &lt; 6 &amp;&amp;
+ 		bcm-&gt;current_core-&gt;id == BCM43xx_COREID_PCI) {
+ 		value = bcm43xx_read32(bcm, BCM43xx_CIR_SBINTVEC);
+ 		value |= (1 &lt;&lt; backplane_flag_nr);
+
+---
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000033.html">What is in bcm43xx-wireless-dev.git?
+</A></li>
+	<LI>Next message: <A HREF="000039.html">[PATCH V2] bcm43xx: Fix failure to deliver PCI-E interrupts
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#38">[ date ]</a>
+              <a href="thread.html#38">[ thread ]</a>
+              <a href="subject.html#38">[ subject ]</a>
+              <a href="author.html#38">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

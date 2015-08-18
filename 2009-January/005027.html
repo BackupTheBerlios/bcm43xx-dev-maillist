@@ -1,0 +1,303 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC 5/7] B43N: update the phyn workarounds
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%205/7%5D%20B43N%3A%20update%20the%20phyn%20workarounds&In-Reply-To=%3C1197ff4c0901132359i57ece7c7j5d75f474d8e5bab6%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005049.html">
+   <LINK REL="Next"  HREF="005028.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC 5/7] B43N: update the phyn workarounds</H1>
+    <B>YanBo</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%205/7%5D%20B43N%3A%20update%20the%20phyn%20workarounds&In-Reply-To=%3C1197ff4c0901132359i57ece7c7j5d75f474d8e5bab6%40mail.gmail.com%3E"
+       TITLE="[RFC 5/7] B43N: update the phyn workarounds">dreamfly281 at gmail.com
+       </A><BR>
+    <I>Wed Jan 14 08:59:02 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005049.html">[RFC 4/7] B43N: Add TX power control and gain get function
+</A></li>
+        <LI>Next message: <A HREF="005028.html">[RFC 6/7] B43N: Add the stay carrier search enable and disable	functions.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5027">[ date ]</a>
+              <a href="thread.html#5027">[ thread ]</a>
+              <a href="subject.html#5027">[ subject ]</a>
+              <a href="author.html#5027">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Update the phyn workaround following the new specs
+
+Signed-off-by: Li YanBo &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">dreamfly281 at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_n.c |  211 ++++++++++++++++++++++----------------
+ 1 files changed, 121 insertions(+), 90 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 1330309..c1d9a5c 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -416,105 +416,136 @@ static void b43_nphy_tables_init(struct b43_wldev *dev)
+ static void b43_nphy_workarounds(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+-	unsigned int i;
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
+
+-	b43_phy_set(dev, B43_NPHY_IQFLIP,
+-		    B43_NPHY_IQFLIP_ADC1 | B43_NPHY_IQFLIP_ADC2);
+-	if (1 /* FIXME band is 2.4GHz */) {
++	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
+ 		b43_phy_set(dev, B43_NPHY_CLASSCTL,
+ 			    B43_NPHY_CLASSCTL_CCKEN);
+ 	} else {
+ 		b43_phy_mask(dev, B43_NPHY_CLASSCTL,
+ 			     ~B43_NPHY_CLASSCTL_CCKEN);
+ 	}
+-	b43_radio_set(dev, B2055_C1_TX_RF_SPARE, 0x8);
+-	b43_phy_write(dev, B43_NPHY_TXFRAMEDELAY, 8);
+-
+-	/* Fixup some tables */
+-	b43_ntab_write(dev, B43_NTAB16(8, 0x00), 0xA);
+-	b43_ntab_write(dev, B43_NTAB16(8, 0x10), 0xA);
+-	b43_ntab_write(dev, B43_NTAB16(8, 0x02), 0xCDAA);
+-	b43_ntab_write(dev, B43_NTAB16(8, 0x12), 0xCDAA);
+-	b43_ntab_write(dev, B43_NTAB16(8, 0x08), 0);
+-	b43_ntab_write(dev, B43_NTAB16(8, 0x18), 0);
+-	b43_ntab_write(dev, B43_NTAB16(8, 0x07), 0x7AAB);
+-	b43_ntab_write(dev, B43_NTAB16(8, 0x17), 0x7AAB);
+-	b43_ntab_write(dev, B43_NTAB16(8, 0x06), 0x800);
+-	b43_ntab_write(dev, B43_NTAB16(8, 0x16), 0x800);
+-
+-	b43_phy_write(dev, B43_NPHY_RFCTL_LUT_TRSW_LO1, 0x2D8);
+-	b43_phy_write(dev, B43_NPHY_RFCTL_LUT_TRSW_UP1, 0x301);
+-	b43_phy_write(dev, B43_NPHY_RFCTL_LUT_TRSW_LO2, 0x2D8);
+-	b43_phy_write(dev, B43_NPHY_RFCTL_LUT_TRSW_UP2, 0x301);
+-
+-	//TODO set RF sequence
+-
+-	/* Set narrowband clip threshold */
+-	b43_phy_write(dev, B43_NPHY_C1_NBCLIPTHRES, 66);
+-	b43_phy_write(dev, B43_NPHY_C2_NBCLIPTHRES, 66);
+-
+-	/* Set wideband clip 2 threshold */
+-	b43_phy_maskset(dev, B43_NPHY_C1_CLIPWBTHRES,
+-			~B43_NPHY_C1_CLIPWBTHRES_CLIP2,
+-			21 &lt;&lt; B43_NPHY_C1_CLIPWBTHRES_CLIP2_SHIFT);
+-	b43_phy_maskset(dev, B43_NPHY_C2_CLIPWBTHRES,
+-			~B43_NPHY_C2_CLIPWBTHRES_CLIP2,
+-			21 &lt;&lt; B43_NPHY_C2_CLIPWBTHRES_CLIP2_SHIFT);
+-
+-	/* Set Clip 2 detect */
+-	b43_phy_set(dev, B43_NPHY_C1_CGAINI,
+-		    B43_NPHY_C1_CGAINI_CL2DETECT);
+-	b43_phy_set(dev, B43_NPHY_C2_CGAINI,
+-		    B43_NPHY_C2_CGAINI_CL2DETECT);
+-
+-	if (0 /*FIXME*/) {
+-		/* Set dwell lengths */
+-		b43_phy_write(dev, B43_NPHY_CLIP1_NBDWELL_LEN, 43);
+-		b43_phy_write(dev, B43_NPHY_CLIP2_NBDWELL_LEN, 43);
+-		b43_phy_write(dev, B43_NPHY_W1CLIP1_DWELL_LEN, 9);
+-		b43_phy_write(dev, B43_NPHY_W1CLIP2_DWELL_LEN, 9);
+-
+-		/* Set gain backoff */
+-		b43_phy_maskset(dev, B43_NPHY_C1_CGAINI,
+-				~B43_NPHY_C1_CGAINI_GAINBKOFF,
+-				1 &lt;&lt; B43_NPHY_C1_CGAINI_GAINBKOFF_SHIFT);
+-		b43_phy_maskset(dev, B43_NPHY_C2_CGAINI,
+-				~B43_NPHY_C2_CGAINI_GAINBKOFF,
+-				1 &lt;&lt; B43_NPHY_C2_CGAINI_GAINBKOFF_SHIFT);
+-
+-		/* Set HPVGA2 index */
+-		b43_phy_maskset(dev, B43_NPHY_C1_INITGAIN,
+-				~B43_NPHY_C1_INITGAIN_HPVGA2,
+-				6 &lt;&lt; B43_NPHY_C1_INITGAIN_HPVGA2_SHIFT);
+-		b43_phy_maskset(dev, B43_NPHY_C2_INITGAIN,
+-				~B43_NPHY_C2_INITGAIN_HPVGA2,
+-				6 &lt;&lt; B43_NPHY_C2_INITGAIN_HPVGA2_SHIFT);
+-
+-		//FIXME verify that the specs really mean to use autoinc here.
+-		for (i = 0; i &lt; 3; i++)
+-			b43_ntab_write(dev, B43_NTAB16(7, 0x106) + i, 0x673);
+-	}
+
+-	/* Set minimum gain value */
+-	b43_phy_maskset(dev, B43_NPHY_C1_MINMAX_GAIN,
+-			~B43_NPHY_C1_MINGAIN,
+-			23 &lt;&lt; B43_NPHY_C1_MINGAIN_SHIFT);
+-	b43_phy_maskset(dev, B43_NPHY_C2_MINMAX_GAIN,
+-			~B43_NPHY_C2_MINGAIN,
+-			23 &lt;&lt; B43_NPHY_C2_MINGAIN_SHIFT);
++	if (nphy-&gt;havoid)
++		b43_nphy_stay_carrier_search_enable(dev);
+
+-	if (phy-&gt;rev &lt; 2) {
+-		b43_phy_mask(dev, B43_NPHY_SCRAM_SIGCTL,
+-			     ~B43_NPHY_SCRAM_SIGCTL_SCM);
+-	}
++	if (phy-&gt;rev &gt;= 3)
++		;		/* TODO */
++	else {
++		b43_radio_set(dev, B2055_C1_TX_RF_SPARE, 0x8);
++		b43_phy_write(dev, B43_NPHY_TXFRAMEDELAY, 0x8);
++
++		b43_ntab_write(dev, B43_NTAB16(8, 0x00), 0xA);
++		b43_ntab_write(dev, B43_NTAB16(8, 0x10), 0xA);
++		b43_ntab_write(dev, B43_NTAB16(8, 0x02), 0xCDAA);
++		b43_ntab_write(dev, B43_NTAB16(8, 0x12), 0xCDAA);
++		b43_ntab_write(dev, B43_NTAB16(8, 0x08), 0);
++		b43_ntab_write(dev, B43_NTAB16(8, 0x18), 0);
++		b43_ntab_write(dev, B43_NTAB16(8, 0x07), 0x7AAB);
++		b43_ntab_write(dev, B43_NTAB16(8, 0x17), 0x7AAB);
++		b43_ntab_write(dev, B43_NTAB16(8, 0x06), 0x800);
++		b43_ntab_write(dev, B43_NTAB16(8, 0x16), 0x800);
++
++		b43_phy_write(dev, B43_NPHY_RFCTL_LUT_TRSW_LO1, 0x2D8);
++		b43_phy_write(dev, B43_NPHY_RFCTL_LUT_TRSW_UP1, 0x301);
++		b43_phy_write(dev, B43_NPHY_RFCTL_LUT_TRSW_LO2, 0x2D8);
++		b43_phy_write(dev, B43_NPHY_RFCTL_LUT_TRSW_UP2, 0x301);
++
++		//TODO set RF sequence
++
++		/* Start gain control workaround */
++		b43_phy_set(dev, B43_NPHY_C1_CGAINI,
++			    B43_NPHY_C1_CGAINI_CL2DETECT);
++		b43_phy_set(dev, B43_NPHY_C2_CGAINI,
++			    B43_NPHY_C2_CGAINI_CL2DETECT);
++
++		b43_phy_write(dev, B43_NPHY_C1_NBCLIPTHRES, 0x84);
++		b43_phy_write(dev, B43_NPHY_C2_NBCLIPTHRES, 0x84);
++
++		if (0 /*FIXME*/) {
++			/* Set dwell lengths */
++			b43_phy_write(dev, B43_NPHY_CLIP1_NBDWELL_LEN, 43);
++			b43_phy_write(dev, B43_NPHY_CLIP2_NBDWELL_LEN, 43);
++			b43_phy_write(dev, B43_NPHY_W1CLIP1_DWELL_LEN, 9);
++			b43_phy_write(dev, B43_NPHY_W1CLIP2_DWELL_LEN, 9);
++		}
+
+-	/* Set phase track alpha and beta */
+-	b43_phy_write(dev, B43_NPHY_PHASETR_A0, 0x125);
+-	b43_phy_write(dev, B43_NPHY_PHASETR_A1, 0x1B3);
+-	b43_phy_write(dev, B43_NPHY_PHASETR_A2, 0x105);
+-	b43_phy_write(dev, B43_NPHY_PHASETR_B0, 0x16E);
+-	b43_phy_write(dev, B43_NPHY_PHASETR_B1, 0xCD);
+-	b43_phy_write(dev, B43_NPHY_PHASETR_B2, 0x20);
++		/* Set wideband clip 2 threshold */
++		b43_phy_maskset(dev, B43_NPHY_C1_CLIPWBTHRES,
++				~B43_NPHY_C1_CLIPWBTHRES_CLIP2,
++				21 &lt;&lt; B43_NPHY_C1_CLIPWBTHRES_CLIP2_SHIFT);
++		b43_phy_maskset(dev, B43_NPHY_C2_CLIPWBTHRES,
++				~B43_NPHY_C2_CLIPWBTHRES_CLIP2,
++				21 &lt;&lt; B43_NPHY_C2_CLIPWBTHRES_CLIP2_SHIFT);
++	
++		/* Set minimum gain value */
++		b43_phy_maskset(dev, B43_NPHY_C1_MINMAX_GAIN,
++				~B43_NPHY_C1_MINGAIN,
++				23 &lt;&lt; B43_NPHY_C1_MINGAIN_SHIFT);
++		b43_phy_maskset(dev, B43_NPHY_C2_MINMAX_GAIN,
++				~B43_NPHY_C2_MINGAIN,
++				23 &lt;&lt; B43_NPHY_C2_MINGAIN_SHIFT);
++		if (0 /*FIXME*/) {
++			/* Set gain backoff */
++			b43_phy_maskset(dev, B43_NPHY_C1_CGAINI,
++					~B43_NPHY_C1_CGAINI_GAINBKOFF,
++					1 &lt;&lt; B43_NPHY_C1_CGAINI_GAINBKOFF_SHIFT);
++			b43_phy_maskset(dev, B43_NPHY_C2_CGAINI,
++					~B43_NPHY_C2_CGAINI_GAINBKOFF,
++					1 &lt;&lt; B43_NPHY_C2_CGAINI_GAINBKOFF_SHIFT);
++			b43_phy_maskset(dev, B43_NPHY_C1_CCK_CGAINI,
++					~B43_NPHY_C1_CCK_CGAINI_GAINBKOFF,
++					1 &lt;&lt; B43_NPHY_C1_CCK_CGAINI_GAINBKOFF_SHIFT);
++			b43_phy_maskset(dev, B43_NPHY_C2_CCK_CGAINI,
++					~B43_NPHY_C2_CCK_CGAINI_GAINBKOFF,
++					1 &lt;&lt; B43_NPHY_C2_CCK_CGAINI_GAINBKOFF_SHIFT);
++		}
++
++		b43_phy_write(dev, B43_NPHY_CCK_SHIFTB_REF, 0x809c);
++		/* TODO: Set temp value depending on whether gain boost enabled and
+current chanspec (?)  */
++		/* TODO: Set the bits in 0xf80 in PHY registers 0x20 and 0x36 to
+the temp value  */
++		/* TODO: Write (temp value) &lt;&lt; 8 | 0x7c to PHY Register 0x73, 3 times  */
++	
++		/* TODO */
++		/* # If gain boost is enabled
++		   1. FIXME, mod some tables
++		   # if ELNA gain config is enabled
++		   1. FIXME, lots of table writes
++		   # If the PHY revision is 2:
++		   1. FIXME, lots more table writes
++		   # set RF sequence (5)
++		   # set the upper 8 bits of PHY register 0x153 to 0x5a
++		   # If current band is 2.4 GHz
++		   1. Set the lower 7 bits of PHY reg 0xc5d to 4  */
++
++		/* End of gain control workaround */
++
++		if (phy-&gt;rev &lt; 2) {
++			/* TODO read PHY register 0xa0 and, if bit 0x02 is set, set the ML
+ADV workaround bit in the host flags */
++		} else if (phy-&gt;rev == 2) {
++			b43_phy_write(dev, B43_NPHY_CRSCHECK2, 0);
++			b43_phy_write(dev, B43_NPHY_CRSCHECK3, 0);
++		}
++		if (phy-&gt;rev &lt; 2)
++			;/* TODO  clear the bit 0x80 in PHY register 0x90  */
++
++		/* Set phase track alpha and beta */
++		b43_phy_write(dev, B43_NPHY_PHASETR_A0, 0x125);
++		b43_phy_write(dev, B43_NPHY_PHASETR_A1, 0x1B3);
++		b43_phy_write(dev, B43_NPHY_PHASETR_A2, 0x105);
++		b43_phy_write(dev, B43_NPHY_PHASETR_B0, 0x16E);
++		b43_phy_write(dev, B43_NPHY_PHASETR_B1, 0xCD);
++		b43_phy_write(dev, B43_NPHY_PHASETR_B2, 0x20);
++		/* TODO Clear bits 0xF000 in PHY reg 0x142 */
++		b43_phy_set(dev, B43_NPHY_TXF_20CO_S2B1, 0xb5);
++		b43_phy_set(dev, B43_NPHY_TXF_20CO_S2B2, 0xa4);
++		b43_phy_set(dev, B43_NPHY_TXF_20CO_S2B3, 0);
++		if (phy-&gt;rev == 2)
++			b43_phy_set(dev, B43_NPHY_FINERX2_CGC,
++				    B43_NPHY_FINERX2_CGC_DECGC);
++	}
++	if (nphy-&gt;havoid)
++                b43_nphy_stay_carrier_search_disable(dev);
+ }
+
+ static void b43_nphy_reset_cca(struct b43_wldev *dev)
+-- 
+1.5.6.3
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005049.html">[RFC 4/7] B43N: Add TX power control and gain get function
+</A></li>
+	<LI>Next message: <A HREF="005028.html">[RFC 6/7] B43N: Add the stay carrier search enable and disable	functions.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5027">[ date ]</a>
+              <a href="thread.html#5027">[ thread ]</a>
+              <a href="subject.html#5027">[ subject ]</a>
+              <a href="author.html#5027">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

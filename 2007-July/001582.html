@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BCM4318 ap problems
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4318%20ap%20problems&In-Reply-To=%3C36154.AQdWDl5SDH8%3D.1185462289.squirrel%40webmail.no-log.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001601.html">
+   <LINK REL="Next"  HREF="001583.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BCM4318 ap problems</H1>
+    <B>GNUtoo at no-log.org</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4318%20ap%20problems&In-Reply-To=%3C36154.AQdWDl5SDH8%3D.1185462289.squirrel%40webmail.no-log.org%3E"
+       TITLE="BCM4318 ap problems">GNUtoo at no-log.org
+       </A><BR>
+    <I>Thu Jul 26 17:04:49 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001601.html">[PATCH] [bcm43xx-mac80211] Fix pci flush in bcm43xx_mac_suspend
+</A></li>
+        <LI>Next message: <A HREF="001583.html">[PATCH] bcm43xx-mac80211: Fix specs typo for baseband attenuation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1582">[ date ]</a>
+              <a href="thread.html#1582">[ thread ]</a>
+              <a href="subject.html#1582">[ subject ]</a>
+              <a href="author.html#1582">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>hello, i have some problem with the ap mode:
+first i have a problem compiling hostapd 0.6.0 against the curent
+wireless-dev kernel:
+
+i686-pc-linux-gnu-gcc -O2 -march=pentium-m -pipe -DHOSTAPD_DUMP_STATE
+-I../src -I../src/crypto -I../src/utils -I../src/common
+-I/usr/include/madwifi -I&quot;/usr/src/linux&quot;/net/mac80211 -DCONFIG_CTRL_IFACE
+-DCONFIG_CTRL_IFACE_UNIX -DCONFIG_IAPP -DCONFIG_RSN_PREAUTH
+-DCONFIG_PEERKEY -DCONFIG_IEEE80211W -DCONFIG_IEEE80211R
+-DCONFIG_DRIVER_HOSTAP -DCONFIG_DRIVER_WIRED -DCONFIG_DRIVER_MADWIFI
+-DCONFIG_DRIVER_PRISM54 -DCONFIG_DRIVER_DEVICESCAPE -DEAP_MD5 -DEAP_TLS
+-DEAP_PEAP -DEAP_TTLS -DEAP_MSCHAPv2 -DEAP_GTC -DEAP_SIM -DEAP_AKA
+-DEAP_PAX -DEAP_PSK -DEAP_SAKE -DEAP_GPSK -DEAP_GPSK_SHA256 -DEAP_TLV
+-DEAP_SERVER -DEAP_TLS_FUNCS -DPKCS12_FUNCS -DINTERNAL_SHA256
+-DRADIUS_SERVER -DCONFIG_IPV6   -c -o ../src/l2_packet/l2_packet_linux.o
+../src/l2_packet/l2_packet_linux.c
+driver_devicescape.c: In function 'i802_if_update':
+driver_devicescape.c:1032: error: 'PRISM2_HOSTAPD_UPDATE_IF' undeclared
+(first use in this function)
+driver_devicescape.c:1032: error: (Each undeclared identifier is reported
+only once
+driver_devicescape.c:1032: error: for each function it appears in.)
+driver_devicescape.c: In function 'handle_frame':
+driver_devicescape.c:1358: error: 'ieee80211_msg_set_aid_for_sta'
+undeclared (first use in this function)
+driver_devicescape.c:1416: error: 'ieee80211_msg_passive_scan' undeclared
+(first use in this function)
+make: *** [driver_devicescape.o] Error 1
+make: *** Waiting for unfinished jobs....
+
+!!! ERROR: net-wireless/hostapd-0.6.0 failed.
+Call stack:
+  ebuild.sh, line 1621:   Called dyn_compile
+  ebuild.sh, line 973:   Called qa_call 'src_compile'
+  ebuild.sh, line 44:   Called src_compile
+  hostapd-0.6.0.ebuild, line 97:   Called die
+
+!!! emake failed
+!!! If you need support, post the topmost build error, and the call stack
+if relevant.
+
+so i used the linux-2.6.22-rc3-mm1 kernel with the bcm43xx mac80211 stack
+that are inside the kernel
+here's my card:
+07:00.0 Network controller: Broadcom Corporation BCM4318 [AirForce One
+54g] 802.11g Wireless LAN Controller (rev 02)
+so i bring my interface up and iwlist from another card gives me that:
+          Cell 04 - Address: 00:10:18:F1:F2:F3
+                    ESSID:&quot;BRCM_TEST_SSID&quot;
+                    Protocol:IEEE 802.11b
+                    Mode:Master
+                    Channel:1
+                    Frequency:2.412 GHz (Channel 1)
+                    Encryption key:off
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s
+                    Quality=79/100  Signal level=-50 dBm
+                    Extra: Last beacon: 155ms ago
+evry eddid i put gives me BRCM_TEST_SSID
+so i have added it to both config files(from my script to put my card up
+and from hostapd.conf)
+and here the result of running hostapd:
+# hostapd /etc/hostapd/hostapd.conf
+Configuration file: /etc/hostapd/hostapd.conf
+Opening raw packet socket for ifindex 16
+BSS count 1, BSSID mask ff:ff:ff:ff:ff:ff (0 bits)
+Hardware does not support configured mode
+wlan0: IEEE 802.11 Hardware does not support configured mode (2)
+Could not select hw_mode and channel. (-1)
+rmdir[ctrl_interface]: No such file or directory
+ELOOP: remaining socket: sock=4 eloop_data=0x80b3450 user_data=(nil)
+handler=0x8080b70
+
+what should i do in order to:
+-&gt;debug the thing
+-&gt;make a simple and open acess point work with my card
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001601.html">[PATCH] [bcm43xx-mac80211] Fix pci flush in bcm43xx_mac_suspend
+</A></li>
+	<LI>Next message: <A HREF="001583.html">[PATCH] bcm43xx-mac80211: Fix specs typo for baseband attenuation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1582">[ date ]</a>
+              <a href="thread.html#1582">[ thread ]</a>
+              <a href="subject.html#1582">[ subject ]</a>
+              <a href="author.html#1582">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

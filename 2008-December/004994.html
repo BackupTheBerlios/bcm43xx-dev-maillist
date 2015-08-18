@@ -1,0 +1,161 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43legacy does not work
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43legacy%20does%20not%20work&In-Reply-To=%3C49556881.9090007%40web.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004993.html">
+   <LINK REL="Next"  HREF="004995.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43legacy does not work</H1>
+    <B>Ulf Dambacher</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43legacy%20does%20not%20work&In-Reply-To=%3C49556881.9090007%40web.de%3E"
+       TITLE="b43legacy does not work">ulf.dambacher at web.de
+       </A><BR>
+    <I>Sat Dec 27 00:28:01 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004993.html">b43legacy does not work
+</A></li>
+        <LI>Next message: <A HREF="004995.html">b43legacy does not work
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4994">[ date ]</a>
+              <a href="thread.html#4994">[ thread ]</a>
+              <a href="subject.html#4994">[ subject ]</a>
+              <a href="author.html#4994">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi Michael
+
+I did like you wanted and wrote the following output from screen (no 
+digicam at hand .-(
+
+kernel 2.6.27.9 init=/bin/bash, no modules loaded so far
+
+modprobe b43legacy:
+
+ssb: Core 0 found: IEEE 802.11 (cc 0x812 rev 0x02 vendor 0x4243)
+ssb: Core 1 found: PCMCIA (cc 0x80d rev 0x00 vendor 0x4243)
+ssb: core 2 found: Fast Ethernet (cc 0x806 rev 0x02 vendor 0x4243)
+ssb: core 3 found: V90 (cc 0x807 rev 0x01 vendor 0x4243)
+ssb: core 4 found: PCI (cc 0x803 rev 0x03 vendor 0x4243)
+ssb: sonics silicon backplane found on PCI device 0000:02:02.0
+b43legacy-phy0: Broadcom4301 WLAN found
+Broadcom 43xx-legacy driver loaded [features PLRID, Firmware-ID: FW10]
+
+now insmod b44__.ko:
+
+ACPI PCI INterrupt Link LNKB enabled at irq7
+b44 0000:02:01.0: PCI INTA-&gt; LNKB-&gt;GSI 7 (level,low) -&gt;IRQ7
+ssb: Core 0 found: Fast Ethernet(cc 0x806 rev 0x4 vendor 0x4243)
+ssb: Core 1 found: V90 (cc 0x807 rev 0x01 vendor 0x4243)
+ssb: core 2 found: PCI (cc 0x804 rev 0x02 vendor 0x4243)
+ssb: sonics silicon backplane found on pci device 0000:02:01.0
+b44.c: v2.0
+b44: invalid mac address found in EEPROM
+b44 ssb0:1: Problem fetching invariants of chip,abording
+b44: Probe of ssb0:1 faild with error -22
+
+then the system is unresponsible.
+
+Now I did the same thing with an up and working wlan connection and
+insmod b44__.ko:
+
+...
+b44 ssb0:1: Problem fetching invariants of chip,abording
+b44: Probe of ssb0:1 faild with error -22
+ssb: fatal error: bus powerd down while accessing PCI MMIO space
+Pid:4 comm: events/0 not tainted 2.6.27.9-ud5#5
+[&lt;e0812e56&gt;] ssb_pci_assert_buspower+0x40/0x42[ssb]
+[&lt;e08135a6&gt;] ssb_pci_read32+0x11/0x3d [ssb]
+[&lt;e087f878&gt;] b43legacy_interrupt_handler+0x1e/0x1f6 [b43legacy]
+[&lt;c013a25a&gt;] handle_IRQ_event+0x25/0x4a
+[&lt;c010531a&gt;] do_IRQ+0x44/0x78
+[&lt;c0103a3b&gt;} common_interrupt+0x23/0x28
+[&lt;c011007b&gt;] do_page_fault+0x2fa/0x65f
+[&lt;c0275580&gt;] __linkwatch_run_queue+0x86/0x129
+[&lt;c0275623&gt;] linkwatch_event+0x0/0x22
+[&lt;c0275640&gt;] linkwatch_event+0x1d/0x22
+[&lt;c012365f&gt;] run_workqueue+0x8b/0x103
+              worker_thread
+	     worker_thread
+	     autoremove_wake_function
+              worker_thread
+              kthread
+              kthread
+              kernek_thread_helper
+============================0
+
+
+you see these are two different pci ids. maybe that's the problem?
+
+
+good night and bye
+
+Ulf
+
+Michael Buesch schrieb:
+&gt;<i> On Friday 26 December 2008 21:54:53 Ulf Dambacher wrote:
+</I>&gt;&gt;<i> At manually inserting the b44 after b43legacy  I got following error 
+</I>&gt;&gt;<i> message on console:
+</I>&gt;&gt;<i> sbb: FATAL ERROR bus powered down while accessing PCI MMIO space
+</I>&gt;<i> 
+</I>&gt;<i> I'd like to see the stackdump that follows the message.
+</I>&gt;<i> 
+</I>&gt;<i> go to drivers/ssb/pci.c and search this code:
+</I>&gt;<i> 
+</I>&gt;<i> 573 static int ssb_pci_assert_buspower(struct ssb_bus *bus)
+</I>&gt;<i> 574 {
+</I>&gt;<i> 575         if (likely(bus-&gt;powered_up))
+</I>&gt;<i> 576                 return 0;
+</I>&gt;<i> 577 
+</I>&gt;<i> 578         printk(KERN_ERR PFX &quot;FATAL ERROR: Bus powered down &quot;
+</I>&gt;<i> 579                &quot;while accessing PCI MMIO space\n&quot;);
+</I>&gt;<i> 580         if (bus-&gt;power_warn_count &lt;= 10) {
+</I>&gt;<i> 581                 bus-&gt;power_warn_count++;
+</I>&gt;<i> 582                 dump_stack();
+</I>&gt;<i> 583         }
+</I>&gt;<i> 584 
+</I>&gt;<i> 585         return -ENODEV;
+</I>&gt;<i> 586 }
+</I>&gt;<i> 
+</I>&gt;<i> Add the following line just before the &quot;return -ENODEV;&quot;:
+</I>&gt;<i> 	local_irq_disable(); while (1) cpu_relax();
+</I>&gt;<i> 
+</I>&gt;<i> Please catch the message with a digital photocamera.
+</I>&gt;<i> 
+</I>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004993.html">b43legacy does not work
+</A></li>
+	<LI>Next message: <A HREF="004995.html">b43legacy does not work
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4994">[ date ]</a>
+              <a href="thread.html#4994">[ thread ]</a>
+              <a href="subject.html#4994">[ subject ]</a>
+              <a href="author.html#4994">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

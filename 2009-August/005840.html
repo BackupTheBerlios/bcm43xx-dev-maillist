@@ -1,0 +1,196 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Update code for spec fixes, and fix a few typos
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Update%20code%20for%20spec%20fixes%2C%20and%20fix%20a%20few%20typos&In-Reply-To=%3C4A88090D.3070107%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005839.html">
+   <LINK REL="Next"  HREF="005843.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Update code for spec fixes, and fix a few typos</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Update%20code%20for%20spec%20fixes%2C%20and%20fix%20a%20few%20typos&In-Reply-To=%3C4A88090D.3070107%40gmail.com%3E"
+       TITLE="[PATCH] b43: LP-PHY: Update code for spec fixes, and fix a few typos">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Sun Aug 16 15:26:37 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005839.html">[PATCH v3] b43: LP-PHY: Update baseband init for recent spec changes
+</A></li>
+        <LI>Next message: <A HREF="005843.html">[PATCH] b43: LP-PHY: Update code for spec fixes,	and fix a few typos
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5840">[ date ]</a>
+              <a href="thread.html#5840">[ thread ]</a>
+              <a href="subject.html#5840">[ subject ]</a>
+              <a href="author.html#5840">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>A few typos have been discovered both in the specs in and our code.
+This patch fixes them.
+
+Also use lpphy_op_switch_channel consistently, and make all callers
+print its return value for easier debugging.
+
+Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+---
+I think using a forward declaration is justified in this case;
+as avoiding the forward decl would require moving around huge
+blocks of code, completely breaking any logical ordering.
+
+ drivers/net/wireless/b43/phy_lp.c |   51 ++++++++++++++++++++++++------------
+ 1 files changed, 34 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+index e4a040b..a51da6e 100644
+--- a/drivers/net/wireless/b43/phy_lp.c
++++ b/drivers/net/wireless/b43/phy_lp.c
+@@ -552,7 +552,7 @@ static void lpphy_2062_init(struct b43_wldev *dev)
+ 	B43_WARN_ON(!(bus-&gt;chipco.capabilities &amp; SSB_CHIPCO_CAP_PMU));
+ 	B43_WARN_ON(crystalfreq == 0);
+ 
+-	if (crystalfreq &gt;= 30000000) {
++	if (crystalfreq &lt;= 30000000) {
+ 		lpphy-&gt;pdiv = 1;
+ 		b43_radio_mask(dev, B2062_S_RFPLL_CTL1, 0xFFFB);
+ 	} else {
+@@ -560,14 +560,16 @@ static void lpphy_2062_init(struct b43_wldev *dev)
+ 		b43_radio_set(dev, B2062_S_RFPLL_CTL1, 0x4);
+ 	}
+ 
+-	tmp = (800000000 * lpphy-&gt;pdiv + crystalfreq) /
+-	      (32000000 * lpphy-&gt;pdiv);
+-	tmp = (tmp - 1) &amp; 0xFF;
++	tmp = (((800000000 * lpphy-&gt;pdiv + crystalfreq) /
++	      (2 * crystalfreq)) - 8) &amp; 0xFF;
++	b43_radio_write(dev, B2062_S_RFPLL_CTL7, tmp);
++
++	tmp = (((100 * crystalfreq + 16000000 * lpphy-&gt;pdiv) /
++	      (32000000 * lpphy-&gt;pdiv)) - 1) &amp; 0xFF;
+ 	b43_radio_write(dev, B2062_S_RFPLL_CTL18, tmp);
+ 
+-	tmp = (2 * crystalfreq + 1000000 * lpphy-&gt;pdiv) /
+-	      (2000000 * lpphy-&gt;pdiv);
+-	tmp = ((tmp &amp; 0xFF) - 1) &amp; 0xFFFF;
++	tmp = (((2 * crystalfreq + 1000000 * lpphy-&gt;pdiv) /
++	      (2000000 * lpphy-&gt;pdiv)) - 1) &amp; 0xFF;
+ 	b43_radio_write(dev, B2062_S_RFPLL_CTL19, tmp);
+ 
+ 	ref = (1000 * lpphy-&gt;pdiv + 2 * crystalfreq) / (2000 * lpphy-&gt;pdiv);
+@@ -671,7 +673,7 @@ static void lpphy_radio_init(struct b43_wldev *dev)
+ 	b43_phy_mask(dev, B43_LPPHY_FOURWIRE_CTL, 0xFFFD);
+ 	udelay(1);
+ 
+-	if (dev-&gt;phy.rev &lt; 2) {
++	if (dev-&gt;phy.radio_ver == 0x2062) {
+ 		lpphy_2062_init(dev);
+ 	} else {
+ 		lpphy_2063_init(dev);
+@@ -688,11 +690,18 @@ struct lpphy_iq_est { u32 iq_prod, i_pwr, q_pwr; };
+ 
+ static void lpphy_set_rc_cap(struct b43_wldev *dev)
+ {
+-	u8 rc_cap = dev-&gt;phy.lp-&gt;rc_cap;
++	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+ 
+-	b43_radio_write(dev, B2062_N_RXBB_CALIB2, max_t(u8, rc_cap-4, 0x80));
+-	b43_radio_write(dev, B2062_N_TX_CTL_A, ((rc_cap &amp; 0x1F) &gt;&gt; 1) | 0x80);
+-	b43_radio_write(dev, B2062_S_RXG_CNT16, ((rc_cap &amp; 0x1F) &gt;&gt; 2) | 0x80);
++	u8 rc_cap = (lpphy-&gt;rc_cap &amp; 0x1F) &gt;&gt; 1;
++	
++	if (dev-&gt;phy.rev == 1) //FIXME check channel 14!
++		rc_cap = max_t(u8, rc_cap + 5, 15);
++
++	b43_radio_write(dev, B2062_N_RXBB_CALIB2,
++			max_t(u8, lpphy-&gt;rc_cap - 4, 0x80));
++	b43_radio_write(dev, B2062_N_TX_CTL_A, rc_cap | 0x80);
++	b43_radio_write(dev, B2062_S_RXG_CNT16,
++			((lpphy-&gt;rc_cap &amp; 0x1F) &gt;&gt; 2) | 0x80);
+ }
+ 
+ static u8 lpphy_get_bb_mult(struct b43_wldev *dev)
+@@ -1101,6 +1110,9 @@ static void lpphy_set_tx_power_control(struct b43_wldev *dev,
+ 	lpphy_write_tx_pctl_mode_to_hardware(dev);
+ }
+ 
++static int b43_lpphy_op_switch_channel(struct b43_wldev *dev,
++				       unsigned int new_channel);
++
+ static void lpphy_rev0_1_rc_calib(struct b43_wldev *dev)
+ {
+ 	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+@@ -1118,11 +1130,16 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev *dev)
+ 	    old_rf2_ovr, old_rf2_ovrval, old_phy_ctl;
+ 	enum b43_lpphy_txpctl_mode old_txpctl;
+ 	u32 normal_pwr, ideal_pwr, mean_sq_pwr, tmp = 0, mean_sq_pwr_min = 0;
+-	int loopback, i, j, inner_sum;
++	int loopback, i, j, inner_sum, err;
+ 
+ 	memset(&amp;iq_est, 0, sizeof(iq_est));
+ 
+-	b43_switch_channel(dev, 7);
++	err = b43_lpphy_op_switch_channel(dev, 7);
++	if (err) {
++		b43dbg(dev-&gt;wl,
++		       &quot;RC calib: Failed to switch to channel 7, error = %d&quot;,
++		       err);
++	}
+ 	old_txg_ovr = (b43_phy_read(dev, B43_LPPHY_AFE_CTL_OVR) &gt;&gt; 6) &amp; 1;
+ 	old_bbmult = lpphy_get_bb_mult(dev);
+ 	if (old_txg_ovr)
+@@ -1881,14 +1898,14 @@ static int lpphy_b2062_tune(struct b43_wldev *dev,
+ {
+ 	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+ 	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+-	static const struct b206x_channel *chandata = NULL;
++	const struct b206x_channel *chandata = NULL;
+ 	u32 crystal_freq = bus-&gt;chipco.pmu.crystalfreq * 1000;
+ 	u32 tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, tmp9;
+ 	int i, err = 0;
+ 
+-	for (i = 0; i &lt; ARRAY_SIZE(b2063_chantbl); i++) {
++	for (i = 0; i &lt; ARRAY_SIZE(b2062_chantbl); i++) {
+ 		if (b2063_chantbl[i].channel == channel) {
+-			chandata = &amp;b2063_chantbl[i];
++			chandata = &amp;b2062_chantbl[i];
+ 			break;
+ 		}
+ 	}
+-- 
+1.6.2.4
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005839.html">[PATCH v3] b43: LP-PHY: Update baseband init for recent spec changes
+</A></li>
+	<LI>Next message: <A HREF="005843.html">[PATCH] b43: LP-PHY: Update code for spec fixes,	and fix a few typos
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5840">[ date ]</a>
+              <a href="thread.html#5840">[ thread ]</a>
+              <a href="subject.html#5840">[ subject ]</a>
+              <a href="author.html#5840">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

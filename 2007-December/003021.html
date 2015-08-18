@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Operation%20%22wpa_driver_wext_set_countermeasures%22%20not%20supported&In-Reply-To=%3C200712130020.30700.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003020.html">
+   <LINK REL="Next"  HREF="003024.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Operation%20%22wpa_driver_wext_set_countermeasures%22%20not%20supported&In-Reply-To=%3C200712130020.30700.mb%40bu3sch.de%3E"
+       TITLE="Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Dec 13 00:20:30 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003020.html">Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+</A></li>
+        <LI>Next message: <A HREF="003024.html">Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3021">[ date ]</a>
+              <a href="thread.html#3021">[ thread ]</a>
+              <a href="subject.html#3021">[ subject ]</a>
+              <a href="author.html#3021">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Wednesday 12 December 2007 23:48:10 Robert Allerstorfer wrote:
+&gt;<i> Before starting wpa_supplicant:
+</I>&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at localhost</A> ~]# dmesg | egrep 'b43|ssb|wlan0|wmaster0'
+</I>&gt;<i> ssb: SPROM revision 1 detected.
+</I>&gt;<i> ssb: Sonics Silicon Backplane found on PCI device 0001:10:12.0
+</I>&gt;<i> b43-phy0: Broadcom 4306 WLAN found
+</I>&gt;<i> b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 2
+</I>&gt;<i> b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+</I>&gt;<i> b43-phy0 debug: Loading firmware version 351.126 (2006-07-29 05:54:02)
+</I>&gt;<i> Registered led device: b43-phy0:tx
+</I>&gt;<i> Registered led device: b43-phy0:rx
+</I>&gt;<i> b43-phy0 debug: !WARNING! Idle-TSSI phy-&gt;cur_idle_tssi measuring failed. (cur=42, tgt=62). Disabling TX power adjustment.
+</I>
+Hm, that's probably a false positive.
+Please locate the function b43_phy_init_pctl() inside of
+drivers/net/wireless/b43/phy.c
+Locate these lines inside of the function:
+		if (B43_DEBUG) {
+			/* Current-Idle-TSSI sanity check. */
+			if (abs(phy-&gt;cur_idle_tssi - phy-&gt;tgt_idle_tssi) &gt;= 20) {
+				b43dbg(dev-&gt;wl,
+				       &quot;!WARNING! Idle-TSSI phy-&gt;cur_idle_tssi &quot;
+				       &quot;measuring failed. (cur=%d, tgt=%d). Disabling TX power &quot;
+				       &quot;adjustment.\n&quot;, phy-&gt;cur_idle_tssi,
+				       phy-&gt;tgt_idle_tssi);
+				phy-&gt;cur_idle_tssi = 0;
+			}
+		}
+
+Please change the
+		if (B43_DEBUG) {
+into
+		if (0) {
+
+&gt;<i> wlan0: Initial auth_alg=0
+</I>&gt;<i> wlan0: authenticate with AP 00:11:22:33:44:55
+</I>&gt;<i> wlan0: Initial auth_alg=0
+</I>&gt;<i> wlan0: authenticate with AP 00:11:22:33:44:55
+</I>&gt;<i> wlan0: authenticate with AP 00:11:22:33:44:55
+</I>&gt;<i> wlan0: authenticate with AP 00:11:22:33:44:55
+</I>&gt;<i> wlan0: authentication with AP 00:11:22:33:44:55 timed out
+</I>&gt;<i> wlan0: no IPv6 routers present
+</I>&gt;<i> wlan0: Initial auth_alg=0
+</I>&gt;<i> wlan0: authenticate with AP 00:11:22:33:44:55
+</I>&gt;<i> wlan0: Initial auth_alg=0
+</I>&gt;<i> wlan0: authenticate with AP 00:11:22:33:44:55
+</I>&gt;<i> wlan0: RX authentication from 00:11:22:33:44:55 (alg=0 transaction=2 status=0)
+</I>&gt;<i> wlan0: authenticated
+</I>&gt;<i> wlan0: associate with AP 00:11:22:33:44:55
+</I>&gt;<i> wlan0: authentication frame received from 00:11:22:33:44:55, but not in authenticate state - ignored
+</I>&gt;<i> wlan0: RX ReassocResp from 00:11:22:33:44:55 (capab=0x431 status=0 aid=1)
+</I>&gt;<i> wlan0: associated
+</I>&gt;<i> wlan0: switched to short barker preamble (BSSID=00:11:22:33:44:55)
+</I>&gt;<i> wlan0: disassociate(reason=3)
+</I>&gt;<i> 
+</I>&gt;<i> What is reason 3 for disassociating?
+</I>
+	WLAN_REASON_DEAUTH_LEAVING = 3,
+
+But I don't know what LEAVING means in this case.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003020.html">Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+</A></li>
+	<LI>Next message: <A HREF="003024.html">Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3021">[ date ]</a>
+              <a href="thread.html#3021">[ thread ]</a>
+              <a href="subject.html#3021">[ subject ]</a>
+              <a href="author.html#3021">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

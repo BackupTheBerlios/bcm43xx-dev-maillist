@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> RFC bcm43xx: Fix potential race in shutdown of work queses
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20RFC%20bcm43xx%3A%20Fix%20potential%20race%20in%20shutdown%20of%20work%20queses&In-Reply-To=%3C200709011430.30021.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002281.html">
+   <LINK REL="Next"  HREF="002283.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>RFC bcm43xx: Fix potential race in shutdown of work queses</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20RFC%20bcm43xx%3A%20Fix%20potential%20race%20in%20shutdown%20of%20work%20queses&In-Reply-To=%3C200709011430.30021.mb%40bu3sch.de%3E"
+       TITLE="RFC bcm43xx: Fix potential race in shutdown of work queses">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Sep  1 14:30:29 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002281.html">Broadcom 4311 on HP 350 laptop
+</A></li>
+        <LI>Next message: <A HREF="002283.html">Asking for BCM4306/2 results
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2282">[ date ]</a>
+              <a href="thread.html#2282">[ thread ]</a>
+              <a href="subject.html#2282">[ subject ]</a>
+              <a href="author.html#2282">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 31 August 2007 19:43:16 Michael Buesch wrote:
+&gt;<i> &gt; @@ -4164,7 +4166,6 @@ static void bcm43xx_chip_reset(struct wo
+</I>&gt;<i> &gt;  
+</I>&gt;<i> &gt;  	mutex_lock(&amp;(bcm)-&gt;mutex);
+</I>&gt;<i> &gt;  	if (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED) {
+</I>&gt;<i> &gt; -		bcm43xx_periodic_tasks_delete(bcm);
+</I>&gt;<i> 
+</I>&gt;<i> Look at the comment below. That also applies here.
+</I>
+&gt;<i> &gt; Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
+</I>&gt;<i> &gt; ===================================================================
+</I>&gt;<i> &gt; --- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
+</I>&gt;<i> &gt; +++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
+</I>&gt;<i> &gt; @@ -327,7 +327,6 @@ static ssize_t bcm43xx_attr_phymode_stor
+</I>&gt;<i> &gt;  		goto out;
+</I>&gt;<i> &gt;  	}
+</I>&gt;<i> &gt;  
+</I>&gt;<i> &gt; -	bcm43xx_periodic_tasks_delete(bcm);
+</I>&gt;<i> 
+</I>&gt;<i> Well, this is tricky crap code.
+</I>&gt;<i> This breaks it.
+</I>&gt;<i> Look at the !err case below. We re-enable pwork there.
+</I>&gt;<i> We only do it for !err. So when core select failed, we
+</I>&gt;<i> end up without pwork, which is what we want.
+</I>&gt;<i> I think it might be OK to simply remove the delete _and_
+</I>&gt;<i> the setup below, as select core sets status to UNINIT when
+</I>&gt;<i> it failed. So pwork will bail out early (if you change your
+</I>&gt;<i> patch above as I suggested).
+</I>&gt;<i> 
+</I>&gt;<i> &gt;  	mutex_lock(&amp;(bcm)-&gt;mutex);
+</I>&gt;<i> &gt;  	err = bcm43xx_select_wireless_core(bcm, phytype);
+</I>&gt;<i> &gt;  	if (!err)
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; 
+</I>
+I thought a bit more about this and it turns out that I was wrong.
+The bcm43xx_periodic_tasks_delete() and _setup() calls must both stay there.
+Otherwise you will create a race condition.
+
+select_wireless_core() sets status to UNINIT,
+pwork runs and cancels because of the UNINIT state,
+select_wireless_core() sets the status to INITED again,
+pwork does not rearm itself anymore.
+
+So we must first disable pwork, then select the core,
+then reenable it again.
+
+Same goes for the chip_reset function.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002281.html">Broadcom 4311 on HP 350 laptop
+</A></li>
+	<LI>Next message: <A HREF="002283.html">Asking for BCM4306/2 results
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2282">[ date ]</a>
+              <a href="thread.html#2282">[ thread ]</a>
+              <a href="subject.html#2282">[ subject ]</a>
+              <a href="author.html#2282">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,215 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: Fix PPC machine checks and update to match	loopback gain specifications
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20PPC%20machine%20checks%20and%20update%20to%20match%0A%09loopback%20gain%20specifications&In-Reply-To=%3C4617ecc7.9X3JbqlkkIIRu2i3%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000965.html">
+   <LINK REL="Next"  HREF="000967.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: Fix PPC machine checks and update to match	loopback gain specifications</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20PPC%20machine%20checks%20and%20update%20to%20match%0A%09loopback%20gain%20specifications&In-Reply-To=%3C4617ecc7.9X3JbqlkkIIRu2i3%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] bcm43xx: Fix PPC machine checks and update to match	loopback gain specifications">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Apr  7 21:11:03 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000965.html">[PATCH] bcm43xx: Fix 802.11b/g scan limits to match regulatory	requirements
+</A></li>
+        <LI>Next message: <A HREF="000967.html">[PATCH] mac80211: Report correct wireless statistics
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#966">[ date ]</a>
+              <a href="thread.html#966">[ thread ]</a>
+              <a href="subject.html#966">[ subject ]</a>
+              <a href="author.html#966">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The specifications for loopback_gain calculation and for G PHY initialization
+have been updated. This patch implements them and fixes a machine check error
+that occurs for PPC architecture with a phy-&gt;rev of 1.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+This should be applied to wireless-2.6. Because of the machine check on PPC
+that it fixes, I think it should also be sent to 'upstream-fixes'.
+
+Larry
+
+ bcm43xx_phy.c |   57 ++++++++++++++++++++++++++++++++-------------------------
+ 1 file changed, 32 insertions(+), 25 deletions(-)
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+@@ -983,7 +983,7 @@ static void bcm43xx_calc_loopback_gain(s
+ {
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
+-	u16 backup_phy[15];
++	u16 backup_phy[15] = {0};
+ 	u16 backup_radio[3];
+ 	u16 backup_bband;
+ 	u16 i;
+@@ -994,8 +994,10 @@ static void bcm43xx_calc_loopback_gain(s
+ 	backup_phy[1] = bcm43xx_phy_read(bcm, 0x0001);
+ 	backup_phy[2] = bcm43xx_phy_read(bcm, 0x0811);
+ 	backup_phy[3] = bcm43xx_phy_read(bcm, 0x0812);
+-	backup_phy[4] = bcm43xx_phy_read(bcm, 0x0814);
+-	backup_phy[5] = bcm43xx_phy_read(bcm, 0x0815);
++	if (phy-&gt;rev != 1) {
++		backup_phy[4] = bcm43xx_phy_read(bcm, 0x0814);
++		backup_phy[5] = bcm43xx_phy_read(bcm, 0x0815);
++	}
+ 	backup_phy[6] = bcm43xx_phy_read(bcm, 0x005A);
+ 	backup_phy[7] = bcm43xx_phy_read(bcm, 0x0059);
+ 	backup_phy[8] = bcm43xx_phy_read(bcm, 0x0058);
+@@ -1023,14 +1025,16 @@ static void bcm43xx_calc_loopback_gain(s
+ 			  bcm43xx_phy_read(bcm, 0x0811) | 0x0001);
+ 	bcm43xx_phy_write(bcm, 0x0812,
+ 			  bcm43xx_phy_read(bcm, 0x0812) &amp; 0xFFFE);
+-	bcm43xx_phy_write(bcm, 0x0814,
+-			  bcm43xx_phy_read(bcm, 0x0814) | 0x0001);
+-	bcm43xx_phy_write(bcm, 0x0815,
+-			  bcm43xx_phy_read(bcm, 0x0815) &amp; 0xFFFE);
+-	bcm43xx_phy_write(bcm, 0x0814,
+-			  bcm43xx_phy_read(bcm, 0x0814) | 0x0002);
+-	bcm43xx_phy_write(bcm, 0x0815,
+-			  bcm43xx_phy_read(bcm, 0x0815) &amp; 0xFFFD);
++	if (phy-&gt;rev != 1) {
++		bcm43xx_phy_write(bcm, 0x0814,
++				  bcm43xx_phy_read(bcm, 0x0814) | 0x0001);
++		bcm43xx_phy_write(bcm, 0x0815,
++				  bcm43xx_phy_read(bcm, 0x0815) &amp; 0xFFFE);
++		bcm43xx_phy_write(bcm, 0x0814,
++				  bcm43xx_phy_read(bcm, 0x0814) | 0x0002);
++		bcm43xx_phy_write(bcm, 0x0815,
++				  bcm43xx_phy_read(bcm, 0x0815) &amp; 0xFFFD);
++	}
+ 	bcm43xx_phy_write(bcm, 0x0811,
+ 			  bcm43xx_phy_read(bcm, 0x0811) | 0x000C);
+ 	bcm43xx_phy_write(bcm, 0x0812,
+@@ -1053,10 +1057,12 @@ static void bcm43xx_calc_loopback_gain(s
+ 				  bcm43xx_phy_read(bcm, 0x000A)
+ 				  | 0x2000);
+ 	}
+-	bcm43xx_phy_write(bcm, 0x0814,
+-			  bcm43xx_phy_read(bcm, 0x0814) | 0x0004);
+-	bcm43xx_phy_write(bcm, 0x0815,
+-			  bcm43xx_phy_read(bcm, 0x0815) &amp; 0xFFFB);
++	if (phy-&gt;rev != 1) {
++		bcm43xx_phy_write(bcm, 0x0814,
++				  bcm43xx_phy_read(bcm, 0x0814) | 0x0004);
++		bcm43xx_phy_write(bcm, 0x0815,
++				  bcm43xx_phy_read(bcm, 0x0815) &amp; 0xFFFB);
++	}
+ 	bcm43xx_phy_write(bcm, 0x0003,
+ 			  (bcm43xx_phy_read(bcm, 0x0003)
+ 			   &amp; 0xFF9F) | 0x0040);
+@@ -1143,8 +1149,10 @@ static void bcm43xx_calc_loopback_gain(s
+ 		}
+ 	}
+ 
+-	bcm43xx_phy_write(bcm, 0x0814, backup_phy[4]);
+-	bcm43xx_phy_write(bcm, 0x0815, backup_phy[5]);
++	if (phy-&gt;rev != 1) {
++		bcm43xx_phy_write(bcm, 0x0814, backup_phy[4]);
++		bcm43xx_phy_write(bcm, 0x0815, backup_phy[5]);
++	}
+ 	bcm43xx_phy_write(bcm, 0x005A, backup_phy[6]);
+ 	bcm43xx_phy_write(bcm, 0x0059, backup_phy[7]);
+ 	bcm43xx_phy_write(bcm, 0x0058, backup_phy[8]);
+@@ -1193,24 +1201,23 @@ static void bcm43xx_phy_initg(struct bcm
+ 		bcm43xx_phy_write(bcm, 0x0811, 0x0000);
+ 		bcm43xx_phy_write(bcm, 0x0015, 0x00C0);
+ 	}
+-	if (phy-&gt;rev &gt;= 3) {
++	if (phy-&gt;rev &gt; 5) {
+ 		bcm43xx_phy_write(bcm, 0x0811, 0x0400);
+ 		bcm43xx_phy_write(bcm, 0x0015, 0x00C0);
+ 	}
+ 	if (phy-&gt;rev &gt;= 2 &amp;&amp; phy-&gt;connected) {
+ 		tmp = bcm43xx_phy_read(bcm, 0x0400) &amp; 0xFF;
+-		if (tmp &lt; 6) {
++		if (tmp ==3 || tmp == 5) {
+ 			bcm43xx_phy_write(bcm, 0x04C2, 0x1816);
+ 			bcm43xx_phy_write(bcm, 0x04C3, 0x8006);
+-			if (tmp != 3) {
++			if (tmp == 5) {
+ 				bcm43xx_phy_write(bcm, 0x04CC,
+ 						  (bcm43xx_phy_read(bcm, 0x04CC)
+ 						   &amp; 0x00FF) | 0x1F00);
+ 			}
+ 		}
+-	}
+-	if (phy-&gt;rev &lt; 3 &amp;&amp; phy-&gt;connected)
+ 		bcm43xx_phy_write(bcm, 0x047E, 0x0078);
++	}
+ 	if (radio-&gt;revision == 8) {
+ 		bcm43xx_phy_write(bcm, 0x0801, bcm43xx_phy_read(bcm, 0x0801) | 0x0080);
+ 		bcm43xx_phy_write(bcm, 0x043E, bcm43xx_phy_read(bcm, 0x043E) | 0x0004);
+@@ -1237,7 +1244,7 @@ static void bcm43xx_phy_initg(struct bcm
+ 		if (phy-&gt;rev &gt;= 6) {
+ 			bcm43xx_phy_write(bcm, 0x0036,
+ 					  (bcm43xx_phy_read(bcm, 0x0036)
+-					   &amp; 0xF000) | (radio-&gt;txctl2 &lt;&lt; 12));
++					   &amp; 0x0FFF) | (radio-&gt;txctl2 &lt;&lt; 12));
+ 		}
+ 		if (bcm-&gt;sprom.boardflags &amp; BCM43xx_BFL_PACTRL)
+ 			bcm43xx_phy_write(bcm, 0x002E, 0x8075);
+@@ -1248,7 +1255,7 @@ static void bcm43xx_phy_initg(struct bcm
+ 		else
+ 			bcm43xx_phy_write(bcm, 0x002F, 0x0202);
+ 	}
+-	if (phy-&gt;connected) {
++	if (phy-&gt;connected || phy-&gt;rev &gt;= 2) {
+ 		bcm43xx_phy_lo_adjust(bcm, 0);
+ 		bcm43xx_phy_write(bcm, 0x080F, 0x8078);
+ 	}
+@@ -1262,7 +1269,7 @@ static void bcm43xx_phy_initg(struct bcm
+ 		 */
+ 		bcm43xx_nrssi_hw_update(bcm, 0xFFFF);
+ 		bcm43xx_calc_nrssi_threshold(bcm);
+-	} else if (phy-&gt;connected) {
++	} else if (phy-&gt;connected || phy-&gt;rev &gt;= 2) {
+ 		if (radio-&gt;nrssi[0] == -1000) {
+ 			assert(radio-&gt;nrssi[1] == -1000);
+ 			bcm43xx_calc_nrssi_slope(bcm);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000965.html">[PATCH] bcm43xx: Fix 802.11b/g scan limits to match regulatory	requirements
+</A></li>
+	<LI>Next message: <A HREF="000967.html">[PATCH] mac80211: Report correct wireless statistics
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#966">[ date ]</a>
+              <a href="thread.html#966">[ thread ]</a>
+              <a href="subject.html#966">[ subject ]</a>
+              <a href="author.html#966">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

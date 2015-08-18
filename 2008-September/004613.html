@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix QoS defaults
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20QoS%20defaults&In-Reply-To=%3CEEE47678-6181-439E-AAA8-0D024C85CC46%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004573.html">
+   <LINK REL="Next"  HREF="004615.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix QoS defaults</H1>
+    <B>Lorenzo Nava</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20QoS%20defaults&In-Reply-To=%3CEEE47678-6181-439E-AAA8-0D024C85CC46%40gmail.com%3E"
+       TITLE="[PATCH] b43: Fix QoS defaults">navalorenx at gmail.com
+       </A><BR>
+    <I>Wed Sep 10 00:15:14 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004573.html">[PATCH] b43: Fix QoS defaults
+</A></li>
+        <LI>Next message: <A HREF="004615.html">[PATCH] b43: Fix QoS defaults
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4613">[ date ]</a>
+              <a href="thread.html#4613">[ thread ]</a>
+              <a href="subject.html#4613">[ subject ]</a>
+              <a href="author.html#4613">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi everybody,
+
+I worked with the QoS parameters trying to understand why, checking  
+them within the firmware, they don't seems to have the correct values  
+even if they were set correctly by the driver.
+I think that there could be an error in the b43.h file:
+
+/* SHM offsets to the QOS data structures for the 4 different queues. */
+#define B43_QOS_PARAMS(queue)   (B43_SHM_SH_EDCFQ + \
+                                  (B43_NR_QOSPARAMS * sizeof(u16) *  
+(queue)))
+#define B43_QOS_BACKGROUND      B43_QOS_PARAMS(0)
+#define B43_QOS_BESTEFFORT      B43_QOS_PARAMS(1)
+#define B43_QOS_VIDEO           B43_QOS_PARAMS(2)
+#define B43_QOS_VOICE           B43_QOS_PARAMS(3)
+
+/* QOS parameter hardware data structure offsets. */
+#define B43_NR_QOSPARAMS        22
+
+Each EDCF parameters set take up 32 byte (in the firmware the offset  
+between 2 EDCFQ is 0x010 that is equivalent to 0x020 if the offset was  
+expressed in byte). This means that the B43_NR_QOSPARAMS must be set  
+to 16.
+With the value equal to 16 I can access correctly the aifs, cwcur,  
+cwmax, etc within the firmware.
+
+What do you think about that?
+
+regards.
+
+Lorenzo.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004573.html">[PATCH] b43: Fix QoS defaults
+</A></li>
+	<LI>Next message: <A HREF="004615.html">[PATCH] b43: Fix QoS defaults
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4613">[ date ]</a>
+              <a href="thread.html#4613">[ thread ]</a>
+              <a href="subject.html#4613">[ subject ]</a>
+              <a href="author.html#4613">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

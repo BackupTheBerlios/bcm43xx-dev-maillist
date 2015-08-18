@@ -1,0 +1,865 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add NPHY radio init code
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20NPHY%20radio%20init%20code&In-Reply-To=%3C200801132123.45330.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003234.html">
+   <LINK REL="Next"  HREF="003236.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add NPHY radio init code</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20NPHY%20radio%20init%20code&In-Reply-To=%3C200801132123.45330.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add NPHY radio init code">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Jan 13 21:23:44 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003234.html">[PATCH] ssb: Add boardflags_hi field to the sprom data structure
+</A></li>
+        <LI>Next message: <A HREF="003236.html">[PATCH] b43: rfkill use after free
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3235">[ date ]</a>
+              <a href="thread.html#3235">[ thread ]</a>
+              <a href="subject.html#3235">[ subject ]</a>
+              <a href="author.html#3235">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds some code to init the 2055 radio.
+This patch adds two files &quot;tables_nphy.h&quot; and &quot;tables_nphy.c&quot;
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+For 2.6.25.
+
+Index: wireless-2.6/drivers/net/wireless/b43/nphy.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/nphy.c	2008-01-13 20:57:36.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/nphy.c	2008-01-13 21:05:54.000000000 +0100
+@@ -21,14 +21,110 @@
+   Boston, MA 02110-1301, USA.
+ 
+ */
+ 
+ #include &quot;b43.h&quot;
+ #include &quot;nphy.h&quot;
++#include &quot;tables_nphy.h&quot;
+ 
+ 
++void b43_nphy_set_rxantenna(struct b43_wldev *dev, int antenna)
++{//TODO
++}
++
++void b43_nphy_xmitpower(struct b43_wldev *dev)
++{//TODO
++}
++
++/* Tune the hardware to a new channel. Don't call this directly.
++ * Use b43_radio_selectchannel() */
++void b43_nphy_selectchannel(struct b43_wldev *dev, u8 channel)
++{
++
++//TODO
++}
++
++static void b43_radio_init2055_pre(struct b43_wldev *dev)
++{
++	b43_phy_mask(dev, B43_NPHY_RFCTL_CMD,
++		     ~B43_NPHY_RFCTL_CMD_PORFORCE);
++	b43_phy_set(dev, B43_NPHY_RFCTL_CMD,
++		    B43_NPHY_RFCTL_CMD_CHIP0PU |
++		    B43_NPHY_RFCTL_CMD_OEPORFORCE);
++	b43_phy_set(dev, B43_NPHY_RFCTL_CMD,
++		    B43_NPHY_RFCTL_CMD_PORFORCE);
++}
++
++static void b43_radio_init2055_post(struct b43_wldev *dev)
++{
++	struct ssb_sprom *sprom = &amp;(dev-&gt;dev-&gt;bus-&gt;sprom);
++	struct ssb_boardinfo *binfo = &amp;(dev-&gt;dev-&gt;bus-&gt;boardinfo);
++	int i;
++	u16 val;
++
++	b43_radio_mask(dev, B2055_MASTER1, 0xFFF3);
++	msleep(1);
++	if ((sprom-&gt;revision != 4) || !(sprom-&gt;boardflags_hi &amp; 0x0002)) {
++		if ((binfo-&gt;vendor != PCI_VENDOR_ID_BROADCOM) ||
++		    (binfo-&gt;type != 0x46D) ||
++		    (binfo-&gt;rev &lt; 0x41)) {
++			b43_radio_mask(dev, B2055_C1_RX_BB_REG, 0x7F);
++			b43_radio_mask(dev, B2055_C1_RX_BB_REG, 0x7F);
++			msleep(1);
++		}
++	}
++	b43_radio_maskset(dev, B2055_RRCCAL_NOPTSEL, 0x3F, 0x2C);
++	msleep(1);
++	b43_radio_write16(dev, B2055_CAL_MISC, 0x3C);
++	msleep(1);
++	b43_radio_mask(dev, B2055_CAL_MISC, 0xFFBE);
++	msleep(1);
++	b43_radio_set(dev, B2055_CAL_LPOCTL, 0x80);
++	msleep(1);
++	b43_radio_set(dev, B2055_CAL_MISC, 0x1);
++	msleep(1);
++	b43_radio_set(dev, B2055_CAL_MISC, 0x40);
++	msleep(1);
++	for (i = 0; i &lt; 100; i++) {
++		val = b43_radio_read16(dev, B2055_CAL_COUT2);
++		if (val &amp; 0x80)
++			break;
++		udelay(10);
++	}
++	msleep(1);
++	b43_radio_mask(dev, B2055_CAL_LPOCTL, 0xFF7F);
++	msleep(1);
++	b43_radio_selectchannel(dev, dev-&gt;phy.channel, 0);
++	b43_radio_write16(dev, B2055_C1_RX_BB_LPF, 0x9);
++	b43_radio_write16(dev, B2055_C2_RX_BB_LPF, 0x9);
++	b43_radio_write16(dev, B2055_C1_RX_BB_MIDACHP, 0x83);
++	b43_radio_write16(dev, B2055_C2_RX_BB_MIDACHP, 0x83);
++}
++
++/* Initialize a Broadcom 2055 N-radio */
++static void b43_radio_init2055(struct b43_wldev *dev)
++{
++	b43_radio_init2055_pre(dev);
++	if (b43_status(dev) &lt; B43_STAT_INITIALIZED)
++		b2055_upload_inittab(dev, 0, 1);
++	else
++		b2055_upload_inittab(dev, 0/*FIXME on 5ghz band*/, 0);
++	b43_radio_init2055_post(dev);
++}
++
++void b43_nphy_radio_turn_on(struct b43_wldev *dev)
++{
++	b43_radio_init2055(dev);
++}
++
++void b43_nphy_radio_turn_off(struct b43_wldev *dev)
++{
++	b43_phy_mask(dev, B43_NPHY_RFCTL_CMD,
++		     ~B43_NPHY_RFCTL_CMD_EN);
++}
++
+ int b43_phy_initn(struct b43_wldev *dev)
+ {
+ 	b43err(dev-&gt;wl, &quot;IEEE 802.11n devices are not supported, yet.\n&quot;);
+ 
+-	return -EOPNOTSUPP;
++	return 0;
+ }
+Index: wireless-2.6/drivers/net/wireless/b43/nphy.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/nphy.h	2008-01-13 20:57:36.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/nphy.h	2008-01-13 21:02:46.000000000 +0100
+@@ -174,12 +174,13 @@
+ #define  B43_NPHY_RFCTL_CMD_CORESEL_SHIFT	3
+ #define  B43_NPHY_RFCTL_CMD_PORFORCE		0x0040 /* POR force */
+ #define  B43_NPHY_RFCTL_CMD_OEPORFORCE		0x0080 /* OE POR force */
+ #define  B43_NPHY_RFCTL_CMD_RXEN		0x0100 /* RX enable */
+ #define  B43_NPHY_RFCTL_CMD_TXEN		0x0200 /* TX enable */
+ #define  B43_NPHY_RFCTL_CMD_CHIP0PU		0x0400 /* Chip0 PU */
++#define  B43_NPHY_RFCTL_CMD_EN			0x0800 /* Radio enabled */
+ #define  B43_NPHY_RFCTL_CMD_SEQENCORE		0xF000 /* Seq en core */
+ #define  B43_NPHY_RFCTL_CMD_SEQENCORE_SHIFT	12
+ #define B43_NPHY_RFCTL_RSSIO1			B43_PHY_N(0x07A) /* RF control (RSSI others 1) */
+ #define  B43_NPHY_RFCTL_RSSIO1_RXPD		0x0001 /* RX PD */
+ #define  B43_NPHY_RFCTL_RSSIO1_TXPD		0x0002 /* TX PD */
+ #define  B43_NPHY_RFCTL_RSSIO1_PAPD		0x0004 /* PA PD */
+@@ -910,7 +911,15 @@
+ 
+ 
+ struct b43_wldev;
+ 
+ int b43_phy_initn(struct b43_wldev *dev);
+ 
++void b43_nphy_radio_turn_on(struct b43_wldev *dev);
++void b43_nphy_radio_turn_off(struct b43_wldev *dev);
++
++void b43_nphy_selectchannel(struct b43_wldev *dev, u8 channel);
++
++void b43_nphy_xmitpower(struct b43_wldev *dev);
++void b43_nphy_set_rxantenna(struct b43_wldev *dev, int antenna);
++
+ #endif /* B43_NPHY_H_ */
+Index: wireless-2.6/drivers/net/wireless/b43/phy.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/phy.c	2008-01-13 20:57:36.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/phy.c	2008-01-13 21:02:46.000000000 +0100
+@@ -305,12 +305,30 @@ void b43_phy_write(struct b43_wldev *dev
+ 
+ 	offset = adjust_phyreg_for_phytype(phy, offset, dev);
+ 	b43_write16(dev, B43_MMIO_PHY_CONTROL, offset);
+ 	b43_write16(dev, B43_MMIO_PHY_DATA, val);
+ }
+ 
++void b43_phy_mask(struct b43_wldev *dev, u16 offset, u16 mask)
++{
++	b43_phy_write(dev, offset,
++		      b43_phy_read(dev, offset) &amp; mask);
++}
++
++void b43_phy_set(struct b43_wldev *dev, u16 offset, u16 set)
++{
++	b43_phy_write(dev, offset,
++		      b43_phy_read(dev, offset) | set);
++}
++
++void b43_phy_maskset(struct b43_wldev *dev, u16 offset, u16 mask, u16 set)
++{
++	b43_phy_write(dev, offset,
++		      (b43_phy_read(dev, offset) &amp; mask) | set);
++}
++
+ /* Adjust the transmission power output (G-PHY) */
+ void b43_set_txpower_g(struct b43_wldev *dev,
+ 		       const struct b43_bbatt *bbatt,
+ 		       const struct b43_rfatt *rfatt, u8 tx_control)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+@@ -1854,12 +1872,15 @@ void b43_phy_xmitpower(struct b43_wldev 
+ 					  phy-&gt;tx_control);
+ 			b43_lo_g_ctl_mark_cur_used(dev);
+ 			b43_radio_unlock(dev);
+ 			b43_phy_unlock(dev);
+ 			break;
+ 		}
++	case B43_PHYTYPE_N:
++		b43_nphy_xmitpower(dev);
++		break;
+ 	default:
+ 		B43_WARN_ON(1);
+ 	}
+ }
+ 
+ static inline s32 b43_tssi2dbm_ad(s32 num, s32 den)
+@@ -2113,12 +2134,15 @@ void b43_set_rx_antenna(struct b43_wldev
+ 		tmp = b43_phy_read(dev, B43_PHY_CCKBBANDCFG);
+ 		tmp &amp;= ~B43_PHY_BBANDCFG_RXANT;
+ 		tmp |= (autodiv ? B43_ANTENNA_AUTO0 : antenna)
+ 		    &lt;&lt; B43_PHY_BBANDCFG_RXANT_SHIFT;
+ 		b43_phy_write(dev, B43_PHY_CCKBBANDCFG, tmp);
+ 		break;
++	case B43_PHYTYPE_N:
++		b43_nphy_set_rxantenna(dev, antenna);
++		break;
+ 	default:
+ 		B43_WARN_ON(1);
+ 	}
+ 
+ 	hf |= B43_HF_ANTDIVHELP;
+ 	b43_hf_write(dev, hf);
+@@ -2212,12 +2236,30 @@ void b43_radio_write16(struct b43_wldev 
+ 	B43_WARN_ON(offset == 1);
+ 
+ 	b43_write16(dev, B43_MMIO_RADIO_CONTROL, offset);
+ 	b43_write16(dev, B43_MMIO_RADIO_DATA_LOW, val);
+ }
+ 
++void b43_radio_mask(struct b43_wldev *dev, u16 offset, u16 mask)
++{
++	b43_radio_write16(dev, offset,
++			  b43_radio_read16(dev, offset) &amp; mask);
++}
++
++void b43_radio_set(struct b43_wldev *dev, u16 offset, u16 set)
++{
++	b43_radio_write16(dev, offset,
++			  b43_radio_read16(dev, offset) | set);
++}
++
++void b43_radio_maskset(struct b43_wldev *dev, u16 offset, u16 mask, u16 set)
++{
++	b43_radio_write16(dev, offset,
++			  (b43_radio_read16(dev, offset) &amp; mask) | set);
++}
++
+ static void b43_set_all_gains(struct b43_wldev *dev,
+ 			      s16 first, s16 second, s16 third)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 	u16 i;
+ 	u16 start = 0x08, end = 0x18;
+@@ -3849,26 +3891,32 @@ int b43_radio_selectchannel(struct b43_w
+ 			channel = B43_DEFAULT_CHANNEL_A;
+ 			break;
+ 		case B43_PHYTYPE_B:
+ 		case B43_PHYTYPE_G:
+ 			channel = B43_DEFAULT_CHANNEL_BG;
+ 			break;
++		case B43_PHYTYPE_N:
++			//FIXME check if we are on 2.4GHz or 5GHz and set a default channel.
++			channel = 1;
++			break;
+ 		default:
+ 			B43_WARN_ON(1);
+ 		}
+ 	}
+ 
+ 	/* First we set the channel radio code to prevent the
+ 	 * firmware from sending ghost packets.
+ 	 */
+ 	channelcookie = channel;
+-	if (phy-&gt;type == B43_PHYTYPE_A)
++	if (0 /*FIXME on 5Ghz */)
+ 		channelcookie |= 0x100;
++	//FIXME set 40Mhz flag if required
+ 	b43_shm_write16(dev, B43_SHM_SHARED, B43_SHM_SH_CHAN, channelcookie);
+ 
+-	if (phy-&gt;type == B43_PHYTYPE_A) {
++	switch (phy-&gt;type) {
++	case B43_PHYTYPE_A:
+ 		if (channel &gt; 200)
+ 			return -EINVAL;
+ 		freq = channel2freq_a(channel);
+ 
+ 		r8 = b43_radio_read16(dev, 0x0008);
+ 		b43_write16(dev, 0x03F0, freq);
+@@ -3911,13 +3959,14 @@ int b43_radio_selectchannel(struct b43_w
+ 				  b43_radio_read16(dev, 0x0035) &amp; 0xFFEF);
+ 		b43_radio_write16(dev, 0x0035, (b43_radio_read16(dev, 0x0035)
+ 						&amp; 0xFFEF) | 0x0010);
+ 		b43_radio_set_tx_iq(dev);
+ 		//TODO: TSSI2dbm workaround
+ 		b43_phy_xmitpower(dev);	//FIXME correct?
+-	} else {
++		break;
++	case B43_PHYTYPE_G:
+ 		if ((channel &lt; 1) || (channel &gt; 14))
+ 			return -EINVAL;
+ 
+ 		if (synthetic_pu_workaround)
+ 			b43_synth_pu_workaround(dev, channel);
+ 
+@@ -3936,12 +3985,18 @@ int b43_radio_selectchannel(struct b43_w
+ 				    | (1 &lt;&lt; 11));
+ 		} else {
+ 			b43_write16(dev, B43_MMIO_CHANNEL_EXT,
+ 				    b43_read16(dev, B43_MMIO_CHANNEL_EXT)
+ 				    &amp; 0xF7BF);
+ 		}
++		break;
++	case B43_PHYTYPE_N:
++		b43_nphy_selectchannel(dev, channel);
++		break;
++	default:
++		B43_WARN_ON(1);
+ 	}
+ 
+ 	phy-&gt;channel = channel;
+ 	/* Wait for the radio to tune to the channel and stabilize. */
+ 	msleep(8);
+ 
+@@ -3982,12 +4037,15 @@ void b43_radio_turn_on(struct b43_wldev 
+ 		}
+ 		channel = phy-&gt;channel;
+ 		err = b43_radio_selectchannel(dev, B43_DEFAULT_CHANNEL_BG, 1);
+ 		err |= b43_radio_selectchannel(dev, channel, 0);
+ 		B43_WARN_ON(err);
+ 		break;
++	case B43_PHYTYPE_N:
++		b43_nphy_radio_turn_on(dev);
++		break;
+ 	default:
+ 		B43_WARN_ON(1);
+ 	}
+ 	phy-&gt;radio_on = 1;
+ }
+ 
+@@ -3995,28 +4053,35 @@ void b43_radio_turn_off(struct b43_wldev
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 
+ 	if (!phy-&gt;radio_on &amp;&amp; !force)
+ 		return;
+ 
+-	if (phy-&gt;type == B43_PHYTYPE_A) {
++	switch (phy-&gt;type) {
++	case B43_PHYTYPE_N:
++		b43_nphy_radio_turn_off(dev);
++		break;
++	case B43_PHYTYPE_A:
+ 		b43_radio_write16(dev, 0x0004, 0x00FF);
+ 		b43_radio_write16(dev, 0x0005, 0x00FB);
+ 		b43_phy_write(dev, 0x0010, b43_phy_read(dev, 0x0010) | 0x0008);
+ 		b43_phy_write(dev, 0x0011, b43_phy_read(dev, 0x0011) | 0x0008);
+-	}
+-	if (phy-&gt;type == B43_PHYTYPE_G &amp;&amp; dev-&gt;dev-&gt;id.revision &gt;= 5) {
++		break;
++	case B43_PHYTYPE_G: {
+ 		u16 rfover, rfoverval;
+ 
+ 		rfover = b43_phy_read(dev, B43_PHY_RFOVER);
+ 		rfoverval = b43_phy_read(dev, B43_PHY_RFOVERVAL);
+ 		if (!force) {
+ 			phy-&gt;radio_off_context.rfover = rfover;
+ 			phy-&gt;radio_off_context.rfoverval = rfoverval;
+ 			phy-&gt;radio_off_context.valid = 1;
+ 		}
+ 		b43_phy_write(dev, B43_PHY_RFOVER, rfover | 0x008C);
+ 		b43_phy_write(dev, B43_PHY_RFOVERVAL, rfoverval &amp; 0xFF73);
+-	} else
+-		b43_phy_write(dev, 0x0015, 0xAA00);
++		break;
++	}
++	default:
++		B43_WARN_ON(1);
++	}
+ 	phy-&gt;radio_on = 0;
+ }
+Index: wireless-2.6/drivers/net/wireless/b43/phy.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/phy.h	2008-01-13 20:57:36.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/phy.h	2008-01-13 21:02:46.000000000 +0100
+@@ -201,14 +201,24 @@ enum {
+ #define B43_PHYVER_TYPE_SHIFT		8
+ #define B43_PHYVER_VERSION		0x00FF
+ 
+ void b43_phy_lock(struct b43_wldev *dev);
+ void b43_phy_unlock(struct b43_wldev *dev);
+ 
++
++/* Read a value from a PHY register */
+ u16 b43_phy_read(struct b43_wldev *dev, u16 offset);
++/* Write a value to a PHY register */
+ void b43_phy_write(struct b43_wldev *dev, u16 offset, u16 val);
++/* Mask a PHY register with a mask */
++void b43_phy_mask(struct b43_wldev *dev, u16 offset, u16 mask);
++/* OR a PHY register with a bitmap */
++void b43_phy_set(struct b43_wldev *dev, u16 offset, u16 set);
++/* Mask and OR a PHY register with a mask and bitmap */
++void b43_phy_maskset(struct b43_wldev *dev, u16 offset, u16 mask, u16 set);
++
+ 
+ int b43_phy_init_tssi2dbm_table(struct b43_wldev *dev);
+ 
+ void b43_phy_early_init(struct b43_wldev *dev);
+ int b43_phy_init(struct b43_wldev *dev);
+ 
+@@ -266,14 +276,24 @@ void b43_phy_set_baseband_attenuation(st
+ 
+ extern const u8 b43_radio_channel_codes_bg[];
+ 
+ void b43_radio_lock(struct b43_wldev *dev);
+ void b43_radio_unlock(struct b43_wldev *dev);
+ 
++
++/* Read a value from a 16bit radio register */
+ u16 b43_radio_read16(struct b43_wldev *dev, u16 offset);
++/* Write a value to a 16bit radio register */
+ void b43_radio_write16(struct b43_wldev *dev, u16 offset, u16 val);
++/* Mask a 16bit radio register with a mask */
++void b43_radio_mask(struct b43_wldev *dev, u16 offset, u16 mask);
++/* OR a 16bit radio register with a bitmap */
++void b43_radio_set(struct b43_wldev *dev, u16 offset, u16 set);
++/* Mask and OR a PHY register with a mask and bitmap */
++void b43_radio_maskset(struct b43_wldev *dev, u16 offset, u16 mask, u16 set);
++
+ 
+ u16 b43_radio_init2050(struct b43_wldev *dev);
+ void b43_radio_init2060(struct b43_wldev *dev);
+ 
+ void b43_radio_turn_on(struct b43_wldev *dev);
+ void b43_radio_turn_off(struct b43_wldev *dev, bool force);
+Index: wireless-2.6/drivers/net/wireless/b43/Makefile
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/Makefile	2008-01-13 20:57:36.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/Makefile	2008-01-13 21:02:46.000000000 +0100
+@@ -1,8 +1,9 @@
+ b43-y				+= main.o
+ b43-y				+= tables.o
++b43-y				+= tables_nphy.o
+ b43-y				+= phy.o
+ b43-y				+= nphy.o
+ b43-y				+= sysfs.o
+ b43-y				+= xmit.o
+ b43-y				+= lo.o
+ b43-y				+= wa.o
+Index: wireless-2.6/drivers/net/wireless/b43/tables_nphy.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ wireless-2.6/drivers/net/wireless/b43/tables_nphy.c	2008-01-13 21:02:46.000000000 +0100
+@@ -0,0 +1,292 @@
++/*
++
++  Broadcom B43 wireless driver
++  IEEE 802.11n PHY and radio device data tables
++
++  Copyright (c) 2008 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
++
++  This program is free software; you can redistribute it and/or modify
++  it under the terms of the GNU General Public License as published by
++  the Free Software Foundation; either version 2 of the License, or
++  (at your option) any later version.
++
++  This program is distributed in the hope that it will be useful,
++  but WITHOUT ANY WARRANTY; without even the implied warranty of
++  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++  GNU General Public License for more details.
++
++  You should have received a copy of the GNU General Public License
++  along with this program; see the file COPYING.  If not, write to
++  the Free Software Foundation, Inc., 51 Franklin Steet, Fifth Floor,
++  Boston, MA 02110-1301, USA.
++
++*/
++
++#include &quot;b43.h&quot;
++#include &quot;tables_nphy.h&quot;
++#include &quot;phy.h&quot;
++#include &quot;nphy.h&quot;
++
++
++struct b2055_inittab_entry {
++	/* Value to write if we use the 5GHz band. */
++	u16 ghz5;
++	/* Value to write if we use the 2.4GHz band. */
++	u16 ghz2;
++	/* Flags */
++	u8 flags;
++#define B2055_INITTAB_ENTRY_OK	0x01
++#define B2055_INITTAB_UPLOAD	0x02
++};
++#define UPLOAD		.flags = B2055_INITTAB_ENTRY_OK | B2055_INITTAB_UPLOAD
++#define NOUPLOAD	.flags = B2055_INITTAB_ENTRY_OK
++
++static struct b2055_inittab_entry b2055_inittab [] = {
++  [B2055_SP_PINPD]		= { .ghz5 = 0x0080, .ghz2 = 0x0080, NOUPLOAD, },
++  [B2055_C1_SP_RSSI]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C1_SP_PDMISC]		= { .ghz5 = 0x0027, .ghz2 = 0x0027, NOUPLOAD, },
++  [B2055_C2_SP_RSSI]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C2_SP_PDMISC]		= { .ghz5 = 0x0027, .ghz2 = 0x0027, NOUPLOAD, },
++  [B2055_C1_SP_RXGC1]		= { .ghz5 = 0x007F, .ghz2 = 0x007F, UPLOAD, },
++  [B2055_C1_SP_RXGC2]		= { .ghz5 = 0x0007, .ghz2 = 0x0007, UPLOAD, },
++  [B2055_C2_SP_RXGC1]		= { .ghz5 = 0x007F, .ghz2 = 0x007F, UPLOAD, },
++  [B2055_C2_SP_RXGC2]		= { .ghz5 = 0x0007, .ghz2 = 0x0007, UPLOAD, },
++  [B2055_C1_SP_LPFBWSEL]	= { .ghz5 = 0x0015, .ghz2 = 0x0015, NOUPLOAD, },
++  [B2055_C2_SP_LPFBWSEL]	= { .ghz5 = 0x0015, .ghz2 = 0x0015, NOUPLOAD, },
++  [B2055_C1_SP_TXGC1]		= { .ghz5 = 0x004F, .ghz2 = 0x004F, UPLOAD, },
++  [B2055_C1_SP_TXGC2]		= { .ghz5 = 0x0005, .ghz2 = 0x0005, UPLOAD, },
++  [B2055_C2_SP_TXGC1]		= { .ghz5 = 0x004F, .ghz2 = 0x004F, UPLOAD, },
++  [B2055_C2_SP_TXGC2]		= { .ghz5 = 0x0005, .ghz2 = 0x0005, UPLOAD, },
++  [B2055_MASTER1]		= { .ghz5 = 0x00D0, .ghz2 = 0x00D0, NOUPLOAD, },
++  [B2055_MASTER2]		= { .ghz5 = 0x0002, .ghz2 = 0x0002, NOUPLOAD, },
++  [B2055_PD_LGEN]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_PD_PLLTS]		= { .ghz5 = 0x0040, .ghz2 = 0x0040, NOUPLOAD, },
++  [B2055_C1_PD_LGBUF]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C1_PD_TX]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C1_PD_RXTX]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C1_PD_RSSIMISC]	= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C2_PD_LGBUF]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C2_PD_TX]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C2_PD_RXTX]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C2_PD_RSSIMISC]	= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_PWRDET_LGEN]		= { .ghz5 = 0x00C0, .ghz2 = 0x00C0, NOUPLOAD, },
++  [B2055_C1_PWRDET_LGBUF]	= { .ghz5 = 0x00FF, .ghz2 = 0x00FF, NOUPLOAD, },
++  [B2055_C1_PWRDET_RXTX]	= { .ghz5 = 0x00C0, .ghz2 = 0x00C0, NOUPLOAD, },
++  [B2055_C2_PWRDET_LGBUF]	= { .ghz5 = 0x00FF, .ghz2 = 0x00FF, NOUPLOAD, },
++  [B2055_C2_PWRDET_RXTX]	= { .ghz5 = 0x00C0, .ghz2 = 0x00C0, NOUPLOAD, },
++  [B2055_RRCCAL_CS]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_RRCCAL_NOPTSEL]	= { .ghz5 = 0x002C, .ghz2 = 0x002C, NOUPLOAD, },
++  [B2055_CAL_MISC]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_CAL_COUT]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_CAL_COUT2]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_CAL_CVARCTL]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_CAL_RVARCTL]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_CAL_LPOCTL]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_CAL_TS]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_CAL_RCCALRTS]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_CAL_RCALRTS]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_PADDRV]		= { .ghz5 = 0x00A4, .ghz2 = 0x00A4, NOUPLOAD, },
++  [B2055_XOCTL1]		= { .ghz5 = 0x0038, .ghz2 = 0x0038, NOUPLOAD, },
++  [B2055_XOCTL2]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_XOREGUL]		= { .ghz5 = 0x0004, .ghz2 = 0x0004, UPLOAD, },
++  [B2055_XOMISC]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_PLL_LFC1]		= { .ghz5 = 0x000A, .ghz2 = 0x000A, NOUPLOAD, },
++  [B2055_PLL_CALVTH]		= { .ghz5 = 0x0087, .ghz2 = 0x0087, NOUPLOAD, },
++  [B2055_PLL_LFC2]		= { .ghz5 = 0x0009, .ghz2 = 0x0009, NOUPLOAD, },
++  [B2055_PLL_REF]		= { .ghz5 = 0x0070, .ghz2 = 0x0070, NOUPLOAD, },
++  [B2055_PLL_LFR1]		= { .ghz5 = 0x0011, .ghz2 = 0x0011, NOUPLOAD, },
++  [B2055_PLL_PFDCP]		= { .ghz5 = 0x0018, .ghz2 = 0x0018, UPLOAD, },
++  [B2055_PLL_IDAC_CPOPAMP]	= { .ghz5 = 0x0006, .ghz2 = 0x0006, NOUPLOAD, },
++  [B2055_PLL_CPREG]		= { .ghz5 = 0x0004, .ghz2 = 0x0004, UPLOAD, },
++  [B2055_PLL_RCAL]		= { .ghz5 = 0x0006, .ghz2 = 0x0006, NOUPLOAD, },
++  [B2055_RF_PLLMOD0]		= { .ghz5 = 0x009E, .ghz2 = 0x009E, NOUPLOAD, },
++  [B2055_RF_PLLMOD1]		= { .ghz5 = 0x0009, .ghz2 = 0x0009, NOUPLOAD, },
++  [B2055_RF_MMDIDAC1]		= { .ghz5 = 0x00C8, .ghz2 = 0x00C8, UPLOAD, },
++  [B2055_RF_MMDIDAC0]		= { .ghz5 = 0x0088, .ghz2 = 0x0088, NOUPLOAD, },
++  [B2055_RF_MMDSP]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_VCO_CAL1]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_VCO_CAL2]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_VCO_CAL3]		= { .ghz5 = 0x0001, .ghz2 = 0x0001, NOUPLOAD, },
++  [B2055_VCO_CAL4]		= { .ghz5 = 0x0002, .ghz2 = 0x0002, NOUPLOAD, },
++  [B2055_VCO_CAL5]		= { .ghz5 = 0x0096, .ghz2 = 0x0096, NOUPLOAD, },
++  [B2055_VCO_CAL6]		= { .ghz5 = 0x003E, .ghz2 = 0x003E, NOUPLOAD, },
++  [B2055_VCO_CAL7]		= { .ghz5 = 0x003E, .ghz2 = 0x003E, NOUPLOAD, },
++  [B2055_VCO_CAL8]		= { .ghz5 = 0x0013, .ghz2 = 0x0013, NOUPLOAD, },
++  [B2055_VCO_CAL9]		= { .ghz5 = 0x0002, .ghz2 = 0x0002, NOUPLOAD, },
++  [B2055_VCO_CAL10]		= { .ghz5 = 0x0015, .ghz2 = 0x0015, NOUPLOAD, },
++  [B2055_VCO_CAL11]		= { .ghz5 = 0x0007, .ghz2 = 0x0007, NOUPLOAD, },
++  [B2055_VCO_CAL12]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_VCO_CAL13]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_VCO_CAL14]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_VCO_CAL15]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_VCO_CAL16]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_VCO_KVCO]		= { .ghz5 = 0x0008, .ghz2 = 0x0008, NOUPLOAD, },
++  [B2055_VCO_CAPTAIL]		= { .ghz5 = 0x0008, .ghz2 = 0x0008, NOUPLOAD, },
++  [B2055_VCO_IDACVCO]		= { .ghz5 = 0x0006, .ghz2 = 0x0006, NOUPLOAD, },
++  [B2055_VCO_REG]		= { .ghz5 = 0x0084, .ghz2 = 0x0084, UPLOAD, },
++  [B2055_PLL_RFVTH]		= { .ghz5 = 0x00C3, .ghz2 = 0x00C3, NOUPLOAD, },
++  [B2055_LGBUF_CENBUF]		= { .ghz5 = 0x008F, .ghz2 = 0x008F, NOUPLOAD, },
++  [B2055_LGEN_TUNE1]		= { .ghz5 = 0x00FF, .ghz2 = 0x00FF, NOUPLOAD, },
++  [B2055_LGEN_TUNE2]		= { .ghz5 = 0x00FF, .ghz2 = 0x00FF, NOUPLOAD, },
++  [B2055_LGEN_IDAC1]		= { .ghz5 = 0x0088, .ghz2 = 0x0088, NOUPLOAD, },
++  [B2055_LGEN_IDAC2]		= { .ghz5 = 0x0088, .ghz2 = 0x0088, NOUPLOAD, },
++  [B2055_LGEN_BIASC]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_LGEN_BIASIDAC]		= { .ghz5 = 0x00CC, .ghz2 = 0x00CC, NOUPLOAD, },
++  [B2055_LGEN_RCAL]		= { .ghz5 = 0x0006, .ghz2 = 0x0006, NOUPLOAD, },
++  [B2055_LGEN_DIV]		= { .ghz5 = 0x0080, .ghz2 = 0x0080, NOUPLOAD, },
++  [B2055_LGEN_SPARE2]		= { .ghz5 = 0x0080, .ghz2 = 0x0080, NOUPLOAD, },
++  [B2055_C1_LGBUF_ATUNE]	= { .ghz5 = 0x00F8, .ghz2 = 0x00F8, NOUPLOAD, },
++  [B2055_C1_LGBUF_GTUNE]	= { .ghz5 = 0x0088, .ghz2 = 0x0088, NOUPLOAD, },
++  [B2055_C1_LGBUF_DIV]		= { .ghz5 = 0x0088, .ghz2 = 0x0088, NOUPLOAD, },
++  [B2055_C1_LGBUF_AIDAC]	= { .ghz5 = 0x0088, .ghz2 = 0x0008, UPLOAD, },
++  [B2055_C1_LGBUF_GIDAC]	= { .ghz5 = 0x0088, .ghz2 = 0x0088, NOUPLOAD, },
++  [B2055_C1_LGBUF_IDACFO]	= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C1_LGBUF_SPARE]	= { .ghz5 = 0x0001, .ghz2 = 0x0001, UPLOAD, },
++  [B2055_C1_RX_RFSPC1]		= { .ghz5 = 0x008A, .ghz2 = 0x008A, NOUPLOAD, },
++  [B2055_C1_RX_RFR1]		= { .ghz5 = 0x0008, .ghz2 = 0x0008, NOUPLOAD, },
++  [B2055_C1_RX_RFR2]		= { .ghz5 = 0x0083, .ghz2 = 0x0083, NOUPLOAD, },
++  [B2055_C1_RX_RFRCAL]		= { .ghz5 = 0x0006, .ghz2 = 0x0006, NOUPLOAD, },
++  [B2055_C1_RX_BB_BLCMP]	= { .ghz5 = 0x00A0, .ghz2 = 0x00A0, NOUPLOAD, },
++  [B2055_C1_RX_BB_LPF]		= { .ghz5 = 0x000A, .ghz2 = 0x000A, NOUPLOAD, },
++  [B2055_C1_RX_BB_MIDACHP]	= { .ghz5 = 0x0087, .ghz2 = 0x0087, UPLOAD, },
++  [B2055_C1_RX_BB_VGA1IDAC]	= { .ghz5 = 0x002A, .ghz2 = 0x002A, NOUPLOAD, },
++  [B2055_C1_RX_BB_VGA2IDAC]	= { .ghz5 = 0x002A, .ghz2 = 0x002A, NOUPLOAD, },
++  [B2055_C1_RX_BB_VGA3IDAC]	= { .ghz5 = 0x002A, .ghz2 = 0x002A, NOUPLOAD, },
++  [B2055_C1_RX_BB_BUFOCTL]	= { .ghz5 = 0x002A, .ghz2 = 0x002A, NOUPLOAD, },
++  [B2055_C1_RX_BB_RCCALCTL]	= { .ghz5 = 0x0018, .ghz2 = 0x0018, NOUPLOAD, },
++  [B2055_C1_RX_BB_RSSICTL1]	= { .ghz5 = 0x006A, .ghz2 = 0x006A, UPLOAD, },
++  [B2055_C1_RX_BB_RSSICTL2]	= { .ghz5 = 0x00AB, .ghz2 = 0x00AB, UPLOAD, },
++  [B2055_C1_RX_BB_RSSICTL3]	= { .ghz5 = 0x0013, .ghz2 = 0x0013, UPLOAD, },
++  [B2055_C1_RX_BB_RSSICTL4]	= { .ghz5 = 0x00C1, .ghz2 = 0x00C1, UPLOAD, },
++  [B2055_C1_RX_BB_RSSICTL5]	= { .ghz5 = 0x00AA, .ghz2 = 0x00AA, UPLOAD, },
++  [B2055_C1_RX_BB_REG]		= { .ghz5 = 0x0087, .ghz2 = 0x0087, UPLOAD, },
++  [B2055_C1_RX_BB_SPARE1]	= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C1_RX_TXBBRCAL]	= { .ghz5 = 0x0006, .ghz2 = 0x0006, NOUPLOAD, },
++  [B2055_C1_TX_RF_SPGA]		= { .ghz5 = 0x0007, .ghz2 = 0x0007, NOUPLOAD, },
++  [B2055_C1_TX_RF_SPAD]		= { .ghz5 = 0x0007, .ghz2 = 0x0007, NOUPLOAD, },
++  [B2055_C1_TX_RF_CNTPGA1]	= { .ghz5 = 0x0015, .ghz2 = 0x0015, NOUPLOAD, },
++  [B2055_C1_TX_RF_CNTPAD1]	= { .ghz5 = 0x0055, .ghz2 = 0x0055, NOUPLOAD, },
++  [B2055_C1_TX_RF_PGAIDAC]	= { .ghz5 = 0x0097, .ghz2 = 0x0097, UPLOAD, },
++  [B2055_C1_TX_PGAPADTN]	= { .ghz5 = 0x0008, .ghz2 = 0x0008, NOUPLOAD, },
++  [B2055_C1_TX_PADIDAC1]	= { .ghz5 = 0x0014, .ghz2 = 0x0014, UPLOAD, },
++  [B2055_C1_TX_PADIDAC2]	= { .ghz5 = 0x0033, .ghz2 = 0x0033, NOUPLOAD, },
++  [B2055_C1_TX_MXBGTRIM]	= { .ghz5 = 0x0088, .ghz2 = 0x0088, NOUPLOAD, },
++  [B2055_C1_TX_RF_RCAL]		= { .ghz5 = 0x0006, .ghz2 = 0x0006, NOUPLOAD, },
++  [B2055_C1_TX_RF_PADTSSI1]	= { .ghz5 = 0x0003, .ghz2 = 0x0003, UPLOAD, },
++  [B2055_C1_TX_RF_PADTSSI2]	= { .ghz5 = 0x000A, .ghz2 = 0x000A, NOUPLOAD, },
++  [B2055_C1_TX_RF_SPARE]	= { .ghz5 = 0x0003, .ghz2 = 0x0003, UPLOAD, },
++  [B2055_C1_TX_RF_IQCAL1]	= { .ghz5 = 0x002A, .ghz2 = 0x002A, NOUPLOAD, },
++  [B2055_C1_TX_RF_IQCAL2]	= { .ghz5 = 0x00A4, .ghz2 = 0x00A4, NOUPLOAD, },
++  [B2055_C1_TXBB_RCCAL]		= { .ghz5 = 0x0018, .ghz2 = 0x0018, NOUPLOAD, },
++  [B2055_C1_TXBB_LPF1]		= { .ghz5 = 0x0028, .ghz2 = 0x0028, NOUPLOAD, },
++  [B2055_C1_TX_VOSCNCL]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C1_TX_LPF_MXGMIDAC]	= { .ghz5 = 0x004A, .ghz2 = 0x004A, NOUPLOAD, },
++  [B2055_C1_TX_BB_MXGM]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C2_LGBUF_ATUNE]	= { .ghz5 = 0x00F8, .ghz2 = 0x00F8, NOUPLOAD, },
++  [B2055_C2_LGBUF_GTUNE]	= { .ghz5 = 0x0088, .ghz2 = 0x0088, NOUPLOAD, },
++  [B2055_C2_LGBUF_DIV]		= { .ghz5 = 0x0088, .ghz2 = 0x0088, NOUPLOAD, },
++  [B2055_C2_LGBUF_AIDAC]	= { .ghz5 = 0x0088, .ghz2 = 0x0008, UPLOAD, },
++  [B2055_C2_LGBUF_GIDAC]	= { .ghz5 = 0x0088, .ghz2 = 0x0088, NOUPLOAD, },
++  [B2055_C2_LGBUF_IDACFO]	= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C2_LGBUF_SPARE]	= { .ghz5 = 0x0001, .ghz2 = 0x0001, UPLOAD, },
++  [B2055_C2_RX_RFSPC1]		= { .ghz5 = 0x008A, .ghz2 = 0x008A, NOUPLOAD, },
++  [B2055_C2_RX_RFR1]		= { .ghz5 = 0x0008, .ghz2 = 0x0008, NOUPLOAD, },
++  [B2055_C2_RX_RFR2]		= { .ghz5 = 0x0083, .ghz2 = 0x0083, NOUPLOAD, },
++  [B2055_C2_RX_RFRCAL]		= { .ghz5 = 0x0006, .ghz2 = 0x0006, NOUPLOAD, },
++  [B2055_C2_RX_BB_BLCMP]	= { .ghz5 = 0x00A0, .ghz2 = 0x00A0, NOUPLOAD, },
++  [B2055_C2_RX_BB_LPF]		= { .ghz5 = 0x000A, .ghz2 = 0x000A, NOUPLOAD, },
++  [B2055_C2_RX_BB_MIDACHP]	= { .ghz5 = 0x0087, .ghz2 = 0x0087, UPLOAD, },
++  [B2055_C2_RX_BB_VGA1IDAC]	= { .ghz5 = 0x002A, .ghz2 = 0x002A, NOUPLOAD, },
++  [B2055_C2_RX_BB_VGA2IDAC]	= { .ghz5 = 0x002A, .ghz2 = 0x002A, NOUPLOAD, },
++  [B2055_C2_RX_BB_VGA3IDAC]	= { .ghz5 = 0x002A, .ghz2 = 0x002A, NOUPLOAD, },
++  [B2055_C2_RX_BB_BUFOCTL]	= { .ghz5 = 0x002A, .ghz2 = 0x002A, NOUPLOAD, },
++  [B2055_C2_RX_BB_RCCALCTL]	= { .ghz5 = 0x0018, .ghz2 = 0x0018, NOUPLOAD, },
++  [B2055_C2_RX_BB_RSSICTL1]	= { .ghz5 = 0x006A, .ghz2 = 0x006A, UPLOAD, },
++  [B2055_C2_RX_BB_RSSICTL2]	= { .ghz5 = 0x00AB, .ghz2 = 0x00AB, UPLOAD, },
++  [B2055_C2_RX_BB_RSSICTL3]	= { .ghz5 = 0x0013, .ghz2 = 0x0013, UPLOAD, },
++  [B2055_C2_RX_BB_RSSICTL4]	= { .ghz5 = 0x00C1, .ghz2 = 0x00C1, UPLOAD, },
++  [B2055_C2_RX_BB_RSSICTL5]	= { .ghz5 = 0x00AA, .ghz2 = 0x00AA, UPLOAD, },
++  [B2055_C2_RX_BB_REG]		= { .ghz5 = 0x0087, .ghz2 = 0x0087, UPLOAD, },
++  [B2055_C2_RX_BB_SPARE1]	= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C2_RX_TXBBRCAL]	= { .ghz5 = 0x0006, .ghz2 = 0x0006, NOUPLOAD, },
++  [B2055_C2_TX_RF_SPGA]		= { .ghz5 = 0x0007, .ghz2 = 0x0007, NOUPLOAD, },
++  [B2055_C2_TX_RF_SPAD]		= { .ghz5 = 0x0007, .ghz2 = 0x0007, NOUPLOAD, },
++  [B2055_C2_TX_RF_CNTPGA1]	= { .ghz5 = 0x0015, .ghz2 = 0x0015, NOUPLOAD, },
++  [B2055_C2_TX_RF_CNTPAD1]	= { .ghz5 = 0x0055, .ghz2 = 0x0055, NOUPLOAD, },
++  [B2055_C2_TX_RF_PGAIDAC]	= { .ghz5 = 0x0097, .ghz2 = 0x0097, UPLOAD, },
++  [B2055_C2_TX_PGAPADTN]	= { .ghz5 = 0x0008, .ghz2 = 0x0008, NOUPLOAD, },
++  [B2055_C2_TX_PADIDAC1]	= { .ghz5 = 0x0014, .ghz2 = 0x0014, UPLOAD, },
++  [B2055_C2_TX_PADIDAC2]	= { .ghz5 = 0x0033, .ghz2 = 0x0033, NOUPLOAD, },
++  [B2055_C2_TX_MXBGTRIM]	= { .ghz5 = 0x0088, .ghz2 = 0x0088, NOUPLOAD, },
++  [B2055_C2_TX_RF_RCAL]		= { .ghz5 = 0x0006, .ghz2 = 0x0006, NOUPLOAD, },
++  [B2055_C2_TX_RF_PADTSSI1]	= { .ghz5 = 0x0003, .ghz2 = 0x0003, UPLOAD, },
++  [B2055_C2_TX_RF_PADTSSI2]	= { .ghz5 = 0x000A, .ghz2 = 0x000A, NOUPLOAD, },
++  [B2055_C2_TX_RF_SPARE]	= { .ghz5 = 0x0003, .ghz2 = 0x0003, UPLOAD, },
++  [B2055_C2_TX_RF_IQCAL1]	= { .ghz5 = 0x002A, .ghz2 = 0x002A, NOUPLOAD, },
++  [B2055_C2_TX_RF_IQCAL2]	= { .ghz5 = 0x00A4, .ghz2 = 0x00A4, NOUPLOAD, },
++  [B2055_C2_TXBB_RCCAL]		= { .ghz5 = 0x0018, .ghz2 = 0x0018, NOUPLOAD, },
++  [B2055_C2_TXBB_LPF1]		= { .ghz5 = 0x0028, .ghz2 = 0x0028, NOUPLOAD, },
++  [B2055_C2_TX_VOSCNCL]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C2_TX_LPF_MXGMIDAC]	= { .ghz5 = 0x004A, .ghz2 = 0x004A, NOUPLOAD, },
++  [B2055_C2_TX_BB_MXGM]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_PRG_GCHP21]		= { .ghz5 = 0x0071, .ghz2 = 0x0071, NOUPLOAD, },
++  [B2055_PRG_GCHP22]		= { .ghz5 = 0x0072, .ghz2 = 0x0072, NOUPLOAD, },
++  [B2055_PRG_GCHP23]		= { .ghz5 = 0x0073, .ghz2 = 0x0073, NOUPLOAD, },
++  [B2055_PRG_GCHP24]		= { .ghz5 = 0x0074, .ghz2 = 0x0074, NOUPLOAD, },
++  [B2055_PRG_GCHP25]		= { .ghz5 = 0x0075, .ghz2 = 0x0075, NOUPLOAD, },
++  [B2055_PRG_GCHP26]		= { .ghz5 = 0x0076, .ghz2 = 0x0076, NOUPLOAD, },
++  [B2055_PRG_GCHP27]		= { .ghz5 = 0x0077, .ghz2 = 0x0077, NOUPLOAD, },
++  [B2055_PRG_GCHP28]		= { .ghz5 = 0x0078, .ghz2 = 0x0078, NOUPLOAD, },
++  [B2055_PRG_GCHP29]		= { .ghz5 = 0x0079, .ghz2 = 0x0079, NOUPLOAD, },
++  [B2055_PRG_GCHP30]		= { .ghz5 = 0x007A, .ghz2 = 0x007A, NOUPLOAD, },
++  [0xC7]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xC8]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xC9]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xCA]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xCB]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xCC]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C1_LNA_GAINBST]	= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xCE]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xCF]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xD0]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xD1]			= { .ghz5 = 0x0018, .ghz2 = 0x0018, NOUPLOAD, },
++  [B2055_C1_B0NB_RSSIVCM]	= { .ghz5 = 0x0088, .ghz2 = 0x0088, NOUPLOAD, },
++  [0xD3]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xD4]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xD5]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C1_GENSPARE2]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xD7]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xD8]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C2_LNA_GAINBST]	= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xDA]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xDB]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xDC]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xDD]			= { .ghz5 = 0x0018, .ghz2 = 0x0018, NOUPLOAD, },
++  [B2055_C2_B0NB_RSSIVCM]	= { .ghz5 = 0x0088, .ghz2 = 0x0088, NOUPLOAD, },
++  [0xDF]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xE0]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [0xE1]			= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++  [B2055_C2_GENSPARE2]		= { .ghz5 = 0x0000, .ghz2 = 0x0000, NOUPLOAD, },
++};
++
++
++void b2055_upload_inittab(struct b43_wldev *dev,
++			  bool ghz5, bool ignore_uploadflag)
++{
++	struct b2055_inittab_entry *e;
++	unsigned int i;
++	u16 value;
++
++	for (i = 0; i &lt; ARRAY_SIZE(b2055_inittab); i++) {
++		e = &amp;(b2055_inittab[i]);
++		if (!(e-&gt;flags &amp; B2055_INITTAB_ENTRY_OK))
++			continue;
++		if ((e-&gt;flags &amp; B2055_INITTAB_UPLOAD) || ignore_uploadflag) {
++			if (ghz5)
++				value = e-&gt;ghz5;
++			else
++				value = e-&gt;ghz2;
++			b43_radio_write16(dev, i, value);
++		}
++	}
++}
+Index: wireless-2.6/drivers/net/wireless/b43/tables_nphy.h
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ wireless-2.6/drivers/net/wireless/b43/tables_nphy.h	2008-01-13 21:02:46.000000000 +0100
+@@ -0,0 +1,17 @@
++#ifndef B43_TABLES_NPHY_H_
++#define B43_TABLES_NPHY_H_
++
++#include &lt;linux/types.h&gt;
++
++
++struct b43_wldev;
++
++/* Upload the default register value table.
++ * If &quot;ghz5&quot; is true, we upload the 5Ghz table. Otherwise the 2.4Ghz
++ * table is uploaded. If &quot;ignore_uploadflag&quot; is true, we upload any value
++ * and ignore the &quot;UPLOAD&quot; flag. */
++void b2055_upload_inittab(struct b43_wldev *dev,
++			  bool ghz5, bool ignore_uploadflag);
++
++
++#endif /* B43_TABLES_NPHY_H_ */
+Index: wireless-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/main.c	2008-01-13 20:57:36.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/main.c	2008-01-13 21:02:46.000000000 +0100
+@@ -2129,12 +2129,13 @@ static void b43_rate_memory_write(struct
+ 
+ static void b43_rate_memory_init(struct b43_wldev *dev)
+ {
+ 	switch (dev-&gt;phy.type) {
+ 	case B43_PHYTYPE_A:
+ 	case B43_PHYTYPE_G:
++	case B43_PHYTYPE_N:
+ 		b43_rate_memory_write(dev, B43_OFDM_RATE_6MB, 1);
+ 		b43_rate_memory_write(dev, B43_OFDM_RATE_12MB, 1);
+ 		b43_rate_memory_write(dev, B43_OFDM_RATE_18MB, 1);
+ 		b43_rate_memory_write(dev, B43_OFDM_RATE_24MB, 1);
+ 		b43_rate_memory_write(dev, B43_OFDM_RATE_36MB, 1);
+ 		b43_rate_memory_write(dev, B43_OFDM_RATE_48MB, 1);
+@@ -2317,12 +2318,14 @@ static void b43_periodic_every120sec(str
+ }
+ 
+ static void b43_periodic_every60sec(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 
++	if (phy-&gt;type != B43_PHYTYPE_G)
++		return;
+ 	if (!b43_has_hardware_pctl(phy))
+ 		b43_lo_g_ctl_mark_all_unused(dev);
+ 	if (dev-&gt;dev-&gt;bus-&gt;sprom.boardflags_lo &amp; B43_BFL_RSSI) {
+ 		b43_mac_suspend(dev);
+ 		b43_calc_nrssi_slope(dev);
+ 		if ((phy-&gt;radio_ver == 0x2050) &amp;&amp; (phy-&gt;radio_rev == 8)) {
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003234.html">[PATCH] ssb: Add boardflags_hi field to the sprom data structure
+</A></li>
+	<LI>Next message: <A HREF="003236.html">[PATCH] b43: rfkill use after free
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3235">[ date ]</a>
+              <a href="thread.html#3235">[ thread ]</a>
+              <a href="subject.html#3235">[ subject ]</a>
+              <a href="author.html#3235">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

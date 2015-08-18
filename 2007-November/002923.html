@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC/T] b43: Fix Radio On/Off LED action
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/T%5D%20b43%3A%20Fix%20Radio%20On/Off%20LED%20action&In-Reply-To=%3C200711271805.09304.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002921.html">
+   <LINK REL="Next"  HREF="002924.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC/T] b43: Fix Radio On/Off LED action</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/T%5D%20b43%3A%20Fix%20Radio%20On/Off%20LED%20action&In-Reply-To=%3C200711271805.09304.mb%40bu3sch.de%3E"
+       TITLE="[RFC/T] b43: Fix Radio On/Off LED action">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Nov 27 18:05:09 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002921.html">[RFC/T] b43: Fix Radio On/Off LED action
+</A></li>
+        <LI>Next message: <A HREF="002924.html">[RFC/T] b43: Fix Radio On/Off LED action
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2923">[ date ]</a>
+              <a href="thread.html#2923">[ thread ]</a>
+              <a href="subject.html#2923">[ subject ]</a>
+              <a href="author.html#2923">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tuesday 27 November 2007 17:28:33 Larry Finger wrote:
+&gt;<i> Michael Buesch wrote:
+</I>&gt;<i> &gt; On Tuesday 27 November 2007 17:03:57 Larry Finger wrote:
+</I>&gt;<i> &gt; This is not how led triggers work.
+</I>&gt;<i> &gt; You are shortcutting the whole thing here. So you could as well
+</I>&gt;<i> &gt; remove the whole rfkill and LEDs code.
+</I>&gt;<i> 
+</I>&gt;<i> It just plain doesn't work now. What I'm trying to do is get something to the users that will
+</I>&gt;<i> restore the behavior they want while we work out the details of the rfkill and LEDs code.
+</I>
+Well, ok. But we don't apply this to mainline. As
+a temporary patch for users it's OK.
+
+&gt;<i> &gt; Please properly register the LED in the leds code and
+</I>&gt;<i> &gt; add a default LED trigger for the rfkill trigger.
+</I>&gt;<i> &gt; This has several advantages to the user, among the possiblility to
+</I>&gt;<i> &gt; reassign a LED to a different trigger.
+</I>&gt;<i> 
+</I>&gt;<i> How do I do that?
+</I>
+Well, what you basically have to do it restore the old
+mapping in b43_map_led().
+Look at the &quot;case B43_LED_RADIO_ALL&quot; (and below) statement.
+It maps these LEDs to the rfkill trigger.
+So you have to find out which behaviour value your LED has and
+map that to the rfkill trigger in this function.
+
+So when the rfkill LED trigger triggers, it will enable/disable this LED.
+That's all done behind the scenes.
+
+&gt;<i> &gt;&gt; @@ -70,11 +75,13 @@ static int b43_rfkill_soft_toggle(void *
+</I>&gt;<i> &gt;&gt;  	struct b43_wldev *dev = data;
+</I>&gt;<i> &gt;&gt;  	struct b43_wl *wl = dev-&gt;wl;
+</I>&gt;<i> &gt;&gt;  	int err = 0;
+</I>&gt;<i> &gt;&gt; +	int lock = mutex_is_locked(&amp;wl-&gt;mutex);
+</I>&gt;<i> &gt;&gt;  
+</I>&gt;<i> &gt;&gt;  	if (!wl-&gt;rfkill.registered)
+</I>&gt;<i> &gt;&gt;  		return 0;
+</I>&gt;<i> &gt;&gt;  
+</I>&gt;<i> &gt;&gt; -	mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;<i> &gt;&gt; +	if (!lock)
+</I>&gt;<i> &gt;&gt; +		mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Nah, it shouldn't be locked by &quot;current&quot; in the first place, here.
+</I>&gt;<i> &gt; (I guess that's what you are trying to check here).
+</I>&gt;<i> &gt; That's what the !registered check above is for.
+</I>&gt;<i> &gt; This !lock check is racy.
+</I>&gt;<i> 
+</I>&gt;<i> If you recall my message from yesterday, I got a locking error. That is what I'm trying to prevent.
+</I>&gt;<i> I know it is racy, but I don't know the correct way to do it.
+</I>
+I think RFkill has a bad design regarding this.
+It does synchronously call back into the driver from a call made by
+the driver. That is broken by design. Maybe it's best to fix this
+in rfkill and let it asynchronously call back on rfkill_init.
+Synchronous callbacks from calls made by drivers are broken by design
+and will lead to recursive lockings. We can not fix this in the driver,
+nor work around it in a sane way. We can hack around it, though, which
+is what the !registered flag tries to do. Though, it seems it doesn't
+work. :)
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002921.html">[RFC/T] b43: Fix Radio On/Off LED action
+</A></li>
+	<LI>Next message: <A HREF="002924.html">[RFC/T] b43: Fix Radio On/Off LED action
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2923">[ date ]</a>
+              <a href="thread.html#2923">[ thread ]</a>
+              <a href="subject.html#2923">[ subject ]</a>
+              <a href="author.html#2923">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

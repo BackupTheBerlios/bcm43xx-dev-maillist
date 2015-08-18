@@ -1,0 +1,483 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] PHY setup in v4 specs implementation
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20PHY%20setup%20in%20v4%20specs%20implementation&In-Reply-To=%3C20070409040714.7aedbd9e%40localhost%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000985.html">
+   <LINK REL="Next"  HREF="000997.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] PHY setup in v4 specs implementation</H1>
+    <B>Stefano Brivio</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20PHY%20setup%20in%20v4%20specs%20implementation&In-Reply-To=%3C20070409040714.7aedbd9e%40localhost%3E"
+       TITLE="[RFC] PHY setup in v4 specs implementation">stefano.brivio at polimi.it
+       </A><BR>
+    <I>Mon Apr  9 04:07:14 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000985.html">OpenBSD bcw: Possible GPL license violation issues
+</A></li>
+        <LI>Next message: <A HREF="000997.html">[RFC] PHY setup in v4 specs implementation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#986">[ date ]</a>
+              <a href="thread.html#986">[ thread ]</a>
+              <a href="subject.html#986">[ subject ]</a>
+              <a href="author.html#986">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I'm going to move all v4 workarounds needed for the A and G PHY setup into a
+separate file (draft inlined here), as it'll easily get to ~1000 lines, and
+I wouldn't really want to make a mess out of _phy.c. These workarounds
+are strictly needed for A PHY support (which I'm currently working on)
+and could yield as well better performances for G PHY. I'm developing
+this just for mac80211, and when I'm done with this patchset I'll drop
+my bcm43xx-softmac MAINTAINERS line. Please comment on that before I do. ;)
+
+
+-- 
+Ciao
+Stefano
+
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_wa.c
+===================================================================
+--- /dev/null
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_wa.c
+@@ -0,0 +1,398 @@
++/*
++
++  Broadcom BCM43xx wireless driver
++
++  Copyright (c) 2005 Martin Langer &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">martin-langer at gmx.de</A>&gt;,
++  Copyright (c) 2005, 2006, 2007 Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">st3 at riseup.net</A>&gt;
++  Copyright (c) 2005, 2006, 2007 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mbuesch at freenet.de</A>&gt;
++  Copyright (c) 2005, 2006 Danny van Dyk &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">kugelfang at gentoo.org</A>&gt;
++  Copyright (c) 2005, 2006 Andreas Jaggi &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">andreas.jaggi at waterwave.ch</A>&gt;
++
++  This program is free software; you can redistribute it and/or modify
++  it under the terms of the GNU General Public License as published by
++  the Free Software Foundation; either version 2 of the License, or
++  (at your option) any later version.
++
++  This program is distributed in the hope that it will be useful,
++  but WITHOUT ANY WARRANTY; without even the implied warranty of
++  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++  GNU General Public License for more details.
++
++  You should have received a copy of the GNU General Public License
++  along with this program; see the file COPYING.  If not, write to
++  the Free Software Foundation, Inc., 51 Franklin Steet, Fifth Floor,
++  Boston, MA 02110-1301, USA.
++
++*/
++
++static void bcm43xx_wa_papd(struct bcm43xx_wldev *dev)
++{
++	u16 backup;
++
++	backup = bcm43xx_ofdmtab_read16(dev, 0x000E, 12);
++	bcm43xx_ofdmtab_write16(dev, 0x000E, 12, 7);
++	bcm43xx_ofdmtab_write16(dev, 0x000F, 7, 0);
++	bcm43xx_dummy_transmission(dev);
++	bcm43xx_ofdmtab_write16(dev, 0x000E, 12, backup);
++}
++
++static void bcm43xx_wa_auxclipthr(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_phy_write(dev, 0x008E | BCM43xx_PHYROUTE_OFDM_GPHY, 0x3800);
++}
++
++static void bcm43xx_wa_afcdac(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_phy_write(dev, 0x0035, 0x03FF);
++	bcm43xx_phy_write(dev, 0x0036, 0x0400);
++}
++
++static void bcm43xx_wa_txdc_offset(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_ofdmtab_write16(dev, 0x000E, 0x0051);
++}
++
++static void bcm43xx_wa_initgains(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_phy_write(dev, 0x001C | BCM43xx_PHYROUTE_OFDM_GPHY, 0xFFFF);
++	bcm43xx_phy_write(dev, 0x0020 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		bcm43xx_phy_read(dev, 0x0020 | BCM43xx_PHYROUTE_OFDM_GPHY) &amp; 0xFF0F);
++	if (dev-&gt;phy-&gt;rev &lt;= 2)
++		bcm43xx_ofdmtab_write16(dev, 0x000F, 0x000C, 0x1FBF);
++	bcm43xx_radio_write16(dev, 0x0002, 0x1FBF);
++}
++
++static void bcm43xx_wa_divider(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_phy_write(dev, 0x002B, bcm43xx_phy_read(dev, 0x002B) ~ 0x0100);
++	bcm43xx_phy_write(dev, 0x008E, 0x58C1);
++}
++
++static void bcm43xx_wa_gt(struct bcm43xx_wldev *dev)
++{
++	if (dev-&gt;phy-&gt;rev &lt;= 2) {
++		bcm43xx_ofdmtab_write16(dev, 0x0002, 3, 15);
++		bcm43xx_ofdmtab_write16(dev, 0x0002, 4, 31);
++		bcm43xx_ofdmtab_write16(dev, 0x0002, 5, 42);
++		bcm43xx_ofdmtab_write16(dev, 0x0002, 6, 48);
++		bcm43xx_ofdmtab_write16(dev, 0x0002, 7, 58);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 0, 19);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 1, 19);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 2, 19);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 3, 19);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 4, 21);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 5, 21);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 6, 25);
++		bcm43xx_ofdmtab_write16(dev, 0x0001, 4, 3);
++		bcm43xx_ofdmtab_write16(dev, 0x0001, 5, 3);
++		bcm43xx_ofdmtab_write16(dev, 0x0001, 6, 7);
++	} else {
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 0, 19);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 1, 19);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 2, 19);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 3, 19);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 4, 21);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 5, 21);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 6, 25);
++	}
++}
++
++static void bcm43xx_wa_analog(struct bcm43xx_wldev *dev)
++{
++	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++
++	if (phy-&gt;rev &gt; 2) {
++		if (phy-&gt;type == BCM43xx_PHYTYPE_G)
++				bcm43xx_phy_write(dev, 0x0003 | BCM43xx_PHYROUTE_OFDM_GPHY, 0x1000);
++		else
++				bcm43xx_phy_write(dev, 0x0003 | BCM43xx_PHYROUTE_OFDM_GPHY, 0x1808);
++	} else {
++		bcm43xx_ofdmtab_write16(dev, 0x000C, 3, 0x1044);
++		bcm43xx_ofdmtab_write16(dev, 0x000C, 4, 0x7201);
++		bcm43xx_ofdmtab_write16(dev, 0x000C, 6, 0x0040);
++	}
++}
++
++static void bcm43xx_wa_dac(struct bcm43xx_wldev *dev)
++{
++	if (dev-&gt;phy-&gt;analog == 1)
++		bcm43xx_ofdmtab_write16(dev, 0x000C, 1,
++			bcm43xx_ofdmtab_read16(dev, 0x000C, 1) ~ 0x0034 | 0x0008);
++	else
++		bcm43xx_ofdmtab_write16(dev, 0x000C, 1,
++			bcm43xx_ofdmtab_read16(dev, 0x000C, 1) ~ 0x0078 | 0x0010);
++}
++
++static void bcm43xx_wa_txlna_gain(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_ofdmtab_write16(dev, 0x000E, 13, 0x0000);
++}
++
++static void bcm43xx_wa_crs_reset(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_phy_write(dev, 0x002C, 0x0064);
++}
++
++static void bcm43xx_wa_2060txlna_gain(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_hf_write(dev, 0x00001000);
++}
++
++static void bcm43xx_wa_lms(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_phy_write(dev, 0x0055,
++		(bcm43xx_phy_read(dev, 0x0055) &amp; 0xFFC0) | 0x0004);
++}
++
++static void bcm43xx_wa_mixedsignal(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_ofdmtab_write16(dev, 0x000C, 1, 3);
++}
++
++static void bcm43xx_wa_iqadc(struct bcm43xx_wldev *dev)
++{
++	if (dev-&gt;phy-&gt;analog == 4)
++		bcm43xx_ofdmtab_write16(dev, 0x000C, 0,
++			bcm43xx_ofdmtab_read16(dev, 0x000C, 0) ~ 0xF000);
++}
++
++static void bcm43xx_wa_crs_ed(struct bcm43xx_wldev *dev)
++{
++	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++
++	if (phy-&gt;rev == 1)
++		bcm43xx_phy_write(dev, 0x0006 | BCM43xx_PHYROUTE_OFDM_GPHY, 0x4F19);
++	else if (phy-&gt;rev == 2) {
++		bcm43xx_phy_write(dev, 0x00C0 | BCM43xx_PHYROUTE_OFDM_GPHY, 0x1861);
++		bcm43xx_phy_write(dev, 0x00C1 | BCM43xx_PHYROUTE_OFDM_GPHY, 0x0271);
++		bcm43xx_phy_write(dev, 0x0028 | BCM43xx_PHYROUTE_OFDM_GPHY,
++			bcm43xx_phy_read(dev, 0x0028 | BCM43xx_PHYROUTE_OFDM_GPHY) | 0x0800);
++	} else {
++		bcm43xx_phy_write(dev, 0x00C0 | BCM43xx_PHYROUTE_OFDM_GPHY, 0x0098);
++		bcm43xx_phy_write(dev, 0x00C1 | BCM43xx_PHYROUTE_OFDM_GPHY, 0x0070);
++		bcm43xx_phy_write(dev, 0x00C9 | BCM43xx_PHYROUTE_OFDM_GPHY, 0x0080);
++		bcm43xx_phy_write(dev, 0x0028 | BCM43xx_PHYROUTE_OFDM_GPHY,
++			bcm43xx_phy_read(dev, 0x0028 | BCM43xx_PHYROUTE_OFDM_GPHY) | 0x0800);
++	}
++}
++
++static void bcm43xx_wa_crs_thr(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_phy_write(dev, 0x0029 | BCM43xx_PHYROUTE_OFDM_GPHY,
++			bcm43xx_phy_read(dev, 0x0029 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x03C0 | 0xD000);
++}
++
++static void bcm43xx_wa_crs_blank(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_phy_write(dev, 0x002C | BCM43xx_PHYROUTE_OFDM_GPHY, 0x005A);
++}
++
++static void bcm43xx_wa_cck_shiftbits(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_phy_write(dev, 0x00A7 | BCM43xx_PHYROUTE_OFDM_GPHY, 0x0026);
++}
++
++static void bcm43xx_wa_wrssi_offset(struct bcm43xx_wldev *dev)
++{
++	if (dev-&gt;phy_rev == 1)
++		for (i = 0; i &lt; 32; i++)
++			bcm43xx_ofdmtab_write16(dev, 4, i, 0x0820);
++	else
++		for (i = 4; i &lt; 20; i++)
++			bcm43xx_ofdmtab_write16(dev, 21, i, 0x0020);
++}
++
++static void bcm43xx_wa_twpuoff_rxpuon(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_ofdmtab_write16(dev, 0x000F, 2, 15);
++	bcm43xx_ofdmtab_write16(dev, 0x000F, 3, 20);
++}
++
++static void bcm43xx_wa_altagc(struct bcm43xx_wldev *dev)
++{
++	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++
++	if (phy-&gt;rev == 1) {
++		bcm43xx_ofdmtab_write16(dev, 0x0013, 0, 254);
++		bcm43xx_ofdmtab_write16(dev, 0x0013, 1, 13);
++		bcm43xx_ofdmtab_write16(dev, 0x0013, 2, 19);
++		bcm43xx_ofdmtab_write16(dev, 0x0013, 3, 25);
++		bcm43xx_ofdmtab_write16(dev, 0x0006, 0, 0x2710);
++		bcm43xx_ofdmtab_write16(dev, 0x0006, 1, 0x9B83);
++		bcm43xx_ofdmtab_write16(dev, 0x0006, 2, 0x9B83);
++		bcm43xx_ofdmtab_write16(dev, 0x0006, 3, 0x0F8D);
++		bcm43xx_phy_write(dev, 0x0055 | BCM43xx_PHYROUTE_OFDM_GPHY, 4);
++	} else {
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 0, 254);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 1, 13);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 2, 19);
++		bcm43xx_ofdmtab_write16(dev, 0x0000, 3, 25);
++	}
++
++	bcm43xx_phy_write(dev, 0x00A5 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x00A5 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0xFF00) | 0x5700);
++	bcm43xx_phy_write(dev, 0x001A | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x001A | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x007F) | 0x000F);
++	bcm43xx_phy_write(dev, 0x001A | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x001A | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x3F80) | 0x2880);
++	bcm43xx_phy_write(dev, 0x008C | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x008C | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0xF000) | 0x7000);
++	bcm43xx_radio_write16(dev, 0x007A,
++		bcm43xx_radio_read16(dev, 0x007A) | 0x0008);
++	bcm43xx_phy_write(dev, 0x00A0 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x00A0 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x000F) | 0x0008);
++	bcm43xx_phy_write(dev, 0x00A1 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x00A1 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x0F00) | 0x0800);
++	bcm43xx_phy_write(dev, 0x0012 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x0012 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x0F00) | 0x0700);
++	bcm43xx_phy_write(dev, 0x0010 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x0010 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x0F00) | 0x0100);
++	if (phy-&gt;rev == 1)
++		bcm43xx_phy_write(dev, 0x0012 | BCM43xx_PHYROUTE_OFDM_GPHY,
++			(bcm43xx_phy_read(dev, 0x0012 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x000F) | 0x0007);
++	bcm43xx_phy_write(dev, 0x0088 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x0088 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x00FF) | 0x001C);
++	bcm43xx_phy_write(dev, 0x0088 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x0088 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x3F00) | 0x0200);
++	bcm43xx_phy_write(dev, 0x0096 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x0096 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x00FF) | 0x001C);
++	bcm43xx_phy_write(dev, 0x0089 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x0089 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x00FF) | 0x0020);
++	bcm43xx_phy_write(dev, 0x0089 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x0089 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x3F00) | 0x0200);
++	bcm43xx_phy_write(dev, 0x0082 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x0082 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x00FF) | 0x002E);
++	bcm43xx_phy_write(dev, 0x0096 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x0096 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0xFF00) | 0x1A00);
++	bcm43xx_phy_write(dev, 0x0081 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x0081 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x00FF) | 0x0028);
++	bcm43xx_phy_write(dev, 0x0081 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x0081 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0xFF00) | 0x2C00);
++	if (phy-&gt;rev == 1) {
++		bcm43xx_phy_write(dev, 0x0030 | BCM43xx_PHYROUTE_OFDM_GPHY, 0x092B);
++		bcm43xx_phy_write(dev, 0x001B | BCM43xx_PHYROUTE_OFDM_GPHY,
++			(bcm43xx_phy_read(dev, 0x001B | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x001E) | 0x0002);
++	} else {
++		bcm43xx_phy_write(dev, 0x001B | BCM43xx_PHYROUTE_OFDM_GPHY,
++			bcm43xx_phy_read(dev, 0x001B | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x001E);
++		bcm43xx_phy_write(dev, 0x001F | BCM43xx_PHYROUTE_OFDM_GPHY, 0x287A);
++		bcm43xx_phy_write(dev, 0x0020 | BCM43xx_PHYROUTE_OFDM_GPHY,
++			(bcm43xx_phy_read(dev, 0x0020 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x000F) | 0x0004;
++		if (phy-&gt;rev &gt;= 6) {
++			bcm43xx_phy_write(dev, 0x0022 | BCM43xx_PHYROUTE_OFDM_GPHY, 0x287A);
++			bcm43xx_phy_write(dev, 0x0020 | BCM43xx_PHYROUTE_OFDM_GPHY,
++				(bcm43xx_phy_read(dev, 0x0020 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0xF000) | 0x3000);
++		}
++	}
++	bcm43xx_phy_write(dev, 0x00A8 | BCM43xx_PHYROUTE_OFDM_GPHY,
++		(bcm43xx_phy_read(dev, 0x00A8 | BCM43xx_PHYROUTE_OFDM_GPHY) &amp; 0x7F7F) | 0x7874);
++	bcm43xx_phy_write(dev, 0x008E | BCM43xx_PHYROUTE_OFDM_GPHY, 0x1C00);
++	if (phy-&gt;rev == 1) {
++		bcm43xx_phy_write(dev, 0x00AB | BCM43xx_PHYROUTE_OFDM_GPHY,
++			(bcm43xx_phy_read(dev, 0x00AB | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x0F00) | 0x0600);
++		bcm43xx_phy_write(dev, 0x008B | BCM43xx_PHYROUTE_OFDM_GPHY, 0x005E);
++		bcm43xx_phy_write(dev, 0x008C | BCM43xx_PHYROUTE_OFDM_GPHY,
++			(bcm43xx_phy_read(dev, 0x008C | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x00FF) | 0x001E);
++		bcm43xx_phy_write(dev, 0x008D | BCM43xx_PHYROUTE_OFDM_GPHY, 0x0002);
++		bcm43xx_ofdmtab_write16(dev, 0x0015, 0, 0);
++		bcm43xx_ofdmtab_write16(dev, 0x0015, 1, 7);
++		bcm43xx_ofdmtab_write16(dev, 0x0015, 2, 16);
++		bcm43xx_ofdmtab_write16(dev, 0x0015, 3, 28);
++	} else {
++		bcm43xx_ofdmtab_write16(dev, 0x0002, 0, 0);
++		bcm43xx_ofdmtab_write16(dev, 0x0002, 1, 7);
++		bcm43xx_ofdmtab_write16(dev, 0x0002, 2, 16);
++		bcm43xx_ofdmtab_write16(dev, 0x0002, 3, 28);
++	}
++	if (phy-&gt;rev &gt;= 6)
++	{
++		bcm43xx_phy_write(dev, 0x0026 | BCM43xx_PHYROUTE_OFDM_GPHY,
++			bcm43xx_phy_read(dev, 0x0026 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x0003);
++		bcm43xx_phy_write(dev, 0x0026 | BCM43xx_PHYROUTE_OFDM_GPHY,
++			bcm43xx_phy_read(dev, 0x0026 | BCM43xx_PHYROUTE_OFDM_GPHY) ~ 0x1000);
++	}
++}
++
++static void bcm43xx_wa_tr_ltov(struct bcm43xx_wldev *dev)
++{ // TR Lookup Table Original Values
++	bcm43xx_gtab_write(dev, 0x002E, 0x0298, 0xC480);
++}
++
++static void bcm43xx_wa_cpll_nonpilot(struct bcm43xx_wldev *dev)
++{
++	bcm43xx_ofdmtab_write16(dev, 0x0011, 4, 0);
++	bcm43xx_ofdmtab_write16(dev, 0x0011, 5, 0);
++}
++
++static void bcm43xx_wa_rssi_adc(struct bcm43xx_wldev *dev)
++{
++	if (dev-&gt;phy-&gt;analog == 4)
++		bcm43xx_phy_write(dev, 0x00DC, 0x7454);
++}
++
++static void bcm43xx_wa_boards_a(struct bcm43xx_wldev *dev)
++{
++	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
++
++	if (bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM &amp;&amp;
++	    bus-&gt;board_type == SSB_BOARD_BU4306 &amp;&amp;
++	    bus-&gt;board_rev &lt; 0x30) {
++		bcm43xx_phy_write(dev, 0x0010, 0xE000);
++		bcm43xx_phy_write(dev, 0x0013, 0x0140);
++		bcm43xx_phy_write(dev, 0x0014, 0x0280);
++	} else {
++		if (bus-&gt;board_type == SSB_BOARD_MP4318 &amp;&amp;
++		    bus-&gt;board_rev &lt; 0x20) {
++			bcm43xx_phy_write(dev, 0x0013, 0x0210);
++			bcm43xx_phy_write(dev, 0x0014, 0x0840);
++		} else {
++			bcm43xx_phy_write(dev, 0x0013, 0x0140);
++			bcm43xx_phy_write(dev, 0x0014, 0x0280);
++		}
++		if (dev-&gt;phy-&gt;rev &lt;= 4)
++			bcm43xx_phy_write(dev, 0x0010, 0xE000);
++		else
++			bcm43xx_phy_write(dev, 0x0010, 0x2000);
++		bcm43xx_ofdmtab_write16(dev, 0x000E, 8, 0x0039);
++		bcm43xx_ofdmtab_write16(dev, 0x000F, 7, 0x0040);
++	}
++}
++
++static void bcm43xx_wa_boards_g(struct bcm43xx_wldev *dev)
++{
++	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
++	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++
++	if (bus-&gt;board_vendor != SSB_BOARDVENDOR_BCM ||
++	    bus-&gt;board_type != SSB_BOARD_BU4306 ||
++	    bus-&gt;board_rev != 0x17) {
++		if (phy-&gt;rev &lt; 2) {
++			bcm43xx_ofdmtab_write16(dev, 0x0014, 1, 0x0002);
++			bcm43xx_ofdmtab_write16(dev, 0x0014, 2, 0x0001);
++		} else {
++			bcm43xx_ofdmtab_write16(dev, 0x0001, 1, 0x0002);
++			bcm43xx_ofdmtab_write16(dev, 0x0001, 2, 0x0001);
++			if (bus-&gt;sprom.r1.boardflags_lo &amp; BCM43xx_BFL_EXTLNA &amp;&amp;
++			    phy-&gt;rev &gt;= 7) {
++				bcm43xx_phy_write(dev, 0x0011 | BCM43xx_PHYROUTE_EXT_GPHY,
++					bcm43xx_phy_read(dev, 0x0011 | BCM43xx_PHYROUTE_EXT_GPHY) &amp; 0xF7FF);
++				bcm43xx_ofdmtab_write16(dev, 0x0001, 0x0020, 0x0001);
++				bcm43xx_ofdmtab_write16(dev, 0x0001, 0x0021, 0x0001);
++				bcm43xx_ofdmtab_write16(dev, 0x0001, 0x0022, 0x0001);
++				bcm43xx_ofdmtab_write16(dev, 0x0001, 0x0023, 0x0000);
++				bcm43xx_ofdmtab_write16(dev, 0x0001, 0x0000, 0x0000);
++				bcm43xx_ofdmtab_write16(dev, 0x0001, 0x0003, 0x0002);
++			}
++		}
++	}
++	if (bus-&gt;sprom.r1.boardflags_lo &amp; BCM43xx_BFL_FEM)
++	{
++		bcm43xx_phy_write(dev, 0x0003 | BCM43xx_PHYROUTE_EXT_GPHY, 0x3120);
++		bcm43xx_phy_write(dev, 0x0004 | BCM43xx_PHYROUTE_EXT_GPHY, 0xC480);
++	}
++}
++
++void bcm43xx_wa_all(struct bcm43xx_wldev *dev)
++{
++	//TODO --will be called by setup functions in _phy.c
++}
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_wa.h
+===================================================================
+--- /dev/null
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_wa.h
+@@ -0,0 +1 @@
++
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000985.html">OpenBSD bcw: Possible GPL license violation issues
+</A></li>
+	<LI>Next message: <A HREF="000997.html">[RFC] PHY setup in v4 specs implementation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#986">[ date ]</a>
+              <a href="thread.html#986">[ thread ]</a>
+              <a href="subject.html#986">[ subject ]</a>
+              <a href="author.html#986">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

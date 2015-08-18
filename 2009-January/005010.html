@@ -1,0 +1,257 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Thoughts about the b43 RNG
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Thoughts%20about%20the%20b43%20RNG&In-Reply-To=%3C200901090211.03937.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005009.html">
+   <LINK REL="Next"  HREF="005014.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Thoughts about the b43 RNG</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Thoughts%20about%20the%20b43%20RNG&In-Reply-To=%3C200901090211.03937.mb%40bu3sch.de%3E"
+       TITLE="Thoughts about the b43 RNG">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jan  9 02:11:03 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005009.html">b43: Debugging PHY TX errors
+</A></li>
+        <LI>Next message: <A HREF="005014.html">Thoughts about the b43 RNG
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5010">[ date ]</a>
+              <a href="thread.html#5010">[ thread ]</a>
+              <a href="subject.html#5010">[ subject ]</a>
+              <a href="author.html#5010">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I was doing some random tests on the b43 hardware RNG.
+These are the results.
+
+I patched the firmware to not access the RNG register anymore.
+The unpatched firmware does two things. It reads the RNG register to get random values
+and it writes 0 to the register every now and then for whatever reason.
+Both reads and writes were patched out during my test. So the driver was
+the only one accessing the RNG.
+
+This is the result of reading a few bytes from the RNG with the patched fw:
+
+0000000 c4df 4bf4 4d68 d79a 1e5c af3d 7383 5818
+0000010 1993 53cc 5ba6 c449 f188 f3c7 e1e6 110b
+0000020 8115 f604 4a13 f695 d4db c7a8 0b8e 12e9
+0000030 beb8 e4fa 8b37 4217 1c08 8ac6 dc15 148c
+0000040 8643 3d91 de0b ea86 53d4 ffa6 2dfb 412b
+0000050 f527 6c15 1cd9 d239 d0b4 1a42 9569 622b
+0000060 15bf 99d4 5acb 4c4b 9b98 a036 6d41 2490
+0000070 393c d7e7 62af a3c5 bdb9 9a0b 8c94 bf30
+0000080 eb53 9352 c927 a34c 6847 5cd1 a9b8 5cad
+0000090 58f3 53b1 1cb3 f3c7 88e6 4a22 036a bcf9
+00000a0 82eb 4efa b8c6 7f8e fa01 47e8 c8e1 fe91
+00000b0 9d78 fd74 cc08 d0cc 83a0 f206 23e4 5673
+00000c0 d704 9bae ec6f 7726 06ef 04f2 14ee 4329
+00000d0 74a0 24e8 19b6 4f67 c6c2 2918 20ad 8483
+00000e0 7b00 d4ed 6256 3a77 a28b a945 8953 5827
+00000f0 a758 77b0 53dc cd58 006b bafe b474 d6d1
+0000100 bdb9 db7a 6f6c f2df 1e6b 6e3d acdc a5a6
+0000110 ed60 9349 cf27 c33d 7487 af17 385e 6470
+0000120 644b 806f fbfd 1bf6 4b24 d996 2b65 43a9
+0000130 2557 48b4 e490 9a93 7634 ead9 e02a 4e04
+0000140 fec0 5407 d7a8 9eaf 4a85 a36b 99b9 fbcd
+0000150 b38e 2acd cd54 6d65 9191 2cdc 9158 b8bb
+0000160 1a74 8fd2 dfe1 7382 46e6 53e7 9ab0 2394
+0000170 9981 9232 6c4b d8b1 629c e53a 0369 ef06
+0000180 f0c7 fe7d fc03 29f2 4aa7 3429 4697 9a73
+0000190 bfd1 cb7f 3f2c 6780 189e 3e30 d583 8b56
+00001a0 9579 aeaf 445c 2811 e35d d670 3252 abc8
+00001b0 b8be 1e1d 6fc3 18de c69c d172 d8b8 cf9d
+00001c0 0596 6df5 804b 5400 8d5c 2c1b e5a7 a26b
+00001d0 116f 08bb a123 d0bd 8c43 1519 68a9 332e
+00001e0 1ee4 8a79 b3eb ad9b 3d5b 3808 6f8f 6ade
+00001f0 8f65 f2e0 5735 75af fad6 210a e542 e769
+0000200 af79 2ca1 d959 edc8 ec25 28b1 df50 807c
+0000210 83f4 d1f3 585c e19c 3a86 5915 cd4d 929b
+0000220 d2de 12b6 8024 7700 0eba 4e1d 0b3a 4d16
+0000230 7db4 4604 9b8d 7dc8 2ffb c0bf a403 b56f
+0000240 557f f3ab 38e6 7b1e a508 0a94 a914 5d53
+0000250 002b 5607 01ac fb06 67f6 fb60 22ee a48b
+0000260 6a89 ba57 ed75 3fb4 4680 028d faf7 bff5
+0000270 b9f8 b019 799e 791a ebf2 d8a7 16b1 61d2
+0000280 fc8b 9bf9 f990 41f2 7182 e9e2 415b c0f8
+0000290 1c83 43c7 b386 52cc 92b5 64b4 3f37 da02
+00002a0 894f d8b4 8fb0 8ec2 bac4 13eb 7427 5316
+00002b0 2703 1562 5ba9 9c49 6f72 4bdf 5f69 4e7d
+00002c0 bc7a 4f78 ac60 8b9e fae8 29ea 0f52 55c3
+00002d0 3761 65dc 9c96 b639 48b1 a16f 22bd 7289
+00002e0 c1cf bb0e ba89 d3eb 0f58 0fc1 923c b1b4
+00002f0 6ab0 3dd5 6d16 b7da 52dc faa5 a9eb ea59
+0000300 435c 820c e004 8b3f 46a3 e18c d27a 185b
+0000310 665f e99a f42c b617 3992 5b18 32b7 a1ca
+0000320 1d80 8d76 51e5 b88d 10e2 82de 660a 2033
+0000330 3d0a 280b 3d5e 9c08 cbc7 87d1 def1 730f
+
+I'm not sure how random this is, but I expected it to look worse, because I think
+the 0 writes in the firmware have an effect on the RNG seeding.
+So I expected either all-same values or all-almost-sequencial values.
+Didn't happen. That might be a good sign for the quality of the RNG.
+
+So now I did a different test.
+Instead of just reading the register I do the following:
+- Disable IRQs, which makes the process atomic on this UP machine.
+- Write 0 to the RNG
+- Read the RNG
+- Enable IRQs.
+So the write0 -&gt; read sequence should execute in about equal time for each.
+This is what happens:
+
+0000000 d547 29b0 ab6f c5bc 252e 9f2e ea07 c454
+0000010 b5a2 7443 d358 f437 6fbf 2d0b 9dd8 70ef
+0000020 41a5 89ed 766d 3267 f169 908a 4e01 c014
+0000030 46c3 9734 7d76 c522 b4a1 b44c 585b 58c7
+0000040 2389 6c3d 8636 2765 dac0 0928 4160 fced
+0000050 f2ce f3d6 1fc6 5c07 79cc b6c8 089d 4683
+0000060 167a ac6f a931 c964 576f 7fba ecf8 b93b
+0000070 c157 3810 6fc3 8e0c 44ef 55b2 43ac 92e3
+0000080 793e 3a60 7ea7 de18 9013 1a84 e82a 5278
+0000090 fb6c 0cbf 0c66 6a3c ca59 dda5 0fdd 967f
+00000a0 759e 21ac cf0b 1b7f 2cbd 10c0 d103 7ce9
+00000b0 3d80 9411 6bb1 ceb8 fa18 d8a1 51c7 4c10
+00000c0 3998 8968 2665 229e 43ef 3fc9 f1fa 1519
+00000d0 1501 b452 1fb3 83fd 123f 092c 6bb1 3d48
+00000e0 c0eb 7bff 2f4e 0204 c9d6 134d efc7 9ef3
+00000f0 98e0 0f84 4100 7fe0 c6fe 5dca 37d1 a27b
+0000100 0d75 3e68 b40b 04bc bcb8 7236 182e a92e
+0000110 9f09 8a0b 05b1 6043 e2fc 3a2d 2159 7316
+0000120 799a c697 ac62 1b3d 3bb9 f126 7f1a 0cfd
+0000130 6cb3 9cc1 fb31 b4b3 3e43 130e e263 9e28
+0000140 ff20 400b 1303 25c4 6553 2ed2 4e14 c31c
+0000150 9857 4171 3bf7 99dd f498 4abd 5652 4e90
+0000160 cbc7 d2a2 dfdc cdf1 c2de 7fdb 3903 586d
+0000170 e3ba ff3e 3cfa 051d 8d5f b2d9 dadc b1a8
+0000180 5f1b 981b 0176 9009 5a7f caa0 0f5e e0f1
+0000190 dcfa 3233 dfde 07f3 f689 47b1 c982 4568
+00001a0 7582 4e53 7214 e726 5077 7587 82a8 1cd2
+00001b0 184b e773 987a a386 071c 3238 6f24 090b
+00001c0 f97b 089c e681 0769 283a b577 3f5b b2f6
+00001d0 17c9 a341 211b 7213 98dd cd8d c4d0 6122
+00001e0 4def 4fd5 3106 eae6 c4ab 93db 4c30 edc0
+00001f0 0eb3 e61e ed66 2a94 3fa6 1101 61ee 9018
+0000200 2385 9bc9 50bc 9408 4440 5e27 3613 0b6c
+0000210 f220 4c25 5d3c d2de 5094 daf2 d4ae 89b4
+0000220 48fb de8c 27f0 1f84 eff4 f904 aa9c 6b51
+0000230 cd89 aadc a4af 924b b1da d370 3463 c8bf
+0000240 a06d 03fe 563f 72b1 8395 09c1 709b 3b09
+0000250 151e 0e57 9710 8d85 d3d8 2338 aae7 7aa8
+0000260 0a6f 3852 4280 82ea 86d1 b26e 76d9 766e
+0000270 90de 7af9 f951 fdcf 3610 8167 41e8 8610
+0000280 891e 314f 2d77 7bda 2d4d 0126 2d11 0c91
+0000290 5c29 4834 178c e58f 22d0 b112 fc1e c339
+00002a0 bd68 72d0 69d6 6e98 db8c 9ebd a3e6 dfc9
+00002b0 935d 3963 086f 237f f333 8e3f 6c73 9736
+00002c0 2199 2f0c 9cfa 85cd fe5b 64e7 8023 0af9
+00002d0 2335 e9e1 0d4a acdb 0933 3f65 b90b fc35
+00002e0 2b39 825b 3028 6006 9ff6 3c07 08e7 c6be
+00002f0 2144 790f 93cc b0c5 c105 0610 089a 73b8
+0000300 762a edb5 7928 ed97 92dc 33dd a364 dc39
+0000310 4ff6 6209 a626 84cc f725 4b7f 1b49 7041
+0000320 f434 b04f d17d 1be7 3db9 c62e 9898 13c1
+0000330 3c32 7dc3 3827 e98d 80b7 6603 6494 1640
+
+I'm not sure about this. There aren't any obvious patterns.
+But maybe I'm just blind. Does somebody else see some pattern or
+has some RNG test program to recognize such patterns?
+
+So let's do another test. Let's modify the previous test to
+write 0xFFFF instead of 0:
+
+0000000 c538 4f9f c9f8 d8b2 b6c7 ff94 78fc ad8e
+0000010 b88f 98e4 70c5 620a 012e 45e4 a357 ffff
+0000020 e9c6 fc95 60c6 e8f9 1d86 ffff f846 f380
+0000030 5bc3 ffff 57ad 5474 f24b 6edb c0ed 7704
+0000040 8dce 2393 263d ec67 48c7 55fb 6a5e 1955
+0000050 2e98 d4ed 194a d594 76a5 56b0 ee9e cbe3
+0000060 8e47 551a afa5 987d d08b c40d 6cb8 5bcd
+0000070 76cf 82b2 e8de da72 9a5d 46a8 9330 7e62
+0000080 bb33 1543 acaf 0b63 f449 23b9 5e3e 5ce9
+0000090 e8ab 2d70 2fdc ffff f4bf f9bd 8392 84c5
+00000a0 1335 ffff 1534 95a9 f6af f166 af10 7982
+00000b0 6d05 6723 b48a ffff 7a66 2a53 dbaf d2b7
+00000c0 8c86 ffff fc5c 3539 8a59 8fa0 08fe ed44
+00000d0 61fd c9eb b3b3 3e3e 8d1d a3d2 d136 ffff
+00000e0 906b 11fd dbe9 894c bd93 ffff b0eb b601
+00000f0 a338 c5c9 902d 0bff 49bd af92 45f3 0fa3
+0000100 a794 ffff b31c e332 70c4 a9fa f66d 98b0
+0000110 b28a 8769 af7d e7f1 8686 7390 5a61 7f2e
+0000120 2ebf 8b19 2741 398a 5b31 15da 3daa 3d24
+0000130 b568 b8af 0f76 b3f2 3c31 853e 4ad7 0654
+0000140 2ac6 69a3 2a99 94a9 6746 ffff 89e3 b76f
+0000150 6ab7 14ad 3440 16bc ffff c4e9 0a42 2d5b
+0000160 f466 cfba e507 59ad e09e d902 406b 300d
+0000170 6e5c d61c ec60 e298 f9d2 2860 b674 916a
+0000180 47f0 7e8b ffff de13 98e8 0f76 2b09 d34d
+0000190 afa3 28fe 1c8d 9e18 69e3 ffff 9cf8 213e
+00001a0 ffff a624 cf65 9ffb cd02 32d0 7b69 adb9
+00001b0 2f10 5906 3296 61dc 93f7 2730 1d7a 092d
+00001c0 880b 0d72 e422 01bc ffff 62b3 8edf 3619
+00001d0 620f 1428 c95b 1891 7983 4e6b 15ef ffff
+00001e0 6ae9 ffff 7c0a d1c8 a8e3 f980 4468 1e26
+00001f0 ce75 21e4 f0ec 820d 35d5 9556 c159 ea12
+0000200 18df c47d 91b3 a089 630f a633 9560 72a6
+0000210 9fcd 4ff6 ba05 16a2 4390 7b19 79b8 e19e
+0000220 169a 936d 97c5 b3be f6c3 da96 2e57 c915
+0000230 af86 8a7e 1ca6 e73b 0775 1c81 ffff ca58
+0000240 5627 ffff 8f98 160d 6f67 87fa 758d 6a50
+0000250 eef3 beef 2114 0eea dbe0 8a26 5451 f1bf
+0000260 ff62 ffff f709 0388 07cf 1679 2867 ecbd
+0000270 fecc c615 cd6b 4bde ffff 5689 1161 1a18
+0000280 7cab a136 03e6 7634 3549 3fac 3206 e1d2
+0000290 a9d3 be66 aaee 86ab 7064 ffff 3b52 7f48
+00002a0 e162 2e19 ee1b ffff 4ac7 d9a9 0061 baf3
+00002b0 0657 b19c 87e2 fa75 4bd6 8546 845f b8b7
+00002c0 5db5 8cdb 1e3c d717 ffff e63b 9b92 dab9
+00002d0 151e c5a4 ffff 6c63 3c39 fd33 a12d 6b16
+00002e0 ffff c5c8 4357 663f 5c6f 893f 14b5 30b5
+00002f0 9947 2990 ffff b8fa 3280 60d1 64ff 4a47
+0000300 ffff 3a96 c552 d0a1 9ef9 911c 8e76 1819
+0000310 736c 22c2 2aed 955f cf35 5809 aa7e 1c56
+0000320 aa45 ab57 7ab4 b250 ffff 4f13 d3fd abc1
+0000330 46eb bc62 2931 616c df0c 2a0d 09a4 d868
+
+Now, that's interesting, isn't it? :)
+Similiar stuff happens when writing other magic values.
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005009.html">b43: Debugging PHY TX errors
+</A></li>
+	<LI>Next message: <A HREF="005014.html">Thoughts about the b43 RNG
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5010">[ date ]</a>
+              <a href="thread.html#5010">[ thread ]</a>
+              <a href="subject.html#5010">[ subject ]</a>
+              <a href="author.html#5010">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

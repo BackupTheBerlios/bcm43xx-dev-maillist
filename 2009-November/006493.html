@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> DMA errors with BCM4312 - an update
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20DMA%20errors%20with%20BCM4312%20-%20an%20update&In-Reply-To=%3C4B0C513A.4090303%40polymtl.ca%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006497.html">
+   <LINK REL="Next"  HREF="006496.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>DMA errors with BCM4312 - an update</H1>
+    <B>William Bourque</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20DMA%20errors%20with%20BCM4312%20-%20an%20update&In-Reply-To=%3C4B0C513A.4090303%40polymtl.ca%3E"
+       TITLE="DMA errors with BCM4312 - an update">william.bourque at polymtl.ca
+       </A><BR>
+    <I>Tue Nov 24 22:33:46 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006497.html">DMA errors with BCM4312 - an update
+</A></li>
+        <LI>Next message: <A HREF="006496.html">DMA errors with BCM4312 - an update
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6493">[ date ]</a>
+              <a href="thread.html#6493">[ thread ]</a>
+              <a href="subject.html#6493">[ subject ]</a>
+              <a href="author.html#6493">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+
+Larry Finger wrote:
+&gt;<i> This E-mail is to summarize what I have learned to date.
+</I>&gt;<i> 
+</I>&gt;<i> The pm_qos change does nothing useful. It may have helped a little, but the side
+</I>&gt;<i> effects are far worse than the benefits.
+</I>&gt;<i> 
+</I>&gt;<i> Most systems work better with b43 when warm booted after Broadcom's wl driver
+</I>&gt;<i> was loaded. The conclusion is that wl is making some change in the setup that
+</I>&gt;<i> b43 is not.
+</I>&gt;<i> 
+</I>&gt;<i> (3) Based on the above, I have done MMIO and PCI-E configuration tracing for the
+</I>&gt;<i> two drivers and found some real differences. After seeing these, I did more RE
+</I>&gt;<i> work, and found some setup for the PCI-E core that was missed earlier. I am
+</I>&gt;<i> still working on the changes. What I have completed is found at
+</I>&gt;<i> 
+</I>&gt;<i> <A HREF="http://bcm-v4.sipsolutions.net/PCI-E#PCI-E_Setup">http://bcm-v4.sipsolutions.net/PCI-E#PCI-E_Setup</A>
+</I>&gt;<i> 
+</I>&gt;<i> I doubt that most of these new routines will affect the problem interfaces as
+</I>&gt;<i> they apply only to PCI-E core revisions 7 and 8. My BCM4312 has rev 9. I do not
+</I>&gt;<i> know what versions are giving the trouble. With SSB_DEBUG enabled, it will be in
+</I>&gt;<i> a log line as follows:
+</I>&gt;<i> 
+</I>&gt;<i> ssb: Core 3 found: PCI-E (cc 0x820, rev 0x09, vendor 0x4243)
+</I>&gt;<i> 
+</I>&gt;<i> If you are seeing the DMA error, please supply the above info.
+</I>&gt;<i> 
+</I>&gt;<i> The &quot;PCI-E Miscellaneous Configuration&quot; routine that is not yet finished does
+</I>&gt;<i> run on my system and is the source of the tracing differences. If the problem
+</I>&gt;<i> cards has a revision newer than 9, I will probably need an MMIO trace for your
+</I>&gt;<i> device.
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> 
+</I>
+Here is mine.
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at mini</A> ~ # dmesg | grep ssb
+[  138.450389] ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x16, vendor 
+0x4243)
+[  138.450420] ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x0F, 
+vendor 0x4243)
+[  138.450447] ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x0A, vendor 0x4243)
+[  138.450473] ssb: Core 3 found: PCI-E (cc 0x820, rev 0x09, vendor 0x4243)
+[  138.490310] ssb: Found rev 1 PMU (capabilities 0x02A62F01)
+[  138.499585] ssb: SPROM revision 8 detected.
+[  138.533626] ssb: Sonics Silicon Backplane found on PCI device 
+0000:01:00.0
+
+
+Just a note, I am testing it right now and you were right, the card does 
+work if warm booted after having used wl driver. Seems like some 
+initialization stuff is done differently, as the led turn active (blue ) 
+even before loading any driver for the card.
+
+- William
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006497.html">DMA errors with BCM4312 - an update
+</A></li>
+	<LI>Next message: <A HREF="006496.html">DMA errors with BCM4312 - an update
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6493">[ date ]</a>
+              <a href="thread.html#6493">[ thread ]</a>
+              <a href="subject.html#6493">[ subject ]</a>
+              <a href="author.html#6493">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

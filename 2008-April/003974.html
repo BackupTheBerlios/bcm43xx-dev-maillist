@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Tons of interrupts on driver load
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C4812EC95.9080400%40coderworld.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003976.html">
+   <LINK REL="Next"  HREF="003975.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Tons of interrupts on driver load</H1>
+    <B>Richard Jonsson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C4812EC95.9080400%40coderworld.net%3E"
+       TITLE="Tons of interrupts on driver load">richie at coderworld.net
+       </A><BR>
+    <I>Sat Apr 26 10:49:25 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003976.html">Tons of interrupts on driver load
+</A></li>
+        <LI>Next message: <A HREF="003975.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3974">[ date ]</a>
+              <a href="thread.html#3974">[ thread ]</a>
+              <a href="subject.html#3974">[ subject ]</a>
+              <a href="author.html#3974">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Larry Finger skrev:
+&gt;<i> If Linus's latest git still has the problem, please do a bisection. I 
+</I>
+I've now completed the bisection, result below. I'm not really sure this 
+is the bad commit, as v2.6.25 is fine, and this commit is from february. 
+But then again, I don't fully understand how git does it's bisection.
+I've also tried a few kernels in the 2.6.25-rc series that don't show 
+this problem.
+
+bb1eeff12d4cd6c706ef9fae340a9c93bb41ad05 is first bad commit
+commit bb1eeff12d4cd6c706ef9fae340a9c93bb41ad05
+Author: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+Date:   Sat Feb 9 12:08:58 2008 +0100
+
+     b43: Fix bandswitch
+
+     This fixes bandswitching for the new mac80211 band API.
+
+     Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+     Signed-off-by: John W. Linville &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>&gt;
+
+:<i>040000 040000 643bf335db6d1a73422b558eb32384d525e8151c 
+</I>63b464db5df11152d9f98269bf2263e2a1080e2e Mdrivers
+
+-------------
+
+$ git bisect log:
+
+git-bisect start
+# good: [4b119e21d0c66c22e8ca03df05d9de623d0eb50f] Linux 2.6.25
+git-bisect good 4b119e21d0c66c22e8ca03df05d9de623d0eb50f
+# bad: [87322bc1b815e0262a703e08c5d5ec0fb68c8352] Merge branch 'master' 
+of <A HREF="git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6">git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6</A>
+git-bisect bad 87322bc1b815e0262a703e08c5d5ec0fb68c8352
+# bad: [9d722c04a4afdc26441ec643dd13dd7c7910cb97] Revert &quot;libata: unify 
+mechanism to request follow-up SRST&quot;
+
+I had to revert a patch here, my harddrive is not found otherwise, 
+unrelated issue.
+
+git-bisect bad 9d722c04a4afdc26441ec643dd13dd7c7910cb97
+# good: [94adf110402761347838ef1f78cc68c93e394e4b] Revert &quot;libata: unify 
+mechanism to request follow-up SRST&quot;
+
+Same as previous.
+
+git-bisect good 94adf110402761347838ef1f78cc68c93e394e4b
+# bad: [e0e0a67e44ce13e34f553b6ab6377560fa9813f1] iwlwifi: do not 
+register bands with no supported channels
+git-bisect bad e0e0a67e44ce13e34f553b6ab6377560fa9813f1
+# bad: [e0e0a67e44ce13e34f553b6ab6377560fa9813f1] iwlwifi: do not 
+register bands with no supported channels
+git-bisect bad e0e0a67e44ce13e34f553b6ab6377560fa9813f1
+# bad: [903b474efabab6a4ce697063c367afd8e2ad83f3] ath5k: more RF2413 stuff
+git-bisect bad 903b474efabab6a4ce697063c367afd8e2ad83f3
+# bad: [43ba7e958f2ca05e4e9171a15402288419289d71] mac80211: atomically 
+check whether STA exists already
+git-bisect bad 43ba7e958f2ca05e4e9171a15402288419289d71
+# good: [9ae54c8463691b64ca6e6d8680787a6527810984] mac80211: split 
+ieee80211_txrx_result
+git-bisect good 9ae54c8463691b64ca6e6d8680787a6527810984
+# skip: [6f865c0ab9318cd4c357654e460cb4c9aaf23a92] prism54: Convert 
+acl-&gt;sem in a mutex
+git-bisect skip 6f865c0ab9318cd4c357654e460cb4c9aaf23a92
+# skip: [5c05863d0346c025a712b57622efe7828b29758e] ipw2200: le*_add_cpu 
+conversion
+git-bisect skip 5c05863d0346c025a712b57622efe7828b29758e
+
+I skipped twice here because kernel would not build, complaining of 
+CONFIG_MAC80211_IBSS_DEBUG undeclared. I enabled that config option for 
+the next build, which would also fail otherwise. I then disabled this 
+option again.
+
+# bad: [f8139218b32e9a68fc6779fa0ce45c5078c23c8a] prism54: Convert 
+stats_sem in a mutex
+git-bisect bad f8139218b32e9a68fc6779fa0ce45c5078c23c8a
+# bad: [5c1b09581ba91d156ec907f5cbad07d33bf9e2ed] iwlwifi: change 
+iwl-&gt;priv iwl_priv * type in iwl-YYY-io.h
+git-bisect bad 5c1b09581ba91d156ec907f5cbad07d33bf9e2ed
+# good: [eed0fd2102206bf6108460274c40ee6b8e863369] b43legacy: add 
+definitions for MAC control register
+git-bisect good eed0fd2102206bf6108460274c40ee6b8e863369
+# bad: [bb1eeff12d4cd6c706ef9fae340a9c93bb41ad05] b43: Fix bandswitch
+git-bisect bad bb1eeff12d4cd6c706ef9fae340a9c93bb41ad05
+# good: [4688be308f35f1e0099140a179d95c5e63b2319d] b43legacy: fix 
+B43legacy_WARN_ON macro
+git-bisect good 4688be308f35f1e0099140a179d95c5e63b2319d
+# good: [96d510566e4908f77f03ff1436c78ae7162a17d0] mac80211: defer 
+master netdev allocation to ieee80211_register_hw
+git-bisect good 96d510566e4908f77f03ff1436c78ae7162a17d0
+# good: [b9e0b449aef50aabc295e4487a7a030a0d358367] iwlwifi: Update 
+iwlwifi version stamp to 1.2.26
+git-bisect good b9e0b449aef50aabc295e4487a7a030a0d358367
+
+
+regards, Richard
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003976.html">Tons of interrupts on driver load
+</A></li>
+	<LI>Next message: <A HREF="003975.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3974">[ date ]</a>
+              <a href="thread.html#3974">[ thread ]</a>
+              <a href="subject.html#3974">[ subject ]</a>
+              <a href="author.html#3974">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

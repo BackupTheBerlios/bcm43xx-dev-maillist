@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Problem with b43_get_and_map_ringmem()
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Problem%20with%20b43_get_and_map_ringmem%28%29&In-Reply-To=%3C4B390546.7000709%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006597.html">
+   <LINK REL="Next"  HREF="006599.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Problem with b43_get_and_map_ringmem()</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Problem%20with%20b43_get_and_map_ringmem%28%29&In-Reply-To=%3C4B390546.7000709%40lwfinger.net%3E"
+       TITLE="Problem with b43_get_and_map_ringmem()">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Mon Dec 28 20:21:42 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006597.html">Fatal DMA error problem with netbook and BCM4312 - Test 3
+</A></li>
+        <LI>Next message: <A HREF="006599.html">Problem with b43_get_and_map_ringmem()
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6598">[ date ]</a>
+              <a href="thread.html#6598">[ thread ]</a>
+              <a href="subject.html#6598">[ subject ]</a>
+              <a href="author.html#6598">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael,
+
+There is something a little funky with this routine. If the call to
+__b43_get_and_map_ringmem() fails because the memory allocated is not within the
+DMA region supported by the card, there is no way for execution to reach the
+section that takes action to fix the problem. As you have probably seen, this is
+likely the underlying cause of the regression reported in Bugzilla No. 14844.
+Testing by the OP has not been done, but it fixed the same problem here.
+
+Fixing this will likely be a two-step process. For 2.6.33, I am proposing the
+following simple patch, which is essentially what is being tested:
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c
++++ wireless-testing/drivers/net/wireless/b43/dma.c
+@@ -439,9 +439,14 @@ static void * b43_get_and_map_ringmem(st
+ 				      dma_addr_t *dmaaddr, size_t size)
+ {
+ 	void *base;
++	gfp_t flags = GFP_KERNEL;
+
++	if (unlikely(ring-&gt;type == B43_DMA_30BIT))
++		flags |= GFP_DMA;
++	else if (unlikely(ring-&gt;type == B43_DMA_32BIT))
++		flags |= GFP_DMA32;
+ 	base = __b43_get_and_map_ringmem(ring, dmaaddr, size,
+-					 GFP_KERNEL);
++					 flags);
+ 	if (!base) {
+ 		b43err(ring-&gt;dev-&gt;wl, &quot;Failed to allocate or map pages &quot;
+ 		       &quot;for DMA ringmemory\n&quot;);
+
+Comments?
+
+For 2.6.34, a more complete rework is probably needed.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006597.html">Fatal DMA error problem with netbook and BCM4312 - Test 3
+</A></li>
+	<LI>Next message: <A HREF="006599.html">Problem with b43_get_and_map_ringmem()
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6598">[ date ]</a>
+              <a href="thread.html#6598">[ thread ]</a>
+              <a href="subject.html#6598">[ subject ]</a>
+              <a href="author.html#6598">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

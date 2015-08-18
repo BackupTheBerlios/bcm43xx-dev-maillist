@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Can someone please try...
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Can%20someone%20please%20try...&In-Reply-To=%3C200701222200.19784.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000144.html">
+   <LINK REL="Next"  HREF="000148.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Can someone please try...</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Can%20someone%20please%20try...&In-Reply-To=%3C200701222200.19784.mb%40bu3sch.de%3E"
+       TITLE="Can someone please try...">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Jan 22 22:00:19 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000144.html">Can someone please try...
+</A></li>
+        <LI>Next message: <A HREF="000148.html">Can someone please try...
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#147">[ date ]</a>
+              <a href="thread.html#147">[ thread ]</a>
+              <a href="subject.html#147">[ subject ]</a>
+              <a href="author.html#147">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 22 January 2007 21:44, Pavel Roskin wrote:
+&gt;<i> Hello, Michael!
+</I>&gt;<i> 
+</I>&gt;<i> On Mon, 2007-01-22 at 21:06 +0100, Michael Buesch wrote: 
+</I>&gt;<i> &gt; It's obviously some stack/memory corruption. But I'm not
+</I>&gt;<i> &gt; sure if this is a stackoverflow. I'd rather say no, it isn't.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Could probably be triggered by something like kfree()ing
+</I>&gt;<i> &gt; a dangling pointer or something...
+</I>&gt;<i> 
+</I>&gt;<i> Yes.  That's what my patch was for (&quot;Fix major memory corruption bug&quot;).
+</I>&gt;<i> It was pretty hard to catch because I would find the consequences rather
+</I>&gt;<i> than to the offending code.  I got lucky after I enabled some weird
+</I>&gt;<i> options, such as 64Gb support and highmem debugging.  Whether it played
+</I>&gt;<i> any role or not, the oops finally happened where the driver tried to
+</I>&gt;<i> erase memory pointed to by the stale phy-&gt;lo_control pointer.
+</I>&gt;<i> 
+</I>&gt;<i> Now the situation is following.
+</I>&gt;<i> 
+</I>&gt;<i> No more random crashes.  There is still a crash if I rmmod the driver
+</I>&gt;<i> while wlan0 is up, but it's a separate issue, and it's easy to avoid
+</I>&gt;<i> (unlike the interface going down).  I hope to look at it soon.
+</I>
+Did you apply that d80211 rmmod crash fix that Michael Wu posted
+recently. I bet it will fix your issue.
+
+&gt;<i> The driver connects to a 802.11b Linksys router just fine.  I can send
+</I>&gt;<i> and receive data.  The driver is fully functional.  128-bit WEP is
+</I>&gt;<i> supported.
+</I>
+Nice.
+
+&gt;<i> There are periodic bursts of assertion failures.  Looking at the driver,
+</I>&gt;<i> I see three places where lna a.k.a. phy-&gt;lo_gain[0] is assigned the
+</I>&gt;<i> value of 32 (written as 0x20 in one place).  It's not surprising that it
+</I>&gt;<i> exceeds 7 in lo_measure_feedthrough().
+</I>
+I know about these and I am going to fix that, soon.
+Ignore it for the time being, please.
+
+&gt;<i> I think the assert() should be replaced with a FIXME, which would not
+</I>&gt;<i> annoy end users so much.
+</I>
+Well, no. It's kind of: Michael, go ahead and fix that crap!
+So I'd like to keep it to get me to fix it. :D
+
+&gt;<i> And while at that, it would be great to 
+</I>&gt;<i> replace phy-&gt;lo_gain with four fields with descriptive names.
+</I>&gt;<i> phy-&gt;lo_gain is never used as an array.  Alternatively, you could make
+</I>&gt;<i> it a structure within bcm43xx_phy.
+</I>
+Yeah, one step after the other. ;)
+We didn't know the meanings of the values until recently. Of course
+I am going to rename them.
+
+&gt;<i> The problems with a MadWifi based AP turn out to be related to 802.11g.
+</I>&gt;<i> If the AP is configured for 802.11b only, everything is working.  If
+</I>&gt;<i> 802.11g is enabled, strange things are happening.  Judging by what's on
+</I>&gt;<i> the air, it looks like the driver loses the data frames is receives.
+</I>&gt;<i> wpa_supplicant connects instantly, but ARP and ping packets from AP to
+</I>&gt;<i> STA are lost.  The frames are even acknowledged, but not seen on the
+</I>&gt;<i> station side.  It takes from one to ten minutes util ping suddenly
+</I>&gt;<i> starts working.
+</I>
+Hm, is this 4318? It is known to loose lots of packets.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000144.html">Can someone please try...
+</A></li>
+	<LI>Next message: <A HREF="000148.html">Can someone please try...
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#147">[ date ]</a>
+              <a href="thread.html#147">[ thread ]</a>
+              <a href="subject.html#147">[ subject ]</a>
+              <a href="author.html#147">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

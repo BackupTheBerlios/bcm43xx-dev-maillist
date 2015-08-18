@@ -1,0 +1,179 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Implement RC calibration for rev.2+ LP PHYs
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Implement%20RC%20calibration%20for%20rev.2%2B%20LP%20PHYs&In-Reply-To=%3C4A81CC22.9010208%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005750.html">
+   <LINK REL="Next"  HREF="005752.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Implement RC calibration for rev.2+ LP PHYs</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Implement%20RC%20calibration%20for%20rev.2%2B%20LP%20PHYs&In-Reply-To=%3C4A81CC22.9010208%40gmail.com%3E"
+       TITLE="[PATCH] b43: Implement RC calibration for rev.2+ LP PHYs">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Tue Aug 11 21:53:06 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005750.html">[PATCH] b43: LP-PHY: Implement reading band SPROM
+</A></li>
+        <LI>Next message: <A HREF="005752.html">[PATCH] b43: LP-PHY: Refactor TX gain table I/O
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5751">[ date ]</a>
+              <a href="thread.html#5751">[ thread ]</a>
+              <a href="subject.html#5751">[ subject ]</a>
+              <a href="author.html#5751">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+---
+Larry,
+Rev0/1 RC calibration is missing because the spec needs clarification
+(lots of cryptic variable names, a struct that is never defined, etc.),
+hence the SPEC FIXME.
+
+ drivers/net/wireless/b43/phy_lp.c |   86 ++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 85 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+index 1b4f63a..689c932 100644
+--- a/drivers/net/wireless/b43/phy_lp.c
++++ b/drivers/net/wireless/b43/phy_lp.c
+@@ -605,6 +605,90 @@ static void lpphy_radio_init(struct b43_wldev *dev)
+ 	}
+ }
+ 
++static void lpphy_set_rc_cap(struct b43_wldev *dev)
++{
++	u8 rc_cap = dev-&gt;phy.lp-&gt;rc_cap;
++
++	b43_radio_write(dev, B2062_N_RXBB_CALIB2, max_t(u8, rc_cap-4, 0x80));
++	b43_radio_write(dev, B2062_N_TX_CTL_A, ((rc_cap &amp; 0x1F) &gt;&gt; 1) | 0x80);
++	b43_radio_write(dev, B2062_S_RXG_CNT16, ((rc_cap &amp; 0x1F) &gt;&gt; 2) | 0x80);
++}
++
++static void lpphy_rev0_1_rc_calib(struct b43_wldev *dev)
++{
++	//TODO and SPEC FIXME
++}
++
++static void lpphy_rev2plus_rc_calib(struct b43_wldev *dev)
++{
++	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
++	u32 crystal_freq = bus-&gt;chipco.pmu.crystalfreq * 1000;
++	u8 tmp = b43_radio_read(dev, B2063_RX_BB_SP8) &amp; 0xFF;
++	int i;
++
++	b43_radio_write(dev, B2063_RX_BB_SP8, 0x0);
++	b43_radio_write(dev, B2063_RC_CALIB_CTL1, 0x7E);
++	b43_radio_mask(dev, B2063_PLL_SP1, 0xF7);
++	b43_radio_write(dev, B2063_RC_CALIB_CTL1, 0x7C);
++	b43_radio_write(dev, B2063_RC_CALIB_CTL2, 0x15);
++	b43_radio_write(dev, B2063_RC_CALIB_CTL3, 0x70);
++	b43_radio_write(dev, B2063_RC_CALIB_CTL4, 0x52);
++	b43_radio_write(dev, B2063_RC_CALIB_CTL5, 0x1);
++	b43_radio_write(dev, B2063_RC_CALIB_CTL1, 0x7D);
++
++	for (i = 0; i &lt; 10000; i++) {
++		if (b43_radio_read(dev, B2063_RC_CALIB_CTL6) &amp; 0x2)
++			break;
++		msleep(1);
++	}
++
++	if (!(b43_radio_read(dev, B2063_RC_CALIB_CTL6) &amp; 0x2))
++		b43_radio_write(dev, B2063_RX_BB_SP8, tmp);
++
++	tmp = b43_radio_read(dev, B2063_TX_BB_SP3) &amp; 0xFF;
++
++	b43_radio_write(dev, B2063_TX_BB_SP3, 0x0);
++	b43_radio_write(dev, B2063_RC_CALIB_CTL1, 0x7E);
++	b43_radio_write(dev, B2063_RC_CALIB_CTL1, 0x7C);
++	b43_radio_write(dev, B2063_RC_CALIB_CTL2, 0x55);
++	b43_radio_write(dev, B2063_RC_CALIB_CTL3, 0x76);
++
++	if (crystal_freq == 24000000) {
++		b43_radio_write(dev, B2063_RC_CALIB_CTL4, 0xFC);
++		b43_radio_write(dev, B2063_RC_CALIB_CTL5, 0x0);
++	} else {
++		b43_radio_write(dev, B2063_RC_CALIB_CTL4, 0x13);
++		b43_radio_write(dev, B2063_RC_CALIB_CTL5, 0x1);
++	}
++
++	b43_radio_write(dev, B2063_PA_SP7, 0x7D);
++
++	for (i = 0; i &lt; 10000; i++) {
++		if (b43_radio_read(dev, B2063_RC_CALIB_CTL6) &amp; 0x2)
++			break;
++		msleep(1);
++	}
++
++	if (!(b43_radio_read(dev, B2063_RC_CALIB_CTL6) &amp; 0x2))
++		b43_radio_write(dev, B2063_TX_BB_SP3, tmp);
++
++	b43_radio_write(dev, B2063_RC_CALIB_CTL1, 0x7E);
++}
++
++static void lpphy_calibrate_rc(struct b43_wldev *dev)
++{
++	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
++
++	if (dev-&gt;phy.rev &gt;= 2) {
++		lpphy_rev2plus_rc_calib(dev);
++	} else if (!lpphy-&gt;rc_cap) {
++		if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)
++			lpphy_rev0_1_rc_calib(dev);
++	} else {
++		lpphy_set_rc_cap(dev);
++	}
++}
++
+ /* Read the TX power control mode from hardware. */
+ static void lpphy_read_tx_pctl_mode_from_hardware(struct b43_wldev *dev)
+ {
+@@ -780,7 +864,7 @@ static int b43_lpphy_op_init(struct b43_wldev *dev)
+ 	lpphy_read_band_sprom(dev); //FIXME should this be in prepare_structs?
+ 	lpphy_baseband_init(dev);
+ 	lpphy_radio_init(dev);
+-	//TODO calibrate RC
++	lpphy_calibrate_rc(dev);
+ 	//TODO set channel
+ 	lpphy_tx_pctl_init(dev);
+ 	lpphy_calibration(dev);
+-- 
+1.6.2.4
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005750.html">[PATCH] b43: LP-PHY: Implement reading band SPROM
+</A></li>
+	<LI>Next message: <A HREF="005752.html">[PATCH] b43: LP-PHY: Refactor TX gain table I/O
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5751">[ date ]</a>
+              <a href="thread.html#5751">[ thread ]</a>
+              <a href="subject.html#5751">[ subject ]</a>
+              <a href="author.html#5751">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

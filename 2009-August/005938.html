@@ -1,0 +1,183 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Implement antenna diversity support for LP-PHY
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Implement%20antenna%20diversity%20support%20for%20LP-PHY&In-Reply-To=%3C69e28c910908271341i23fd709ag8444b00bad3c7f48%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005937.html">
+   <LINK REL="Next"  HREF="005940.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Implement antenna diversity support for LP-PHY</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Implement%20antenna%20diversity%20support%20for%20LP-PHY&In-Reply-To=%3C69e28c910908271341i23fd709ag8444b00bad3c7f48%40mail.gmail.com%3E"
+       TITLE="[PATCH] b43: Implement antenna diversity support for LP-PHY">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Thu Aug 27 22:41:17 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005937.html">[PATCH] b43: Implement antenna diversity support for LP-PHY
+</A></li>
+        <LI>Next message: <A HREF="005940.html">[PATCH] b43: Implement antenna diversity support for LP-PHY
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5938">[ date ]</a>
+              <a href="thread.html#5938">[ thread ]</a>
+              <a href="subject.html#5938">[ subject ]</a>
+              <a href="author.html#5938">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>2009/8/27 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;:
+&gt;<i> On Thursday 27 August 2009 20:56:22 G&#225;bor Stefanik wrote:
+</I>&gt;&gt;<i> The A/G-PHY changes are fallout fixes from the enum change,
+</I>&gt;&gt;<i> which in turn allows the LP-PHY code to be much simpler.
+</I>&gt;&gt;<i> The antenna_to_phyctl change is a fix for a potential
+</I>&gt;&gt;<i> existing bug that this patch may otherwise trigger.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+</I>&gt;&gt;<i> ---
+</I>&gt;&gt;<i> Note that according to recent spec changes, the A/G-PHY
+</I>&gt;&gt;<i> antenna diversity routines also need to be updated.
+</I>&gt;&gt;<i> However, I'm not lumping those changes into this patch
+</I>&gt;&gt;<i> (this is for LP-PHY).
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;drivers/net/wireless/b43/main.c &#160; &#160; &#160; | &#160; &#160;3 ++-
+</I>&gt;&gt;<i> &#160;drivers/net/wireless/b43/phy_a.c &#160; &#160; &#160;| &#160; &#160;2 +-
+</I>&gt;&gt;<i> &#160;drivers/net/wireless/b43/phy_common.h | &#160; 10 +++++-----
+</I>&gt;&gt;<i> &#160;drivers/net/wireless/b43/phy_g.c &#160; &#160; &#160;| &#160; &#160;2 +-
+</I>&gt;&gt;<i> &#160;drivers/net/wireless/b43/phy_lp.c &#160; &#160; | &#160; 11 ++++++++++-
+</I>&gt;&gt;<i> &#160;5 files changed, 19 insertions(+), 9 deletions(-)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+</I>&gt;&gt;<i> index 289e06c..3b038c9 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/main.c
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/main.c
+</I>&gt;&gt;<i> @@ -1456,7 +1456,8 @@ static u16 b43_antenna_to_phyctl(int antenna)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; return B43_TXH_PHY_ANT2;
+</I>&gt;&gt;<i> &#160; &#160; &#160; case B43_ANTENNA3:
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; return B43_TXH_PHY_ANT3;
+</I>&gt;&gt;<i> - &#160; &#160; case B43_ANTENNA_AUTO:
+</I>&gt;&gt;<i> + &#160; &#160; case B43_ANTENNA_AUTO0:
+</I>&gt;&gt;<i> + &#160; &#160; case B43_ANTENNA_AUTO1:
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; return B43_TXH_PHY_ANT01AUTO;
+</I>&gt;&gt;<i> &#160; &#160; &#160; }
+</I>&gt;&gt;<i> &#160; &#160; &#160; B43_WARN_ON(1);
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/phy_a.c b/drivers/net/wireless/b43/phy_a.c
+</I>&gt;&gt;<i> index 816e028..809ec97 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/phy_a.c
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/phy_a.c
+</I>&gt;&gt;<i> @@ -531,7 +531,7 @@ static void b43_aphy_op_set_rx_antenna(struct b43_wldev *dev, int antenna)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; tmp = b43_phy_read(dev, B43_PHY_BBANDCFG);
+</I>&gt;&gt;<i> &#160; &#160; &#160; tmp &amp;= ~B43_PHY_BBANDCFG_RXANT;
+</I>&gt;&gt;<i> - &#160; &#160; tmp |= (autodiv ? B43_ANTENNA_AUTO0 : antenna)
+</I>&gt;&gt;<i> + &#160; &#160; tmp |= (autodiv ? B43_ANTENNA_AUTO1 : antenna)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &lt;&lt; B43_PHY_BBANDCFG_RXANT_SHIFT;
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_write(dev, B43_PHY_BBANDCFG, tmp);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/phy_common.h b/drivers/net/wireless/b43/phy_common.h
+</I>&gt;&gt;<i> index b47a0f5..28e3846 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/phy_common.h
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/phy_common.h
+</I>&gt;&gt;<i> @@ -49,11 +49,11 @@ enum b43_interference_mitigation {
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;/* Antenna identifiers */
+</I>&gt;&gt;<i> &#160;enum {
+</I>&gt;&gt;<i> - &#160; &#160; B43_ANTENNA0, &#160; &#160; &#160; &#160; &#160; /* Antenna 0 */
+</I>&gt;&gt;<i> - &#160; &#160; B43_ANTENNA1, &#160; &#160; &#160; &#160; &#160; /* Antenna 0 */
+</I>&gt;&gt;<i> - &#160; &#160; B43_ANTENNA_AUTO1, &#160; &#160; &#160;/* Automatic, starting with antenna 1 */
+</I>&gt;&gt;<i> - &#160; &#160; B43_ANTENNA_AUTO0, &#160; &#160; &#160;/* Automatic, starting with antenna 0 */
+</I>&gt;&gt;<i> - &#160; &#160; B43_ANTENNA2,
+</I>&gt;&gt;<i> + &#160; &#160; B43_ANTENNA0 = 0, &#160; &#160; &#160; /* Antenna 0 */
+</I>&gt;&gt;<i> + &#160; &#160; B43_ANTENNA1 = 1, &#160; &#160; &#160; /* Antenna 1 */
+</I>&gt;&gt;<i> + &#160; &#160; B43_ANTENNA_AUTO0 = 2, &#160;/* Automatic, starting with antenna 0 */
+</I>&gt;&gt;<i> + &#160; &#160; B43_ANTENNA_AUTO1 = 3, &#160;/* Automatic, starting with antenna 1 */
+</I>&gt;&gt;<i> + &#160; &#160; B43_ANTENNA2 = 4,
+</I>&gt;&gt;<i> &#160; &#160; &#160; B43_ANTENNA3 = 8,
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; B43_ANTENNA_AUTO = B43_ANTENNA_AUTO0,
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/phy_g.c b/drivers/net/wireless/b43/phy_g.c
+</I>&gt;&gt;<i> index c6c9d2f..c6d639d 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/phy_g.c
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/phy_g.c
+</I>&gt;&gt;<i> @@ -2651,7 +2651,7 @@ static void b43_gphy_op_set_rx_antenna(struct b43_wldev *dev, int antenna)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; tmp = b43_phy_read(dev, B43_PHY_BBANDCFG);
+</I>&gt;&gt;<i> &#160; &#160; &#160; tmp &amp;= ~B43_PHY_BBANDCFG_RXANT;
+</I>&gt;&gt;<i> - &#160; &#160; tmp |= (autodiv ? B43_ANTENNA_AUTO0 : antenna)
+</I>&gt;&gt;<i> + &#160; &#160; tmp |= (autodiv ? B43_ANTENNA_AUTO1 : antenna)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &lt;&lt; B43_PHY_BBANDCFG_RXANT_SHIFT;
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_write(dev, B43_PHY_BBANDCFG, tmp);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> index 837d952..055c0f7 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> @@ -2204,7 +2204,16 @@ static int b43_lpphy_op_init(struct b43_wldev *dev)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;static void b43_lpphy_op_set_rx_antenna(struct b43_wldev *dev, int antenna)
+</I>&gt;&gt;<i> &#160;{
+</I>&gt;&gt;<i> - &#160; &#160; //TODO
+</I>&gt;&gt;<i> + &#160; &#160; int autodiv = ;
+</I>&gt;<i>
+</I>&gt;<i> Does this compile?
+</I>
+That's a typo. Also, the autodiv variable shouldn't be there at all.
+Will respin.
+
+&gt;<i>
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> + &#160; &#160; if (dev-&gt;phy.rev &gt;= 2)
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; return; // rev2+ doesn't support antenna diversity
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> + &#160; &#160; if (B43_WARN_ON(antenna &gt; B43_ANTENNA_AUTO1))
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; return;
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> + &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_CRSGAIN_CTL, 0xFFFD, antenna &amp; 0x2);
+</I>&gt;&gt;<i> + &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_CRSGAIN_CTL, 0xFFFE, antenna &amp; 0x1);
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;static void b43_lpphy_op_adjust_txpower(struct b43_wldev *dev)
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i> Greetings, Michael.
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005937.html">[PATCH] b43: Implement antenna diversity support for LP-PHY
+</A></li>
+	<LI>Next message: <A HREF="005940.html">[PATCH] b43: Implement antenna diversity support for LP-PHY
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5938">[ date ]</a>
+              <a href="thread.html#5938">[ thread ]</a>
+              <a href="subject.html#5938">[ subject ]</a>
+              <a href="author.html#5938">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

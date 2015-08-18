@@ -1,0 +1,251 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20WiFi%20-%20Broadcom%204306%20on%20kernel%202.6.24%20%28b43%20module%29&In-Reply-To=%3Cdd5a13890802070752n5eb2c68ew1e3e55436a215ccc%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003363.html">
+   <LINK REL="Next"  HREF="003365.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)</H1>
+    <B>Marcelo Juchem</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20WiFi%20-%20Broadcom%204306%20on%20kernel%202.6.24%20%28b43%20module%29&In-Reply-To=%3Cdd5a13890802070752n5eb2c68ew1e3e55436a215ccc%40mail.gmail.com%3E"
+       TITLE="WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)">juchem at gmail.com
+       </A><BR>
+    <I>Thu Feb  7 16:52:59 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003363.html">WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)
+</A></li>
+        <LI>Next message: <A HREF="003365.html">WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3364">[ date ]</a>
+              <a href="thread.html#3364">[ thread ]</a>
+              <a href="subject.html#3364">[ subject ]</a>
+              <a href="author.html#3364">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi guys,
+
+    Larry, your solution worked just fine, thanks A LOT. :)
+    I found out an easier way to get things done: I just removed the
+line for my wifi interface (eth1 on 2.6.23) from the udev file you
+mentioned and reloaded the b43 driver. Seems like udev re-added the
+line with all the needed changes (renamed the interface to wlan0, but
+that's ok).
+    It seems to me that it's a problem with upgrading from bcm43xx to
+b43, which leaves the udev persistent config file with an entry that
+does not work for b43. Don't know why it happens, but it's solved now.
+I'm gonna write this solution (with appropriate credits) on the other
+forums I asked for help, seems like no-one was aware of it.
+    iwconfig still complains about wmaster0 having invalid address
+type 801 or something like that and it takes a while to authenticate
+with my access point (DHCP request from ifup times out, I have to
+manually dhclient later), but after that it works just fine and the
+connection never drops. The signal strenght is a lot stronger than
+with bcm43xx.
+
+    Thanks guys, and gratz for the great job,
+
+Marcelo Juchem
+
+On Feb 7, 2008 1:03 PM, Anthony Durity &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">bcm43xx at jollyrotten.org</A>&gt; wrote:
+&gt;<i> Hi folks,
+</I>&gt;<i>
+</I>&gt;<i> The same happened with me upgrading from 2.6.22 to 2.6.24 via an upgrade
+</I>&gt;<i> from Ubuntu Gutsy to Ubuntu Hardy. There is definitely a renaming thing
+</I>&gt;<i> going on. I tried adding the ATTR clause like you suggested here and also
+</I>&gt;<i> suggested to another poster if I recall correctly and it didn't work. They
+</I>&gt;<i> recently pushed a brand spanking new kernel which I haven't tried. What
+</I>&gt;<i> information would you need to exactly pinpoint the problem. It seems that a
+</I>&gt;<i> number of people have been bitten by this. Cheers for your great work thus
+</I>&gt;<i> far by the way.
+</I>&gt;<i>
+</I>&gt;<i> All the best,
+</I>&gt;<i>     Anthony
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> On 2/7/08, Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">larry.finger at lwfinger.net</A>&gt; wrote:
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; Marcelo Juchem wrote:
+</I>&gt;<i> &gt; &gt; Hi,
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt;       I have a HP Presario zv6015 laptop with Debian 4.0 installed
+</I>&gt;<i> (using
+</I>&gt;<i> &gt; &gt; the official unstable repository). When running the kernel 2.6.23,
+</I>&gt;<i> &gt; &gt; everything works fine, even the Broadcom 4306 wireless card (using
+</I>&gt;<i> &gt; &gt; module bcm43xx shipped with the kernel and firmware ripped with
+</I>&gt;<i> &gt; &gt; bcm43xx-fwcutter from official Debian unstable repository). But when I
+</I>&gt;<i> &gt; &gt; boot with the new kernel 2.6.24, the wireless network stops working. I
+</I>&gt;<i> &gt; &gt; tried everything found in
+</I>&gt;<i> &gt; &gt; <A HREF="http://www.linuxwireless.org/en/users/Drivers/b43">http://www.linuxwireless.org/en/users/Drivers/b43</A> and searched a lot
+</I>&gt;<i> &gt; &gt; of solutions on the Internet, but had no success. Both modules b43 and
+</I>&gt;<i> &gt; &gt; b43 legacy were tried. I think it is a firmware issue, since I had the
+</I>&gt;<i> &gt; &gt; same problem with bcm43xx and it was solved when I changed the
+</I>&gt;<i> &gt; &gt; firmware. I have the following firmware files (tried every version
+</I>&gt;<i> &gt; &gt; listed below):
+</I>&gt;<i> &gt; &gt; /lib/firmware/b43/*.fw - 4.x firmware extracted with b43-fwcutter
+</I>&gt;<i> &gt; &gt; /lib/firmware/b43legacy/*.fw - 3.x firmware extracted with b43-fwcutter
+</I>&gt;<i> &gt; &gt; /lib/firmware/*.fw - 3.x firmware extracted with bcm43xx-fwcutter
+</I>&gt;<i> &gt; &gt; Any ideas? I don't have much free time available due to work and
+</I>&gt;<i> &gt; &gt; college, but I have good C and C++ coding skills and am willing to
+</I>&gt;<i> &gt; &gt; help.
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt;       Thanks,
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; Marcelo Juchem
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; Following is the output of some commands and content of some config
+</I>&gt;<i> &gt; &gt; files to help the diagnostic.
+</I>&gt;<i> &gt; &gt; ----------------------------------------------
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; using debian linux with kernel linux-image-2.6.24-1-686
+</I>&gt;<i> &gt; &gt; updated as of 01/31/2008 from the official debian unstable repository
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; firmware extracted to /lib/firmware/b43
+</I>&gt;<i> &gt; &gt; broadcom-wl-4.80.53.0 - extracted with b43-fwcutter 009
+</I>&gt;<i> &gt; &gt; broadcom-wl-4.150.10.5 - extracted with b43-fwcutter 010
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; firmware extracted from these files, found at
+</I>&gt;<i> &gt; &gt; <A HREF="http://www.linuxwireless.org/en/users/Drivers/b43:">http://www.linuxwireless.org/en/users/Drivers/b43:</A>
+</I>&gt;<i> &gt; &gt; broadcom-wl-4.80.53.0/kmod/wl_apsta_mimo.o
+</I>&gt;<i> &gt; &gt; broadcom-wl-4.80.53.0/kmod/wl_apsta.o
+</I>&gt;<i> &gt; &gt; broadcom-wl-4.150.10.5/driver/wl_apsta_mimo.o
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; b43-fwcutter version 009: obtained from the official debian unstable
+</I>&gt;<i> &gt; &gt; repository as of 01/31/2008
+</I>&gt;<i> &gt; &gt; b43-fwcutter version 010: compiled from sources found at
+</I>&gt;<i> &gt; &gt; <A HREF="http://www.bu3sch.de/b43/fwcutter/">http://www.bu3sch.de/b43/fwcutter/</A>
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; --- 'lspci' output - BEGIN ---
+</I>&gt;<i> &gt; &gt; 03:02.0 Network controller: Broadcom Corporation BCM4306 802.11b/g
+</I>&gt;<i> &gt; &gt; Wireless LAN Controller (rev 03)
+</I>&gt;<i> &gt; &gt; --- 'lspci' output - END ---
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; --- /etc/network/interfaces - BEGIN ---
+</I>&gt;<i> &gt; &gt; # I changed the ESSID, nickname and password to placeholders
+</I>&gt;<i> &gt; &gt; iface lo inet loopback
+</I>&gt;<i> &gt; &gt; auto lo
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; iface eth1 inet dhcp
+</I>&gt;<i> &gt; &gt; wireless-essid WiFiNetworkESSID
+</I>&gt;<i> &gt; &gt; wireless-mode Managed
+</I>&gt;<i> &gt; &gt; wireless-channel 6
+</I>&gt;<i> &gt; &gt; wireless-nickname nickname
+</I>&gt;<i> &gt; &gt; wireless-key open s:password
+</I>&gt;<i> &gt; &gt; hostname nickname
+</I>&gt;<i> &gt; &gt; auto eth1
+</I>&gt;<i> &gt; &gt; --- /etc/network/interfaces - END ---
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; --- 'dmesg' output - BEGIN ---
+</I>&gt;<i> &gt; &gt; b43-phy1: Broadcom 4306 WLAN found
+</I>&gt;<i> &gt; &gt; phy1: Selected rate control algorithm 'simple'
+</I>&gt;<i> &gt; &gt; udev: renamed network interface wmaster0 to eth1
+</I>&gt;<i> &gt; &gt; --- 'dmesg' output - END ---
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; --- 'iwlist eth1 scan' output - BEGIN ---
+</I>&gt;<i> &gt; &gt; eth1 Interface doesn't support scanning.
+</I>&gt;<i> &gt; &gt; --- 'iwlist eth1 scan' output - END ---
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; --- 'ifup' output - BEGIN ---
+</I>&gt;<i> &gt; &gt; Error for wireless request &quot;Set Mode&quot; (8B06) :
+</I>&gt;<i> &gt; &gt; SET failed on device eth1 ; Operation not supported.
+</I>&gt;<i> &gt; &gt; Error for wireless request &quot;Set Encode&quot; (8B2A) :
+</I>&gt;<i> &gt; &gt; SET failed on device eth1 ; Operation not supported.
+</I>&gt;<i> &gt; &gt; Error for wireless request &quot;Set Frequency&quot; (8B04) :
+</I>&gt;<i> &gt; &gt; SET failed on device eth1 ; Operation not supported.
+</I>&gt;<i> &gt; &gt; Error for wireless request &quot;Set ESSID&quot; (8B1A) :
+</I>&gt;<i> &gt; &gt; SET failed on device eth1 ; Operation not supported.
+</I>&gt;<i> &gt; &gt; Internet Systems Consortium DHCP Client V3.1.0
+</I>&gt;<i> &gt; &gt; Copyright 2004-2007 Internet Systems Consortium.
+</I>&gt;<i> &gt; &gt; All rights reserved.
+</I>&gt;<i> &gt; &gt; For info, please visit <A HREF="http://www.isc.org/sw/dhcp/">http://www.isc.org/sw/dhcp/</A>
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; eth1: unknown hardware address type 801
+</I>&gt;<i> &gt; &gt; SIOCSIFFLAGS: Operation not supported
+</I>&gt;<i> &gt; &gt; SIOCSIFFLAGS: Operation not supported
+</I>&gt;<i> &gt; &gt; eth1: unknown hardware address type 801
+</I>&gt;<i> &gt; &gt; Listening on LPF/eth1/
+</I>&gt;<i> &gt; &gt; Sending on LPF/eth1/
+</I>&gt;<i> &gt; &gt; Sending on Socket/fallback
+</I>&gt;<i> &gt; &gt; receive_packet failed on eth1: Network is down
+</I>&gt;<i> &gt; &gt; option_space_encapsulate: option space agent does not exist, but is
+</I>&gt;<i> configured.
+</I>&gt;<i> &gt; &gt; DHCPDISCOVER on eth1 to 255.255.255.255 port 67 interval 8
+</I>&gt;<i> &gt; &gt; send_packet: Network is down
+</I>&gt;<i> &gt; &gt; DHCPDISCOVER on eth1 to 255.255.255.255 port 67 interval 10
+</I>&gt;<i> &gt; &gt; send_packet: Network is down
+</I>&gt;<i> &gt; &gt; DHCPDISCOVER on eth1 to 255.255.255.255 port 67 interval 21
+</I>&gt;<i> &gt; &gt; send_packet: Network is down
+</I>&gt;<i> &gt; &gt; DHCPDISCOVER on eth1 to 255.255.255.255 port 67 interval 19
+</I>&gt;<i> &gt; &gt; send_packet: Network is down
+</I>&gt;<i> &gt; &gt; DHCPDISCOVER on eth1 to 255.255.255.255 port 67 interval 3
+</I>&gt;<i> &gt; &gt; send_packet: Network is down
+</I>&gt;<i> &gt; &gt; No DHCPOFFERS received.
+</I>&gt;<i> &gt; &gt; No working leases in persistent database - sleeping.
+</I>&gt;<i> &gt; &gt; --- 'ifup' output - END ---
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; I think your renaming is messed up. If you had sent the output of
+</I>&gt;<i> iwconfig, I could tell for sure. I
+</I>&gt;<i> &gt; am betting that your /etc/udev/rules.d/70-persistent-net.rules needs a
+</I>&gt;<i> rule like
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; SUBSYSTEM==&quot;net&quot;, DRIVERS==&quot;?*&quot;, ATTR{address}==&quot;XX:XX:XX:XX:XX:XX&quot;,
+</I>&gt;<i> ATTR{type}==&quot;1&quot;, NAME=&quot;eth1&quot;
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; On your system, I think the ATTR clause is missing and your iwconfig list
+</I>&gt;<i> ends up with eth1 and
+</I>&gt;<i> &gt; wlan0-rename, rather than wmaster0 and eth1. The clue is that wmaster0 has
+</I>&gt;<i> type 801.
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; Fix your udev rules, and it should work.
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; Larry
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; _______________________________________________
+</I>&gt;<i> &gt; Bcm43xx-dev mailing list
+</I>&gt;<i> &gt; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> &gt; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>&gt;<i> &gt;
+</I>&gt;<i>
+</I>&gt;<i>
+</I>
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003363.html">WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)
+</A></li>
+	<LI>Next message: <A HREF="003365.html">WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3364">[ date ]</a>
+              <a href="thread.html#3364">[ thread ]</a>
+              <a href="subject.html#3364">[ subject ]</a>
+              <a href="author.html#3364">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

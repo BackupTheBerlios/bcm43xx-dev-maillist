@@ -1,0 +1,497 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH V2] b43legacy: Fix machine check errors for PPC	architecture with BCM4306/2
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20b43legacy%3A%20Fix%20machine%20check%20errors%20for%20PPC%0A%09architecture%20with%20BCM4306/2&In-Reply-To=%3C46ec4d0c.PU%2BVRueOH3Peh6s5%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002420.html">
+   <LINK REL="Next"  HREF="002417.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH V2] b43legacy: Fix machine check errors for PPC	architecture with BCM4306/2</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20b43legacy%3A%20Fix%20machine%20check%20errors%20for%20PPC%0A%09architecture%20with%20BCM4306/2&In-Reply-To=%3C46ec4d0c.PU%2BVRueOH3Peh6s5%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH V2] b43legacy: Fix machine check errors for PPC	architecture with BCM4306/2">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Sep 15 23:22:20 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002420.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+        <LI>Next message: <A HREF="002417.html">[PATCH V2] b43legacy: Fix machine check errors for PPC	architecture with BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2414">[ date ]</a>
+              <a href="thread.html#2414">[ thread ]</a>
+              <a href="subject.html#2414">[ subject ]</a>
+              <a href="author.html#2414">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>In b43legacy, the variable gmode is always set. With a BCM4306/2,
+and likely a BCM4301, a variable is needed to control the execution
+path through the PHY and radio initialization, otherwise there are
+attempts to read from invalid registers. On x86 platforms, these
+read failures cause no problems; however they lead to machine check
+errors for the ppc architecture. This patch reverts to the variable
+and semantics used in the V3 specifications. It has been tested on
+an i386 platform using special code to detect these invalid reads,
+and on at least one Powerbook.
+ 
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+This patch fixes a problem with the Fedora Rawhide kernel reported by David
+Woodhouse on the bcm43xx mailing list and by Will Woods at 
+<A HREF="https://bugzilla.redhat.com/show_bug.cgi?id=233011.">https://bugzilla.redhat.com/show_bug.cgi?id=233011.</A> 
+
+Larry
+
+ drivers/net/wireless/b43legacy/main.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+Index: wireless-dev/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-dev/drivers/net/wireless/b43legacy/main.c
+@@ -738,8 +738,11 @@ void b43legacy_wireless_core_reset(struc
+ 
+ 	macctl = b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
+ 	macctl &amp;= ~B43legacy_MACCTL_GMODE;
+-	if (flags &amp; B43legacy_TMSLOW_GMODE)
++	if (flags &amp; B43legacy_TMSLOW_GMODE) {
+ 		macctl |= B43legacy_MACCTL_GMODE;
++		dev-&gt;phy.connected = 1;
++	} else
++		dev-&gt;phy.connected = 0;
+ 	macctl |= B43legacy_MACCTL_IHR_ENABLED;
+ 	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, macctl);
+ }
+@@ -2464,15 +2467,15 @@ static const char *phymode_to_string(uns
+ static int find_wldev_for_phymode(struct b43legacy_wl *wl,
+ 				  unsigned int phymode,
+ 				  struct b43legacy_wldev **dev,
+-				  bool *gmode)
++				  bool *connected)
+ {
+ 	struct b43legacy_wldev *d;
+ 
+ 	list_for_each_entry(d, &amp;wl-&gt;devlist, list) {
+ 		if (d-&gt;phy.possible_phymodes &amp; phymode) {
+ 			/* Ok, this device supports the PHY-mode.
+-			 * Set the gmode bit. */
+-			*gmode = 1;
++			 * Set the connected bit. */
++			*connected = 1;
+ 			*dev = d;
+ 
+ 			return 0;
+@@ -2508,17 +2511,17 @@ static int b43legacy_switch_phymode(stru
+ 	struct b43legacy_wldev *up_dev;
+ 	struct b43legacy_wldev *down_dev;
+ 	int err;
+-	bool gmode = 0;
++	bool connected = 0;
+ 	int prev_status;
+ 
+-	err = find_wldev_for_phymode(wl, new_mode, &amp;up_dev, &amp;gmode);
++	err = find_wldev_for_phymode(wl, new_mode, &amp;up_dev, &amp;connected);
+ 	if (err) {
+ 		b43legacyerr(wl, &quot;Could not find a device for %s-PHY mode\n&quot;,
+ 		       phymode_to_string(new_mode));
+ 		return err;
+ 	}
+ 	if ((up_dev == wl-&gt;current_dev) &amp;&amp;
+-	    (!!wl-&gt;current_dev-&gt;phy.gmode == !!gmode))
++	    (!!wl-&gt;current_dev-&gt;phy.connected == !!connected))
+ 		/* This device is already running. */
+ 		return 0;
+ 	b43legacydbg(wl, &quot;Reconfiguring PHYmode to %s-PHY\n&quot;,
+@@ -2538,7 +2541,7 @@ static int b43legacy_switch_phymode(stru
+ 		b43legacy_put_phy_into_reset(down_dev);
+ 
+ 	/* Now start the new core. */
+-	up_dev-&gt;phy.gmode = gmode;
++	up_dev-&gt;phy.connected = connected;
+ 	if (prev_status &gt;= B43legacy_STAT_INITIALIZED) {
+ 		err = b43legacy_wireless_core_init(up_dev);
+ 		if (err) {
+@@ -3094,7 +3097,7 @@ static int b43legacy_wireless_core_init(
+ 	if (err)
+ 		goto out;
+ 	if (!ssb_device_is_enabled(dev-&gt;dev)) {
+-		tmp = phy-&gt;gmode ? B43legacy_TMSLOW_GMODE : 0;
++		tmp = phy-&gt;connected ? B43legacy_TMSLOW_GMODE : 0;
+ 		b43legacy_wireless_core_reset(dev, tmp);
+ 	}
+ 
+@@ -3424,7 +3427,6 @@ static int b43legacy_wireless_core_attac
+ 	int err;
+ 	int have_bphy = 0;
+ 	int have_gphy = 0;
+-	u32 tmp;
+ 
+ 	/* Do NOT do any device initialization here.
+ 	 * Do it in wireless_core_init() instead.
+@@ -3456,9 +3458,7 @@ static int b43legacy_wireless_core_attac
+ 	if (err)
+ 		goto err_powerdown;
+ 
+-	dev-&gt;phy.gmode = (have_gphy || have_bphy);
+-	tmp = dev-&gt;phy.gmode ? B43legacy_TMSLOW_GMODE : 0;
+-	b43legacy_wireless_core_reset(dev, tmp);
++	b43legacy_wireless_core_reset(dev, B43legacy_TMSLOW_GMODE);
+ 
+ 	err = b43legacy_phy_versioning(dev);
+ 	if (err)
+@@ -3482,9 +3482,7 @@ static int b43legacy_wireless_core_attac
+ 			B43legacy_BUG_ON(1);
+ 		}
+ 	}
+-	dev-&gt;phy.gmode = (have_gphy || have_bphy);
+-	tmp = dev-&gt;phy.gmode ? B43legacy_TMSLOW_GMODE : 0;
+-	b43legacy_wireless_core_reset(dev, tmp);
++	b43legacy_wireless_core_reset(dev, B43legacy_TMSLOW_GMODE);
+ 
+ 	err = b43legacy_validate_chipaccess(dev);
+ 	if (err)
+Index: wireless-dev/drivers/net/wireless/b43legacy/b43legacy.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/b43legacy.h
++++ wireless-dev/drivers/net/wireless/b43legacy/b43legacy.h
+@@ -389,10 +389,10 @@ struct b43legacy_lopair {
+ struct b43legacy_phy {
+ 	/* Possible PHYMODEs on this PHY */
+ 	u8 possible_phymodes;
+-	/* GMODE bit enabled? */
+-	bool gmode;
++	/* true if PHY registers can be accessed */
++	bool connected;
+ 	/* Possible ieee80211 subsystem hwmodes for this PHY.
+-	 * Which mode is selected, depends on thr GMODE enabled bit */
++	 * This will be either G or B mode */
+ #define B43legacy_MAX_PHYHWMODES	2
+ 	struct ieee80211_hw_mode hwmodes[B43legacy_MAX_PHYHWMODES];
+ 
+Index: wireless-dev/drivers/net/wireless/b43legacy/phy.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/phy.c
++++ wireless-dev/drivers/net/wireless/b43legacy/phy.c
+@@ -176,7 +176,7 @@ static void b43legacy_phy_init_pctl(stru
+ 	b43legacy_write16(dev, 0x03E6, b43legacy_read16(dev, 0x03E6) &amp; 0xFFDF);
+ 
+ 	if (phy-&gt;type == B43legacy_PHYTYPE_G) {
+-		if (!phy-&gt;gmode)
++		if (!phy-&gt;connected)
+ 			return;
+ 		b43legacy_phy_write(dev, 0x047A, 0xC111);
+ 	}
+@@ -585,7 +585,7 @@ static void b43legacy_phy_initb5(struct 
+ 	if (phy-&gt;radio_ver == 0x2050)
+ 		b43legacy_phy_write(dev, 0x0038, 0x0667);
+ 
+-	if (phy-&gt;gmode) {
++	if (phy-&gt;connected) {
+ 		if (phy-&gt;radio_ver == 0x2050) {
+ 			b43legacy_radio_write16(dev, 0x007A,
+ 					b43legacy_radio_read16(dev, 0x007A)
+@@ -1024,7 +1024,7 @@ static void b43legacy_phy_initg(struct b
+ 		b43legacy_phy_initb5(dev);
+ 	else
+ 		b43legacy_phy_initb6(dev);
+-	if (phy-&gt;rev &gt;= 2 || phy-&gt;gmode)
++	if (phy-&gt;rev &gt;= 2 || phy-&gt;connected)
+ 		b43legacy_phy_inita(dev);
+ 
+ 	if (phy-&gt;rev &gt;= 2) {
+@@ -1039,7 +1039,7 @@ static void b43legacy_phy_initg(struct b
+ 		b43legacy_phy_write(dev, 0x0811, 0x0400);
+ 		b43legacy_phy_write(dev, 0x0015, 0x00C0);
+ 	}
+-	if (phy-&gt;rev &gt;= 2 || phy-&gt;gmode) {
++	if (phy-&gt;rev &gt;= 2 || phy-&gt;connected) {
+ 		tmp = b43legacy_phy_read(dev, 0x0400) &amp; 0xFF;
+ 		if (tmp == 3 || tmp == 5) {
+ 			b43legacy_phy_write(dev, 0x04C2, 0x1816);
+@@ -1058,7 +1058,7 @@ static void b43legacy_phy_initg(struct b
+ 		b43legacy_phy_write(dev, 0x043E, b43legacy_phy_read(dev, 0x043E)
+ 				    | 0x0004);
+ 	}
+-	if (phy-&gt;rev &gt;= 2 &amp;&amp; phy-&gt;gmode)
++	if (phy-&gt;rev &gt;= 2 &amp;&amp; phy-&gt;connected)
+ 		b43legacy_calc_loopback_gain(dev);
+ 	if (phy-&gt;radio_rev != 8) {
+ 		if (phy-&gt;initval == 0xFFFF)
+@@ -1092,7 +1092,7 @@ static void b43legacy_phy_initg(struct b
+ 		else
+ 			b43legacy_phy_write(dev, 0x002F, 0x0202);
+ 	}
+-	if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
++	if (phy-&gt;connected || phy-&gt;rev &gt;= 2) {
+ 		b43legacy_phy_lo_adjust(dev, 0);
+ 		b43legacy_phy_write(dev, 0x080F, 0x8078);
+ 	}
+@@ -1106,7 +1106,7 @@ static void b43legacy_phy_initg(struct b
+ 		 */
+ 		b43legacy_nrssi_hw_update(dev, 0xFFFF);
+ 		b43legacy_calc_nrssi_threshold(dev);
+-	} else if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
++	} else if (phy-&gt;connected || phy-&gt;rev &gt;= 2) {
+ 		if (phy-&gt;nrssi[0] == -1000) {
+ 			B43legacy_WARN_ON(phy-&gt;nrssi[1] != -1000);
+ 			b43legacy_calc_nrssi_slope(dev);
+@@ -1252,7 +1252,7 @@ u16 b43legacy_phy_lo_g_deviation_subval(
+ 	unsigned long flags;
+ 
+ 	local_irq_save(flags);
+-	if (phy-&gt;gmode) {
++	if (phy-&gt;connected) {
+ 		b43legacy_phy_write(dev, 0x15, 0xE300);
+ 		control &lt;&lt;= 8;
+ 		b43legacy_phy_write(dev, 0x0812, control | 0x00B0);
+@@ -1517,7 +1517,7 @@ void b43legacy_phy_lo_g_measure(struct b
+ 
+ 	oldchannel = phy-&gt;channel;
+ 	/* Setup */
+-	if (phy-&gt;gmode) {
++	if (phy-&gt;connected) {
+ 		regstack[0] = b43legacy_phy_read(dev, B43legacy_PHY_G_CRS);
+ 		regstack[1] = b43legacy_phy_read(dev, 0x0802);
+ 		b43legacy_phy_write(dev, B43legacy_PHY_G_CRS, regstack[0]
+@@ -1534,14 +1534,14 @@ void b43legacy_phy_lo_g_measure(struct b
+ 	regstack[9] = b43legacy_radio_read16(dev, 0x43);
+ 	regstack[10] = b43legacy_radio_read16(dev, 0x7A);
+ 	regstack[11] = b43legacy_radio_read16(dev, 0x52);
+-	if (phy-&gt;gmode) {
++	if (phy-&gt;connected) {
+ 		regstack[12] = b43legacy_phy_read(dev, 0x0811);
+ 		regstack[13] = b43legacy_phy_read(dev, 0x0812);
+ 		regstack[14] = b43legacy_phy_read(dev, 0x0814);
+ 		regstack[15] = b43legacy_phy_read(dev, 0x0815);
+ 	}
+ 	b43legacy_radio_selectchannel(dev, 6, 0);
+-	if (phy-&gt;gmode) {
++	if (phy-&gt;connected) {
+ 		b43legacy_phy_write(dev, B43legacy_PHY_G_CRS, regstack[0]
+ 				    &amp; 0x7FFF);
+ 		b43legacy_phy_write(dev, 0x0802, regstack[1] &amp; 0xFFFC);
+@@ -1558,7 +1558,7 @@ void b43legacy_phy_lo_g_measure(struct b
+ 	b43legacy_radio_write16(dev, 0x007A, regstack[10] &amp; 0xFFF0);
+ 	b43legacy_phy_write(dev, 0x002B, 0x0203);
+ 	b43legacy_phy_write(dev, 0x002A, 0x08A3);
+-	if (phy-&gt;gmode) {
++	if (phy-&gt;connected) {
+ 		b43legacy_phy_write(dev, 0x0814, regstack[14] | 0x0003);
+ 		b43legacy_phy_write(dev, 0x0815, regstack[15] &amp; 0xFFFC);
+ 		b43legacy_phy_write(dev, 0x0811, 0x01B3);
+@@ -1680,7 +1680,7 @@ void b43legacy_phy_lo_g_measure(struct b
+ 	}
+ 
+ 	/* Restoration */
+-	if (phy-&gt;gmode) {
++	if (phy-&gt;connected) {
+ 		b43legacy_phy_write(dev, 0x0015, 0xE300);
+ 		b43legacy_phy_write(dev, 0x0812, (r27 &lt;&lt; 8) | 0xA0);
+ 		udelay(5);
+@@ -1692,7 +1692,7 @@ void b43legacy_phy_lo_g_measure(struct b
+ 		b43legacy_phy_write(dev, 0x0015, r27 | 0xEFA0);
+ 	b43legacy_phy_lo_adjust(dev, is_initializing);
+ 	b43legacy_phy_write(dev, 0x002E, 0x807F);
+-	if (phy-&gt;gmode)
++	if (phy-&gt;connected)
+ 		b43legacy_phy_write(dev, 0x002F, 0x0202);
+ 	else
+ 		b43legacy_phy_write(dev, 0x002F, 0x0101);
+@@ -1707,7 +1707,7 @@ void b43legacy_phy_lo_g_measure(struct b
+ 	regstack[11] |= (b43legacy_radio_read16(dev, 0x52) &amp; 0x000F);
+ 	b43legacy_radio_write16(dev, 0x52, regstack[11]);
+ 	b43legacy_write16(dev, 0x03E2, regstack[3]);
+-	if (phy-&gt;gmode) {
++	if (phy-&gt;connected) {
+ 		b43legacy_phy_write(dev, 0x0811, regstack[12]);
+ 		b43legacy_phy_write(dev, 0x0812, regstack[13]);
+ 		b43legacy_phy_write(dev, 0x0814, regstack[14]);
+Index: wireless-dev/drivers/net/wireless/b43legacy/phy.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/phy.h
++++ wireless-dev/drivers/net/wireless/b43legacy/phy.h
+@@ -186,7 +186,7 @@ void b43legacy_raw_phy_unlock(struct b43
+ 
+ /* Card uses the loopback gain stuff */
+ #define has_loopback_gain(phy)			 \
+-	(((phy)-&gt;rev &gt; 1) || ((phy)-&gt;gmode))
++	(((phy)-&gt;rev &gt; 1) || ((phy)-&gt;connected))
+ 
+ u16 b43legacy_phy_read(struct b43legacy_wldev *dev, u16 offset);
+ void b43legacy_phy_write(struct b43legacy_wldev *dev, u16 offset, u16 val);
+Index: wireless-dev/drivers/net/wireless/b43legacy/radio.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/radio.c
++++ wireless-dev/drivers/net/wireless/b43legacy/radio.c
+@@ -856,7 +856,7 @@ void b43legacy_calc_nrssi_threshold(stru
+ 		break;
+ 	}
+ 	case B43legacy_PHYTYPE_G:
+-		if (!phy-&gt;gmode ||
++		if (!phy-&gt;connected ||
+ 		    !(dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp;
+ 		    B43legacy_BFL_RSSI)) {
+ 			tmp16 = b43legacy_nrssi_hw_read(dev, 0x20);
+@@ -1342,7 +1342,7 @@ int b43legacy_radio_set_interference_mit
+ 	int currentmode;
+ 
+ 	if ((phy-&gt;type != B43legacy_PHYTYPE_G) ||
+-	    (phy-&gt;rev == 0) || (!phy-&gt;gmode))
++	    (phy-&gt;rev == 0) || (!phy-&gt;connected))
+ 		return -ENODEV;
+ 
+ 	phy-&gt;aci_wlan_automatic = 0;
+@@ -1403,7 +1403,7 @@ static u16 b43legacy_get_812_value(struc
+ 	u8 loop;
+ 	u16 extern_lna_control;
+ 
+-	if (!phy-&gt;gmode)
++	if (!phy-&gt;connected)
+ 		return 0;
+ 	if (!has_loopback_gain(phy)) {
+ 		if (phy-&gt;rev &lt; 7 || !(dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo
+@@ -1515,7 +1515,7 @@ u16 b43legacy_radio_init2050(struct b43l
+ 		b43legacy_phy_write(dev, 0x0030, 0x00FF);
+ 		b43legacy_write16(dev, 0x03EC, 0x3F3F);
+ 	} else {
+-		if (phy-&gt;gmode) {
++		if (phy-&gt;connected) {
+ 			backup[4] = b43legacy_phy_read(dev, 0x0811);
+ 			backup[5] = b43legacy_phy_read(dev, 0x0812);
+ 			backup[6] = b43legacy_phy_read(dev, 0x0814);
+@@ -1584,13 +1584,13 @@ u16 b43legacy_radio_init2050(struct b43l
+ 	if (phy-&gt;type == B43legacy_PHYTYPE_B)
+ 		b43legacy_radio_write16(dev, 0x0078, 0x0026);
+ 
+-	if (phy-&gt;gmode)
++	if (phy-&gt;connected)
+ 		b43legacy_phy_write(dev, 0x0812,
+ 				    b43legacy_get_812_value(dev,
+ 				    LPD(0, 1, 1)));
+ 	b43legacy_phy_write(dev, 0x0015, 0xBFAF);
+ 	b43legacy_phy_write(dev, 0x002B, 0x1403);
+-	if (phy-&gt;gmode)
++	if (phy-&gt;connected)
+ 		b43legacy_phy_write(dev, 0x0812,
+ 				    b43legacy_get_812_value(dev,
+ 				    LPD(0, 0, 1)));
+@@ -1612,19 +1612,19 @@ u16 b43legacy_radio_init2050(struct b43l
+ 		b43legacy_phy_write(dev, 0x005A, 0x0480);
+ 		b43legacy_phy_write(dev, 0x0059, 0xC810);
+ 		b43legacy_phy_write(dev, 0x0058, 0x000D);
+-		if (phy-&gt;gmode)
++		if (phy-&gt;connected)
+ 			b43legacy_phy_write(dev, 0x0812,
+ 					    b43legacy_get_812_value(dev,
+ 					    LPD(1, 0, 1)));
+ 		b43legacy_phy_write(dev, 0x0015, 0xAFB0);
+ 		udelay(10);
+-		if (phy-&gt;gmode)
++		if (phy-&gt;connected)
+ 			b43legacy_phy_write(dev, 0x0812,
+ 					    b43legacy_get_812_value(dev,
+ 					    LPD(1, 0, 1)));
+ 		b43legacy_phy_write(dev, 0x0015, 0xEFB0);
+ 		udelay(10);
+-		if (phy-&gt;gmode)
++		if (phy-&gt;connected)
+ 			b43legacy_phy_write(dev, 0x0812,
+ 					    b43legacy_get_812_value(dev,
+ 					    LPD(1, 0, 0)));
+@@ -1632,7 +1632,7 @@ u16 b43legacy_radio_init2050(struct b43l
+ 		udelay(20);
+ 		tmp1 += b43legacy_phy_read(dev, 0x002D);
+ 		b43legacy_phy_write(dev, 0x0058, 0x0000);
+-		if (phy-&gt;gmode)
++		if (phy-&gt;connected)
+ 			b43legacy_phy_write(dev, 0x0812,
+ 					    b43legacy_get_812_value(dev,
+ 					    LPD(1, 0, 1)));
+@@ -1653,19 +1653,19 @@ u16 b43legacy_radio_init2050(struct b43l
+ 			b43legacy_phy_write(dev, 0x005A, 0x0D80);
+ 			b43legacy_phy_write(dev, 0x0059, 0xC810);
+ 			b43legacy_phy_write(dev, 0x0058, 0x000D);
+-			if (phy-&gt;gmode)
++			if (phy-&gt;connected)
+ 				b43legacy_phy_write(dev, 0x0812,
+ 						    b43legacy_get_812_value(dev,
+ 						    LPD(1, 0, 1)));
+ 			b43legacy_phy_write(dev, 0x0015, 0xAFB0);
+ 			udelay(10);
+-			if (phy-&gt;gmode)
++			if (phy-&gt;connected)
+ 				b43legacy_phy_write(dev, 0x0812,
+ 						    b43legacy_get_812_value(dev,
+ 						    LPD(1, 0, 1)));
+ 			b43legacy_phy_write(dev, 0x0015, 0xEFB0);
+ 			udelay(10);
+-			if (phy-&gt;gmode)
++			if (phy-&gt;connected)
+ 				b43legacy_phy_write(dev, 0x0812,
+ 						    b43legacy_get_812_value(dev,
+ 						    LPD(1, 0, 0)));
+@@ -1673,7 +1673,7 @@ u16 b43legacy_radio_init2050(struct b43l
+ 			udelay(10);
+ 			tmp2 += b43legacy_phy_read(dev, 0x002D);
+ 			b43legacy_phy_write(dev, 0x0058, 0x0000);
+-			if (phy-&gt;gmode)
++			if (phy-&gt;connected)
+ 				b43legacy_phy_write(dev, 0x0812,
+ 						    b43legacy_get_812_value(dev,
+ 						    LPD(1, 0, 1)));
+@@ -1702,7 +1702,7 @@ u16 b43legacy_radio_init2050(struct b43l
+ 		b43legacy_phy_write(dev, 0x0030, backup[2]);
+ 		b43legacy_write16(dev, 0x03EC, backup[3]);
+ 	} else {
+-		if (phy-&gt;gmode) {
++		if (phy-&gt;connected) {
+ 			b43legacy_write16(dev, B43legacy_MMIO_PHY_RADIO,
+ 					  (b43legacy_read16(dev,
+ 					  B43legacy_MMIO_PHY_RADIO) &amp; 0x7FFF));
+@@ -2082,7 +2082,7 @@ void b43legacy_radio_turn_on(struct b43l
+ 		b43legacy_phy_write(dev, 0x0015, 0x8000);
+ 		b43legacy_phy_write(dev, 0x0015, 0xCC00);
+ 		b43legacy_phy_write(dev, 0x0015,
+-				    (phy-&gt;gmode ? 0x00C0 : 0x0000));
++				    (phy-&gt;connected ? 0x00C0 : 0x0000));
+ 		err = b43legacy_radio_selectchannel(dev,
+ 					B43legacy_RADIO_DEFAULT_CHANNEL_BG, 1);
+ 		B43legacy_WARN_ON(err != 0);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002420.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+	<LI>Next message: <A HREF="002417.html">[PATCH V2] b43legacy: Fix machine check errors for PPC	architecture with BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2414">[ date ]</a>
+              <a href="thread.html#2414">[ thread ]</a>
+              <a href="subject.html#2414">[ subject ]</a>
+              <a href="author.html#2414">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

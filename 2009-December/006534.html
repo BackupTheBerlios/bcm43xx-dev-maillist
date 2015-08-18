@@ -1,0 +1,97 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Remove reset after fatal DMA error
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Remove%20reset%20after%20fatal%20DMA%20error&In-Reply-To=%3C4b1ff9c4.iIvEkDMkYFL2BtFk%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006533.html">
+   <LINK REL="Next"  HREF="006535.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Remove reset after fatal DMA error</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Remove%20reset%20after%20fatal%20DMA%20error&In-Reply-To=%3C4b1ff9c4.iIvEkDMkYFL2BtFk%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43: Remove reset after fatal DMA error">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Wed Dec  9 20:25:56 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006533.html">Vacation reply
+</A></li>
+        <LI>Next message: <A HREF="006535.html">Vacation reply
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6534">[ date ]</a>
+              <a href="thread.html#6534">[ thread ]</a>
+              <a href="subject.html#6534">[ subject ]</a>
+              <a href="author.html#6534">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>As shown in Kernel Bugzilla #14761, doing a controller restart after a
+fatal DMA error does not accomplish anything other than consume the CPU
+on an affected system. Accordingly, substitute a meaningful message for
+the restart.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+Cc: Stable &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stable at vger.kernel.org</A>&gt;        [2.6.32]
+---
+
+John,
+
+If possible, this patch should be applied to 2.6.33. I made the message
+be two parts as the second will be replaced once the patch to change PIO
+from a compile-time to a run-time option is completed and tested.
+It is working here, but needs further testing. I expected the performance
+to be degraded, but it seems to be too much here.
+
+Larry
+---
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c
++++ wireless-testing/drivers/net/wireless/b43/main.c
+@@ -1784,7 +1784,10 @@ static void b43_do_interrupt_thread(stru
+ 			       dma_reason[0], dma_reason[1],
+ 			       dma_reason[2], dma_reason[3],
+ 			       dma_reason[4], dma_reason[5]);
+-			b43_controller_restart(dev, &quot;DMA error&quot;);
++			b43err(dev-&gt;wl, &quot;This device does not support DMA &quot;
++			       &quot;on your system. Please use PIO instead.\n&quot;);
++			b43err(dev-&gt;wl, &quot;CONFIG_B43_FORCE_PIO must be set in &quot;
++			       &quot;your kernel configuration.\n&quot;);
+ 			return;
+ 		}
+ 		if (merged_dma_reason &amp; B43_DMAIRQ_NONFATALMASK) {
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006533.html">Vacation reply
+</A></li>
+	<LI>Next message: <A HREF="006535.html">Vacation reply
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6534">[ date ]</a>
+              <a href="thread.html#6534">[ thread ]</a>
+              <a href="subject.html#6534">[ subject ]</a>
+              <a href="author.html#6534">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

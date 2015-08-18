@@ -1,0 +1,123 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Can someone please try...
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Can%20someone%20please%20try...&In-Reply-To=%3C200701231021.34995.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000149.html">
+   <LINK REL="Next"  HREF="000160.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Can someone please try...</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Can%20someone%20please%20try...&In-Reply-To=%3C200701231021.34995.mb%40bu3sch.de%3E"
+       TITLE="Can someone please try...">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Jan 23 10:21:34 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000149.html">Can someone please try...
+</A></li>
+        <LI>Next message: <A HREF="000160.html">Can someone please try...
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#150">[ date ]</a>
+              <a href="thread.html#150">[ thread ]</a>
+              <a href="subject.html#150">[ subject ]</a>
+              <a href="author.html#150">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tuesday 23 January 2007 07:14, Pavel Roskin wrote:
+&gt;<i> On Mon, 2007-01-22 at 22:00 +0100, Michael Buesch wrote: 
+</I>&gt;<i> &gt; &gt; No more random crashes.  There is still a crash if I rmmod the driver
+</I>&gt;<i> &gt; &gt; while wlan0 is up, but it's a separate issue, and it's easy to avoid
+</I>&gt;<i> &gt; &gt; (unlike the interface going down).  I hope to look at it soon.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Did you apply that d80211 rmmod crash fix that Michael Wu posted
+</I>&gt;<i> &gt; recently. I bet it will fix your issue.
+</I>&gt;<i> 
+</I>&gt;<i> I have tried the patch, and it doesn't fix the problem.  It's a separate
+</I>&gt;<i> problem.  It happens when bcm43xx_interrupt_handler() is called on a
+</I>&gt;<i> device that has already been removed.
+</I>
+That shouldn't happen and doesn't for me.
+
+&gt;<i> It looks like 
+</I>&gt;<i> bcm43xx_wireless_core_stop() should be called from
+</I>&gt;<i> bcm43xx_one_core_detach().
+</I>
+No, well... . remove_interface should have been called by the stack, no?
+
+&gt;<i> Unfortunately, I cannot come to a satisfactory solution yet.  If I call
+</I>&gt;<i> bcm43xx_wireless_core_stop() with the mutex held, the driver won't
+</I>&gt;<i> unload if the interface is down.  If I don't hold the mutex, it would
+</I>&gt;<i> happen when the interface is up.
+</I>&gt;<i> 
+</I>&gt;<i> By the way, I think it's a bad idea to unlock any mutexes or other locks
+</I>&gt;<i> set outside the function.  The caller assumes that the lock is held
+</I>&gt;<i> until it (the caller) unlocks it.  Unlocking locks from other functions
+</I>&gt;<i> breaks this convention. 
+</I>
+It would result in a deadlock, if we don't unlock it there. That's
+perfectly fine.
+
+&gt;<i> &gt; &gt; I think the assert() should be replaced with a FIXME, which would not
+</I>&gt;<i> &gt; &gt; annoy end users so much.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Well, no. It's kind of: Michael, go ahead and fix that crap!
+</I>&gt;<i> &gt; So I'd like to keep it to get me to fix it. :D
+</I>&gt;<i> 
+</I>&gt;<i> I, for one, prefer to keep my to-do items in my to-do list, but I don't
+</I>&gt;<i> want to distract you with petty arguments from fixing the real problem.
+</I>
+Well, assert() statements are there to find bugs. And if there is a bug,
+they trigger. That's pretty much the semantics of an assert() statement.
+I'm not sure why you want to hide a bug.
+
+Either way, in this case it seems like the code is right
+and just the assert() mask is wrong. But that's only this way by luck.
+Could easily have been the other way around. ;)
+Specs were slightly wrong at this point.
+
+But as I said, I will commit a fix today.
+
+&gt;<i> &gt; Hm, is this 4318? It is known to loose lots of packets.
+</I>&gt;<i> 
+</I>&gt;<i> No, it's 4312.
+</I>
+That has got the same problems.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000149.html">Can someone please try...
+</A></li>
+	<LI>Next message: <A HREF="000160.html">Can someone please try...
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#150">[ date ]</a>
+              <a href="thread.html#150">[ thread ]</a>
+              <a href="subject.html#150">[ subject ]</a>
+              <a href="author.html#150">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

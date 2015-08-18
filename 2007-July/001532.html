@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Ferrari 3400 device?
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Ferrari%203400%20device%3F&In-Reply-To=%3C469252FB.4000106%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001531.html">
+   <LINK REL="Next"  HREF="001526.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Ferrari 3400 device?</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Ferrari%203400%20device%3F&In-Reply-To=%3C469252FB.4000106%40lwfinger.net%3E"
+       TITLE="Ferrari 3400 device?">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Mon Jul  9 17:23:39 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001531.html">Ferrari 3400 device?
+</A></li>
+        <LI>Next message: <A HREF="001526.html">bcm4318 on again, off again (Larry Finger)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1532">[ date ]</a>
+              <a href="thread.html#1532">[ thread ]</a>
+              <a href="subject.html#1532">[ subject ]</a>
+              <a href="author.html#1532">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Florian Erfurth wrote:
+&gt;<i> Larry Finger schrieb:
+</I>&gt;<i> Only 15Mbs? At home I get the best connection (about 4m away from 
+</I>&gt;<i> accesspoint).
+</I>&gt;<i>  &gt;&gt;&gt;
+</I>&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# iwconfig
+</I>&gt;<i> wlan0 IEEE 802.11b/g ESSID:&quot;homeworld&quot; Nickname:&quot;Turion&quot;
+</I>&gt;<i> Mode:Managed Frequency=2.462 GHz Access Point: XX:XX:XX:XX:XX:XX
+</I>&gt;<i> Bit Rate=24 Mb/s Tx-Power=19 dBm
+</I>&gt;<i> RTS thr:off Fragment thr:off
+</I>&gt;<i> Encryption key:XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX Security mode:open
+</I>&gt;<i> Link Quality=65/100 Signal level=-45 dBm Noise level=-73 dBm
+</I>&gt;<i> Rx invalid nwid:0 Rx invalid crypt:0 Rx invalid frag:0
+</I>&gt;<i> Tx excessive retries:0 Invalid misc:0 Missed beacon:0
+</I>&gt;<i> &lt;&lt;&lt;
+</I>&gt;<i> 
+</I>&gt;<i> I'm using 2.6.22-rc6 with bcm43xx (with Firmware V3). With 
+</I>&gt;<i> bcm43xx-mac80211 the connection is not reliable, unfortunatelly.
+</I>&gt;<i> 
+</I>&gt;<i> Another question... the patches in 2.6.22-rc6 will be in official kernel 
+</I>&gt;<i> 2.6.22? I mean, if Fedora bring out 2.6.22-X kernel-package then it 
+</I>&gt;<i> contains the patches?
+</I>
+I was not talking about the &quot;Bit Rate&quot; reported by iwconfig. My numbers were _MEASURED_ using Iperf 
+and by file transfer to a server on my LAN. FYI, the maximum rate for Windows XP under the same 
+conditions is 19 Mbs, and it reports a bit rate of 54 Mbs.
+
+AFAIK, all Fedora kernels in the future will contain a bcm43xx driver with a restricted PCI ID list. 
+To use bcm43xx, rather than bcm43xx-mac80211, you should copy and paste the script below to a file, 
+use chmod to make it executable, and run it as root.
+
+========================
+
+#!/bin/sh
+
+echo 'blacklist bcm43xx-mac80211' &gt;&gt; /etc/modprobe.d/blacklist
+
+modprobe -r bcm43xx-mac80211 # remove the new driver
+
+echo 'modprobe bcm43xx' &gt;&gt; /etc/rc.local
+
+BCM43XX_PCI_ID=`lspci -n | grep 14e4 | awk '{ print $3 }' | sed -e 's/:/ /'`
+echo 'echo &quot;'$BCM43XX_PCI_ID'&quot; &gt; /sys/bus/pci/drivers/bcm43xx/new_id' \
+	&gt;&gt; /etc/rc.local
+
+================
+After this script is run once, you should do a '/etc/rc.local' command (as root). BTW, this script 
+is adapted from one posted by John Linville.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001531.html">Ferrari 3400 device?
+</A></li>
+	<LI>Next message: <A HREF="001526.html">bcm4318 on again, off again (Larry Finger)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1532">[ date ]</a>
+              <a href="thread.html#1532">[ thread ]</a>
+              <a href="subject.html#1532">[ subject ]</a>
+              <a href="author.html#1532">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

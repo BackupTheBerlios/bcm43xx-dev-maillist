@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH RESEND] b43: implement baseband init for LP-PHY &lt;= rev1
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RESEND%5D%20b43%3A%20implement%20baseband%20init%20for%20LP-PHY%20%3C%3D%20rev1&In-Reply-To=%3C69e28c910908031341n439384b4ned41f2983ab1de29%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005674.html">
+   <LINK REL="Next"  HREF="005677.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH RESEND] b43: implement baseband init for LP-PHY &lt;= rev1</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RESEND%5D%20b43%3A%20implement%20baseband%20init%20for%20LP-PHY%20%3C%3D%20rev1&In-Reply-To=%3C69e28c910908031341n439384b4ned41f2983ab1de29%40mail.gmail.com%3E"
+       TITLE="[PATCH RESEND] b43: implement baseband init for LP-PHY &lt;= rev1">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Mon Aug  3 22:41:44 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005674.html">[PATCH RESEND] b43: implement baseband init for LP-PHY &lt;= rev1
+</A></li>
+        <LI>Next message: <A HREF="005677.html">[PATCH RESEND] b43: implement baseband init for LP-PHY &lt;= rev1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5675">[ date ]</a>
+              <a href="thread.html#5675">[ thread ]</a>
+              <a href="subject.html#5675">[ subject ]</a>
+              <a href="author.html#5675">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>2009/8/3 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;:
+&gt;<i> On Monday 03 August 2009 15:55:29 G&#225;bor Stefanik wrote:
+</I>&gt;&gt;<i> On Mon, Aug 3, 2009 at 11:15 AM, Michael Buesch&lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; wrote:
+</I>&gt;&gt;<i> &gt; On Monday 03 August 2009 11:13:37 Michael Buesch wrote:
+</I>&gt;&gt;<i> &gt;&gt; On Monday 03 August 2009 00:18:22 G&#225;bor Stefanik wrote:
+</I>&gt;&gt;<i> &gt;&gt; &gt; Implement baseband init for rev.0 and rev.1 LP PHYs. Convert
+</I>&gt;&gt;<i> &gt;&gt; &gt; boardflags_hi values to defines.
+</I>&gt;&gt;<i> &gt;&gt; &gt; Implement b43_phy_copy for easier copying between registers, as needed
+</I>&gt;&gt;<i> &gt;&gt; &gt; by LP-PHY init.
+</I>&gt;&gt;<i> &gt;&gt;
+</I>&gt;&gt;<i> &gt;&gt; &gt; + &#160; if (bus-&gt;sprom.boardflags_hi&amp; &#160;B43_BFH_FEM_BT)&amp;&amp;
+</I>&gt;&gt;<i> &gt;&gt; &gt; + &#160; &#160; &#160;(bus-&gt;chip_id == 0x5354)&amp;&amp;
+</I>&gt;&gt;<i> &gt;&gt; &gt; + &#160; &#160; &#160;(bus-&gt;chip_package == SSB_CHIPPACK_BCM4712S)) {
+</I>&gt;&gt;<i> &gt;&gt; &gt; + &#160; &#160; &#160; &#160; &#160; b43_phy_set(dev, B43_LPPHY_CRSGAIN_CTL, 0x0006);
+</I>&gt;&gt;<i> &gt;&gt; &gt; + &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, B43_LPPHY_GPIO_SELECT, 0x0005);
+</I>&gt;&gt;<i> &gt;&gt; &gt; + &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, B43_LPPHY_GPIO_OUTEN, 0xFFFF);
+</I>&gt;&gt;<i> &gt;&gt; &gt; + &#160; &#160; &#160; &#160; &#160; b43_hf_write(dev, b43_hf_read | 0x0800ULL&lt;&lt; &#160;32);
+</I>&gt;&gt;<i> &gt;&gt; &gt; + &#160; }
+</I>&gt;&gt;<i> &gt;&gt;
+</I>&gt;&gt;<i> &gt;&gt; The HF write is wrong. Read the specification:
+</I>&gt;&gt;<i> &gt;&gt; <A HREF="http://bcm-v4.sipsolutions.net/802.11/Mhf">http://bcm-v4.sipsolutions.net/802.11/Mhf</A>
+</I>&gt;&gt;<i> &gt;&gt;
+</I>&gt;&gt;<i> &gt;&gt; Patch otherwise looks ok.
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i> &gt; Sorry, I replied to the wrong mail. But this does also apply to V2 patch.
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i> &gt; --
+</I>&gt;&gt;<i> &gt; Greetings, Michael.
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> In V2, this line is as follows (b43_hf_read corrected):
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> b43_hf_write(dev, b43_hf_read(dev) | 0x0800ULL &lt;&lt; 32)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> The command in the specs is this:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> mhf(2, 0x800, 0x800, 1)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> 2 means B43_SHM_SH_HOSTFHI, 0x800 is the bit to set, and 1 is
+</I>&gt;&gt;<i> allbands, which, per Larry, can be ignored in our current
+</I>&gt;&gt;<i> implementation (it is specific to the caching behavior of the mips
+</I>&gt;&gt;<i> driver).
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> From what I read in b43_hf_write, writing to HOSTFHI can be achieved
+</I>&gt;&gt;<i> by left-shifting by 32 (16 for HOSTFMI).
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Is the problem that we write all 3 hostflags registers here?
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> (BTW are there any other known host flags? If there are, maybe we
+</I>&gt;&gt;<i> should #define them.)
+</I>&gt;&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> My point is that update_mhf does not write to actual hardware, as far
+</I>&gt;<i> as I understand the code. Larry, can you please explain that part of the
+</I>&gt;<i> specs?
+</I>&gt;<i>
+</I>
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005674.html">[PATCH RESEND] b43: implement baseband init for LP-PHY &lt;= rev1
+</A></li>
+	<LI>Next message: <A HREF="005677.html">[PATCH RESEND] b43: implement baseband init for LP-PHY &lt;= rev1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5675">[ date ]</a>
+              <a href="thread.html#5675">[ thread ]</a>
+              <a href="subject.html#5675">[ subject ]</a>
+              <a href="author.html#5675">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

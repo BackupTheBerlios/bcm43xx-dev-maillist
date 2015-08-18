@@ -1,0 +1,462 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> No subject
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2012-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20No%20subject&In-Reply-To=%3Cmailman.37.1331727412.28966.bcm43xx-dev%40lists.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006572.html">
+   <LINK REL="Next"  HREF="000762.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>No subject</H1>
+    <B>=3D?UTF-8?q?Rafa=3DC5=3D82=3D20Mi=3DC5=3D82ecki?=3D</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20No%20subject&In-Reply-To=%3Cmailman.37.1331727412.28966.bcm43xx-dev%40lists.berlios.de%3E"
+       TITLE="No subject">zajec5 at gmail.com=
+       </A><BR>
+    <I>Wed Mar 14 13:15:41 CET 2012</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006572.html">No subject
+</A></li>
+        <LI>Next message: <A HREF="000762.html">No subject
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6578">[ date ]</a>
+              <a href="thread.html#6578">[ thread ]</a>
+              <a href="subject.html#6578">[ subject ]</a>
+              <a href="author.html#6578">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>&gt;<i>
+</I>Date: Tue, 22 Dec 2009 02:27:21 +0100
+Subject: [PATCH] b43: N-PHY: clean table init, check PHY rev
+MIME-Version: 1.0
+Content-Type: text/plain; charset=3DUTF-8
+Content-Transfer-Encoding: 8bit
+
+Move table init to tables_nphy.c, detect newer PHY which use different init
+
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+drivers/net/wireless/b43/phy_n.c       |   43 ++++------------------------
+drivers/net/wireless/b43/tables_nphy.c |   48
+++++++++++++++++++++++++++++++++
+drivers/net/wireless/b43/tables_nphy.h |    4 ++-
+3 files changed, 58 insertions(+), 37 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c
+b/drivers/net/wireless/b43/phy_n.c
+index 992318a..23cef71 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -197,44 +197,15 @@ void b43_nphy_radio_turn_off(struct b43_wldev *dev)
+    ~B43_NPHY_RFCTL_CMD_EN);
+}
+
+-#define ntab_upload(dev, offset, data) do { \
+- unsigned int i; \
+- for (i =3D 0; i &lt; (offset##_SIZE); i++) \
+- b43_ntab_write(dev, (offset) + i, (data)[i]); \
+- } while (0)
+-
+-/* Upload the N-PHY tables. */
++/* Upload the N-PHY tables.
++ * <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/InitTables">http://bcm-v4.sipsolutions.net/802.11/PHY/N/InitTables</A>
++ */
+static void b43_nphy_tables_init(struct b43_wldev *dev)
+{
+- /* Static tables */
+- ntab_upload(dev, B43_NTAB_FRAMESTRUCT, b43_ntab_framestruct);
+- ntab_upload(dev, B43_NTAB_FRAMELT, b43_ntab_framelookup);
+- ntab_upload(dev, B43_NTAB_TMAP, b43_ntab_tmap);
+- ntab_upload(dev, B43_NTAB_TDTRN, b43_ntab_tdtrn);
+- ntab_upload(dev, B43_NTAB_INTLEVEL, b43_ntab_intlevel);
+- ntab_upload(dev, B43_NTAB_PILOT, b43_ntab_pilot);
+- ntab_upload(dev, B43_NTAB_PILOTLT, b43_ntab_pilotlt);
+- ntab_upload(dev, B43_NTAB_TDI20A0, b43_ntab_tdi20a0);
+- ntab_upload(dev, B43_NTAB_TDI20A1, b43_ntab_tdi20a1);
+- ntab_upload(dev, B43_NTAB_TDI40A0, b43_ntab_tdi40a0);
+- ntab_upload(dev, B43_NTAB_TDI40A1, b43_ntab_tdi40a1);
+- ntab_upload(dev, B43_NTAB_BDI, b43_ntab_bdi);
+- ntab_upload(dev, B43_NTAB_CHANEST, b43_ntab_channelest);
+- ntab_upload(dev, B43_NTAB_MCS, b43_ntab_mcs);
+-
+- /* Volatile tables */
+- ntab_upload(dev, B43_NTAB_NOISEVAR10, b43_ntab_noisevar10);
+- ntab_upload(dev, B43_NTAB_NOISEVAR11, b43_ntab_noisevar11);
+- ntab_upload(dev, B43_NTAB_C0_ESTPLT, b43_ntab_estimatepowerlt0);
+- ntab_upload(dev, B43_NTAB_C1_ESTPLT, b43_ntab_estimatepowerlt1);
+- ntab_upload(dev, B43_NTAB_C0_ADJPLT, b43_ntab_adjustpower0);
+- ntab_upload(dev, B43_NTAB_C1_ADJPLT, b43_ntab_adjustpower1);
+- ntab_upload(dev, B43_NTAB_C0_GAINCTL, b43_ntab_gainctl0);
+- ntab_upload(dev, B43_NTAB_C1_GAINCTL, b43_ntab_gainctl1);
+- ntab_upload(dev, B43_NTAB_C0_IQLT, b43_ntab_iqlt0);
+- ntab_upload(dev, B43_NTAB_C1_IQLT, b43_ntab_iqlt1);
+- ntab_upload(dev, B43_NTAB_C0_LOFEEDTH, b43_ntab_loftlt0);
+- ntab_upload(dev, B43_NTAB_C1_LOFEEDTH, b43_ntab_loftlt1);
++ if (dev-&gt;phy.rev &lt; 3)
++ b43_nphy_rev0_1_2_table_init(dev);
++ else
++ b43_nphy_rev3plus_table_init(dev);
+}
+
+static void b43_nphy_workarounds(struct b43_wldev *dev)
+diff --git a/drivers/net/wireless/b43/tables_nphy.c
+b/drivers/net/wireless/b43/tables_nphy.c
+index 4e23363..d709555 100644
+--- a/drivers/net/wireless/b43/tables_nphy.c
++++ b/drivers/net/wireless/b43/tables_nphy.c
+@@ -2474,3 +2474,51 @@ void b43_ntab_write(struct b43_wldev *dev, u32
+offset, u32 value)
+/* Some compiletime assertions... */
+assert_ntab_array_sizes();
+}
++
++#define ntab_upload(dev, offset, data) do { \
++ unsigned int i; \
++ for (i =3D 0; i &lt; (offset##_SIZE); i++) \
++ b43_ntab_write(dev, (offset) + i, (data)[i]); \
++ } while (0)
++
++void b43_nphy_rev0_1_2_table_init(struct b43_wldev *dev)
++{
++ /* Static tables */
++ ntab_upload(dev, B43_NTAB_FRAMESTRUCT, b43_ntab_framestruct);
++ ntab_upload(dev, B43_NTAB_FRAMELT, b43_ntab_framelookup);
++ ntab_upload(dev, B43_NTAB_TMAP, b43_ntab_tmap);
++ ntab_upload(dev, B43_NTAB_TDTRN, b43_ntab_tdtrn);
++ ntab_upload(dev, B43_NTAB_INTLEVEL, b43_ntab_intlevel);
++ ntab_upload(dev, B43_NTAB_PILOT, b43_ntab_pilot);
++ ntab_upload(dev, B43_NTAB_PILOTLT, b43_ntab_pilotlt);
++ ntab_upload(dev, B43_NTAB_TDI20A0, b43_ntab_tdi20a0);
++ ntab_upload(dev, B43_NTAB_TDI20A1, b43_ntab_tdi20a1);
++ ntab_upload(dev, B43_NTAB_TDI40A0, b43_ntab_tdi40a0);
++ ntab_upload(dev, B43_NTAB_TDI40A1, b43_ntab_tdi40a1);
++ ntab_upload(dev, B43_NTAB_BDI, b43_ntab_bdi);
++ ntab_upload(dev, B43_NTAB_CHANEST, b43_ntab_channelest);
++ ntab_upload(dev, B43_NTAB_MCS, b43_ntab_mcs);
++
++ /* Volatile tables */
++ ntab_upload(dev, B43_NTAB_NOISEVAR10, b43_ntab_noisevar10);
++ ntab_upload(dev, B43_NTAB_NOISEVAR11, b43_ntab_noisevar11);
++ ntab_upload(dev, B43_NTAB_C0_ESTPLT, b43_ntab_estimatepowerlt0);
++ ntab_upload(dev, B43_NTAB_C1_ESTPLT, b43_ntab_estimatepowerlt1);
++ ntab_upload(dev, B43_NTAB_C0_ADJPLT, b43_ntab_adjustpower0);
++ ntab_upload(dev, B43_NTAB_C1_ADJPLT, b43_ntab_adjustpower1);
++ ntab_upload(dev, B43_NTAB_C0_GAINCTL, b43_ntab_gainctl0);
++ ntab_upload(dev, B43_NTAB_C1_GAINCTL, b43_ntab_gainctl1);
++ ntab_upload(dev, B43_NTAB_C0_IQLT, b43_ntab_iqlt0);
++ ntab_upload(dev, B43_NTAB_C1_IQLT, b43_ntab_iqlt1);
++ ntab_upload(dev, B43_NTAB_C0_LOFEEDTH, b43_ntab_loftlt0);
++ ntab_upload(dev, B43_NTAB_C1_LOFEEDTH, b43_ntab_loftlt1);
++}
++
++void b43_nphy_rev3plus_table_init(struct b43_wldev *dev)
++{
++ /* Static tables */
++ //TODO
++
++ /* Volatile tables */
++ //TODO
++}
+diff --git a/drivers/net/wireless/b43/tables_nphy.h
+b/drivers/net/wireless/b43/tables_nphy.h
+index 4d498b0..f5c0c2d 100644
+--- a/drivers/net/wireless/b43/tables_nphy.h
++++ b/drivers/net/wireless/b43/tables_nphy.h
+@@ -128,6 +128,9 @@ b43_nphy_get_chantabent(struct b43_wldev *dev, u8
+channel);
+
+void b43_ntab_write(struct b43_wldev *dev, u32 offset, u32 value);
+
++void b43_nphy_rev0_1_2_table_init(struct b43_wldev *dev);
++void b43_nphy_rev3plus_table_init(struct b43_wldev *dev);
++
+extern const u8 b43_ntab_adjustpower0[];
+extern const u8 b43_ntab_adjustpower1[];
+extern const u16 b43_ntab_bdi[];
+@@ -155,5 +158,4 @@ extern const u32 b43_ntab_tdi40a1[];
+extern const u32 b43_ntab_tdtrn[];
+extern const u32 b43_ntab_tmap[];
+
+-
+#endif /* B43_TABLES_NPHY_H_ */
+--=20
+1.6.4.2
+
+
+--=20
+Rafa=C5=82
+
+--00148531b400f4d181047b6416b1
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+It&#39;s just compilation-tested as I don&#39;t own N-PHY device yet (shoul=
+d receive one for Christmas). Of course I enabled N-PHY in Kconfig.&lt;br&gt;&lt;br&gt;=
+I already sent this to bcm43xx-dev but didn&#39;t get any review. Michael t=
+old me to send it to you John and to linux-wireless. Is there anyone how co=
+uld review/ack my patch?&lt;br&gt;
+&lt;br&gt;&lt;br&gt;From 6800722c2fda0e302d7c759a5f2a993503b6581a Mon Sep 17 00:00:00 2=
+001&lt;br&gt;From: =3D?UTF-8?q?Rafa=3DC5=3D82=3D20Mi=3DC5=3D82ecki?=3D &lt;&lt;a hre=
+f=3D&quot;mailto:<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&quot;&gt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&lt;/a&gt;&gt;&lt;br&gt;Date: Tue, 22 Dec=
+ 2009 02:27:21 +0100&lt;br&gt;
+Subject: [PATCH] b43: N-PHY: clean table init, check PHY rev&lt;br&gt;MIME-Versio=
+n: 1.0&lt;br&gt;Content-Type: text/plain; charset=3DUTF-8&lt;br&gt;Content-Transfer-Enc=
+oding: 8bit&lt;br&gt;&lt;br&gt;Move table init to tables_nphy.c, detect newer PHY which=
+ use different init&lt;br&gt;
+&lt;br&gt;Signed-off-by: Rafa=C5=82 Mi=C5=82ecki &lt;&lt;a href=3D&quot;mailto:<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gma</A>=
+il.com&quot;&gt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&lt;/a&gt;&gt;&lt;br&gt;---&lt;br&gt; drivers/net/wireless/b43/phy_n.=
+c =C2=A0 =C2=A0 =C2=A0 | =C2=A0 43 ++++------------------------&lt;br&gt; drivers=
+/net/wireless/b43/tables_nphy.c | =C2=A0 48 +++++++++++++++++++++++++++++++=
++&lt;br&gt;
+ drivers/net/wireless/b43/tables_nphy.h | =C2=A0 =C2=A04 ++-&lt;br&gt; 3 files ch=
+anged, 58 insertions(+), 37 deletions(-)&lt;br&gt;&lt;br&gt;diff --git a/drivers/net/wi=
+reless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c&lt;br&gt;index 992318a..23c=
+ef71 100644&lt;br&gt;
+--- a/drivers/net/wireless/b43/phy_n.c&lt;br&gt;+++ b/drivers/net/wireless/b43/ph=
+y_n.c&lt;br&gt;@@ -197,44 +197,15 @@ void b43_nphy_radio_turn_off(struct b43_wlde=
+v *dev)&lt;br&gt; 		 =C2=A0 =C2=A0 ~B43_NPHY_RFCTL_CMD_EN);&lt;br&gt; }&lt;br&gt; &lt;br&gt;-#defin=
+e ntab_upload(dev, offset, data) do { \&lt;br&gt;
+-		unsigned int i;						\&lt;br&gt;-		for (i =3D 0; i &lt; (offset##_SIZE); i++)	=
+		\&lt;br&gt;-			b43_ntab_write(dev, (offset) + i, (data)[i]);	\&lt;br&gt;-	} while (0)=
+&lt;br&gt;-&lt;br&gt;-/* Upload the N-PHY tables. */&lt;br&gt;+/* Upload the N-PHY tables.&lt;br=
+&gt;<i>
+</I>+ * &lt;a href=3D&quot;<A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/InitTables">http://bcm-v4.sipsolutions.net/802.11/PHY/N/InitTables</A>&quot;&gt;http=
+:<i>//bcm-v4.sipsolutions.net/802.11/PHY/N/InitTables&lt;/a&gt;&lt;br&gt;+ */&lt;br&gt; static v=
+</I>oid b43_nphy_tables_init(struct b43_wldev *dev)&lt;br&gt; {&lt;br&gt;-	/* Static tables=
+ */&lt;br&gt;
+-	ntab_upload(dev, B43_NTAB_FRAMESTRUCT, b43_ntab_framestruct);&lt;br&gt;-	ntab_u=
+pload(dev, B43_NTAB_FRAMELT, b43_ntab_framelookup);&lt;br&gt;-	ntab_upload(dev, B=
+43_NTAB_TMAP, b43_ntab_tmap);&lt;br&gt;-	ntab_upload(dev, B43_NTAB_TDTRN, b43_nta=
+b_tdtrn);&lt;br&gt;
+-	ntab_upload(dev, B43_NTAB_INTLEVEL, b43_ntab_intlevel);&lt;br&gt;-	ntab_upload(=
+dev, B43_NTAB_PILOT, b43_ntab_pilot);&lt;br&gt;-	ntab_upload(dev, B43_NTAB_PILOTL=
+T, b43_ntab_pilotlt);&lt;br&gt;-	ntab_upload(dev, B43_NTAB_TDI20A0, b43_ntab_tdi2=
+0a0);&lt;br&gt;
+-	ntab_upload(dev, B43_NTAB_TDI20A1, b43_ntab_tdi20a1);&lt;br&gt;-	ntab_upload(de=
+v, B43_NTAB_TDI40A0, b43_ntab_tdi40a0);&lt;br&gt;-	ntab_upload(dev, B43_NTAB_TDI4=
+0A1, b43_ntab_tdi40a1);&lt;br&gt;-	ntab_upload(dev, B43_NTAB_BDI, b43_ntab_bdi);&lt;=
+br&gt;
+-	ntab_upload(dev, B43_NTAB_CHANEST, b43_ntab_channelest);&lt;br&gt;-	ntab_upload=
+(dev, B43_NTAB_MCS, b43_ntab_mcs);&lt;br&gt;-&lt;br&gt;-	/* Volatile tables */&lt;br&gt;-	nta=
+b_upload(dev, B43_NTAB_NOISEVAR10, b43_ntab_noisevar10);&lt;br&gt;-	ntab_upload(d=
+ev, B43_NTAB_NOISEVAR11, b43_ntab_noisevar11);&lt;br&gt;
+-	ntab_upload(dev, B43_NTAB_C0_ESTPLT, b43_ntab_estimatepowerlt0);&lt;br&gt;-	nta=
+b_upload(dev, B43_NTAB_C1_ESTPLT, b43_ntab_estimatepowerlt1);&lt;br&gt;-	ntab_upl=
+oad(dev, B43_NTAB_C0_ADJPLT, b43_ntab_adjustpower0);&lt;br&gt;-	ntab_upload(dev, =
+B43_NTAB_C1_ADJPLT, b43_ntab_adjustpower1);&lt;br&gt;
+-	ntab_upload(dev, B43_NTAB_C0_GAINCTL, b43_ntab_gainctl0);&lt;br&gt;-	ntab_uploa=
+d(dev, B43_NTAB_C1_GAINCTL, b43_ntab_gainctl1);&lt;br&gt;-	ntab_upload(dev, B43_N=
+TAB_C0_IQLT, b43_ntab_iqlt0);&lt;br&gt;-	ntab_upload(dev, B43_NTAB_C1_IQLT, b43_n=
+tab_iqlt1);&lt;br&gt;
+-	ntab_upload(dev, B43_NTAB_C0_LOFEEDTH, b43_ntab_loftlt0);&lt;br&gt;-	ntab_uploa=
+d(dev, B43_NTAB_C1_LOFEEDTH, b43_ntab_loftlt1);&lt;br&gt;+	if (dev-&gt;phy.rev &amp;l=
+t; 3)&lt;br&gt;+		b43_nphy_rev0_1_2_table_init(dev);&lt;br&gt;+	else&lt;br&gt;+		b43_nphy_rev=
+3plus_table_init(dev);&lt;br&gt;
+ }&lt;br&gt; &lt;br&gt; static void b43_nphy_workarounds(struct b43_wldev *dev)&lt;br&gt;diff=
+ --git a/drivers/net/wireless/b43/tables_nphy.c b/drivers/net/wireless/b43/=
+tables_nphy.c&lt;br&gt;index 4e23363..d709555 100644&lt;br&gt;--- a/drivers/net/wireles=
+s/b43/tables_nphy.c&lt;br&gt;
++++ b/drivers/net/wireless/b43/tables_nphy.c&lt;br&gt;@@ -2474,3 +2474,51 @@ void=
+ b43_ntab_write(struct b43_wldev *dev, u32 offset, u32 value)&lt;br&gt; 	/* Some =
+compiletime assertions... */&lt;br&gt; 	assert_ntab_array_sizes();&lt;br&gt; }&lt;br&gt;+&lt;br&gt;
++#define ntab_upload(dev, offset, data) do { \&lt;br&gt;+		unsigned int i;						\=
+&lt;br&gt;+		for (i =3D 0; i &lt; (offset##_SIZE); i++)			\&lt;br&gt;+			b43_ntab_write=
+(dev, (offset) + i, (data)[i]);	\&lt;br&gt;+	} while (0)&lt;br&gt;+&lt;br&gt;+void b43_nphy_r=
+ev0_1_2_table_init(struct b43_wldev *dev)&lt;br&gt;
++{&lt;br&gt;+	/* Static tables */&lt;br&gt;+	ntab_upload(dev, B43_NTAB_FRAMESTRUCT, b43=
+_ntab_framestruct);&lt;br&gt;+	ntab_upload(dev, B43_NTAB_FRAMELT, b43_ntab_framel=
+ookup);&lt;br&gt;+	ntab_upload(dev, B43_NTAB_TMAP, b43_ntab_tmap);&lt;br&gt;+	ntab_uplo=
+ad(dev, B43_NTAB_TDTRN, b43_ntab_tdtrn);&lt;br&gt;
++	ntab_upload(dev, B43_NTAB_INTLEVEL, b43_ntab_intlevel);&lt;br&gt;+	ntab_upload(=
+dev, B43_NTAB_PILOT, b43_ntab_pilot);&lt;br&gt;+	ntab_upload(dev, B43_NTAB_PILOTL=
+T, b43_ntab_pilotlt);&lt;br&gt;+	ntab_upload(dev, B43_NTAB_TDI20A0, b43_ntab_tdi2=
+0a0);&lt;br&gt;
++	ntab_upload(dev, B43_NTAB_TDI20A1, b43_ntab_tdi20a1);&lt;br&gt;+	ntab_upload(de=
+v, B43_NTAB_TDI40A0, b43_ntab_tdi40a0);&lt;br&gt;+	ntab_upload(dev, B43_NTAB_TDI4=
+0A1, b43_ntab_tdi40a1);&lt;br&gt;+	ntab_upload(dev, B43_NTAB_BDI, b43_ntab_bdi);&lt;=
+br&gt;
++	ntab_upload(dev, B43_NTAB_CHANEST, b43_ntab_channelest);&lt;br&gt;+	ntab_upload=
+(dev, B43_NTAB_MCS, b43_ntab_mcs);&lt;br&gt;+&lt;br&gt;+	/* Volatile tables */&lt;br&gt;+	nta=
+b_upload(dev, B43_NTAB_NOISEVAR10, b43_ntab_noisevar10);&lt;br&gt;+	ntab_upload(d=
+ev, B43_NTAB_NOISEVAR11, b43_ntab_noisevar11);&lt;br&gt;
++	ntab_upload(dev, B43_NTAB_C0_ESTPLT, b43_ntab_estimatepowerlt0);&lt;br&gt;+	nta=
+b_upload(dev, B43_NTAB_C1_ESTPLT, b43_ntab_estimatepowerlt1);&lt;br&gt;+	ntab_upl=
+oad(dev, B43_NTAB_C0_ADJPLT, b43_ntab_adjustpower0);&lt;br&gt;+	ntab_upload(dev, =
+B43_NTAB_C1_ADJPLT, b43_ntab_adjustpower1);&lt;br&gt;
++	ntab_upload(dev, B43_NTAB_C0_GAINCTL, b43_ntab_gainctl0);&lt;br&gt;+	ntab_uploa=
+d(dev, B43_NTAB_C1_GAINCTL, b43_ntab_gainctl1);&lt;br&gt;+	ntab_upload(dev, B43_N=
+TAB_C0_IQLT, b43_ntab_iqlt0);&lt;br&gt;+	ntab_upload(dev, B43_NTAB_C1_IQLT, b43_n=
+tab_iqlt1);&lt;br&gt;
++	ntab_upload(dev, B43_NTAB_C0_LOFEEDTH, b43_ntab_loftlt0);&lt;br&gt;+	ntab_uploa=
+d(dev, B43_NTAB_C1_LOFEEDTH, b43_ntab_loftlt1);&lt;br&gt;+}&lt;br&gt;+&lt;br&gt;+void b43_nph=
+y_rev3plus_table_init(struct b43_wldev *dev)&lt;br&gt;+{&lt;br&gt;+	/* Static tables */=
+&lt;br&gt;
++	//TODO&lt;br&gt;+&lt;br&gt;+	/* Volatile tables */&lt;br&gt;+	//TODO&lt;br&gt;+}&lt;br&gt;diff --git a/=
+drivers/net/wireless/b43/tables_nphy.h b/drivers/net/wireless/b43/tables_np=
+hy.h&lt;br&gt;index 4d498b0..f5c0c2d 100644&lt;br&gt;--- a/drivers/net/wireless/b43/tab=
+les_nphy.h&lt;br&gt;
++++ b/drivers/net/wireless/b43/tables_nphy.h&lt;br&gt;@@ -128,6 +128,9 @@ b43_nph=
+y_get_chantabent(struct b43_wldev *dev, u8 channel);&lt;br&gt; &lt;br&gt; void b43_ntab=
+_write(struct b43_wldev *dev, u32 offset, u32 value);&lt;br&gt; &lt;br&gt;+void b43_nph=
+y_rev0_1_2_table_init(struct b43_wldev *dev);&lt;br&gt;
++void b43_nphy_rev3plus_table_init(struct b43_wldev *dev);&lt;br&gt;+&lt;br&gt; extern =
+const u8 b43_ntab_adjustpower0[];&lt;br&gt; extern const u8 b43_ntab_adjustpower1=
+[];&lt;br&gt; extern const u16 b43_ntab_bdi[];&lt;br&gt;@@ -155,5 +158,4 @@ extern cons=
+t u32 b43_ntab_tdi40a1[];&lt;br&gt;
+ extern const u32 b43_ntab_tdtrn[];&lt;br&gt; extern const u32 b43_ntab_tmap[];&lt;b=
+r&gt; &lt;br&gt;-&lt;br&gt; #endif /* B43_TABLES_NPHY_H_ */&lt;br&gt;-- &lt;br&gt;1.6.4.2&lt;br&gt;&lt;br&gt;&lt;br&gt;-=
+- &lt;br&gt;Rafa=C5=82
+
+--00148531b400f4d181047b6416b1--
+--00148531b400f4d193047b6416b3
+Content-Type: application/octet-stream; 
+	name=&quot;0001-b43-N-PHY-clean-table-init-check-PHY-rev.patch&quot;
+Content-Disposition: attachment; 
+	filename=&quot;0001-b43-N-PHY-clean-table-init-check-PHY-rev.patch&quot;
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_g3k1ynpg0
+
+RnJvbSA2ODAwNzIyYzJmZGEwZTMwMmQ3Yzc1OWE1ZjJhOTkzNTAzYjY1ODFhIE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiA9P1VURi04P3E/UmFmYT1DNT04Mj0yME1pPUM1PTgyZWNraT89
+IDx6YWplYzVAZ21haWwuY29tPgpEYXRlOiBUdWUsIDIyIERlYyAyMDA5IDAyOjI3OjIxICswMTAw
+ClN1YmplY3Q6IFtQQVRDSF0gYjQzOiBOLVBIWTogY2xlYW4gdGFibGUgaW5pdCwgY2hlY2sgUEhZ
+IHJldgpNSU1FLVZlcnNpb246IDEuMApDb250ZW50LVR5cGU6IHRleHQvcGxhaW47IGNoYXJzZXQ9
+VVRGLTgKQ29udGVudC1UcmFuc2Zlci1FbmNvZGluZzogOGJpdAoKTW92ZSB0YWJsZSBpbml0IHRv
+IHRhYmxlc19ucGh5LmMsIGRldGVjdCBuZXdlciBQSFkgd2hpY2ggdXNlIGRpZmZlcmVudCBpbml0
+CgpTaWduZWQtb2ZmLWJ5OiBSYWZhxYIgTWnFgmVja2kgPHphamVjNUBnbWFpbC5jb20+Ci0tLQog
+ZHJpdmVycy9uZXQvd2lyZWxlc3MvYjQzL3BoeV9uLmMgICAgICAgfCAgIDQzICsrKystLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2I0My90YWJsZXNfbnBoeS5j
+IHwgICA0OCArKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKwogZHJpdmVycy9uZXQvd2ly
+ZWxlc3MvYjQzL3RhYmxlc19ucGh5LmggfCAgICA0ICsrLQogMyBmaWxlcyBjaGFuZ2VkLCA1OCBp
+bnNlcnRpb25zKCspLCAzNyBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93
+aXJlbGVzcy9iNDMvcGh5X24uYyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2I0My9waHlfbi5jCmlu
+ZGV4IDk5MjMxOGEuLjIzY2VmNzEgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2I0
+My9waHlfbi5jCisrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2I0My9waHlfbi5jCkBAIC0xOTcs
+NDQgKzE5NywxNSBAQCB2b2lkIGI0M19ucGh5X3JhZGlvX3R1cm5fb2ZmKHN0cnVjdCBiNDNfd2xk
+ZXYgKmRldikKIAkJICAgICB+QjQzX05QSFlfUkZDVExfQ01EX0VOKTsKIH0KIAotI2RlZmluZSBu
+dGFiX3VwbG9hZChkZXYsIG9mZnNldCwgZGF0YSkgZG8geyBcCi0JCXVuc2lnbmVkIGludCBpOwkJ
+CQkJCVwKLQkJZm9yIChpID0gMDsgaSA8IChvZmZzZXQjI19TSVpFKTsgaSsrKQkJCVwKLQkJCWI0
+M19udGFiX3dyaXRlKGRldiwgKG9mZnNldCkgKyBpLCAoZGF0YSlbaV0pOwlcCi0JfSB3aGlsZSAo
+MCkKLQotLyogVXBsb2FkIHRoZSBOLVBIWSB0YWJsZXMuICovCisvKiBVcGxvYWQgdGhlIE4tUEhZ
+IHRhYmxlcy4KKyAqIGh0dHA6Ly9iY20tdjQuc2lwc29sdXRpb25zLm5ldC84MDIuMTEvUEhZL04v
+SW5pdFRhYmxlcworICovCiBzdGF0aWMgdm9pZCBiNDNfbnBoeV90YWJsZXNfaW5pdChzdHJ1Y3Qg
+YjQzX3dsZGV2ICpkZXYpCiB7Ci0JLyogU3RhdGljIHRhYmxlcyAqLwotCW50YWJfdXBsb2FkKGRl
+diwgQjQzX05UQUJfRlJBTUVTVFJVQ1QsIGI0M19udGFiX2ZyYW1lc3RydWN0KTsKLQludGFiX3Vw
+bG9hZChkZXYsIEI0M19OVEFCX0ZSQU1FTFQsIGI0M19udGFiX2ZyYW1lbG9va3VwKTsKLQludGFi
+X3VwbG9hZChkZXYsIEI0M19OVEFCX1RNQVAsIGI0M19udGFiX3RtYXApOwotCW50YWJfdXBsb2Fk
+KGRldiwgQjQzX05UQUJfVERUUk4sIGI0M19udGFiX3RkdHJuKTsKLQludGFiX3VwbG9hZChkZXYs
+IEI0M19OVEFCX0lOVExFVkVMLCBiNDNfbnRhYl9pbnRsZXZlbCk7Ci0JbnRhYl91cGxvYWQoZGV2
+LCBCNDNfTlRBQl9QSUxPVCwgYjQzX250YWJfcGlsb3QpOwotCW50YWJfdXBsb2FkKGRldiwgQjQz
+X05UQUJfUElMT1RMVCwgYjQzX250YWJfcGlsb3RsdCk7Ci0JbnRhYl91cGxvYWQoZGV2LCBCNDNf
+TlRBQl9UREkyMEEwLCBiNDNfbnRhYl90ZGkyMGEwKTsKLQludGFiX3VwbG9hZChkZXYsIEI0M19O
+VEFCX1RESTIwQTEsIGI0M19udGFiX3RkaTIwYTEpOwotCW50YWJfdXBsb2FkKGRldiwgQjQzX05U
+QUJfVERJNDBBMCwgYjQzX250YWJfdGRpNDBhMCk7Ci0JbnRhYl91cGxvYWQoZGV2LCBCNDNfTlRB
+Ql9UREk0MEExLCBiNDNfbnRhYl90ZGk0MGExKTsKLQludGFiX3VwbG9hZChkZXYsIEI0M19OVEFC
+X0JESSwgYjQzX250YWJfYmRpKTsKLQludGFiX3VwbG9hZChkZXYsIEI0M19OVEFCX0NIQU5FU1Qs
+IGI0M19udGFiX2NoYW5uZWxlc3QpOwotCW50YWJfdXBsb2FkKGRldiwgQjQzX05UQUJfTUNTLCBi
+NDNfbnRhYl9tY3MpOwotCi0JLyogVm9sYXRpbGUgdGFibGVzICovCi0JbnRhYl91cGxvYWQoZGV2
+LCBCNDNfTlRBQl9OT0lTRVZBUjEwLCBiNDNfbnRhYl9ub2lzZXZhcjEwKTsKLQludGFiX3VwbG9h
+ZChkZXYsIEI0M19OVEFCX05PSVNFVkFSMTEsIGI0M19udGFiX25vaXNldmFyMTEpOwotCW50YWJf
+dXBsb2FkKGRldiwgQjQzX05UQUJfQzBfRVNUUExULCBiNDNfbnRhYl9lc3RpbWF0ZXBvd2VybHQw
+KTsKLQludGFiX3VwbG9hZChkZXYsIEI0M19OVEFCX0MxX0VTVFBMVCwgYjQzX250YWJfZXN0aW1h
+dGVwb3dlcmx0MSk7Ci0JbnRhYl91cGxvYWQoZGV2LCBCNDNfTlRBQl9DMF9BREpQTFQsIGI0M19u
+dGFiX2FkanVzdHBvd2VyMCk7Ci0JbnRhYl91cGxvYWQoZGV2LCBCNDNfTlRBQl9DMV9BREpQTFQs
+IGI0M19udGFiX2FkanVzdHBvd2VyMSk7Ci0JbnRhYl91cGxvYWQoZGV2LCBCNDNfTlRBQl9DMF9H
+QUlOQ1RMLCBiNDNfbnRhYl9nYWluY3RsMCk7Ci0JbnRhYl91cGxvYWQoZGV2LCBCNDNfTlRBQl9D
+MV9HQUlOQ1RMLCBiNDNfbnRhYl9nYWluY3RsMSk7Ci0JbnRhYl91cGxvYWQoZGV2LCBCNDNfTlRB
+Ql9DMF9JUUxULCBiNDNfbnRhYl9pcWx0MCk7Ci0JbnRhYl91cGxvYWQoZGV2LCBCNDNfTlRBQl9D
+MV9JUUxULCBiNDNfbnRhYl9pcWx0MSk7Ci0JbnRhYl91cGxvYWQoZGV2LCBCNDNfTlRBQl9DMF9M
+T0ZFRURUSCwgYjQzX250YWJfbG9mdGx0MCk7Ci0JbnRhYl91cGxvYWQoZGV2LCBCNDNfTlRBQl9D
+MV9MT0ZFRURUSCwgYjQzX250YWJfbG9mdGx0MSk7CisJaWYgKGRldi0+cGh5LnJldiA8IDMpCisJ
+CWI0M19ucGh5X3JldjBfMV8yX3RhYmxlX2luaXQoZGV2KTsKKwllbHNlCisJCWI0M19ucGh5X3Jl
+djNwbHVzX3RhYmxlX2luaXQoZGV2KTsKIH0KIAogc3RhdGljIHZvaWQgYjQzX25waHlfd29ya2Fy
+b3VuZHMoc3RydWN0IGI0M193bGRldiAqZGV2KQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2ly
+ZWxlc3MvYjQzL3RhYmxlc19ucGh5LmMgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9iNDMvdGFibGVz
+X25waHkuYwppbmRleCA0ZTIzMzYzLi5kNzA5NTU1IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC93
+aXJlbGVzcy9iNDMvdGFibGVzX25waHkuYworKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9iNDMv
+dGFibGVzX25waHkuYwpAQCAtMjQ3NCwzICsyNDc0LDUxIEBAIHZvaWQgYjQzX250YWJfd3JpdGUo
+c3RydWN0IGI0M193bGRldiAqZGV2LCB1MzIgb2Zmc2V0LCB1MzIgdmFsdWUpCiAJLyogU29tZSBj
+b21waWxldGltZSBhc3NlcnRpb25zLi4uICovCiAJYXNzZXJ0X250YWJfYXJyYXlfc2l6ZXMoKTsK
+IH0KKworI2RlZmluZSBudGFiX3VwbG9hZChkZXYsIG9mZnNldCwgZGF0YSkgZG8geyBcCisJCXVu
+c2lnbmVkIGludCBpOwkJCQkJCVwKKwkJZm9yIChpID0gMDsgaSA8IChvZmZzZXQjI19TSVpFKTsg
+aSsrKQkJCVwKKwkJCWI0M19udGFiX3dyaXRlKGRldiwgKG9mZnNldCkgKyBpLCAoZGF0YSlbaV0p
+OwlcCisJfSB3aGlsZSAoMCkKKwordm9pZCBiNDNfbnBoeV9yZXYwXzFfMl90YWJsZV9pbml0KHN0
+cnVjdCBiNDNfd2xkZXYgKmRldikKK3sKKwkvKiBTdGF0aWMgdGFibGVzICovCisJbnRhYl91cGxv
+YWQoZGV2LCBCNDNfTlRBQl9GUkFNRVNUUlVDVCwgYjQzX250YWJfZnJhbWVzdHJ1Y3QpOworCW50
+YWJfdXBsb2FkKGRldiwgQjQzX05UQUJfRlJBTUVMVCwgYjQzX250YWJfZnJhbWVsb29rdXApOwor
+CW50YWJfdXBsb2FkKGRldiwgQjQzX05UQUJfVE1BUCwgYjQzX250YWJfdG1hcCk7CisJbnRhYl91
+cGxvYWQoZGV2LCBCNDNfTlRBQl9URFRSTiwgYjQzX250YWJfdGR0cm4pOworCW50YWJfdXBsb2Fk
+KGRldiwgQjQzX05UQUJfSU5UTEVWRUwsIGI0M19udGFiX2ludGxldmVsKTsKKwludGFiX3VwbG9h
+ZChkZXYsIEI0M19OVEFCX1BJTE9ULCBiNDNfbnRhYl9waWxvdCk7CisJbnRhYl91cGxvYWQoZGV2
+LCBCNDNfTlRBQl9QSUxPVExULCBiNDNfbnRhYl9waWxvdGx0KTsKKwludGFiX3VwbG9hZChkZXYs
+IEI0M19OVEFCX1RESTIwQTAsIGI0M19udGFiX3RkaTIwYTApOworCW50YWJfdXBsb2FkKGRldiwg
+QjQzX05UQUJfVERJMjBBMSwgYjQzX250YWJfdGRpMjBhMSk7CisJbnRhYl91cGxvYWQoZGV2LCBC
+NDNfTlRBQl9UREk0MEEwLCBiNDNfbnRhYl90ZGk0MGEwKTsKKwludGFiX3VwbG9hZChkZXYsIEI0
+M19OVEFCX1RESTQwQTEsIGI0M19udGFiX3RkaTQwYTEpOworCW50YWJfdXBsb2FkKGRldiwgQjQz
+X05UQUJfQkRJLCBiNDNfbnRhYl9iZGkpOworCW50YWJfdXBsb2FkKGRldiwgQjQzX05UQUJfQ0hB
+TkVTVCwgYjQzX250YWJfY2hhbm5lbGVzdCk7CisJbnRhYl91cGxvYWQoZGV2LCBCNDNfTlRBQl9N
+Q1MsIGI0M19udGFiX21jcyk7CisKKwkvKiBWb2xhdGlsZSB0YWJsZXMgKi8KKwludGFiX3VwbG9h
+ZChkZXYsIEI0M19OVEFCX05PSVNFVkFSMTAsIGI0M19udGFiX25vaXNldmFyMTApOworCW50YWJf
+dXBsb2FkKGRldiwgQjQzX05UQUJfTk9JU0VWQVIxMSwgYjQzX250YWJfbm9pc2V2YXIxMSk7CisJ
+bnRhYl91cGxvYWQoZGV2LCBCNDNfTlRBQl9DMF9FU1RQTFQsIGI0M19udGFiX2VzdGltYXRlcG93
+ZXJsdDApOworCW50YWJfdXBsb2FkKGRldiwgQjQzX05UQUJfQzFfRVNUUExULCBiNDNfbnRhYl9l
+c3RpbWF0ZXBvd2VybHQxKTsKKwludGFiX3VwbG9hZChkZXYsIEI0M19OVEFCX0MwX0FESlBMVCwg
+YjQzX250YWJfYWRqdXN0cG93ZXIwKTsKKwludGFiX3VwbG9hZChkZXYsIEI0M19OVEFCX0MxX0FE
+SlBMVCwgYjQzX250YWJfYWRqdXN0cG93ZXIxKTsKKwludGFiX3VwbG9hZChkZXYsIEI0M19OVEFC
+X0MwX0dBSU5DVEwsIGI0M19udGFiX2dhaW5jdGwwKTsKKwludGFiX3VwbG9hZChkZXYsIEI0M19O
+VEFCX0MxX0dBSU5DVEwsIGI0M19udGFiX2dhaW5jdGwxKTsKKwludGFiX3VwbG9hZChkZXYsIEI0
+M19OVEFCX0MwX0lRTFQsIGI0M19udGFiX2lxbHQwKTsKKwludGFiX3VwbG9hZChkZXYsIEI0M19O
+VEFCX0MxX0lRTFQsIGI0M19udGFiX2lxbHQxKTsKKwludGFiX3VwbG9hZChkZXYsIEI0M19OVEFC
+X0MwX0xPRkVFRFRILCBiNDNfbnRhYl9sb2Z0bHQwKTsKKwludGFiX3VwbG9hZChkZXYsIEI0M19O
+VEFCX0MxX0xPRkVFRFRILCBiNDNfbnRhYl9sb2Z0bHQxKTsKK30KKwordm9pZCBiNDNfbnBoeV9y
+ZXYzcGx1c190YWJsZV9pbml0KHN0cnVjdCBiNDNfd2xkZXYgKmRldikKK3sKKwkvKiBTdGF0aWMg
+dGFibGVzICovCisJLy9UT0RPCisKKwkvKiBWb2xhdGlsZSB0YWJsZXMgKi8KKwkvL1RPRE8KK30K
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2I0My90YWJsZXNfbnBoeS5oIGIvZHJp
+dmVycy9uZXQvd2lyZWxlc3MvYjQzL3RhYmxlc19ucGh5LmgKaW5kZXggNGQ0OThiMC4uZjVjMGMy
+ZCAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvYjQzL3RhYmxlc19ucGh5LmgKKysr
+IGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvYjQzL3RhYmxlc19ucGh5LmgKQEAgLTEyOCw2ICsxMjgs
+OSBAQCBiNDNfbnBoeV9nZXRfY2hhbnRhYmVudChzdHJ1Y3QgYjQzX3dsZGV2ICpkZXYsIHU4IGNo
+YW5uZWwpOwogCiB2b2lkIGI0M19udGFiX3dyaXRlKHN0cnVjdCBiNDNfd2xkZXYgKmRldiwgdTMy
+IG9mZnNldCwgdTMyIHZhbHVlKTsKIAordm9pZCBiNDNfbnBoeV9yZXYwXzFfMl90YWJsZV9pbml0
+KHN0cnVjdCBiNDNfd2xkZXYgKmRldik7Cit2b2lkIGI0M19ucGh5X3JldjNwbHVzX3RhYmxlX2lu
+aXQoc3RydWN0IGI0M193bGRldiAqZGV2KTsKKwogZXh0ZXJuIGNvbnN0IHU4IGI0M19udGFiX2Fk
+anVzdHBvd2VyMFtdOwogZXh0ZXJuIGNvbnN0IHU4IGI0M19udGFiX2FkanVzdHBvd2VyMVtdOwog
+ZXh0ZXJuIGNvbnN0IHUxNiBiNDNfbnRhYl9iZGlbXTsKQEAgLTE1NSw1ICsxNTgsNCBAQCBleHRl
+cm4gY29uc3QgdTMyIGI0M19udGFiX3RkaTQwYTFbXTsKIGV4dGVybiBjb25zdCB1MzIgYjQzX250
+YWJfdGR0cm5bXTsKIGV4dGVybiBjb25zdCB1MzIgYjQzX250YWJfdG1hcFtdOwogCi0KICNlbmRp
+ZiAvKiBCNDNfVEFCTEVTX05QSFlfSF8gKi8KLS0gCjEuNi40LjIKCg==
+--00148531b400f4d193047b6416b3--
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006572.html">No subject
+</A></li>
+	<LI>Next message: <A HREF="000762.html">No subject
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6578">[ date ]</a>
+              <a href="thread.html#6578">[ thread ]</a>
+              <a href="subject.html#6578">[ subject ]</a>
+              <a href="author.html#6578">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

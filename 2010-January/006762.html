@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> No probe response from AP &lt;address&gt; after 500ms, disconnecting.
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20No%20probe%20response%20from%20AP%20%3Caddress%3E%20after%20500ms%2C%20disconnecting.&In-Reply-To=%3C20100115011258.GS29803%40genesis.frugalware.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006752.html">
+   <LINK REL="Next"  HREF="006763.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>No probe response from AP &lt;address&gt; after 500ms, disconnecting.</H1>
+    <B>Miklos Vajna</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20No%20probe%20response%20from%20AP%20%3Caddress%3E%20after%20500ms%2C%20disconnecting.&In-Reply-To=%3C20100115011258.GS29803%40genesis.frugalware.org%3E"
+       TITLE="No probe response from AP &lt;address&gt; after 500ms, disconnecting.">vmiklos at frugalware.org
+       </A><BR>
+    <I>Fri Jan 15 02:12:58 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006752.html">[PATCH 6/6] b43: N-PHY: add huge cal TX IQ LO
+</A></li>
+        <LI>Next message: <A HREF="006763.html">No probe response from AP &lt;address&gt; after 500ms, disconnecting.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6762">[ date ]</a>
+              <a href="thread.html#6762">[ thread ]</a>
+              <a href="subject.html#6762">[ subject ]</a>
+              <a href="author.html#6762">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi,
+
+I tried asking on #bcm-users, then found the wiki where it's suggested
+to report to this list, so I'm doing so. Sorry for the noise on IRC.
+
+A description of the problem at hand:
+
+My card works fine when I use it with WPA, however when I try to use it
+without any encryption (actually the provider uses MAC-based filtering,
+but that's not important), then after the &quot;iwconfig eth0 essid &lt;essid&gt;&quot;,
+&quot;iwconfig&quot; shows the MAC of the AP, and after about 5 secs &quot;iwconfig&quot;
+says it's &quot;Not-Associated&quot;. If I run iwconfig eth0 essid again, then
+it's usable again for ~5 secs and so on. When the AP goes unassociated,
+I see this in dmesg:
+
+No probe response from AP 00:12:17:d3:87:f5 after 500ms, disconnecting.
+
+When it happens:
+
+It happens only in case not using encryption. An other laptop with
+ipw2200 driver works fine, so I guess this will be a b43 or firmware
+problem. The same card works under Windows XP as well, so I guess it's
+not a hardware problem.
+
+How to reproduce:
+
+Run &quot;iwconfig eth0 essid &lt;essid&gt;&quot;, wait ~5 secs and run &quot;iwconfig&quot;
+again. Result: it's unassociated. Expected: to show the MAC of the AP,
+etc.
+
+$ uname -a
+Linux s12 2.6.32-fw2 #1 SMP PREEMPT Sat Dec 19 13:56:14 CET 2009 x86_64
+GNU/Linux
+
+$ sudo lspci -vvn|grep 43 -A7
+00:00.4 0600: 1106:4353
+        Subsystem: 17aa:3889
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR- INTx-
+        Latency: 0, Cache Line Size: 32 bytes
+
+00:00.5 0800: 1106:5353 (prog-if 20 [IO(X)-APIC])
+        Subsystem: 17aa:388a
+--
+02:00.0 0280: 14e4:4315 (rev 01)
+        Subsystem: 14e4:04b5
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B- DisINTx-
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR- INTx-
+        Latency: 0, Cache Line Size: 32 bytes
+        Interrupt: pin A routed to IRQ 28
+        Region 0: Memory at f5200000 (64-bit, non-prefetchable) [size=16K]
+        Capabilities: [40] Power Management version 3
+--
+        Kernel driver in use: b43-pci-bridge
+        Kernel modules: ssb
+
+dmesg: <A HREF="http://frugalware.org/~vmiklos/files/dmesg-s12">http://frugalware.org/~vmiklos/files/dmesg-s12</A>
+
+Wlan configuration, authentication/encryption type:
+
+b43 from vanilla kernel, no encryption. Firmware is installed as
+described at <A HREF="http://linuxwireless.org/en/users/Drivers/b43#fw-b43-lp">http://linuxwireless.org/en/users/Drivers/b43#fw-b43-lp</A>
+
+kernel is a distro-packaged vanilla 2.6.32.1.
+
+Any ideas?
+
+Thanks!
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: not available
+Type: application/pgp-signature
+Size: 197 bytes
+Desc: not available
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20100115/f996bc39/attachment.pgp">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20100115/f996bc39/attachment.pgp</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006752.html">[PATCH 6/6] b43: N-PHY: add huge cal TX IQ LO
+</A></li>
+	<LI>Next message: <A HREF="006763.html">No probe response from AP &lt;address&gt; after 500ms, disconnecting.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6762">[ date ]</a>
+              <a href="thread.html#6762">[ thread ]</a>
+              <a href="subject.html#6762">[ subject ]</a>
+              <a href="author.html#6762">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

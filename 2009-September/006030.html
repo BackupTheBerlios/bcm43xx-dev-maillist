@@ -1,0 +1,565 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add Soft-MAC SDIO device support
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20Soft-MAC%20SDIO%20device%20support&In-Reply-To=%3C69e28c910909101423j535c9cffq5b1be1cb00877645%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006022.html">
+   <LINK REL="Next"  HREF="006031.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add Soft-MAC SDIO device support</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20Soft-MAC%20SDIO%20device%20support&In-Reply-To=%3C69e28c910909101423j535c9cffq5b1be1cb00877645%40mail.gmail.com%3E"
+       TITLE="[PATCH] b43: Add Soft-MAC SDIO device support">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Thu Sep 10 23:23:19 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006022.html">[PATCH] b43: Add Soft-MAC SDIO device support
+</A></li>
+        <LI>Next message: <A HREF="006031.html">[PATCH] b43: Add Soft-MAC SDIO device support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6030">[ date ]</a>
+              <a href="thread.html#6030">[ thread ]</a>
+              <a href="subject.html#6030">[ subject ]</a>
+              <a href="author.html#6030">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Thu, Sep 10, 2009 at 7:34 PM, Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; wrote:
+&gt;<i> From: Albert Herranz &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">albert_herranz at yahoo.es</A>&gt;
+</I>&gt;<i>
+</I>&gt;<i> This adds support for Soft-MAC SDIO devices to b43.
+</I>&gt;<i> The driver still lacks some fixes for SDIO devices, so it's currently
+</I>&gt;<i> marked as BROKEN.
+</I>
+Is it actually completely broken; or already testable, just incomplete?
+
+&gt;<i>
+</I>&gt;<i> Signed-off-by: Albert Herranz &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">albert_herranz at yahoo.es</A>&gt;
+</I>&gt;<i> Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+</I>&gt;<i>
+</I>&gt;<i> ---
+</I>&gt;<i>
+</I>&gt;<i> Depends on the SSB SDIO patch.
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/Kconfig
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/Kconfig &#160; &#160; &#160;2009-09-10 19:23:09.000000000 +0200
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/Kconfig &#160; 2009-09-10 19:33:24.000000000 +0200
+</I>&gt;<i> @@ -61,11 +61,28 @@ config B43_PCMCIA
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160;If unsure, say N.
+</I>&gt;<i>
+</I>&gt;<i> +config B43_SDIO
+</I>&gt;<i> + &#160; &#160; &#160; bool &quot;Broadcom 43xx SDIO device support (EXPERIMENTAL)&quot;
+</I>&gt;<i> + &#160; &#160; &#160; depends on B43 &amp;&amp; SSB_SDIOHOST_POSSIBLE &amp;&amp; EXPERIMENTAL &amp;&amp; BROKEN
+</I>&gt;<i> + &#160; &#160; &#160; select SSB_SDIOHOST
+</I>&gt;<i> + &#160; &#160; &#160; ---help---
+</I>&gt;<i> + &#160; &#160; &#160; &#160; Broadcom 43xx device support for Soft-MAC SDIO devices.
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; &#160; With this config option you can drive Soft-MAC b43 cards with a
+</I>&gt;<i> + &#160; &#160; &#160; &#160; Secure Digital I/O interface.
+</I>&gt;<i> + &#160; &#160; &#160; &#160; This includes the WLAN daughter card found on the Nintendo Wii
+</I>&gt;<i> + &#160; &#160; &#160; &#160; video game console.
+</I>&gt;<i> + &#160; &#160; &#160; &#160; Note that this does not support Broadcom 43xx Full-MAC devices.
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; &#160; It's safe to select Y here, even if you don't have a B43 SDIO device.
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; &#160; If unsure, say N.
+</I>&gt;<i> +
+</I>&gt;<i> &#160;# Data transfers to the device via PIO
+</I>&gt;<i> -# This is only needed on PCMCIA devices. All others can do DMA properly.
+</I>&gt;<i> +# This is only needed on PCMCIA and SDIO devices. All others can do DMA properly.
+</I>&gt;<i> &#160;config B43_PIO
+</I>&gt;<i> &#160; &#160; &#160; &#160;bool
+</I>&gt;<i> - &#160; &#160; &#160; depends on B43 &amp;&amp; (B43_PCMCIA || B43_FORCE_PIO)
+</I>&gt;<i> + &#160; &#160; &#160; depends on B43 &amp;&amp; (B43_SDIO || B43_PCMCIA || B43_FORCE_PIO)
+</I>&gt;<i> &#160; &#160; &#160; &#160;select SSB_BLOCKIO
+</I>&gt;<i> &#160; &#160; &#160; &#160;default y
+</I>&gt;<i>
+</I>&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/Makefile
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/Makefile &#160; &#160; 2009-09-10 19:23:09.000000000 +0200
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/Makefile &#160;2009-09-10 19:23:20.000000000 +0200
+</I>&gt;<i> @@ -16,6 +16,7 @@ b43-$(CONFIG_B43_PIO) &#160; &#160; &#160; &#160; += pio.o
+</I>&gt;<i> &#160;b43-y &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;+= rfkill.o
+</I>&gt;<i> &#160;b43-$(CONFIG_B43_LEDS) &#160; &#160; &#160; &#160; += leds.o
+</I>&gt;<i> &#160;b43-$(CONFIG_B43_PCMCIA) &#160; &#160; &#160; += pcmcia.o
+</I>&gt;<i> +b43-$(CONFIG_B43_SDIO) &#160; &#160; &#160; &#160; += sdio.o
+</I>&gt;<i> &#160;b43-$(CONFIG_B43_DEBUG) &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;+= debugfs.o
+</I>&gt;<i>
+</I>&gt;<i> &#160;obj-$(CONFIG_B43) &#160; &#160; &#160; &#160; &#160; &#160; &#160;+= b43.o
+</I>&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/main.c &#160; &#160; &#160; 2009-09-10 19:23:09.000000000 +0200
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/main.c &#160; &#160;2009-09-10 19:23:20.000000000 +0200
+</I>&gt;<i> @@ -8,6 +8,9 @@
+</I>&gt;<i> &#160; Copyright (c) 2005 Danny van Dyk &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">kugelfang at gentoo.org</A>&gt;
+</I>&gt;<i> &#160; Copyright (c) 2005 Andreas Jaggi &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">andreas.jaggi at waterwave.ch</A>&gt;
+</I>&gt;<i>
+</I>&gt;<i> + &#160;SDIO support
+</I>&gt;<i> + &#160;Copyright (c) 2009 Albert Herranz &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">albert_herranz at yahoo.es</A>&gt;
+</I>&gt;<i> +
+</I>&gt;<i> &#160; Some parts of the code in this file are derived from the ipw2200
+</I>&gt;<i> &#160; driver &#160;Copyright(c) 2003 - 2004 Intel Corporation.
+</I>&gt;<i>
+</I>&gt;<i> @@ -53,6 +56,8 @@
+</I>&gt;<i> &#160;#include &quot;xmit.h&quot;
+</I>&gt;<i> &#160;#include &quot;lo.h&quot;
+</I>&gt;<i> &#160;#include &quot;pcmcia.h&quot;
+</I>&gt;<i> +#include &quot;sdio.h&quot;
+</I>&gt;<i> +#include &lt;linux/mmc/sdio_func.h&gt;
+</I>&gt;<i>
+</I>&gt;<i> &#160;MODULE_DESCRIPTION(&quot;Broadcom B43 wireless driver&quot;);
+</I>&gt;<i> &#160;MODULE_AUTHOR(&quot;Martin Langer&quot;);
+</I>&gt;<i> @@ -1587,7 +1592,7 @@ static void b43_beacon_update_trigger_wo
+</I>&gt;<i> &#160; &#160; &#160; &#160;mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;<i> &#160; &#160; &#160; &#160;dev = wl-&gt;current_dev;
+</I>&gt;<i> &#160; &#160; &#160; &#160;if (likely(dev &amp;&amp; (b43_status(dev) &gt;= B43_STAT_INITIALIZED))) {
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (0 /*FIXME dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO*/) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO) {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;/* wl-&gt;mutex is enough. */
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_do_beacon_update_trigger_work(dev);
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;mmiowb();
+</I>&gt;<i> @@ -1905,6 +1910,27 @@ static irqreturn_t b43_interrupt_handler
+</I>&gt;<i> &#160; &#160; &#160; &#160;return ret;
+</I>&gt;<i> &#160;}
+</I>&gt;<i>
+</I>&gt;<i> +/* SDIO interrupt handler. This runs in process context. */
+</I>&gt;<i> +static void b43_sdio_interrupt_handler(struct b43_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> + &#160; &#160; &#160; struct b43_wl *wl = dev-&gt;wl;
+</I>&gt;<i> + &#160; &#160; &#160; struct sdio_func *func = dev-&gt;dev-&gt;bus-&gt;host_sdio;
+</I>&gt;<i> + &#160; &#160; &#160; irqreturn_t ret;
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; if (unlikely(b43_status(dev) &lt; B43_STAT_STARTED))
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; return;
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;<i> + &#160; &#160; &#160; sdio_release_host(func);
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; ret = b43_do_interrupt(dev);
+</I>&gt;<i> + &#160; &#160; &#160; if (ret == IRQ_WAKE_THREAD)
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_do_interrupt_thread(dev);
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; sdio_claim_host(func);
+</I>&gt;<i> + &#160; &#160; &#160; mutex_unlock(&amp;wl-&gt;mutex);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> &#160;void b43_do_release_fw(struct b43_firmware_file *fw)
+</I>&gt;<i> &#160;{
+</I>&gt;<i> &#160; &#160; &#160; &#160;release_firmware(fw-&gt;data);
+</I>&gt;<i> @@ -3828,7 +3854,7 @@ redo:
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;/* Disable interrupts on the device. */
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_set_status(dev, B43_STAT_INITIALIZED);
+</I>&gt;<i> - &#160; &#160; &#160; if (0 /*FIXME dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO*/) {
+</I>&gt;<i> + &#160; &#160; &#160; if (dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO) {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;/* wl-&gt;mutex is locked. That is enough. */
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_write32(dev, B43_MMIO_GEN_IRQ_MASK, 0);
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_read32(dev, B43_MMIO_GEN_IRQ_MASK); /* Flush */
+</I>&gt;<i> @@ -3858,7 +3884,10 @@ redo:
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;dev_kfree_skb(skb_dequeue(&amp;wl-&gt;tx_queue));
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_mac_suspend(dev);
+</I>&gt;<i> - &#160; &#160; &#160; free_irq(dev-&gt;dev-&gt;irq, dev);
+</I>&gt;<i> + &#160; &#160; &#160; if (dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO)
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_sdio_free_irq(dev);
+</I>&gt;<i> + &#160; &#160; &#160; else
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; free_irq(dev-&gt;dev-&gt;irq, dev);
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_leds_exit(dev);
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43dbg(wl, &quot;Wireless interface stopped\n&quot;);
+</I>&gt;<i>
+</I>&gt;<i> @@ -3873,12 +3902,20 @@ static int b43_wireless_core_start(struc
+</I>&gt;<i> &#160; &#160; &#160; &#160;B43_WARN_ON(b43_status(dev) != B43_STAT_INITIALIZED);
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;drain_txstatus_queue(dev);
+</I>&gt;<i> - &#160; &#160; &#160; err = request_threaded_irq(dev-&gt;dev-&gt;irq, b43_interrupt_handler,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_interrupt_thread_handler,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;IRQF_SHARED, KBUILD_MODNAME, dev);
+</I>&gt;<i> - &#160; &#160; &#160; if (err) {
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43err(dev-&gt;wl, &quot;Cannot request IRQ-%d\n&quot;, dev-&gt;dev-&gt;irq);
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; goto out;
+</I>&gt;<i> + &#160; &#160; &#160; if (dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; err = b43_sdio_request_irq(dev, b43_sdio_interrupt_handler);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (err) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43err(dev-&gt;wl, &quot;Cannot request SDIO IRQ\n&quot;);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; goto out;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; }
+</I>&gt;<i> + &#160; &#160; &#160; } else {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; err = request_threaded_irq(dev-&gt;dev-&gt;irq, b43_interrupt_handler,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_interrupt_thread_handler,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;IRQF_SHARED, KBUILD_MODNAME, dev);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (err) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43err(dev-&gt;wl, &quot;Cannot request IRQ-%d\n&quot;, dev-&gt;dev-&gt;irq);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; goto out;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; }
+</I>&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;/* We are ready to run. */
+</I>&gt;<i> @@ -4270,7 +4307,9 @@ static int b43_wireless_core_init(struct
+</I>&gt;<i> &#160; &#160; &#160; &#160;/* Maximum Contention Window */
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_shm_write16(dev, B43_SHM_SCRATCH, B43_SHM_SC_MAXCONT, 0x3FF);
+</I>&gt;<i>
+</I>&gt;<i> - &#160; &#160; &#160; if ((dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_PCMCIA) || B43_FORCE_PIO) {
+</I>&gt;<i> + &#160; &#160; &#160; if ((dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_PCMCIA) ||
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; (dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO) ||
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; B43_FORCE_PIO) {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;dev-&gt;__using_pio_transfers = 1;
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;err = b43_pio_init(dev);
+</I>&gt;<i> &#160; &#160; &#160; &#160;} else {
+</I>&gt;<i> @@ -4944,7 +4983,7 @@ static struct ssb_driver b43_ssb_driver
+</I>&gt;<i> &#160;static void b43_print_driverinfo(void)
+</I>&gt;<i> &#160;{
+</I>&gt;<i> &#160; &#160; &#160; &#160;const char *feat_pci = &quot;&quot;, *feat_pcmcia = &quot;&quot;, *feat_nphy = &quot;&quot;,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;*feat_leds = &quot;&quot;;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;*feat_leds = &quot;&quot;, *feat_sdio = &quot;&quot;;
+</I>&gt;<i>
+</I>&gt;<i> &#160;#ifdef CONFIG_B43_PCI_AUTOSELECT
+</I>&gt;<i> &#160; &#160; &#160; &#160;feat_pci = &quot;P&quot;;
+</I>&gt;<i> @@ -4958,11 +4997,14 @@ static void b43_print_driverinfo(void)
+</I>&gt;<i> &#160;#ifdef CONFIG_B43_LEDS
+</I>&gt;<i> &#160; &#160; &#160; &#160;feat_leds = &quot;L&quot;;
+</I>&gt;<i> &#160;#endif
+</I>&gt;<i> +#ifdef CONFIG_B43_SDIO
+</I>&gt;<i> + &#160; &#160; &#160; feat_sdio = &quot;S&quot;;
+</I>&gt;<i> +#endif
+</I>&gt;<i> &#160; &#160; &#160; &#160;printk(KERN_INFO &quot;Broadcom 43xx driver loaded &quot;
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160;&quot;[ Features: %s%s%s%s, Firmware-ID: &quot;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160;&quot;[ Features: %s%s%s%s%s, Firmware-ID: &quot;
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; B43_SUPPORTED_FIRMWARE_ID &quot; ]\n&quot;,
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; feat_pci, feat_pcmcia, feat_nphy,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160;feat_leds);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160;feat_leds, feat_sdio);
+</I>&gt;<i> &#160;}
+</I>&gt;<i>
+</I>&gt;<i> &#160;static int __init b43_init(void)
+</I>&gt;<i> @@ -4973,13 +5015,18 @@ static int __init b43_init(void)
+</I>&gt;<i> &#160; &#160; &#160; &#160;err = b43_pcmcia_init();
+</I>&gt;<i> &#160; &#160; &#160; &#160;if (err)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;goto err_dfs_exit;
+</I>&gt;<i> - &#160; &#160; &#160; err = ssb_driver_register(&amp;b43_ssb_driver);
+</I>&gt;<i> + &#160; &#160; &#160; err = b43_sdio_init();
+</I>&gt;<i> &#160; &#160; &#160; &#160;if (err)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;goto err_pcmcia_exit;
+</I>&gt;<i> + &#160; &#160; &#160; err = ssb_driver_register(&amp;b43_ssb_driver);
+</I>&gt;<i> + &#160; &#160; &#160; if (err)
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; goto err_sdio_exit;
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_print_driverinfo();
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;return err;
+</I>&gt;<i>
+</I>&gt;<i> +err_sdio_exit:
+</I>&gt;<i> + &#160; &#160; &#160; b43_sdio_exit();
+</I>&gt;<i> &#160;err_pcmcia_exit:
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_pcmcia_exit();
+</I>&gt;<i> &#160;err_dfs_exit:
+</I>&gt;<i> @@ -4990,6 +5037,7 @@ err_dfs_exit:
+</I>&gt;<i> &#160;static void __exit b43_exit(void)
+</I>&gt;<i> &#160;{
+</I>&gt;<i> &#160; &#160; &#160; &#160;ssb_driver_unregister(&amp;b43_ssb_driver);
+</I>&gt;<i> + &#160; &#160; &#160; b43_sdio_exit();
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_pcmcia_exit();
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_debugfs_exit();
+</I>&gt;<i> &#160;}
+</I>&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/sdio.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- /dev/null &#160; 1970-01-01 00:00:00.000000000 +0000
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/sdio.c &#160; &#160;2009-09-10 19:23:20.000000000 +0200
+</I>&gt;<i> @@ -0,0 +1,197 @@
+</I>&gt;<i> +/*
+</I>&gt;<i> + * Broadcom B43 wireless driver
+</I>&gt;<i> + *
+</I>&gt;<i> + * SDIO over Sonics Silicon Backplane bus glue for b43.
+</I>&gt;<i> + *
+</I>&gt;<i> + * Copyright (C) 2009 Albert Herranz
+</I>&gt;<i> + * Copyright (C) 2009 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+</I>&gt;<i> + *
+</I>&gt;<i> + * This program is free software; you can redistribute it and/or modify
+</I>&gt;<i> + * it under the terms of the GNU General Public License as published by
+</I>&gt;<i> + * the Free Software Foundation; either version 2 of the License, or (at
+</I>&gt;<i> + * your option) any later version.
+</I>&gt;<i> + */
+</I>&gt;<i> +
+</I>&gt;<i> +#include &lt;linux/kernel.h&gt;
+</I>&gt;<i> +#include &lt;linux/mmc/card.h&gt;
+</I>&gt;<i> +#include &lt;linux/mmc/sdio_func.h&gt;
+</I>&gt;<i> +#include &lt;linux/mmc/sdio_ids.h&gt;
+</I>&gt;<i> +#include &lt;linux/ssb/ssb.h&gt;
+</I>&gt;<i> +
+</I>&gt;<i> +#include &quot;sdio.h&quot;
+</I>&gt;<i> +#include &quot;b43.h&quot;
+</I>&gt;<i> +
+</I>&gt;<i> +
+</I>&gt;<i> +#define HNBU_CHIPID &#160; &#160; &#160; &#160; &#160; &#160;0x01 &#160; &#160;/* vendor &amp; device id */
+</I>&gt;<i> +
+</I>&gt;<i> +#define B43_SDIO_BLOCK_SIZE &#160; &#160;64 &#160; &#160; &#160;/* rx fifo max size in bytes */
+</I>&gt;<i> +
+</I>&gt;<i> +
+</I>&gt;<i> +static const struct b43_sdio_quirk {
+</I>&gt;<i> + &#160; &#160; &#160; u16 vendor;
+</I>&gt;<i> + &#160; &#160; &#160; u16 device;
+</I>&gt;<i> + &#160; &#160; &#160; unsigned int quirks;
+</I>&gt;<i> +} b43_sdio_quirks[] = {
+</I>&gt;<i> + &#160; &#160; &#160; { 0x14E4, 0x4318, SSB_QUIRK_SDIO_READ_AFTER_WRITE32, },
+</I>&gt;<i> + &#160; &#160; &#160; { },
+</I>&gt;<i> +};
+</I>&gt;<i> +
+</I>&gt;<i> +
+</I>&gt;<i> +static unsigned int b43_sdio_get_quirks(u16 vendor, u16 device)
+</I>&gt;<i> +{
+</I>&gt;<i> + &#160; &#160; &#160; const struct b43_sdio_quirk *q;
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; for (q = b43_sdio_quirks; q-&gt;quirks; q++) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (vendor == q-&gt;vendor &amp;&amp; device == q-&gt;device)
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; return q-&gt;quirks;
+</I>&gt;<i> + &#160; &#160; &#160; }
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; return 0;
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void b43_sdio_interrupt_dispatcher(struct sdio_func *func)
+</I>&gt;<i> +{
+</I>&gt;<i> + &#160; &#160; &#160; struct b43_sdio *sdio = sdio_get_drvdata(func);
+</I>&gt;<i> + &#160; &#160; &#160; struct b43_wldev *dev = sdio-&gt;irq_handler_opaque;
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; sdio-&gt;irq_handler(dev);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +int b43_sdio_request_irq(struct b43_wldev *dev,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;void (*handler)(struct b43_wldev *dev))
+</I>&gt;<i> +{
+</I>&gt;<i> + &#160; &#160; &#160; struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+</I>&gt;<i> + &#160; &#160; &#160; struct sdio_func *func = bus-&gt;host_sdio;
+</I>&gt;<i> + &#160; &#160; &#160; struct b43_sdio *sdio = sdio_get_drvdata(func);
+</I>&gt;<i> + &#160; &#160; &#160; int err;
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; sdio-&gt;irq_handler_opaque = dev;
+</I>&gt;<i> + &#160; &#160; &#160; sdio-&gt;irq_handler = handler;
+</I>&gt;<i> + &#160; &#160; &#160; sdio_claim_host(func);
+</I>&gt;<i> + &#160; &#160; &#160; err = sdio_claim_irq(func, b43_sdio_interrupt_dispatcher);
+</I>&gt;<i> + &#160; &#160; &#160; sdio_release_host(func);
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; return err;
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +void b43_sdio_free_irq(struct b43_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> + &#160; &#160; &#160; struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+</I>&gt;<i> + &#160; &#160; &#160; struct sdio_func *func = bus-&gt;host_sdio;
+</I>&gt;<i> + &#160; &#160; &#160; struct b43_sdio *sdio = sdio_get_drvdata(func);
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; sdio_claim_host(func);
+</I>&gt;<i> + &#160; &#160; &#160; sdio_release_irq(func);
+</I>&gt;<i> + &#160; &#160; &#160; sdio_release_host(func);
+</I>&gt;<i> + &#160; &#160; &#160; sdio-&gt;irq_handler_opaque = NULL;
+</I>&gt;<i> + &#160; &#160; &#160; sdio-&gt;irq_handler = NULL;
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static int b43_sdio_probe(struct sdio_func *func,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; const struct sdio_device_id *id)
+</I>&gt;<i> +{
+</I>&gt;<i> + &#160; &#160; &#160; struct b43_sdio *sdio;
+</I>&gt;<i> + &#160; &#160; &#160; struct sdio_func_tuple *tuple;
+</I>&gt;<i> + &#160; &#160; &#160; u16 vendor = 0, device = 0;
+</I>&gt;<i> + &#160; &#160; &#160; int error;
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; /* Look for the card chip identifier. */
+</I>&gt;<i> + &#160; &#160; &#160; tuple = func-&gt;tuples;
+</I>&gt;<i> + &#160; &#160; &#160; while (tuple) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; switch (tuple-&gt;code) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; case 0x80:
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; switch (tuple-&gt;data[0]) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; case HNBU_CHIPID:
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (tuple-&gt;size != 5)
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; break;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; vendor = tuple-&gt;data[1] | (tuple-&gt;data[2]&lt;&lt;8);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; device = tuple-&gt;data[3] | (tuple-&gt;data[4]&lt;&lt;8);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; dev_info(&amp;func-&gt;dev, &quot;Chip ID %04x:%04x\n&quot;,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;vendor, device);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; break;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; default:
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; break;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; }
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; break;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; default:
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; break;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; }
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; tuple = tuple-&gt;next;
+</I>&gt;<i> + &#160; &#160; &#160; }
+</I>&gt;<i> + &#160; &#160; &#160; if (!vendor || !device) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; error = -ENODEV;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; goto out;
+</I>&gt;<i> + &#160; &#160; &#160; }
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; sdio_claim_host(func);
+</I>&gt;<i> + &#160; &#160; &#160; error = sdio_set_block_size(func, B43_SDIO_BLOCK_SIZE);
+</I>&gt;<i> + &#160; &#160; &#160; if (error) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; dev_err(&amp;func-&gt;dev, &quot;failed to set block size to %u bytes,&quot;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &quot; error %d\n&quot;, B43_SDIO_BLOCK_SIZE, error);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; goto err_release_host;
+</I>&gt;<i> + &#160; &#160; &#160; }
+</I>&gt;<i> + &#160; &#160; &#160; error = sdio_enable_func(func);
+</I>&gt;<i> + &#160; &#160; &#160; if (error) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; dev_err(&amp;func-&gt;dev, &quot;failed to enable func, error %d\n&quot;, error);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; goto err_release_host;
+</I>&gt;<i> + &#160; &#160; &#160; }
+</I>&gt;<i> + &#160; &#160; &#160; sdio_release_host(func);
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; sdio = kzalloc(sizeof(*sdio), GFP_KERNEL);
+</I>&gt;<i> + &#160; &#160; &#160; if (!sdio) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; error = -ENOMEM;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; dev_err(&amp;func-&gt;dev, &quot;failed to allocate ssb bus\n&quot;);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; goto err_disable_func;
+</I>&gt;<i> + &#160; &#160; &#160; }
+</I>&gt;<i> + &#160; &#160; &#160; error = ssb_bus_sdiobus_register(&amp;sdio-&gt;ssb, func,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_sdio_get_quirks(vendor, device));
+</I>&gt;<i> + &#160; &#160; &#160; if (error) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; dev_err(&amp;func-&gt;dev, &quot;failed to register ssb sdio bus,&quot;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &quot; error %d\n&quot;, error);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; goto err_free_ssb;
+</I>&gt;<i> + &#160; &#160; &#160; }
+</I>&gt;<i> + &#160; &#160; &#160; sdio_set_drvdata(func, sdio);
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; return 0;
+</I>&gt;<i> +
+</I>&gt;<i> +err_free_ssb:
+</I>&gt;<i> + &#160; &#160; &#160; kfree(sdio);
+</I>&gt;<i> +err_disable_func:
+</I>&gt;<i> + &#160; &#160; &#160; sdio_disable_func(func);
+</I>&gt;<i> +err_release_host:
+</I>&gt;<i> + &#160; &#160; &#160; sdio_release_host(func);
+</I>&gt;<i> +out:
+</I>&gt;<i> + &#160; &#160; &#160; return error;
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void b43_sdio_remove(struct sdio_func *func)
+</I>&gt;<i> +{
+</I>&gt;<i> + &#160; &#160; &#160; struct b43_sdio *sdio = sdio_get_drvdata(func);
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; ssb_bus_unregister(&amp;sdio-&gt;ssb);
+</I>&gt;<i> + &#160; &#160; &#160; sdio_disable_func(func);
+</I>&gt;<i> + &#160; &#160; &#160; kfree(sdio);
+</I>&gt;<i> + &#160; &#160; &#160; sdio_set_drvdata(func, NULL);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static const struct sdio_device_id b43_sdio_ids[] = {
+</I>&gt;<i> + &#160; &#160; &#160; { SDIO_DEVICE(0x02d0, 0x044b) }, /* Nintendo Wii WLAN daughter card */
+</I>&gt;<i> + &#160; &#160; &#160; { },
+</I>&gt;<i> +};
+</I>&gt;<i> +
+</I>&gt;<i> +static struct sdio_driver b43_sdio_driver = {
+</I>&gt;<i> + &#160; &#160; &#160; .name &#160; &#160; &#160; &#160; &#160; = &quot;b43-sdio&quot;,
+</I>&gt;<i> + &#160; &#160; &#160; .id_table &#160; &#160; &#160; = b43_sdio_ids,
+</I>&gt;<i> + &#160; &#160; &#160; .probe &#160; &#160; &#160; &#160; &#160;= b43_sdio_probe,
+</I>&gt;<i> + &#160; &#160; &#160; .remove &#160; &#160; &#160; &#160; = b43_sdio_remove,
+</I>&gt;<i> +};
+</I>&gt;<i> +
+</I>&gt;<i> +int b43_sdio_init(void)
+</I>&gt;<i> +{
+</I>&gt;<i> + &#160; &#160; &#160; return sdio_register_driver(&amp;b43_sdio_driver);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +void b43_sdio_exit(void)
+</I>&gt;<i> +{
+</I>&gt;<i> + &#160; &#160; &#160; sdio_unregister_driver(&amp;b43_sdio_driver);
+</I>&gt;<i> +}
+</I>&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/sdio.h
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- /dev/null &#160; 1970-01-01 00:00:00.000000000 +0000
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/sdio.h &#160; &#160;2009-09-10 19:23:20.000000000 +0200
+</I>&gt;<i> @@ -0,0 +1,45 @@
+</I>&gt;<i> +#ifndef B43_SDIO_H_
+</I>&gt;<i> +#define B43_SDIO_H_
+</I>&gt;<i> +
+</I>&gt;<i> +#include &lt;linux/ssb/ssb.h&gt;
+</I>&gt;<i> +
+</I>&gt;<i> +struct b43_wldev;
+</I>&gt;<i> +
+</I>&gt;<i> +
+</I>&gt;<i> +#ifdef CONFIG_B43_SDIO
+</I>&gt;<i> +
+</I>&gt;<i> +struct b43_sdio {
+</I>&gt;<i> + &#160; &#160; &#160; struct ssb_bus ssb;
+</I>&gt;<i> + &#160; &#160; &#160; void *irq_handler_opaque;
+</I>&gt;<i> + &#160; &#160; &#160; void (*irq_handler)(struct b43_wldev *dev);
+</I>&gt;<i> +};
+</I>&gt;<i> +
+</I>&gt;<i> +int b43_sdio_request_irq(struct b43_wldev *dev,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;void (*handler)(struct b43_wldev *dev));
+</I>&gt;<i> +void b43_sdio_free_irq(struct b43_wldev *dev);
+</I>&gt;<i> +
+</I>&gt;<i> +int b43_sdio_init(void);
+</I>&gt;<i> +void b43_sdio_exit(void);
+</I>&gt;<i> +
+</I>&gt;<i> +
+</I>&gt;<i> +#else /* CONFIG_B43_SDIO */
+</I>&gt;<i> +
+</I>&gt;<i> +
+</I>&gt;<i> +int b43_sdio_request_irq(struct b43_wldev *dev,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;void (*handler)(struct b43_wldev *dev))
+</I>&gt;<i> +{
+</I>&gt;<i> + &#160; &#160; &#160; return -ENODEV;
+</I>&gt;<i> +}
+</I>&gt;<i> +void b43_sdio_free_irq(struct b43_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +}
+</I>&gt;<i> +static inline int b43_sdio_init(void)
+</I>&gt;<i> +{
+</I>&gt;<i> + &#160; &#160; &#160; return 0;
+</I>&gt;<i> +}
+</I>&gt;<i> +static inline void b43_sdio_exit(void)
+</I>&gt;<i> +{
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +#endif /* CONFIG_B43_SDIO */
+</I>&gt;<i> +#endif /* B43_SDIO_H_ */
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i> Greetings, Michael.
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Bcm43xx-dev mailing list
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006022.html">[PATCH] b43: Add Soft-MAC SDIO device support
+</A></li>
+	<LI>Next message: <A HREF="006031.html">[PATCH] b43: Add Soft-MAC SDIO device support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6030">[ date ]</a>
+              <a href="thread.html#6030">[ thread ]</a>
+              <a href="subject.html#6030">[ subject ]</a>
+              <a href="author.html#6030">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

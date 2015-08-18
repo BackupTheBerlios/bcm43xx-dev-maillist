@@ -1,0 +1,243 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RESEND] [PATCH] b43 : remove old kidx API
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRESEND%5D%20%5BPATCH%5D%20b43%20%3A%20remove%20old%20kidx%20API&In-Reply-To=%3C83a869cd0907271343g6111794ejff963258a52f546%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005628.html">
+   <LINK REL="Next"  HREF="005635.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RESEND] [PATCH] b43 : remove old kidx API</H1>
+    <B>gregor kowski</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRESEND%5D%20%5BPATCH%5D%20b43%20%3A%20remove%20old%20kidx%20API&In-Reply-To=%3C83a869cd0907271343g6111794ejff963258a52f546%40mail.gmail.com%3E"
+       TITLE="[RESEND] [PATCH] b43 : remove old kidx API">gregor.kowski at gmail.com
+       </A><BR>
+    <I>Mon Jul 27 22:43:36 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005628.html">Who is working on b43 LP-PHY?
+</A></li>
+        <LI>Next message: <A HREF="005635.html">[RESEND] [PATCHv2] b43 add harware tkip
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5636">[ date ]</a>
+              <a href="thread.html#5636">[ thread ]</a>
+              <a href="subject.html#5636">[ subject ]</a>
+              <a href="author.html#5636">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Remove old kidx API.
+This simplify the code, and fix a potential key overflow.
+
+Signed-off-by: Gregor Kowski &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">gregor.kowski at gmail.com</A>&gt;
+
+Index: linux-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/b43/main.c	2009-07-25
+10:58:31.000000000 +0000
++++ linux-2.6/drivers/net/wireless/b43/main.c	2009-07-27
+20:40:14.000000000 +0000
+@@ -776,13 +776,11 @@
+ 	unsigned int i;
+ 	u32 offset;
+ 	u16 value;
+-	u16 kidx;
+
+ 	/* Key index/algo block */
+-	kidx = b43_kidx_to_fw(dev, index);
+-	value = ((kidx &lt;&lt; 4) | algorithm);
++	value = ((index &lt;&lt; 4) | algorithm);
+ 	b43_shm_write16(dev, B43_SHM_SHARED,
+-			B43_SHM_SH_KEYIDXBLOCK + (kidx * 2), value);
++			B43_SHM_SH_KEYIDXBLOCK + (index * 2), value);
+
+ 	/* Write the key to the Key Table Pointer offset */
+ 	offset = dev-&gt;ktp + (index * B43_SEC_KEYSIZE);
+@@ -796,10 +794,7 @@
+ static void keymac_write(struct b43_wldev *dev, u8 index, const u8 *addr)
+ {
+ 	u32 addrtmp[2] = { 0, 0, };
+-	u8 per_sta_keys_start = 8;
+-
+-	if (b43_new_kidx_api(dev))
+-		per_sta_keys_start = 4;
++	const u8 per_sta_keys_start = 4;
+
+ 	B43_WARN_ON(index &lt; per_sta_keys_start);
+ 	/* We have two default TX keys and possibly two default RX keys.
+@@ -846,10 +841,7 @@
+ 			 const u8 *key, size_t key_len, const u8 *mac_addr)
+ {
+ 	u8 buf[B43_SEC_KEYSIZE] = { 0, };
+-	u8 per_sta_keys_start = 8;
+-
+-	if (b43_new_kidx_api(dev))
+-		per_sta_keys_start = 4;
++	const u8 per_sta_keys_start = 4;
+
+ 	B43_WARN_ON(index &gt;= dev-&gt;max_nr_keys);
+ 	B43_WARN_ON(key_len &gt; B43_SEC_KEYSIZE);
+@@ -872,7 +864,6 @@
+ 			 struct ieee80211_key_conf *keyconf)
+ {
+ 	int i;
+-	int sta_keys_start;
+
+ 	if (key_len &gt; B43_SEC_KEYSIZE)
+ 		return -EINVAL;
+@@ -881,12 +872,9 @@
+ 		B43_WARN_ON(dev-&gt;key[i].keyconf == keyconf);
+ 	}
+ 	if (index &lt; 0) {
++		const int per_sta_keys_start = 4;
+ 		/* Pairwise key. Get an empty slot for the key. */
+-		if (b43_new_kidx_api(dev))
+-			sta_keys_start = 4;
+-		else
+-			sta_keys_start = 8;
+-		for (i = sta_keys_start; i &lt; dev-&gt;max_nr_keys; i++) {
++		for (i = per_sta_keys_start; i &lt; dev-&gt;max_nr_keys; i++) {
+ 			if (!dev-&gt;key[i].keyconf) {
+ 				/* found empty */
+ 				index = i;
+@@ -901,11 +889,6 @@
+ 		B43_WARN_ON(index &gt; 3);
+
+ 	do_key_write(dev, index, algorithm, key, key_len, mac_addr);
+-	if ((index &lt;= 3) &amp;&amp; !b43_new_kidx_api(dev)) {
+-		/* Default RX key */
+-		B43_WARN_ON(mac_addr);
+-		do_key_write(dev, index + 4, algorithm, key, key_len, NULL);
+-	}
+ 	keyconf-&gt;hw_key_idx = index;
+ 	dev-&gt;key[index].keyconf = keyconf;
+
+@@ -918,10 +901,6 @@
+ 		return -EINVAL;
+ 	do_key_write(dev, index, B43_SEC_ALGO_NONE,
+ 		     NULL, B43_SEC_KEYSIZE, NULL);
+-	if ((index &lt;= 3) &amp;&amp; !b43_new_kidx_api(dev)) {
+-		do_key_write(dev, index + 4, B43_SEC_ALGO_NONE,
+-			     NULL, B43_SEC_KEYSIZE, NULL);
+-	}
+ 	dev-&gt;key[index].keyconf = NULL;
+
+ 	return 0;
+@@ -2972,7 +2951,8 @@
+
+ static void b43_security_init(struct b43_wldev *dev)
+ {
+-	dev-&gt;max_nr_keys = (dev-&gt;dev-&gt;id.revision &gt;= 5) ? 58 : 20;
++	dev-&gt;max_nr_keys = (dev-&gt;dev-&gt;id.revision &gt;= 5) ? 54 : 20;
++	B43_WARN_ON(dev-&gt;fw.rev &lt; 351);
+ 	B43_WARN_ON(dev-&gt;max_nr_keys &gt; ARRAY_SIZE(dev-&gt;key));
+ 	dev-&gt;ktp = b43_shm_read16(dev, B43_SHM_SHARED, B43_SHM_SH_KTP);
+ 	/* KTP is a word address, but we address SHM bytewise.
+@@ -2981,7 +2961,7 @@
+ 	dev-&gt;ktp *= 2;
+ 	if (dev-&gt;dev-&gt;id.revision &gt;= 5) {
+ 		/* Number of RCMTA address slots */
+-		b43_write16(dev, B43_MMIO_RCMTA_COUNT, dev-&gt;max_nr_keys - 8);
++		b43_write16(dev, B43_MMIO_RCMTA_COUNT, dev-&gt;max_nr_keys - 4);
+ 	}
+ 	b43_clear_keys(dev);
+ }
+Index: linux-2.6/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/b43/xmit.c	2009-07-25
+10:58:31.000000000 +0000
++++ linux-2.6/drivers/net/wireless/b43/xmit.c	2009-07-27
+20:40:14.000000000 +0000
+@@ -252,7 +252,6 @@
+ 		/* Hardware appends ICV. */
+ 		plcp_fragment_len += info-&gt;control.hw_key-&gt;icv_len;
+
+-		key_idx = b43_kidx_to_fw(dev, key_idx);
+ 		mac_ctl |= (key_idx &lt;&lt; B43_TXH_MAC_KEYIDX_SHIFT) &amp;
+ 			   B43_TXH_MAC_KEYIDX;
+ 		mac_ctl |= (key-&gt;algorithm &lt;&lt; B43_TXH_MAC_KEYALG_SHIFT) &amp;
+@@ -577,7 +576,6 @@
+ 		/* We must adjust the key index here. We want the &quot;physical&quot;
+ 		 * key index, but the ucode passed it slightly different.
+ 		 */
+-		keyidx = b43_kidx_to_raw(dev, keyidx);
+ 		B43_WARN_ON(keyidx &gt;= dev-&gt;max_nr_keys);
+
+ 		if (dev-&gt;key[keyidx].algorithm != B43_SEC_ALGO_NONE) {
+Index: linux-2.6/drivers/net/wireless/b43/xmit.h
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/b43/xmit.h	2009-07-25
+10:58:30.000000000 +0000
++++ linux-2.6/drivers/net/wireless/b43/xmit.h	2009-07-27
+20:40:14.000000000 +0000
+@@ -301,36 +301,4 @@
+ void b43_tx_suspend(struct b43_wldev *dev);
+ void b43_tx_resume(struct b43_wldev *dev);
+
+-
+-/* Helper functions for converting the key-table index from &quot;firmware-format&quot;
+- * to &quot;raw-format&quot; and back. The firmware API changed for this at
+some revision.
+- * We need to account for that here. */
+-static inline int b43_new_kidx_api(struct b43_wldev *dev)
+-{
+-	/* FIXME: Not sure the change was at rev 351 */
+-	return (dev-&gt;fw.rev &gt;= 351);
+-}
+-static inline u8 b43_kidx_to_fw(struct b43_wldev *dev, u8 raw_kidx)
+-{
+-	u8 firmware_kidx;
+-	if (b43_new_kidx_api(dev)) {
+-		firmware_kidx = raw_kidx;
+-	} else {
+-		if (raw_kidx &gt;= 4)	/* Is per STA key? */
+-			firmware_kidx = raw_kidx - 4;
+-		else
+-			firmware_kidx = raw_kidx;	/* TX default key */
+-	}
+-	return firmware_kidx;
+-}
+-static inline u8 b43_kidx_to_raw(struct b43_wldev *dev, u8 firmware_kidx)
+-{
+-	u8 raw_kidx;
+-	if (b43_new_kidx_api(dev))
+-		raw_kidx = firmware_kidx;
+-	else
+-		raw_kidx = firmware_kidx + 4;	/* RX default keys or per STA keys */
+-	return raw_kidx;
+-}
+-
+ #endif /* B43_XMIT_H_ */
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005628.html">Who is working on b43 LP-PHY?
+</A></li>
+	<LI>Next message: <A HREF="005635.html">[RESEND] [PATCHv2] b43 add harware tkip
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5636">[ date ]</a>
+              <a href="thread.html#5636">[ thread ]</a>
+              <a href="subject.html#5636">[ subject ]</a>
+              <a href="author.html#5636">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

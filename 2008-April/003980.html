@@ -1,0 +1,128 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Tons of interrupts on driver load
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C4813BDE0.1000601%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003979.html">
+   <LINK REL="Next"  HREF="003981.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Tons of interrupts on driver load</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C4813BDE0.1000601%40lwfinger.net%3E"
+       TITLE="Tons of interrupts on driver load">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sun Apr 27 01:42:24 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003979.html">Tons of interrupts on driver load
+</A></li>
+        <LI>Next message: <A HREF="003981.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3980">[ date ]</a>
+              <a href="thread.html#3980">[ thread ]</a>
+              <a href="subject.html#3980">[ subject ]</a>
+              <a href="author.html#3980">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Richard Jonsson wrote:
+&gt;<i> Larry Finger skrev:
+</I>&gt;&gt;<i> Richard Jonsson wrote:
+</I>&gt;&gt;&gt;<i> Larry Finger skrev:
+</I>&gt;&gt;&gt;&gt;<i> If Linus's latest git still has the problem, please do a bisection. I 
+</I>&gt;&gt;&gt;<i> I've now completed the bisection, result below. I'm not really sure 
+</I>&gt;&gt;&gt;<i> this is the bad commit, as v2.6.25 is fine, and this commit is from 
+</I>&gt;&gt;&gt;<i> february. But then again, I don't fully understand how git does it's 
+</I>&gt;&gt;&gt;<i> bisection.
+</I>&gt;&gt;&gt;<i> I've also tried a few kernels in the 2.6.25-rc series that don't show 
+</I>&gt;&gt;&gt;<i> this problem.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> That part is not too difficult to understand. When the commit was made
+</I>&gt;&gt;<i> in February, it was to the wireless-testing tree for inclusion in
+</I>&gt;&gt;<i> 2.6.26. Only when Linus went to the 2.6.25-git kernels in the process
+</I>&gt;&gt;<i> of getting to 2.6.26-rc1 did that commit make it to mainline.
+</I>&gt;&gt;<i>
+</I>&gt;<i> Oh, I see.
+</I>&gt;<i> 
+</I>&gt;&gt;<i> Do you have the ssb and b43 debug info from one of the &quot;bad&quot; kernels?
+</I>&gt;&gt;<i> Please post that info from /var/log/messages. It seems as though this
+</I>&gt;&gt;<i> problem shows on your system because you have a multi-band device.
+</I>&gt;&gt;<i>
+</I>&gt;<i> 
+</I>&gt;<i> Attached. To my knowledge this card (4311) has B/G support=2.4GHz only, 
+</I>&gt;<i> whereas 4312 has A/B/G support=2.4/5GHz.
+</I>
+In a previous post, you gave the following output:
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">richie at laptop</A>:~$ lspci -vv -d :4312
+01:00.0 Network controller: Broadcom Corporation BCM4312 802.11a/b/g 
+(rev 01)
+          Subsystem: Hewlett-Packard Company Unknown device 1361
+          Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- 
+ParErr- Stepping- SERR- FastB2B-
+          Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast 
+ &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+          Latency: 0, Cache Line Size: 64 bytes
+          Interrupt: pin A routed to IRQ 19
+          Region 0: Memory at b3000000 (32-bit, non-prefetchable) 
+[size=16K]
+          Capabilities: &lt;access denied&gt;
+
+Did this come from your computer? If so, the PCI information is that 
+it is as 4312, but the chip id, which is what b43 prints out, 
+identifies it as a 4311. Curious.
+
+I have no idea as to why the interface is switching from 5 to 2.4 GHz, 
+and back endlessly. Perhaps Michael knows. It is also possible that 
+the bug is in the new mac80211 band API, which isn't used by b43 when 
+the &quot;bad&quot; commit is backed out.
+
+The patch contained in 
+<A HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/007423.html">http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/007423.html</A> 
+should fix the PHY transmission errors, at least it fixed the one that 
+was thrown by a BCM4311/2.
+
+BTW, a patch to fix the LED configuration was submitted earlier today 
+on the linux-wireless mailing list. It should fix the problems you had 
+in getting the proper config.
+
+Larry
+
+
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003979.html">Tons of interrupts on driver load
+</A></li>
+	<LI>Next message: <A HREF="003981.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3980">[ date ]</a>
+              <a href="thread.html#3980">[ thread ]</a>
+              <a href="subject.html#3980">[ subject ]</a>
+              <a href="author.html#3980">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

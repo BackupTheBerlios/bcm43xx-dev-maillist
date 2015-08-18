@@ -1,0 +1,150 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Cannot get BCM94311MCG working against 2.6.24-rc5
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Cannot%20get%20BCM94311MCG%20working%20against%202.6.24-rc5&In-Reply-To=%3C476DE108.6030306%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003118.html">
+   <LINK REL="Next"  HREF="003129.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Cannot get BCM94311MCG working against 2.6.24-rc5</H1>
+    <B>Shourya Sarcar</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Cannot%20get%20BCM94311MCG%20working%20against%202.6.24-rc5&In-Reply-To=%3C476DE108.6030306%40gmail.com%3E"
+       TITLE="Cannot get BCM94311MCG working against 2.6.24-rc5">sarcarsh at gmail.com
+       </A><BR>
+    <I>Sun Dec 23 05:16:08 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003118.html">Cannot get BCM94311MCG working against 2.6.24-rc5
+</A></li>
+        <LI>Next message: <A HREF="003129.html">Cannot get BCM94311MCG working against 2.6.24-rc5
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3128">[ date ]</a>
+              <a href="thread.html#3128">[ thread ]</a>
+              <a href="subject.html#3128">[ subject ]</a>
+              <a href="author.html#3128">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Larry Finger wrote:
+&gt;<i> 
+</I>&gt;<i> You are making a number of mistakes. The biggest one is to try to use bcm43xx or b43 with
+</I>&gt;<i> ndiswrapper. THEY ARE MUTUALLY EXCLUSIVE. If you want to use ndiswrapper, then we cannot help you.
+</I>
+Thanks, got it ! I am focussing on getting b43 support now. ndiswrapper 
+is not wrapping anything now.
+
+&gt;<i> 
+</I>&gt;<i> A second minor mistake is to try to use bcm43xx when b43 is available. The actual hardware handling
+</I>&gt;<i> is not that different; however, the MAC implementation in b43 (mac80211) is vastly superior to that
+</I>&gt;<i> in bcm43xx (SoftMAC).
+</I>
+Thanks for pointing out. Only b43 from now !
+
+&gt;<i> 
+</I>&gt;<i> Please rebuild your 2.6.24-rc5 with bcm43xx disabled, but with ssb, mac80211 and b43 enabled. Please
+</I>&gt;<i> enable ssb and b43 debugging. 
+</I>
+Did this and compiled 2.6.24-rc5 kernel cleanly. Rebooted.
+
+After the new kernel is built, installed and booted, check the output
+&gt;<i> of the following commands:
+</I>&gt;<i> 
+</I>&gt;<i> iwconfig
+</I>&gt;<i> ifconfig
+</I>
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">shouryas at rush</A>:~$ iwconfig
+lo        no wireless extensions.
+
+eth0      no wireless extensions.
+
+
+&gt;<i> 
+</I>&gt;<i> If ifconfig does not show eth1 or wlan1 (whatever your device is named) to be UP, then issue an
+</I>&gt;<i> 'ifup eth1' command, then
+</I>
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at rush</A>:/home/shouryas# ifup eth1
+Ignoring unknown interface eth1=eth1.
+(Same for wlan0, wlan1)
+
+
+&gt;<i> 
+</I>&gt;<i> dmesg | grep ssb
+</I>&gt;<i> dmesg | grep b43
+</I>&gt;<i> 
+</I>&gt;<i> Fix whatever problems that you can, then post the output of the last two.
+</I>
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at rush</A>:/home/shouryas# dmesg | grep &quot;ssb\|b43&quot;
+[   43.324090] ssb: Sonics Silicon Backplane found on PCI device 
+0000:0c:00.0
+[   53.899968] b43: disagrees about version of symbol ssb_device_is_enabled
+[   53.899974] b43: Unknown symbol ssb_device_is_enabled
+[   53.900126] b43: disagrees about version of symbol 
+ssb_pcicore_dev_irqvecs_enable
+[   53.900129] b43: Unknown symbol ssb_pcicore_dev_irqvecs_enable
+[   53.900214] b43: disagrees about version of symbol ssb_bus_may_powerdown
+[   53.900216] b43: Unknown symbol ssb_bus_may_powerdown
+[   53.900500] b43: disagrees about version of symbol ssb_bus_unregister
+[   53.900502] b43: Unknown symbol ssb_bus_unregister
+[   53.900661] b43: disagrees about version of symbol ssb_set_devtypedata
+[   53.900663] b43: Unknown symbol ssb_set_devtypedata
+[   53.900850] b43: disagrees about version of symbol ssb_device_disable
+[   53.900852] b43: Unknown symbol ssb_device_disable
+[   53.901030] b43: disagrees about version of symbol ssb_dma_set_mask
+[   53.901032] b43: Unknown symbol ssb_dma_set_mask
+[   53.901320] b43: disagrees about version of symbol ssb_device_enable
+[   53.901322] b43: Unknown symbol ssb_device_enable
+[   53.901437] b43: disagrees about version of symbol ssb_driver_unregister
+[   53.901439] b43: Unknown symbol ssb_driver_unregister
+[   53.901577] b43: disagrees about version of symbol __ssb_driver_register
+[   53.901579] b43: Unknown symbol __ssb_driver_register
+[   53.901809] b43: Unknown symbol ssb_bus_pcmciabus_register
+[   53.901891] b43: disagrees about version of symbol ssb_bus_powerup
+[   53.901893] b43: Unknown symbol ssb_bus_powerup
+[   53.902404] b43: disagrees about version of symbol ssb_dma_translation
+[   53.902406] b43: Unknown symbol ssb_dma_translation
+
+
+To confirm, I am building the 2.6.24-rc5 kernel and booting into the same.
+
+&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> 
+</I>
+Some pointers appreciated.
+
+Thanks in advance,
+Shourya
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003118.html">Cannot get BCM94311MCG working against 2.6.24-rc5
+</A></li>
+	<LI>Next message: <A HREF="003129.html">Cannot get BCM94311MCG working against 2.6.24-rc5
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3128">[ date ]</a>
+              <a href="thread.html#3128">[ thread ]</a>
+              <a href="subject.html#3128">[ subject ]</a>
+              <a href="author.html#3128">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,133 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Locking problem in bcm43xx-mac80211
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Locking%20problem%20in%20bcm43xx-mac80211&In-Reply-To=%3C46605D8C.1030004%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001354.html">
+   <LINK REL="Next"  HREF="001357.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Locking problem in bcm43xx-mac80211</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Locking%20problem%20in%20bcm43xx-mac80211&In-Reply-To=%3C46605D8C.1030004%40lwfinger.net%3E"
+       TITLE="Locking problem in bcm43xx-mac80211">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Jun  1 19:55:24 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001354.html">mac80211 initial rate: a question
+</A></li>
+        <LI>Next message: <A HREF="001357.html">Locking problem in bcm43xx-mac80211
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1345">[ date ]</a>
+              <a href="thread.html#1345">[ thread ]</a>
+              <a href="subject.html#1345">[ subject ]</a>
+              <a href="author.html#1345">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>When a 'modprobe -r bcm43xx-mac80211' command is given with the interface up, the following kernel 
+BUG is issued:
+
+ssb: Switching to ChipCommon core, index 0
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_mac80211: Radio turned off
+BUG: sleeping function called from invalid context at kernel/mutex.c:86
+in_atomic():1, irqs_disabled():0
+2 locks held by modprobe/6053:
+  #0:  (rtnl_mutex){--..}, at: [&lt;ffffffff803f0d63&gt;] mutex_lock+0x2a/0x2e
+  #1:  (&amp;local-&gt;sta_lock){-+..}, at: [&lt;ffffffff882622a5&gt;] sta_info_flush+0x20/0x77 [mac80211]
+
+Call Trace:
+  [&lt;ffffffff8024c830&gt;] debug_show_held_locks+0x22/0x24
+  [&lt;ffffffff8022ab32&gt;] __might_sleep+0xd9/0xdb
+  [&lt;ffffffff803f0d56&gt;] mutex_lock+0x1d/0x2e
+  [&lt;ffffffff8829dc3a&gt;] :bcm43xx_mac80211:bcm43xx_dev_set_key+0xc3/0x2e4
+  [&lt;ffffffff8028eea5&gt;] __kmalloc+0x17e/0x18e
+  [&lt;ffffffff882621bf&gt;] :mac80211:sta_info_free+0xec/0x1b2
+  [&lt;ffffffff882622cf&gt;] :mac80211:sta_info_flush+0x4a/0x77
+  [&lt;ffffffff8826c5bf&gt;] :mac80211:ieee80211_if_reinit+0x29c/0x2c7
+  [&lt;ffffffff80398de0&gt;] unregister_netdevice+0x17e/0x201
+  [&lt;ffffffff8826bd06&gt;] :mac80211:__ieee80211_if_del+0x1d/0x21
+  [&lt;ffffffff8825a985&gt;] :mac80211:ieee80211_unregister_hw+0xbc/0x216
+  [&lt;ffffffff8829cf95&gt;] :bcm43xx_mac80211:bcm43xx_remove+0x53/0x7f
+  [&lt;ffffffff8828f23b&gt;] :ssb:ssb_device_remove+0x2b/0x39
+  [&lt;ffffffff8036cab5&gt;] __device_release_driver+0x93/0xb3
+  [&lt;ffffffff8036d03d&gt;] driver_detach+0xdb/0x11e
+  [&lt;ffffffff8036c529&gt;] bus_remove_driver+0x75/0x97
+  [&lt;ffffffff8036d0b1&gt;] driver_unregister+0x9/0xb
+  [&lt;ffffffff8828eddb&gt;] :ssb:ssb_driver_unregister+0xd/0xf
+  [&lt;ffffffff882b0964&gt;] :bcm43xx_mac80211:bcm43xx_exit+0x10/0x23
+  [&lt;ffffffff80257a82&gt;] sys_delete_module+0x1b5/0x1e6
+  [&lt;ffffffff8024db6a&gt;] trace_hardirqs_on+0x11c/0x147
+  [&lt;ffffffff803f1dcb&gt;] trace_hardirqs_on_thunk+0x35/0x37
+  [&lt;ffffffff80209f9e&gt;] system_call+0x7e/0x83
+
+WARNING: at kernel/mutex.c:132 __mutex_lock_common()
+
+Call Trace:
+  [&lt;ffffffff803f0b23&gt;] __mutex_lock_slowpath+0x6a/0x280
+  [&lt;ffffffff8020b5f3&gt;] dump_stack+0x15/0x17
+  [&lt;ffffffff803f0d63&gt;] mutex_lock+0x2a/0x2e
+  [&lt;ffffffff8829dc3a&gt;] :bcm43xx_mac80211:bcm43xx_dev_set_key+0xc3/0x2e4
+  [&lt;ffffffff8028eea5&gt;] __kmalloc+0x17e/0x18e
+  [&lt;ffffffff882621bf&gt;] :mac80211:sta_info_free+0xec/0x1b2
+  [&lt;ffffffff882622cf&gt;] :mac80211:sta_info_flush+0x4a/0x77
+  [&lt;ffffffff8826c5bf&gt;] :mac80211:ieee80211_if_reinit+0x29c/0x2c7
+  [&lt;ffffffff80398de0&gt;] unregister_netdevice+0x17e/0x201
+  [&lt;ffffffff8826bd06&gt;] :mac80211:__ieee80211_if_del+0x1d/0x21
+  [&lt;ffffffff8825a985&gt;] :mac80211:ieee80211_unregister_hw+0xbc/0x216
+  [&lt;ffffffff8829cf95&gt;] :bcm43xx_mac80211:bcm43xx_remove+0x53/0x7f
+  [&lt;ffffffff8828f23b&gt;] :ssb:ssb_device_remove+0x2b/0x39
+  [&lt;ffffffff8036cab5&gt;] __device_release_driver+0x93/0xb3
+  [&lt;ffffffff8036d03d&gt;] driver_detach+0xdb/0x11e
+  [&lt;ffffffff8036c529&gt;] bus_remove_driver+0x75/0x97
+  [&lt;ffffffff8036d0b1&gt;] driver_unregister+0x9/0xb
+  [&lt;ffffffff8828eddb&gt;] :ssb:ssb_driver_unregister+0xd/0xf
+  [&lt;ffffffff882b0964&gt;] :bcm43xx_mac80211:bcm43xx_exit+0x10/0x23
+  [&lt;ffffffff80257a82&gt;] sys_delete_module+0x1b5/0x1e6
+  [&lt;ffffffff8024db6a&gt;] trace_hardirqs_on+0x11c/0x147
+  [&lt;ffffffff803f1dcb&gt;] trace_hardirqs_on_thunk+0x35/0x37
+  [&lt;ffffffff80209f9e&gt;] system_call+0x7e/0x83
+
+ACPI: PCI interrupt for device 0000:01:00.0 disabled
+ACPI: PCI Interrupt 0000:01:00.0[A] -&gt; Link [LK2E] -&gt; GSI 19 (level, high) -&gt; IRQ 19
+
+I don't know what would happen if an 'ifdown' command were issued first, as I am using 
+NetworkManager to control the interface, and it prevents usage of ifdown.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001354.html">mac80211 initial rate: a question
+</A></li>
+	<LI>Next message: <A HREF="001357.html">Locking problem in bcm43xx-mac80211
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1345">[ date ]</a>
+              <a href="thread.html#1345">[ thread ]</a>
+              <a href="subject.html#1345">[ subject ]</a>
+              <a href="author.html#1345">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,163 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Workaround invalid bluetooth settings
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Workaround%20invalid%20bluetooth%20settings&In-Reply-To=%3C200804182051.42468.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003872.html">
+   <LINK REL="Next"  HREF="003878.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Workaround invalid bluetooth settings</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Workaround%20invalid%20bluetooth%20settings&In-Reply-To=%3C200804182051.42468.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Workaround invalid bluetooth settings">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Apr 18 20:51:41 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003872.html">ASUS WL-138G v2 working with different sprom values
+</A></li>
+        <LI>Next message: <A HREF="003878.html">[PATCH] b43: Workaround invalid bluetooth settings
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3873">[ date ]</a>
+              <a href="thread.html#3873">[ thread ]</a>
+              <a href="subject.html#3873">[ subject ]</a>
+              <a href="author.html#3873">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds a workaround for invalid bluetooth SPROM settings
+on ASUS PCI cards.
+This will stop the microcode from poking with the BT GPIO line.
+This fixes data transmission on this device, as the BT GPIO line
+is used for something TX related on this device
+(probably the power amplifier or the radio).
+This also adds a modparam knob to help debugging this in the future,
+as more devices with this bug may show up.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, this is 2.6.26 stuff.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-04-18 19:54:55.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-04-18 20:51:13.000000000 +0200
+@@ -81,12 +81,16 @@ module_param_named(nohwcrypt, modparam_n
+ MODULE_PARM_DESC(nohwcrypt, &quot;Disable hardware encryption.&quot;);
+ 
+ int b43_modparam_qos = 1;
+ module_param_named(qos, b43_modparam_qos, int, 0444);
+ MODULE_PARM_DESC(qos, &quot;Enable QOS support (default on)&quot;);
+ 
++static int modparam_btcoex = 1;
++module_param_named(btcoex, modparam_btcoex, int, 0444);
++MODULE_PARM_DESC(btcoex, &quot;Enable Bluetooth coexistance (default on)&quot;);
++
+ 
+ static const struct ssb_device_id b43_ssb_tbl[] = {
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 5),
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 6),
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 7),
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 9),
+@@ -3705,28 +3709,32 @@ static void setup_struct_wldev_for_init(
+ 
+ static void b43_bluetooth_coext_enable(struct b43_wldev *dev)
+ {
+ 	struct ssb_sprom *sprom = &amp;dev-&gt;dev-&gt;bus-&gt;sprom;
+ 	u32 hf;
+ 
++	if (!modparam_btcoex)
++		return;
+ 	if (!(sprom-&gt;boardflags_lo &amp; B43_BFL_BTCOEXIST))
+ 		return;
+ 	if (dev-&gt;phy.type != B43_PHYTYPE_B &amp;&amp; !dev-&gt;phy.gmode)
+ 		return;
+ 
+ 	hf = b43_hf_read(dev);
+ 	if (sprom-&gt;boardflags_lo &amp; B43_BFL_BTCMOD)
+ 		hf |= B43_HF_BTCOEXALT;
+ 	else
+ 		hf |= B43_HF_BTCOEX;
+ 	b43_hf_write(dev, hf);
+-	//TODO
+ }
+ 
+ static void b43_bluetooth_coext_disable(struct b43_wldev *dev)
+-{				//TODO
++{
++	if (!modparam_btcoex)
++		return;
++	//TODO
+ }
+ 
+ static void b43_imcfglo_timeouts_workaround(struct b43_wldev *dev)
+ {
+ #ifdef CONFIG_SSB_DRIVER_PCICORE
+ 	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+@@ -4413,19 +4421,29 @@ static int b43_one_core_attach(struct ss
+ 	kfree(wldev);
+ 	return err;
+ }
+ 
+ static void b43_sprom_fixup(struct ssb_bus *bus)
+ {
++	struct pci_dev *pdev;
++
+ 	/* boardflags workarounds */
+ 	if (bus-&gt;boardinfo.vendor == SSB_BOARDVENDOR_DELL &amp;&amp;
+ 	    bus-&gt;chip_id == 0x4301 &amp;&amp; bus-&gt;boardinfo.rev == 0x74)
+ 		bus-&gt;sprom.boardflags_lo |= B43_BFL_BTCOEXIST;
+ 	if (bus-&gt;boardinfo.vendor == PCI_VENDOR_ID_APPLE &amp;&amp;
+ 	    bus-&gt;boardinfo.type == 0x4E &amp;&amp; bus-&gt;boardinfo.rev &gt; 0x40)
+ 		bus-&gt;sprom.boardflags_lo |= B43_BFL_PACTRL;
++	if (bus-&gt;bustype == SSB_BUSTYPE_PCI) {
++		pdev = bus-&gt;host_pci;
++		if (pdev-&gt;vendor == PCI_VENDOR_ID_BROADCOM &amp;&amp;
++		    pdev-&gt;device == 0x4318 &amp;&amp;
++		    pdev-&gt;subsystem_vendor == PCI_VENDOR_ID_ASUSTEK &amp;&amp;
++		    pdev-&gt;subsystem_device == 0x100F)
++			bus-&gt;sprom.boardflags_lo &amp;= ~B43_BFL_BTCOEXIST;
++	}
+ }
+ 
+ static void b43_wireless_exit(struct ssb_device *dev, struct b43_wl *wl)
+ {
+ 	struct ieee80211_hw *hw = wl-&gt;hw;
+ 
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003872.html">ASUS WL-138G v2 working with different sprom values
+</A></li>
+	<LI>Next message: <A HREF="003878.html">[PATCH] b43: Workaround invalid bluetooth settings
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3873">[ date ]</a>
+              <a href="thread.html#3873">[ thread ]</a>
+              <a href="subject.html#3873">[ subject ]</a>
+              <a href="author.html#3873">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

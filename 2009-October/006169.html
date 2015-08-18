@@ -1,0 +1,179 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [mmotm 2009-10-09-01-07] b43/wireless possible circular locking
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5Bmmotm%202009-10-09-01-07%5D%20b43/wireless%20possible%20circular%20locking&In-Reply-To=%3C20091011094139.GA2778%40darkstar%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006165.html">
+   <LINK REL="Next"  HREF="006170.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[mmotm 2009-10-09-01-07] b43/wireless possible circular locking</H1>
+    <B>Dave Young</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5Bmmotm%202009-10-09-01-07%5D%20b43/wireless%20possible%20circular%20locking&In-Reply-To=%3C20091011094139.GA2778%40darkstar%3E"
+       TITLE="[mmotm 2009-10-09-01-07] b43/wireless possible circular locking">hidave.darkstar at gmail.com
+       </A><BR>
+    <I>Sun Oct 11 11:41:40 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006165.html">[PATCH] b43: Remove me as maintainer
+</A></li>
+        <LI>Next message: <A HREF="006170.html">[mmotm 2009-10-09-01-07] b43/wireless possible circular locking
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6169">[ date ]</a>
+              <a href="thread.html#6169">[ thread ]</a>
+              <a href="subject.html#6169">[ subject ]</a>
+              <a href="author.html#6169">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi,
+
+I got lockdep warnings about possible circular lock with
+b43 interface startup. It looks like a real problem.
+
+[   71.974542] wlan0: deauthenticating from 00:19:e0:db:24:de by local choice (reason=3)
+[   72.004352] b43-phy0 debug: Removing Interface type 2
+[   72.005431] 
+[   72.005435] =======================================================
+[   72.006168] [ INFO: possible circular locking dependency detected ]
+[   72.006759] 2.6.32-rc3-mm1 #4
+[   72.007047] -------------------------------------------------------
+[   72.007617] ifconfig/2175 is trying to acquire lock:
+[   72.007617]  (&amp;(&amp;rfkill-&gt;poll_work)-&gt;work){+.+...}, at: [&lt;c0239375&gt;] __cancel_work_timer+0x8c/0x18e
+[   72.007617] 
+[   72.007617] but task is already holding lock:
+[   72.007617]  (&amp;wl-&gt;mutex){+.+.+.}, at: [&lt;f8fa5359&gt;] b43_op_stop+0x28/0x6a [b43]
+[   72.007617] 
+[   72.007617] which lock already depends on the new lock.
+[   72.007617] 
+[   72.007617] 
+[   72.007617] the existing dependency chain (in reverse order) is:
+[   72.007617] 
+[   72.007617] -&gt; #1 (&amp;wl-&gt;mutex){+.+.+.}:
+[   72.007617]        [&lt;c024b251&gt;] __lock_acquire+0x9e2/0xb73
+[   72.007617]        [&lt;c024b449&gt;] lock_acquire+0x67/0x84
+[   72.007617]        [&lt;c055854d&gt;] __mutex_lock_common+0x35/0x2ca
+[   72.007617]        [&lt;c0558880&gt;] mutex_lock_nested+0x30/0x38
+[   72.007617]        [&lt;f8fb9bcd&gt;] b43_rfkill_poll+0x26/0xc9 [b43]
+[   72.007617]        [&lt;f8f8330e&gt;] ieee80211_rfkill_poll+0x1f/0x21 [mac80211]
+[   72.007617]        [&lt;f8396011&gt;] cfg80211_rfkill_poll+0x11/0x13 [cfg80211]
+[   72.007617]        [&lt;f826b740&gt;] rfkill_poll+0x14/0x2a [rfkill]
+[   72.007617]        [&lt;c0239927&gt;] worker_thread+0x13b/0x1ff
+[   72.007617]        [&lt;c023be0c&gt;] kthread+0x58/0x5d
+[   72.007617]        [&lt;c0203d07&gt;] kernel_thread_helper+0x7/0x10
+[   72.007617] 
+[   72.007617] -&gt; #0 (&amp;(&amp;rfkill-&gt;poll_work)-&gt;work){+.+...}:
+[   72.007617]        [&lt;c024b15c&gt;] __lock_acquire+0x8ed/0xb73
+[   72.007617]        [&lt;c024b449&gt;] lock_acquire+0x67/0x84
+[   72.007617]        [&lt;c02393a2&gt;] __cancel_work_timer+0xb9/0x18e
+[   72.007617]        [&lt;c0239482&gt;] cancel_delayed_work_sync+0xb/0xd
+[   72.007617]        [&lt;f826b71b&gt;] rfkill_pause_polling+0x20/0x22 [rfkill]
+[   72.007617]        [&lt;f8396328&gt;] wiphy_rfkill_stop_polling+0x10/0x12 [cfg80211]
+[   72.007617]        [&lt;f8fa5361&gt;] b43_op_stop+0x30/0x6a [b43]
+[   72.007617]        [&lt;f8f895af&gt;] ieee80211_stop_device+0x20/0x53 [mac80211]
+[   72.007617]        [&lt;f8f8141d&gt;] ieee80211_stop+0x3d3/0x452 [mac80211]
+[   72.007617]        [&lt;c04e0c47&gt;] dev_close+0x74/0x90
+[   72.007617]        [&lt;c04e082c&gt;] dev_change_flags+0x96/0x144
+[   72.007617]        [&lt;c05262fd&gt;] devinet_ioctl+0x212/0x468
+[   72.007617]        [&lt;c052814d&gt;] inet_ioctl+0x8e/0xa7
+[   72.007617]        [&lt;c04d3e16&gt;] sock_ioctl+0x1d3/0x1f7
+[   72.007617]        [&lt;c02a6b49&gt;] vfs_ioctl+0x22/0x67
+[   72.007617]        [&lt;c02a707d&gt;] do_vfs_ioctl+0x45f/0x493
+[   72.007617]        [&lt;c02a70f1&gt;] sys_ioctl+0x40/0x5a
+[   72.007617]        [&lt;c020325d&gt;] syscall_call+0x7/0xb
+[   72.007617] 
+[   72.007617] other info that might help us debug this:
+[   72.007617] 
+[   72.007617] 2 locks held by ifconfig/2175:
+[   72.007617]  #0:  (rtnl_mutex){+.+.+.}, at: [&lt;c04e8b90&gt;] rtnl_lock+0xf/0x11
+[   72.007617]  #1:  (&amp;wl-&gt;mutex){+.+.+.}, at: [&lt;f8fa5359&gt;] b43_op_stop+0x28/0x6a [b43]
+[   72.007617] 
+[   72.007617] stack backtrace:
+[   72.007617] Pid: 2175, comm: ifconfig Not tainted 2.6.32-rc3-mm1 #4
+[   72.007617] Call Trace:
+[   72.007617]  [&lt;c024a863&gt;] print_circular_bug+0x8a/0x96
+[   72.007617]  [&lt;c024b15c&gt;] __lock_acquire+0x8ed/0xb73
+[   72.007617]  [&lt;c024b449&gt;] lock_acquire+0x67/0x84
+[   72.007617]  [&lt;c0239375&gt;] ? __cancel_work_timer+0x8c/0x18e
+[   72.007617]  [&lt;c02393a2&gt;] __cancel_work_timer+0xb9/0x18e
+[   72.007617]  [&lt;c0239375&gt;] ? __cancel_work_timer+0x8c/0x18e
+[   72.007617]  [&lt;c05587c8&gt;] ? __mutex_lock_common+0x2b0/0x2ca
+[   72.007617]  [&lt;c0248233&gt;] ? debug_mutex_free_waiter+0x45/0x48
+[   72.007617]  [&lt;c05587d8&gt;] ? __mutex_lock_common+0x2c0/0x2ca
+[   72.007617]  [&lt;c0239482&gt;] cancel_delayed_work_sync+0xb/0xd
+[   72.007617]  [&lt;f826b71b&gt;] rfkill_pause_polling+0x20/0x22 [rfkill]
+[   72.007617]  [&lt;f8396328&gt;] wiphy_rfkill_stop_polling+0x10/0x12 [cfg80211]
+[   72.007617]  [&lt;f8fa5361&gt;] b43_op_stop+0x30/0x6a [b43]
+[   72.007617]  [&lt;f8f895af&gt;] ieee80211_stop_device+0x20/0x53 [mac80211]
+[   72.007617]  [&lt;f8f8141d&gt;] ieee80211_stop+0x3d3/0x452 [mac80211]
+[   72.007617]  [&lt;c0249d42&gt;] ? trace_hardirqs_on+0xb/0xd
+[   72.007617]  [&lt;c022fd77&gt;] ? _local_bh_enable_ip+0x9d/0xa6
+[   72.007617]  [&lt;c022fd88&gt;] ? local_bh_enable_ip+0x8/0xa
+[   72.007617]  [&lt;c05592a8&gt;] ? _spin_unlock_bh+0x25/0x28
+[   72.007617]  [&lt;c04e0c47&gt;] dev_close+0x74/0x90
+[   72.007617]  [&lt;c04e082c&gt;] dev_change_flags+0x96/0x144
+[   72.007617]  [&lt;c05262fd&gt;] devinet_ioctl+0x212/0x468
+[   72.007617]  [&lt;c052814d&gt;] inet_ioctl+0x8e/0xa7
+[   72.007617]  [&lt;c04d3e16&gt;] sock_ioctl+0x1d3/0x1f7
+[   72.007617]  [&lt;c04d3c43&gt;] ? sock_ioctl+0x0/0x1f7
+[   72.007617]  [&lt;c02a6b49&gt;] vfs_ioctl+0x22/0x67
+[   72.007617]  [&lt;c02a707d&gt;] do_vfs_ioctl+0x45f/0x493
+[   72.007617]  [&lt;c0221652&gt;] ? need_resched+0x14/0x1e
+[   72.007617]  [&lt;c0557e29&gt;] ? schedule+0x6ed/0x6fd
+[   72.007617]  [&lt;c055b24e&gt;] ? do_page_fault+0x29d/0x2a5
+[   72.007617]  [&lt;c02a70f1&gt;] sys_ioctl+0x40/0x5a
+[   72.007617]  [&lt;c020325d&gt;] syscall_call+0x7/0xb
+[   73.122930] b43-phy0 debug: Wireless interface stopped
+[   73.131557] ifconfig used greatest stack depth: 5660 bytes left
+[   73.310494] b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+[   73.329042] b43-phy0 debug: b2062: Using crystal tab entry 19200 kHz.
+[   77.923855] b43-phy0 debug: Chip initialized
+[   77.924695] b43-phy0 debug: PIO initialized
+[   77.925410] b43-phy0 debug: QoS enabled
+[   77.941415] b43-phy0 debug: Wireless interface started
+[   77.942164] b43-phy0 debug: Adding Interface type 2
+[   77.961969] wlan0: direct probe to AP 00:19:e0:db:24:de (try 1)
+[   78.160198] wlan0: direct probe to AP 00:19:e0:db:24:de (try 2)
+[   78.164241] wlan0: direct probe responded
+[   78.164649] wlan0: authenticate with AP 00:19:e0:db:24:de (try 1)
+[   78.167341] wlan0: authenticated
+[   78.167791] wlan0: associate with AP 00:19:e0:db:24:de (try 1)
+[   78.170935] wlan0: RX ReassocResp from 00:19:e0:db:24:de (capab=0x421 status=0 aid=4)
+[   78.171690] wlan0: associated
+
+--
+Regards
+dave
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006165.html">[PATCH] b43: Remove me as maintainer
+</A></li>
+	<LI>Next message: <A HREF="006170.html">[mmotm 2009-10-09-01-07] b43/wireless possible circular locking
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6169">[ date ]</a>
+              <a href="thread.html#6169">[ thread ]</a>
+              <a href="subject.html#6169">[ subject ]</a>
+              <a href="author.html#6169">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

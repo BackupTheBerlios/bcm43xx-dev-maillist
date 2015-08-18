@@ -1,0 +1,406 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 3/5] b43: Remove DMA/PIO queue locks
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/5%5D%20b43%3A%20Remove%20DMA/PIO%20queue%20locks&In-Reply-To=%3C200909042255.01072.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005980.html">
+   <LINK REL="Next"  HREF="005981.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 3/5] b43: Remove DMA/PIO queue locks</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/5%5D%20b43%3A%20Remove%20DMA/PIO%20queue%20locks&In-Reply-To=%3C200909042255.01072.mb%40bu3sch.de%3E"
+       TITLE="[PATCH 3/5] b43: Remove DMA/PIO queue locks">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Sep  4 22:55:00 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005980.html">[PATCH 2/5] b43: Remove TX spinlock
+</A></li>
+        <LI>Next message: <A HREF="005981.html">[PATCH 4/5] b43: Remove PIO RX workqueue
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5982">[ date ]</a>
+              <a href="thread.html#5982">[ thread ]</a>
+              <a href="subject.html#5982">[ subject ]</a>
+              <a href="author.html#5982">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This removes the DMA/PIO queue locks. Locking is handled by
+wl-&gt;mutex now.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-08-23 13:43:13.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-08-23 14:21:21.000000000 +0200
+@@ -856,7 +856,6 @@ struct b43_dmaring *b43_setup_dmaring(st
+ 		} else
+ 			B43_WARN_ON(1);
+ 	}
+-	spin_lock_init(&amp;ring-&gt;lock);
+ #ifdef CONFIG_B43_DEBUG
+ 	ring-&gt;last_injected_overflow = jiffies;
+ #endif
+@@ -1315,7 +1314,6 @@ int b43_dma_tx(struct b43_wldev *dev, st
+ 	struct b43_dmaring *ring;
+ 	struct ieee80211_hdr *hdr;
+ 	int err = 0;
+-	unsigned long flags;
+ 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+ 
+ 	hdr = (struct ieee80211_hdr *)skb-&gt;data;
+@@ -1331,8 +1329,6 @@ int b43_dma_tx(struct b43_wldev *dev, st
+ 			dev, skb_get_queue_mapping(skb));
+ 	}
+ 
+-	spin_lock_irqsave(&amp;ring-&gt;lock, flags);
+-
+ 	B43_WARN_ON(!ring-&gt;tx);
+ 
+ 	if (unlikely(ring-&gt;stopped)) {
+@@ -1343,7 +1339,7 @@ int b43_dma_tx(struct b43_wldev *dev, st
+ 		if (b43_debug(dev, B43_DBG_DMAVERBOSE))
+ 			b43err(dev-&gt;wl, &quot;Packet after queue stopped\n&quot;);
+ 		err = -ENOSPC;
+-		goto out_unlock;
++		goto out;
+ 	}
+ 
+ 	if (unlikely(WARN_ON(free_slots(ring) &lt; TX_SLOTS_PER_FRAME))) {
+@@ -1351,7 +1347,7 @@ int b43_dma_tx(struct b43_wldev *dev, st
+ 		 * full, but queues not stopped. */
+ 		b43err(dev-&gt;wl, &quot;DMA queue overflow\n&quot;);
+ 		err = -ENOSPC;
+-		goto out_unlock;
++		goto out;
+ 	}
+ 
+ 	/* Assign the queue number to the ring (if not already done before)
+@@ -1365,11 +1361,11 @@ int b43_dma_tx(struct b43_wldev *dev, st
+ 		 * anymore and must not transmit it unencrypted. */
+ 		dev_kfree_skb_any(skb);
+ 		err = 0;
+-		goto out_unlock;
++		goto out;
+ 	}
+ 	if (unlikely(err)) {
+ 		b43err(dev-&gt;wl, &quot;DMA tx mapping failure\n&quot;);
+-		goto out_unlock;
++		goto out;
+ 	}
+ 	ring-&gt;nr_tx_packets++;
+ 	if ((free_slots(ring) &lt; TX_SLOTS_PER_FRAME) ||
+@@ -1381,8 +1377,7 @@ int b43_dma_tx(struct b43_wldev *dev, st
+ 			b43dbg(dev-&gt;wl, &quot;Stopped TX ring %d\n&quot;, ring-&gt;index);
+ 		}
+ 	}
+-out_unlock:
+-	spin_unlock_irqrestore(&amp;ring-&gt;lock, flags);
++out:
+ 
+ 	return err;
+ }
+@@ -1401,8 +1396,6 @@ void b43_dma_handle_txstatus(struct b43_
+ 	if (unlikely(!ring))
+ 		return;
+ 
+-	spin_lock_irq(&amp;ring-&gt;lock);
+-
+ 	B43_WARN_ON(!ring-&gt;tx);
+ 	ops = ring-&gt;ops;
+ 	while (1) {
+@@ -1461,8 +1454,6 @@ void b43_dma_handle_txstatus(struct b43_
+ 			b43dbg(dev-&gt;wl, &quot;Woke up TX ring %d\n&quot;, ring-&gt;index);
+ 		}
+ 	}
+-
+-	spin_unlock_irq(&amp;ring-&gt;lock);
+ }
+ 
+ void b43_dma_get_tx_stats(struct b43_wldev *dev,
+@@ -1470,17 +1461,14 @@ void b43_dma_get_tx_stats(struct b43_wld
+ {
+ 	const int nr_queues = dev-&gt;wl-&gt;hw-&gt;queues;
+ 	struct b43_dmaring *ring;
+-	unsigned long flags;
+ 	int i;
+ 
+ 	for (i = 0; i &lt; nr_queues; i++) {
+ 		ring = select_ring_by_priority(dev, i);
+ 
+-		spin_lock_irqsave(&amp;ring-&gt;lock, flags);
+ 		stats[i].len = ring-&gt;used_slots / TX_SLOTS_PER_FRAME;
+ 		stats[i].limit = ring-&gt;nr_slots / TX_SLOTS_PER_FRAME;
+ 		stats[i].count = ring-&gt;nr_tx_packets;
+-		spin_unlock_irqrestore(&amp;ring-&gt;lock, flags);
+ 	}
+ }
+ 
+@@ -1591,22 +1579,14 @@ void b43_dma_rx(struct b43_dmaring *ring
+ 
+ static void b43_dma_tx_suspend_ring(struct b43_dmaring *ring)
+ {
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&amp;ring-&gt;lock, flags);
+ 	B43_WARN_ON(!ring-&gt;tx);
+ 	ring-&gt;ops-&gt;tx_suspend(ring);
+-	spin_unlock_irqrestore(&amp;ring-&gt;lock, flags);
+ }
+ 
+ static void b43_dma_tx_resume_ring(struct b43_dmaring *ring)
+ {
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&amp;ring-&gt;lock, flags);
+ 	B43_WARN_ON(!ring-&gt;tx);
+ 	ring-&gt;ops-&gt;tx_resume(ring);
+-	spin_unlock_irqrestore(&amp;ring-&gt;lock, flags);
+ }
+ 
+ void b43_dma_tx_suspend(struct b43_wldev *dev)
+Index: wireless-testing/drivers/net/wireless/b43/dma.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.h	2009-08-23 13:43:13.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/dma.h	2009-08-23 14:21:21.000000000 +0200
+@@ -2,7 +2,6 @@
+ #define B43_DMA_H_
+ 
+ #include &lt;linux/ieee80211.h&gt;
+-#include &lt;linux/spinlock.h&gt;
+ 
+ #include &quot;b43.h&quot;
+ 
+@@ -244,8 +243,6 @@ struct b43_dmaring {
+ 	/* The QOS priority assigned to this ring. Only used for TX rings.
+ 	 * This is the mac80211 &quot;queue&quot; value. */
+ 	u8 queue_prio;
+-	/* Lock, only used for TX. */
+-	spinlock_t lock;
+ 	struct b43_wldev *dev;
+ #ifdef CONFIG_B43_DEBUG
+ 	/* Maximum number of used slots. */
+Index: wireless-testing/drivers/net/wireless/b43/pio.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/pio.c	2009-08-23 13:43:13.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/pio.c	2009-08-23 14:21:21.000000000 +0200
+@@ -144,7 +144,6 @@ static struct b43_pio_txqueue *b43_setup
+ 	q = kzalloc(sizeof(*q), GFP_KERNEL);
+ 	if (!q)
+ 		return NULL;
+-	spin_lock_init(&amp;q-&gt;lock);
+ 	q-&gt;dev = dev;
+ 	q-&gt;rev = dev-&gt;dev-&gt;id.revision;
+ 	q-&gt;mmio_base = index_to_pioqueue_base(dev, index) +
+@@ -179,7 +178,6 @@ static struct b43_pio_rxqueue *b43_setup
+ 	q = kzalloc(sizeof(*q), GFP_KERNEL);
+ 	if (!q)
+ 		return NULL;
+-	spin_lock_init(&amp;q-&gt;lock);
+ 	q-&gt;dev = dev;
+ 	q-&gt;rev = dev-&gt;dev-&gt;id.revision;
+ 	q-&gt;mmio_base = index_to_pioqueue_base(dev, index) +
+@@ -494,7 +492,6 @@ int b43_pio_tx(struct b43_wldev *dev, st
+ {
+ 	struct b43_pio_txqueue *q;
+ 	struct ieee80211_hdr *hdr;
+-	unsigned long flags;
+ 	unsigned int hdrlen, total_len;
+ 	int err = 0;
+ 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+@@ -512,20 +509,18 @@ int b43_pio_tx(struct b43_wldev *dev, st
+ 		q = select_queue_by_priority(dev, skb_get_queue_mapping(skb));
+ 	}
+ 
+-	spin_lock_irqsave(&amp;q-&gt;lock, flags);
+-
+ 	hdrlen = b43_txhdr_size(dev);
+ 	total_len = roundup(skb-&gt;len + hdrlen, 4);
+ 
+ 	if (unlikely(total_len &gt; q-&gt;buffer_size)) {
+ 		err = -ENOBUFS;
+ 		b43dbg(dev-&gt;wl, &quot;PIO: TX packet longer than queue.\n&quot;);
+-		goto out_unlock;
++		goto out;
+ 	}
+ 	if (unlikely(q-&gt;free_packet_slots == 0)) {
+ 		err = -ENOBUFS;
+ 		b43warn(dev-&gt;wl, &quot;PIO: TX packet overflow.\n&quot;);
+-		goto out_unlock;
++		goto out;
+ 	}
+ 	B43_WARN_ON(q-&gt;buffer_used &gt; q-&gt;buffer_size);
+ 
+@@ -534,7 +529,7 @@ int b43_pio_tx(struct b43_wldev *dev, st
+ 		err = -EBUSY;
+ 		ieee80211_stop_queue(dev-&gt;wl-&gt;hw, skb_get_queue_mapping(skb));
+ 		q-&gt;stopped = 1;
+-		goto out_unlock;
++		goto out;
+ 	}
+ 
+ 	/* Assign the queue number to the ring (if not already done before)
+@@ -548,11 +543,11 @@ int b43_pio_tx(struct b43_wldev *dev, st
+ 		 * anymore and must not transmit it unencrypted. */
+ 		dev_kfree_skb_any(skb);
+ 		err = 0;
+-		goto out_unlock;
++		goto out;
+ 	}
+ 	if (unlikely(err)) {
+ 		b43err(dev-&gt;wl, &quot;PIO transmission failure\n&quot;);
+-		goto out_unlock;
++		goto out;
+ 	}
+ 	q-&gt;nr_tx_packets++;
+ 
+@@ -564,9 +559,7 @@ int b43_pio_tx(struct b43_wldev *dev, st
+ 		q-&gt;stopped = 1;
+ 	}
+ 
+-out_unlock:
+-	spin_unlock_irqrestore(&amp;q-&gt;lock, flags);
+-
++out:
+ 	return err;
+ }
+ 
+@@ -583,8 +576,6 @@ void b43_pio_handle_txstatus(struct b43_
+ 		return;
+ 	B43_WARN_ON(!pack);
+ 
+-	spin_lock_irq(&amp;q-&gt;lock);
+-
+ 	info = IEEE80211_SKB_CB(pack-&gt;skb);
+ 
+ 	b43_fill_txstatus_report(dev, info, status);
+@@ -602,8 +593,6 @@ void b43_pio_handle_txstatus(struct b43_
+ 		ieee80211_wake_queue(dev-&gt;wl-&gt;hw, q-&gt;queue_prio);
+ 		q-&gt;stopped = 0;
+ 	}
+-
+-	spin_unlock_irq(&amp;q-&gt;lock);
+ }
+ 
+ void b43_pio_get_tx_stats(struct b43_wldev *dev,
+@@ -611,17 +600,14 @@ void b43_pio_get_tx_stats(struct b43_wld
+ {
+ 	const int nr_queues = dev-&gt;wl-&gt;hw-&gt;queues;
+ 	struct b43_pio_txqueue *q;
+-	unsigned long flags;
+ 	int i;
+ 
+ 	for (i = 0; i &lt; nr_queues; i++) {
+ 		q = select_queue_by_priority(dev, i);
+ 
+-		spin_lock_irqsave(&amp;q-&gt;lock, flags);
+ 		stats[i].len = B43_PIO_MAX_NR_TXPACKETS - q-&gt;free_packet_slots;
+ 		stats[i].limit = B43_PIO_MAX_NR_TXPACKETS;
+ 		stats[i].count = q-&gt;nr_tx_packets;
+-		spin_unlock_irqrestore(&amp;q-&gt;lock, flags);
+ 	}
+ }
+ 
+@@ -768,9 +754,9 @@ static void b43_pio_rx_work(struct work_
+ 	bool stop;
+ 
+ 	do {
+-		spin_lock_irq(&amp;q-&gt;lock);
++		mutex_lock(&amp;q-&gt;dev-&gt;wl-&gt;mutex);
+ 		stop = (pio_rx_frame(q) == 0);
+-		spin_unlock_irq(&amp;q-&gt;lock);
++		mutex_unlock(&amp;q-&gt;dev-&gt;wl-&gt;mutex);
+ 		cond_resched();
+ 		if (stop)
+ 			break;
+@@ -787,9 +773,6 @@ void b43_pio_rx(struct b43_pio_rxqueue *
+ 
+ static void b43_pio_tx_suspend_queue(struct b43_pio_txqueue *q)
+ {
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&amp;q-&gt;lock, flags);
+ 	if (q-&gt;rev &gt;= 8) {
+ 		b43_piotx_write32(q, B43_PIO8_TXCTL,
+ 				  b43_piotx_read32(q, B43_PIO8_TXCTL)
+@@ -799,14 +782,10 @@ static void b43_pio_tx_suspend_queue(str
+ 				  b43_piotx_read16(q, B43_PIO_TXCTL)
+ 				  | B43_PIO_TXCTL_SUSPREQ);
+ 	}
+-	spin_unlock_irqrestore(&amp;q-&gt;lock, flags);
+ }
+ 
+ static void b43_pio_tx_resume_queue(struct b43_pio_txqueue *q)
+ {
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&amp;q-&gt;lock, flags);
+ 	if (q-&gt;rev &gt;= 8) {
+ 		b43_piotx_write32(q, B43_PIO8_TXCTL,
+ 				  b43_piotx_read32(q, B43_PIO8_TXCTL)
+@@ -816,7 +795,6 @@ static void b43_pio_tx_resume_queue(stru
+ 				  b43_piotx_read16(q, B43_PIO_TXCTL)
+ 				  &amp; ~B43_PIO_TXCTL_SUSPREQ);
+ 	}
+-	spin_unlock_irqrestore(&amp;q-&gt;lock, flags);
+ }
+ 
+ void b43_pio_tx_suspend(struct b43_wldev *dev)
+Index: wireless-testing/drivers/net/wireless/b43/pio.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/pio.h	2009-08-23 13:43:13.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/pio.h	2009-08-23 14:21:21.000000000 +0200
+@@ -70,7 +70,6 @@ struct b43_pio_txpacket {
+ 
+ struct b43_pio_txqueue {
+ 	struct b43_wldev *dev;
+-	spinlock_t lock;
+ 	u16 mmio_base;
+ 
+ 	/* The device queue buffer size in bytes. */
+@@ -103,7 +102,6 @@ struct b43_pio_txqueue {
+ 
+ struct b43_pio_rxqueue {
+ 	struct b43_wldev *dev;
+-	spinlock_t lock;
+ 	u16 mmio_base;
+ 
+ 	/* Work to reduce latency issues on RX. */
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005980.html">[PATCH 2/5] b43: Remove TX spinlock
+</A></li>
+	<LI>Next message: <A HREF="005981.html">[PATCH 4/5] b43: Remove PIO RX workqueue
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5982">[ date ]</a>
+              <a href="thread.html#5982">[ thread ]</a>
+              <a href="subject.html#5982">[ subject ]</a>
+              <a href="author.html#5982">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

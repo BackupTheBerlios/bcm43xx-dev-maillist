@@ -1,0 +1,144 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Improved opensource firmware
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Improved%20opensource%20firmware&In-Reply-To=%3C200907241143.28652.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005616.html">
+   <LINK REL="Next"  HREF="005620.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Improved opensource firmware</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Improved%20opensource%20firmware&In-Reply-To=%3C200907241143.28652.mb%40bu3sch.de%3E"
+       TITLE="Improved opensource firmware">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jul 24 11:43:28 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005616.html">Improved opensource firmware
+</A></li>
+        <LI>Next message: <A HREF="005620.html">Improved opensource firmware
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5619">[ date ]</a>
+              <a href="thread.html#5619">[ thread ]</a>
+              <a href="subject.html#5619">[ subject ]</a>
+              <a href="author.html#5619">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 24 July 2009 02:13:38 Francesco Gringoli wrote:
+&gt;<i> 
+</I>&gt;<i> On Jul 23, 2009, at 11:29 PM, Michael Buesch wrote:
+</I>&gt;<i> 
+</I>&gt;<i> &gt; On Thursday 23 July 2009 17:18:24 Francesco Gringoli wrote:
+</I>&gt;<i> &gt;&gt; On Jul 23, 2009, at 11:18 AM, Michael Buesch wrote:
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt; On Thursday 23 July 2009 04:05:17 Larry Finger wrote:
+</I>&gt;<i> &gt;&gt;&gt;&gt; Francesco Gringoli wrote:
+</I>&gt;<i> &gt;&gt;&gt;&gt;&gt; Larry, I think this could be one of the causes of the
+</I>&gt;<i> &gt;&gt;&gt;&gt;&gt; malfunctioning you
+</I>&gt;<i> &gt;&gt;&gt;&gt;&gt; reported before. If you have some time (and indeed if you feel  
+</I>&gt;<i> &gt;&gt;&gt;&gt;&gt; like
+</I>&gt;<i> &gt;&gt;&gt;&gt;&gt; doing it :-) ) please test this firmware, it will be great.
+</I>&gt;<i> &gt;&gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt;&gt; Francesco,
+</I>&gt;<i> &gt;&gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt;&gt; The system ran about 30 minutes, then crashed. I missed the first
+</I>&gt;<i> &gt;&gt;&gt;&gt; oops, but caught a kernel panic with formal traceback on my i386
+</I>&gt;<i> &gt;&gt;&gt;&gt; system:
+</I>&gt;<i> &gt;&gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt;&gt; b43_dma_handle_txstatus + 0x1ee/0x2fa
+</I>&gt;<i> &gt;&gt;&gt;&gt; b43_handle_txstatus + 0x45/0x52
+</I>&gt;<i> &gt;&gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt;&gt; The call in b43_dma_handle_status is at line 1405:
+</I>&gt;<i> &gt;&gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt;&gt; unmap_descbuffer(ring, meta-&gt;dmaaddr, meta-&gt;skb-&gt;len,
+</I>&gt;<i> &gt;&gt;&gt;&gt;                1);
+</I>&gt;<i> &gt;&gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt;&gt; The oops was in drivers/net/wireless/b43/xmit.h:171 in the call to
+</I>&gt;<i> &gt;&gt;&gt;&gt; b43_is_old_txhdr_format(). It appears that dev-&gt;fw.rev causes the
+</I>&gt;<i> &gt;&gt;&gt;&gt; oops.
+</I>&gt;<i> &gt;&gt;&gt;
+</I>&gt;<i> &gt;&gt;&gt; How is that possible? Is the firmware clobbering random memory?
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; I don't think that the value was modified by the firmware. It cannot
+</I>&gt;<i> &gt;&gt; poke values into host memory ;-)
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; Oh yes it can. It has a DMA engine.
+</I>&gt;<i> Hello Michael,
+</I>&gt;<i> 
+</I>&gt;<i> yes, you are right. I was referring to something like mov 0x0000,  
+</I>&gt;<i> HOST_MEM[random].
+</I>&gt;<i> 
+</I>&gt;<i> Jokes apart, I really didn't think about this possibility but I  
+</I>&gt;<i> believe your idea is correct. I originally thought, reading the specs,  
+</I>&gt;<i> that the dma controller can be configured not only with the base  
+</I>&gt;<i> address but also with a &quot;Descriptor Stop Index&quot;, and I thought this  
+</I>&gt;<i> was an upper limit to the memory it can use, beyond that the  
+</I>&gt;<i> controller would have turned down to the beginning of the ring.  
+</I>&gt;<i> Instead I see from the kernel code that there is not such kind of  
+</I>&gt;<i> limit, is it right? Is it the kernel responsible of taking down the  
+</I>&gt;<i> controller to the first slot when the dma reserved memory is exhausted  
+</I>&gt;<i> (by writing zero in B43_DMA64_RXINDEX)? Sorry for these questions but  
+</I>&gt;<i> I'm missing some details.
+</I>
+Well it depends on the architecture to which places the DMA controller can write.
+On i386 it can write pretty much anywhere. On x86_64 it can probably
+only write to mapped areas due to the IOMMU.
+
+The engine is supposed to wrap reading/writing at the descriptor table end marker
+and should stop at the index marker.
+
+&gt;<i> &gt;&gt; I suppose that the issue on pccard32
+</I>&gt;<i> &gt;&gt; hardware is not yet solved.
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; Which issue?
+</I>&gt;<i> The one we are talking about, reported by Larry for some pccard32  
+</I>&gt;<i> boards where the opensource firmware crashes. We did several testing  
+</I>&gt;<i> with a few 4306 pccard32s the first time Larry reported the problem  
+</I>&gt;<i> but unfortunately that hardware has different problems and crashes  
+</I>&gt;<i> also with the original firmware.
+</I>
+Ok. I'd like to see some oopses with proprietary firmware.
+
+&gt;<i> &gt; This crash does _not_ happen with proprietary firmware.
+</I>&gt;<i> &gt; The only way dev-&gt;fw.rev could crash is by dev being NULL.
+</I>&gt;<i> Got it!
+</I>
+Ok, NULL was a typo. I meant &quot;invalid&quot; instead.
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005616.html">Improved opensource firmware
+</A></li>
+	<LI>Next message: <A HREF="005620.html">Improved opensource firmware
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5619">[ date ]</a>
+              <a href="thread.html#5619">[ thread ]</a>
+              <a href="subject.html#5619">[ subject ]</a>
+              <a href="author.html#5619">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

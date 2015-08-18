@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 0/6] b43: Use spatch to convert register accesses
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%200/6%5D%20b43%3A%20Use%20spatch%20to%20convert%20register%20accesses&In-Reply-To=%3C499F0E25.6030405%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005246.html">
+   <LINK REL="Next"  HREF="005248.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 0/6] b43: Use spatch to convert register accesses</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%200/6%5D%20b43%3A%20Use%20spatch%20to%20convert%20register%20accesses&In-Reply-To=%3C499F0E25.6030405%40lwfinger.net%3E"
+       TITLE="[PATCH 0/6] b43: Use spatch to convert register accesses">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Feb 20 21:10:13 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005246.html">[PATCH 0/6] b43: Use spatch to convert register accesses
+</A></li>
+        <LI>Next message: <A HREF="005248.html">[PATCH 0/6] b43: Use spatch to convert register accesses
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5247">[ date ]</a>
+              <a href="thread.html#5247">[ thread ]</a>
+              <a href="subject.html#5247">[ subject ]</a>
+              <a href="author.html#5247">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> Some time ago I rejected a bunch of patches that converted the
+</I>&gt;<i> PHY/radio register accesses to the new API. That was due to the patches
+</I>&gt;<i> being created manually. This introduces a huge potential to add new bugs.
+</I>&gt;<i> 
+</I>&gt;<i> However, this is an excellent task for coccinelle/spatch.
+</I>&gt;<i> So here's a series of patches, to convert the API usage, that were generated
+</I>&gt;<i> with spatch. This should keep the chances of breaking something as low as possible.
+</I>&gt;<i> 
+</I>&gt;<i> This reduces the .ko size by about 6 kiB.
+</I>&gt;<i> 
+</I>&gt;<i> The used semantic patches will be included in the patch headers.
+</I>&gt;<i> 
+</I>&gt;<i> John, please queue these patches for the next feature release.
+</I>
+Michael,
+
+With those patches applied on an x86_64 system, I get the following warnings:
+
+
+============================
+  CC [M]  drivers/net/wireless/b43/phy_a.o
+drivers/net/wireless/b43/phy_g.c: In function
+&#8216;b43_radio_interference_mitigation_enable&#8217;:
+drivers/net/wireless/b43/phy_g.c:974: warning: large integer implicitly
+truncated to unsigned type
+  CC [M]  drivers/net/wireless/b43/wa.o
+drivers/net/wireless/b43/wa.c: In function &#8216;b43_wa_altagc&#8217;:
+drivers/net/wireless/b43/wa.c:391: warning: large integer implicitly truncated
+to unsigned type
+drivers/net/wireless/b43/wa.c:409: warning: large integer implicitly truncated
+to unsigned type
+drivers/net/wireless/b43/wa.c:411: warning: large integer implicitly truncated
+to unsigned type
+drivers/net/wireless/b43/wa.c:421: warning: large integer implicitly truncated
+to unsigned type
+============================
+
+All of these occur where there is a constant of the form ~0xYXXX with Y in the
+range 8-F. To get rid of the warning, either use a u16 cast, or manually
+complement the constant.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005246.html">[PATCH 0/6] b43: Use spatch to convert register accesses
+</A></li>
+	<LI>Next message: <A HREF="005248.html">[PATCH 0/6] b43: Use spatch to convert register accesses
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5247">[ date ]</a>
+              <a href="thread.html#5247">[ thread ]</a>
+              <a href="subject.html#5247">[ subject ]</a>
+              <a href="author.html#5247">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

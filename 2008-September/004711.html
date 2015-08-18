@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] b43: A patch for control of the radio LED using rfkill
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43%3A%20A%20patch%20for%20control%20of%20the%20radio%20LED%20using%20rfkill&In-Reply-To=%3C200809182034.00801.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004710.html">
+   <LINK REL="Next"  HREF="004712.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] b43: A patch for control of the radio LED using rfkill</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43%3A%20A%20patch%20for%20control%20of%20the%20radio%20LED%20using%20rfkill&In-Reply-To=%3C200809182034.00801.mb%40bu3sch.de%3E"
+       TITLE="[RFC] b43: A patch for control of the radio LED using rfkill">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Sep 18 20:34:00 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004710.html">[RFC] b43: A patch for control of the radio LED using rfkill
+</A></li>
+        <LI>Next message: <A HREF="004712.html">[RFC] b43: A patch for control of the radio LED using rfkill
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4711">[ date ]</a>
+              <a href="thread.html#4711">[ thread ]</a>
+              <a href="subject.html#4711">[ subject ]</a>
+              <a href="author.html#4711">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Thursday 18 September 2008 20:23:21 Ivo van Doorn wrote:
+&gt;<i> On Thursday 18 September 2008, Michael Buesch wrote:
+</I>&gt;<i> &gt; On Thursday 18 September 2008 20:10:35 Ivo van Doorn wrote:
+</I>&gt;<i> &gt; &gt; On Thursday 18 September 2008, Michael Buesch wrote:
+</I>&gt;<i> &gt; &gt; &gt; On Thursday 18 September 2008 19:48:27 Ivo van Doorn wrote:
+</I>&gt;<i> &gt; &gt; &gt; &gt; Well no actually, when the radio state (software rfkill state in your words)
+</I>&gt;<i> &gt; &gt; &gt; 
+</I>&gt;<i> &gt; &gt; &gt; No, &quot;radio state&quot; is _not_ &quot;software rfkill state&quot; in my words.
+</I>&gt;<i> &gt; &gt; &gt; It's an independent state.
+</I>&gt;<i> &gt; &gt; &gt; The actual physical radio state is a combined state of the two sw and hw state bits.
+</I>&gt;<i> &gt; &gt; &gt; If either bit blocks the radio, it's physically blocked. We cannot toggle the hw bit
+</I>&gt;<i> &gt; &gt; &gt; from software.
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; Ah ok. In that case b43 should do:
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; send HW_BLOCK when the hardware rfkill state is set to block
+</I>&gt;<i> &gt; &gt; send SOFT_BLOCK when the software rfkill state is set to block
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; But it shouldn't (and that change was the start of this discussion) send SOFT_BLOCK
+</I>&gt;<i> &gt; &gt; when mac80211 disabled the radio.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; I'm kind of confused. You say one thing and revert it right in the next sentence.
+</I>&gt;<i> 
+</I>&gt;<i> Ehm now you are confusing me.
+</I>&gt;<i> You state that software rfkill state is not the state as requested by mac80211.
+</I>
+
+Nono. I will try to explain it once again. It's really easy.
+
+Think of b43 having two independent registers for rfkill. (the actual hardware
+is different, but that doesn't matter. It's a driver internal implementation detail).
+One of these registers is readonly and it does indicate the physical rfkill button state.
+If that register indicates BLOCK, we can't do anything about it. The radio is blocked.
+However, we can still write to the second register and turn the radio off through
+that, too. We can also write to the second register to turn the radio on, _but_ it won't
+physically turn on until the physical button is pressed and the first register changes
+to Unblocked.
+So you say that rfkill should only be notified about changes in the first read-only
+hardware intication bit? If that's the case, it would be possible to turn the radio off
+through mac80211 calls (using the read-write register), but still have rfkill think it's
+unblocked.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004710.html">[RFC] b43: A patch for control of the radio LED using rfkill
+</A></li>
+	<LI>Next message: <A HREF="004712.html">[RFC] b43: A patch for control of the radio LED using rfkill
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4711">[ date ]</a>
+              <a href="thread.html#4711">[ thread ]</a>
+              <a href="subject.html#4711">[ subject ]</a>
+              <a href="author.html#4711">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

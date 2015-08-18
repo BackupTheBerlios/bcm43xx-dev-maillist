@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> OpenBSD bcw: Possible GPL license violation issues
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20OpenBSD%20bcw%3A%20Possible%20GPL%20license%20violation%20issues&In-Reply-To=%3C200704041945.21447.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   <LINK REL="Next"  HREF="000914.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>OpenBSD bcw: Possible GPL license violation issues</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20OpenBSD%20bcw%3A%20Possible%20GPL%20license%20violation%20issues&In-Reply-To=%3C200704041945.21447.mb%40bu3sch.de%3E"
+       TITLE="OpenBSD bcw: Possible GPL license violation issues">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Apr  4 22:08:13 CEST 2007</I>
+    <P><UL>
+        
+        <LI>Next message: <A HREF="000914.html">OpenBSD bcw: Possible GPL license violation issues
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#913">[ date ]</a>
+              <a href="thread.html#913">[ thread ]</a>
+              <a href="subject.html#913">[ subject ]</a>
+              <a href="author.html#913">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I, Michael Buesch, am one of the maintainers of the GPL'd Linux
+wireless LAN driver for the Broadcom chip (bcm43xx).
+The Copyright holders of bcm43xx (which includes me) want to talk
+to you, OpenBSD bcw developers, about possible GPL license and therefore
+Copyright violations in your bcw driver.
+
+We believe that you might have directly copied code
+out of bcm43xx (licensed under GPL v2), without our explicit permission,
+into bcw (licensed under BSD license).
+There are implementation details in bcm43xx that appear exactly
+the same in bcw. These implementation details clearly don't come
+from the open specifications at bcm-specs.sipsolutions.net
+or bcm-v4.sipsolutions.net.
+
+We have always made and still make a great effort to keep our code clean
+of any Copyright issues (cleanroom design). Please make sure you also do.
+
+A few examples follow of what we think might be GPL violations.
+This list is far from being complete.
+
+BCW_PHY_STACKSAVE()
+BCW_ILT_STACKSAVE()
+bcw_stack_save()
+bcw_stack_restore()
+These functions are a possible implementation of the specs when
+they say &quot;backup/restore a value&quot;.
+Yet, it looks like you had exactly the same idea implementing this
+generic description that I had.
+
+bcw_set_opmode()
+This function does not appear in the specifications.
+I think Jiri Benc wrote it initially (and gave it its name) and
+I extended it.
+
+bcw_leds_switch_all()
+is not in the specs, but a pure implementation detail of bcm43xx.
+
+bcw_sprom_read()
+This is obviously copied. Even the error message string is similiar.
+
+bcw_phy_calc_loopback_gain()
+I think it's no coincidence that you also decided to name the backup
+variables like
+	uint16_t backup_phy[15];
+	uint16_t backup_radio[3];
+	uint16_t backup_bband;
+
+bcw_phy_init_pctl()
+	uint16_t saved_batt = 0, saved_ratt = 0, saved_txctl1 = 0;
+	int must_reset_txpower = 0;
+
+bcw_phy_xmitpower()
+Attenuation adjustment algorithms (while loops).
+
+bcw_phy_lo_g_state()
+This exactly matches bcm43xx, although the specs only have an abstract
+description and diagram of the state machine.
+
+bcw_phy_lo_g_deviation_subval()
+/* XXX bcm43xx_voluntary_preempt() ? */
+Nice comment there.
+You might want to grep bcw for the string &quot;bcm43xx&quot;
+and you will find more of them.
+
+
+... and all the rest.
+
+
+We'd like to have this issue resolved.
+In general we are not against having a free (and BSD licensed) driver
+in the BSD operating system. But you _have_ to cooperate with us if you'd
+like to take our code and relicense it under BSD license. We intentionally
+put the code under GPL license. We did _not_ do this, because &quot;everybody
+does this&quot;. We did this, among other reasons, because we
+[citing Michael, Mon, 26 Dec 2005 13:03:44 +0100]
+&quot;don't think we should allow proprietary vendors to take our code
+and close it again.&quot;
+
+[citing Michael, Date unknown]
+&quot;What if Broadcom decides to take our LO measure state machine and
+put it into the original driver? (The Rev Engineers told me they have
+a very different weird solution for this in their code).
+I really don't want to see this happen.&quot;
+
+We'd like to offer you to start cooperating with us.
+We respect you and your Copyright. You should also do so on our work.
+
+We would not be opposed to relicensing parts of our code under the BSD
+license on an explicit case-by-case base.
+So if you ask &quot;May I use this and that function&quot; and if I own the
+Copyright on that particular function, I will approve or deny your request.
+Other Copyright holders of the bcm43xx code might act the same way.
+
+We're not out for blood, just for a fair resolution.
+We'd like you to start contacting us to resolve the issue now.
+
+Have a nice day.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	<LI>Next message: <A HREF="000914.html">OpenBSD bcw: Possible GPL license violation issues
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#913">[ date ]</a>
+              <a href="thread.html#913">[ thread ]</a>
+              <a href="subject.html#913">[ subject ]</a>
+              <a href="author.html#913">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

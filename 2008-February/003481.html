@@ -1,0 +1,212 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> iwlist shows one AP few times
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20iwlist%20shows%20one%20AP%20few%20times&In-Reply-To=%3C20080216152520.GB3005%40tuxdriver.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003480.html">
+   <LINK REL="Next"  HREF="003476.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>iwlist shows one AP few times</H1>
+    <B>John W. Linville</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20iwlist%20shows%20one%20AP%20few%20times&In-Reply-To=%3C20080216152520.GB3005%40tuxdriver.com%3E"
+       TITLE="iwlist shows one AP few times">linville at tuxdriver.com
+       </A><BR>
+    <I>Sat Feb 16 16:25:20 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003480.html">iwlist shows one AP few times
+</A></li>
+        <LI>Next message: <A HREF="003476.html">What does disassociate(reason=3) mean?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3481">[ date ]</a>
+              <a href="thread.html#3481">[ thread ]</a>
+              <a href="subject.html#3481">[ subject ]</a>
+              <a href="author.html#3481">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sat, Feb 16, 2008 at 12:40:03PM +0100, Michael Buesch wrote:
+&gt;<i> On Saturday 16 February 2008 12:33:57 Rafa&#322; Mi&#322;ecki wrote:
+</I>&gt;<i> &gt; 2008/2/16, Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;:
+</I>&gt;<i> &gt; &gt; On Saturday 16 February 2008 12:01:34 Rafa&#322; Mi&#322;ecki wrote:
+</I>&gt;<i> &gt; &gt; &gt; I use 4318/02 and 2.6.24 kernel. Usually everything works fine but in
+</I>&gt;<i> &gt; &gt; &gt; some moments iwlist shows my AP a few time in the output. The problem
+</I>&gt;<i> &gt; &gt; &gt; is that as long as iwlist do that, KNetworkManager doesn't display my
+</I>&gt;<i> &gt; &gt; &gt; AP. I wonder if this can be b43 bug?
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; This seems to be channel interference.
+</I>&gt;<i> &gt; &gt; KNetworkManager should be fixed in any case.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; But as far as I know channels 6 and 11should be out of  interference,
+</I>&gt;<i> &gt; or am I wrong? I'm not a genius in this sphere, everying I can do is
+</I>&gt;<i> &gt; just to comapre that 2426-2448 (ch6) and 2451-2473 (ch1) have another
+</I>&gt;<i> &gt; values.
+</I>&gt;<i> 
+</I>&gt;<i> If there is an AP on channel 6, you can also get most of its beacons on channel 7
+</I>&gt;<i> and 5. So if the AP sends a beacon while you scan channel 7 you might get the
+</I>&gt;<i> AP from channel 6. Note that the TSF timers are different for the two APs.
+</I>&gt;<i> The Channel:X value from iwlist is most likely from the beacon-embedded channel
+</I>&gt;<i> identifier IE. So you'll also get Channel:6, if the packet was actually received
+</I>&gt;<i> on channel 7 or 5 or whatever.
+</I>
+Here is a pertinent fragment of the code in question from
+ieee80211_rx_bss_info (called for both beacons and probe responses):
+
+	if (elems.ds_params &amp;&amp; elems.ds_params_len == 1)
+		freq = ieee80211_channel_to_frequency(elems.ds_params[0]);
+	else
+		freq = rx_status-&gt;freq;
+
+	bss = ieee80211_rx_bss_get(dev, mgmt-&gt;bssid, freq,
+				   elems.ssid, elems.ssid_len);
+	if (!bss) {
+		bss = ieee80211_rx_bss_add(dev, mgmt-&gt;bssid, freq,
+					   elems.ssid, elems.ssid_len);
+		if (!bss)
+			return;
+	} else {
+	.
+	.
+	.
+
+So the frequency info can come from either the beacon or from the
+Rx status.  But in either case, the info that comes from iwlist is
+taken from the same linked list used by ieee80211_rx_bss_get and
+ieee80211_rx_bss_add.  Since the frequency (i.e. channel) information
+is the same for both instances of the BSSID, that implies that the
+same freq value was passed to ieee80211_rx_bss_add for each entry.
+
+The ieee80211_rx_bss_get compares BSSID, SSID, and frequency when
+matching a BSS.  This accounts for some strange AP implementations
+that use the same BSSID either on different frequencies or in
+different SSIDs.  Anyway, the BSSID and SSID information also
+matches in both BSSID instances from the posted iwlist output.
+To me this implies that we have some linked list management problem.
+Since ieee80211_rx_bss_add only gets called after a failed match in
+ieee80211_rx_bss_get, I have to guess that there is a hole in our
+matching algorithm?
+
+Here is the ieee80211_rx_bss_get implementation, in case someone else
+sees the problem:
+
+static struct ieee80211_sta_bss *
+ieee80211_rx_bss_get(struct net_device *dev, u8 *bssid, int freq,
+		     u8 *ssid, u8 ssid_len)
+{
+	struct ieee80211_local *local = wdev_priv(dev-&gt;ieee80211_ptr);
+	struct ieee80211_sta_bss *bss;
+
+	spin_lock_bh(&amp;local-&gt;sta_bss_lock);
+	bss = local-&gt;sta_bss_hash[STA_HASH(bssid)];
+	while (bss) {
+		if (!memcmp(bss-&gt;bssid, bssid, ETH_ALEN) &amp;&amp;
+		    bss-&gt;freq == freq &amp;&amp;
+		    bss-&gt;ssid_len == ssid_len &amp;&amp;
+		    (ssid_len == 0 || !memcmp(bss-&gt;ssid, ssid, ssid_len))) {
+			atomic_inc(&amp;bss-&gt;users);
+			break;
+		}
+		bss = bss-&gt;hnext;
+	}
+	spin_unlock_bh(&amp;local-&gt;sta_bss_lock);
+	return bss;
+}
+
+Any ideas on what might be happening?  It seems like it would have
+to be linked to matching the SSID...?
+
+John
+
+P.S.  Here is the iwlist info in question, for those just joining the thread:
+
+wlan0     Scan completed :
+          Cell 01 - Address: 00:18:39:DD:EE:78
+                    ESSID:&quot;zajec_linksys&quot;
+                    Mode:Master
+                    Channel:6
+                    Frequency:2.437 GHz (Channel 6)
+                    Quality=63/100  Signal level=-51 dBm  Noise level=-72 dBm
+                    Encryption key:on
+                    IE: Unknown: 300130
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 6 Mb/s
+                              12 Mb/s; 24 Mb/s; 36 Mb/s; 9 Mb/s; 18 Mb/s
+                              48 Mb/s; 54 Mb/s
+                    Extra:tsf=00000014481e851a
+          Cell 02 - Address: 00:14:78:EB:FF:6C
+                    ESSID:&quot;NTC_03&quot;
+                    Mode:Master
+                    Channel:11
+                    Frequency:2.462 GHz (Channel 11)
+                    Quality=31/100  Signal level=-86 dBm  Noise level=-72 dBm
+                    Encryption key:on
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s
+                    Extra:tsf=000000c4357e0181
+          Cell 03 - Address: 00:18:39:DD:EE:78
+                    ESSID:&quot;&quot;
+                    Mode:Master
+                    Channel:6
+                    Frequency:2.437 GHz (Channel 6)
+                    Quality=65/100  Signal level=-50 dBm  Noise level=-72 dBm
+                    Encryption key:on
+                    IE: IEEE 802.11i/WPA2 Version 1
+                        Group Cipher : CCMP
+                        Pairwise Ciphers (1) : CCMP
+                        Authentication Suites (1) : PSK
+                       Preauthentication Supported
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 6 Mb/s
+                              12 Mb/s; 24 Mb/s; 36 Mb/s; 9 Mb/s; 18 Mb/s
+                              48 Mb/s; 54 Mb/s
+                    Extra:tsf=0000001447c32e34
+          Cell 04 - Address: 00:18:39:DD:EE:78
+                    ESSID:&quot;&quot;
+                    Mode:Master
+                    Channel:6
+                    Frequency:2.437 GHz (Channel 6)
+                    Quality=65/100  Signal level=-50 dBm  Noise level=-72 dBm
+                    Encryption key:on
+                    IE: IEEE 802.11i/WPA2 Version 1
+                        Group Cipher : CCMP
+                        Pairwise Ciphers (1) : CCMP
+                        Authentication Suites (1) : PSK
+                       Preauthentication Supported
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 6 Mb/s
+                              12 Mb/s; 24 Mb/s; 36 Mb/s; 9 Mb/s; 18 Mb/s
+                              48 Mb/s; 54 Mb/s
+                    Extra:tsf=0000001447c239ef
+-- 
+John W. Linville
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003480.html">iwlist shows one AP few times
+</A></li>
+	<LI>Next message: <A HREF="003476.html">What does disassociate(reason=3) mean?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3481">[ date ]</a>
+              <a href="thread.html#3481">[ thread ]</a>
+              <a href="subject.html#3481">[ subject ]</a>
+              <a href="author.html#3481">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

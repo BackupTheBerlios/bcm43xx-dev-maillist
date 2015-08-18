@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add more btcoexist workarounds
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20more%20btcoexist%20workarounds&In-Reply-To=%3C200804191653.00459.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003885.html">
+   <LINK REL="Next"  HREF="003890.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add more btcoexist workarounds</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20more%20btcoexist%20workarounds&In-Reply-To=%3C200804191653.00459.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add more btcoexist workarounds">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Apr 19 16:53:00 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003885.html">[PATCH] ssb: Allow reading of 440-byte SPROM that is not rev 4
+</A></li>
+        <LI>Next message: <A HREF="003890.html">[PATCH V2] ssb: Fix case where board flags are unset in SPROM
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3887">[ date ]</a>
+              <a href="thread.html#3887">[ thread ]</a>
+              <a href="subject.html#3887">[ subject ]</a>
+              <a href="author.html#3887">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds more workarounds for devices with broken BT bits.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, this is for 2.6.26
+
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-04-18 21:00:58.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-04-19 16:43:36.000000000 +0200
+@@ -4420,12 +4420,18 @@ static int b43_one_core_attach(struct ss
+ 
+       err_kfree_wldev:
+ 	kfree(wldev);
+ 	return err;
+ }
+ 
++#define IS_PDEV(pdev, _vendor, _device, _subvendor, _subdevice)		( \
++	(pdev-&gt;vendor == PCI_VENDOR_ID_##_vendor) &amp;&amp;			\
++	(pdev-&gt;device == _device) &amp;&amp;					\
++	(pdev-&gt;subsystem_vendor == PCI_VENDOR_ID_##_subvendor) &amp;&amp;	\
++	(pdev-&gt;subsystem_device == _subdevice)				)
++
+ static void b43_sprom_fixup(struct ssb_bus *bus)
+ {
+ 	struct pci_dev *pdev;
+ 
+ 	/* boardflags workarounds */
+ 	if (bus-&gt;boardinfo.vendor == SSB_BOARDVENDOR_DELL &amp;&amp;
+@@ -4433,16 +4439,15 @@ static void b43_sprom_fixup(struct ssb_b
+ 		bus-&gt;sprom.boardflags_lo |= B43_BFL_BTCOEXIST;
+ 	if (bus-&gt;boardinfo.vendor == PCI_VENDOR_ID_APPLE &amp;&amp;
+ 	    bus-&gt;boardinfo.type == 0x4E &amp;&amp; bus-&gt;boardinfo.rev &gt; 0x40)
+ 		bus-&gt;sprom.boardflags_lo |= B43_BFL_PACTRL;
+ 	if (bus-&gt;bustype == SSB_BUSTYPE_PCI) {
+ 		pdev = bus-&gt;host_pci;
+-		if (pdev-&gt;vendor == PCI_VENDOR_ID_BROADCOM &amp;&amp;
+-		    pdev-&gt;device == 0x4318 &amp;&amp;
+-		    pdev-&gt;subsystem_vendor == PCI_VENDOR_ID_ASUSTEK &amp;&amp;
+-		    pdev-&gt;subsystem_device == 0x100F)
++		if (IS_PDEV(pdev, BROADCOM, 0x4318, ASUSTEK, 0x100F) ||
++		    IS_PDEV(pdev, BROADCOM, 0x4320, LINKSYS, 0x0015) ||
++		    IS_PDEV(pdev, BROADCOM, 0x4320, LINKSYS, 0x0013))
+ 			bus-&gt;sprom.boardflags_lo &amp;= ~B43_BFL_BTCOEXIST;
+ 	}
+ }
+ 
+ static void b43_wireless_exit(struct ssb_device *dev, struct b43_wl *wl)
+ {
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003885.html">[PATCH] ssb: Allow reading of 440-byte SPROM that is not rev 4
+</A></li>
+	<LI>Next message: <A HREF="003890.html">[PATCH V2] ssb: Fix case where board flags are unset in SPROM
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3887">[ date ]</a>
+              <a href="thread.html#3887">[ thread ]</a>
+              <a href="subject.html#3887">[ subject ]</a>
+              <a href="author.html#3887">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

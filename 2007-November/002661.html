@@ -1,0 +1,163 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43: pcmcia-host initialization bugfixes
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%3A%20pcmcia-host%20initialization%20bugfixes&In-Reply-To=%3C200711061636.41744.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002660.html">
+   <LINK REL="Next"  HREF="002663.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43: pcmcia-host initialization bugfixes</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%3A%20pcmcia-host%20initialization%20bugfixes&In-Reply-To=%3C200711061636.41744.mb%40bu3sch.de%3E"
+       TITLE="b43: pcmcia-host initialization bugfixes">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Nov  6 16:36:41 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002660.html">bcm43xx driver capabilities
+</A></li>
+        <LI>Next message: <A HREF="002663.html">[RFC 0/6] ssb and friends: Change layout and naming of SPROM data
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2661">[ date ]</a>
+              <a href="thread.html#2661">[ thread ]</a>
+              <a href="subject.html#2661">[ subject ]</a>
+              <a href="author.html#2661">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Fix the initialization for PCMCIA devices.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+Index: wireless-2.6/drivers/net/wireless/b43/pcmcia.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/pcmcia.c	2007-11-04 12:45:10.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/pcmcia.c	2007-11-04 12:46:24.000000000 +0100
+@@ -65,12 +65,12 @@ static int __devinit b43_pcmcia_probe(st
+ 	tuple_t tuple;
+ 	cisparse_t parse;
+ 	int err = -ENOMEM;
+-	int res;
++	int res = 0;
+ 	unsigned char buf[64];
+ 
+ 	ssb = kzalloc(sizeof(*ssb), GFP_KERNEL);
+ 	if (!ssb)
+-		goto out;
++		goto out_error;
+ 
+ 	err = -ENODEV;
+ 	tuple.DesiredTuple = CISTPL_CONFIG;
+@@ -96,10 +96,12 @@ static int __devinit b43_pcmcia_probe(st
+ 	dev-&gt;io.NumPorts2 = 0;
+ 	dev-&gt;io.Attributes2 = 0;
+ 
+-	win.Attributes = WIN_MEMORY_TYPE_CM | WIN_ENABLE | WIN_USE_WAIT;
++	win.Attributes = WIN_ADDR_SPACE_MEM | WIN_MEMORY_TYPE_CM |
++			 WIN_ENABLE | WIN_DATA_WIDTH_16 |
++			 WIN_USE_WAIT;
+ 	win.Base = 0;
+ 	win.Size = SSB_CORE_SIZE;
+-	win.AccessSpeed = 1000;
++	win.AccessSpeed = 250;
+ 	res = pcmcia_request_window(&amp;dev, &amp;win, &amp;dev-&gt;win);
+ 	if (res != CS_SUCCESS)
+ 		goto err_kfree_ssb;
+@@ -108,21 +110,26 @@ static int __devinit b43_pcmcia_probe(st
+ 	mem.Page = 0;
+ 	res = pcmcia_map_mem_page(dev-&gt;win, &amp;mem);
+ 	if (res != CS_SUCCESS)
+-		goto err_kfree_ssb;
++		goto err_disable;
+ 
+ 	res = pcmcia_request_configuration(dev, &amp;dev-&gt;conf);
+ 	if (res != CS_SUCCESS)
+ 		goto err_disable;
+ 
+ 	err = ssb_bus_pcmciabus_register(ssb, dev, win.Base);
++	if (err)
++		goto err_disable;
+ 	dev-&gt;priv = ssb;
+ 
+-      out:
+-	return err;
+-      err_disable:
++	return 0;
++
++err_disable:
+ 	pcmcia_disable_device(dev);
+-      err_kfree_ssb:
++err_kfree_ssb:
+ 	kfree(ssb);
++out_error:
++	printk(KERN_ERR &quot;b43-pcmcia: Initialization failed (%d, %d)\n&quot;,
++	       res, err);
+ 	return err;
+ }
+ 
+@@ -131,22 +138,21 @@ static void __devexit b43_pcmcia_remove(
+ 	struct ssb_bus *ssb = dev-&gt;priv;
+ 
+ 	ssb_bus_unregister(ssb);
+-	pcmcia_release_window(dev-&gt;win);
+ 	pcmcia_disable_device(dev);
+ 	kfree(ssb);
+ 	dev-&gt;priv = NULL;
+ }
+ 
+ static struct pcmcia_driver b43_pcmcia_driver = {
+-	.owner = THIS_MODULE,
+-	.drv = {
+-		.name = &quot;b43-pcmcia&quot;,
+-		},
+-	.id_table = b43_pcmcia_tbl,
+-	.probe = b43_pcmcia_probe,
+-	.remove = b43_pcmcia_remove,
+-	.suspend = b43_pcmcia_suspend,
+-	.resume = b43_pcmcia_resume,
++	.owner		= THIS_MODULE,
++	.drv		= {
++				.name = &quot;b43-pcmcia&quot;,
++			},
++	.id_table	= b43_pcmcia_tbl,
++	.probe		= b43_pcmcia_probe,
++	.remove		= __devexit_p(b43_pcmcia_remove),
++	.suspend	= b43_pcmcia_suspend,
++	.resume		= b43_pcmcia_resume,
+ };
+ 
+ int b43_pcmcia_init(void)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002660.html">bcm43xx driver capabilities
+</A></li>
+	<LI>Next message: <A HREF="002663.html">[RFC 0/6] ssb and friends: Change layout and naming of SPROM data
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2661">[ date ]</a>
+              <a href="thread.html#2661">[ thread ]</a>
+              <a href="subject.html#2661">[ subject ]</a>
+              <a href="author.html#2661">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

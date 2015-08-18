@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 4311 not detected at all
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%204311%20not%20detected%20at%20all&In-Reply-To=%3Cec2083b20906171821x242f4139u5f0176e66fe71538%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005540.html">
+   <LINK REL="Next"  HREF="005544.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>4311 not detected at all</H1>
+    <B>Fabio A. Correa</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%204311%20not%20detected%20at%20all&In-Reply-To=%3Cec2083b20906171821x242f4139u5f0176e66fe71538%40mail.gmail.com%3E"
+       TITLE="4311 not detected at all">facorread at gmail.com
+       </A><BR>
+    <I>Thu Jun 18 03:21:13 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005540.html">4311 not detected at all
+</A></li>
+        <LI>Next message: <A HREF="005544.html">4311 not detected at all
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5543">[ date ]</a>
+              <a href="thread.html#5543">[ thread ]</a>
+              <a href="subject.html#5543">[ subject ]</a>
+              <a href="author.html#5543">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>OK, I found new data on my problem, this might shed light on some
+fix/enhancement for the driver.
+
+When the system starts, the iomem of the 4311 card is specified to be
+pci 0000:06:00.0: reg 10 32bit mmio: [0xd0000000-0xd0003fff]
+
+The iomem of 4311 cannot be allocated:
+arch/x86/pci/i386.c:173: pci 0000:06:00.0: BAR 0: can't allocate resource
+
+the next two instructions of file i386.c mean that the iomem range converts
+from 0xd0000000-0xd0003fff to 0x000000-0x003fff. Then b43-pci-bridge tries
+to allocate this iomem resource, which is invalid:
+drivers/pci/setup-res.c:290: b43-pci-bridge 0000:06:00.0: device not
+available because of BAR 0 [0x000000-0x003fff] collisions
+drivers/base/dd.c:143: b43-pci-bridge: probe of 0000:06:00.0 failed with
+error -22
+
+The 4311 card (06:00.0) is in the PCI Express port 00:1c.2, with resources
+that are reported later:
+pci 0000:00:1c.2: PCI bridge, secondary bus 0000:06
+pci 0000:00:1c.2:   MEM window: 0x88000000-0x880fffff
+
+After booting, lspci -vvv shows:
+
+00:1c.2 PCI bridge: Intel Corporation 82801G (ICH7 Family) PCI Express Port
+3 (rev 01) (prog-if 00 [Normal decode])
+        Memory behind bridge: 88000000-880fffff
+06:00.0 Network controller: Broadcom Corporation BCM4311 802.11b/g WLAN (rev
+01)
+        Region 0: Memory at 88000000 (32-bit, non-prefetchable)
+[size=16K]
+
+16K = 3fff.
+
+Well then; the b43 controller stops probing my 4311 card because the wrong
+resource is probed for.
+
+I am not sure who should I direct this message to.
+
+-- 
+Fabio Andr&#233;s Correa Dur&#225;n
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090617/bc6f541d/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090617/bc6f541d/attachment.html</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005540.html">4311 not detected at all
+</A></li>
+	<LI>Next message: <A HREF="005544.html">4311 not detected at all
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5543">[ date ]</a>
+              <a href="thread.html#5543">[ thread ]</a>
+              <a href="subject.html#5543">[ subject ]</a>
+              <a href="author.html#5543">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

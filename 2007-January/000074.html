@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> What is in bcm43xx-wireless-dev.git?
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20What%20is%20in%20bcm43xx-wireless-dev.git%3F&In-Reply-To=%3C200701141115.43799.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000092.html">
+   <LINK REL="Next"  HREF="000075.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>What is in bcm43xx-wireless-dev.git?</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20What%20is%20in%20bcm43xx-wireless-dev.git%3F&In-Reply-To=%3C200701141115.43799.mb%40bu3sch.de%3E"
+       TITLE="What is in bcm43xx-wireless-dev.git?">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Jan 14 11:15:43 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000092.html">Testing report for new patches
+</A></li>
+        <LI>Next message: <A HREF="000075.html">What is in bcm43xx-wireless-dev.git?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#74">[ date ]</a>
+              <a href="thread.html#74">[ thread ]</a>
+              <a href="subject.html#74">[ subject ]</a>
+              <a href="author.html#74">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday 14 January 2007 03:10, Pavel Roskin wrote:
+&gt;<i> Quoting Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;:
+</I>&gt;<i> 
+</I>&gt;<i> &gt; &gt; I haven't looked at the code yet, but I tried to locate the bad commit.  I
+</I>&gt;<i> &gt; tried
+</I>&gt;<i> &gt; &gt; commit a13f85d8a8eb40dfd157ab78c2fb91b5765b7b9d, which is your last merge,
+</I>&gt;<i> &gt; just
+</I>&gt;<i> &gt; &gt; before the SSB changes.
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; Yeah, sure. I know that this is the commit which introduced this.
+</I>&gt;<i> 
+</I>&gt;<i> Basically, you set up DMA on the PCI device, but use it on the SSB device.
+</I>&gt;<i> That's inconsistent.  dma_alloc_coherent() is very picky on x86_64 and crashes
+</I>&gt;<i> if dev-&gt;dma_mask is NULL, which was the case for the SSB device.
+</I>&gt;<i> 
+</I>&gt;<i> Looking at the patch, it's clear that the SSB device is used instead of the PCI
+</I>&gt;<i> device in some places.  I restored the old logic.  If you meant to switch to
+</I>&gt;<i> SSB devices, then please remove the last PCI references from that file.
+</I>
+Already done. Please pull my tree and check if it still crashes.
+
+&gt;<i> The patch is attached.  It fixes the crash.  I didn't check that it's complete.
+</I>&gt;<i> I really don't like the long chain of dereferences, and I hope you'll come up
+</I>&gt;<i> with something better.
+</I>
+No. I don't think we have shorter chains in other subsystems like PCI. They
+are just hidden.
+
+We could probably get rid of one level in the DMA code, by embedding the DMA
+structs into the device struct. But I think there are more important things
+to do at the moment.
+
+&gt;<i> I still cannot associate.  The kernel log is attached.  Notice massive assertion
+</I>&gt;<i> failures.
+</I>&gt;<i> 
+</I>&gt;<i> &gt; Note that LO calibration is horribly broken in my tree.
+</I>&gt;<i> 
+</I>&gt;<i> I guess that's what the assertion failures are about.
+</I>
+You're right.
+
+&gt;<i> &gt; So you have a very weak signal, if any. My 4318 has no signal, for example.
+</I>&gt;<i> &gt; So basically don't expect to be able to transmit any data.
+</I>&gt;<i> &gt; This includes association.
+</I>&gt;<i> 
+</I>&gt;<i> Actually, I could scan, and I got 7 access points around.  Only one is in my
+</I>&gt;<i> apartment.
+</I>
+RX sensitivity is not quite as bad.
+
+&gt;<i> &gt; But I think you should be able to assoc with a plain linville tree.
+</I>&gt;<i> 
+</I>&gt;<i> Nope.  Although I got DadWifi to work, and this message will we sent over it.
+</I>&gt;<i> So it's not like I'm missing something essential about d80211 stack.
+</I>
+Well, I don't really know what to do all about this.
+It's strange. I have people reporting that exactly the same cards work
+and people reporting that exactly the same cards don't work over and
+over again.
+So, well. What to do? :)
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000092.html">Testing report for new patches
+</A></li>
+	<LI>Next message: <A HREF="000075.html">What is in bcm43xx-wireless-dev.git?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#74">[ date ]</a>
+              <a href="thread.html#74">[ thread ]</a>
+              <a href="subject.html#74">[ subject ]</a>
+              <a href="author.html#74">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

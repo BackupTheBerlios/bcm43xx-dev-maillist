@@ -1,0 +1,197 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.21.1 works with ifconfig; fails with ifup
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.21.1%20works%20with%20ifconfig%3B%20fails%20with%20ifup&In-Reply-To=%3C4644F7DD.6030109%40Wetwork.Net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001242.html">
+   <LINK REL="Next"  HREF="001232.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.21.1 works with ifconfig; fails with ifup</H1>
+    <B>Ehud Gavron</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.21.1%20works%20with%20ifconfig%3B%20fails%20with%20ifup&In-Reply-To=%3C4644F7DD.6030109%40Wetwork.Net%3E"
+       TITLE="2.6.21.1 works with ifconfig; fails with ifup">gavron at Wetwork.Net
+       </A><BR>
+    <I>Sat May 12 01:10:21 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001242.html">2.6.21.1 works with ifconfig; fails with ifup
+</A></li>
+        <LI>Next message: <A HREF="001232.html">How to prevent bcm43xx from switching bit rate
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1244">[ date ]</a>
+              <a href="thread.html#1244">[ thread ]</a>
+              <a href="subject.html#1244">[ subject ]</a>
+              <a href="author.html#1244">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Pavel, thank you for the detailed response.  I will dedicate some time 
+this weekend to capturing using a serial console.
+
+Again, thanks!
+
+Ehud
+
+Pavel Roskin wrote:
+&gt;<i> Hello!
+</I>&gt;<i>
+</I>&gt;<i> On Mon, 2007-05-07 at 19:04 -0700, Ehud Gavron wrote:
+</I>&gt;<i>   
+</I>&gt;&gt;<i> 2.6.21.1 ifup eth1 panics and is repeatable.
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> I understand it's Fedora Core 6.  /sbin/ifup should be a script.  You
+</I>&gt;<i> can trace it by running it as
+</I>&gt;<i>
+</I>&gt;<i> bash -x /sbin/ifup eth1
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>&gt;&gt;<i> Unfortunately I can't get netconsole working because the 2.6.21.1 kernel 
+</I>&gt;&gt;<i> doesn't like my hardwired Ethernet card for no good reason.  TXcount 
+</I>&gt;&gt;<i> increases, RXcount does not.  tcpdump shows nothing.  Rebooting in 
+</I>&gt;&gt;<i> 2.6.20-1.2948.fc6 restores full functionality.
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> That should go to netdev list or to a list specifically about that
+</I>&gt;<i> driver.  But I don't think netconsole is the best tool to debug other
+</I>&gt;<i> networking drivers.
+</I>&gt;<i>
+</I>&gt;<i> Please see Documentation/oops-tracing.txt in the Linux sources.  If you
+</I>&gt;<i> have serial console, please use it.  If you can use local console,
+</I>&gt;<i> that's the second best choice.  Use &quot;dmesg -n 8&quot; to enable all messages
+</I>&gt;<i> on the console.  Switch to the first virtual console by Ctrl-Alt-F1 if X
+</I>&gt;<i> Window System is running.  To maximize the number of lines, set the
+</I>&gt;<i> smallest font, e.g.
+</I>&gt;<i>
+</I>&gt;<i> setfont drdos8x8
+</I>&gt;<i>
+</I>&gt;<i> Reproduce the panic and write down the messages.  Or you can make a
+</I>&gt;<i> photograph of the screen.
+</I>&gt;<i>
+</I>&gt;<i> Documentation/oops-tracing.txt also suggests kdump.  I haven't tried it,
+</I>&gt;<i> but I think it would work.
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>&gt;&gt;<i> If I do the following it works flawlessly:
+</I>&gt;&gt;<i> ifconfig eth1 up
+</I>&gt;&gt;<i> iwconfig eth1 key wep-key-here
+</I>&gt;&gt;<i> iwconfig eth1 essid any   (or &quot;real-essid-here&quot;)
+</I>&gt;&gt;<i> ifconfig eth1 10.1.1.5 netmask 255.255.255.0
+</I>&gt;&gt;<i> route add -net 0.0.0.0/0 gw 10.1.1.1
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> If I do the following I get a kernel panic:
+</I>&gt;&gt;<i> ifup eth1
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> That's a clear sign that it's caused by something other that bringing
+</I>&gt;<i> the interface up.
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>&gt;&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# more /etc/sysconfig/network-scripts/ifcfg-eth1
+</I>&gt;&gt;<i> # Broadcom Corporation BCM4306 802.11b/g Wireless LAN Controller
+</I>&gt;&gt;<i> TYPE=wireless
+</I>&gt;&gt;<i> DEVICE=eth1
+</I>&gt;&gt;<i> ONBOOT=no
+</I>&gt;&gt;<i> BOOTPROTO=static
+</I>&gt;&gt;<i> ADDRESS=10.1.1.5
+</I>&gt;&gt;<i> NETMASK=255.255.255.255
+</I>&gt;&gt;<i> GATEWAY=10.1.1.1
+</I>&gt;&gt;<i> ESSID=wetwork
+</I>&gt;&gt;<i> KEY=xxxa0055ae775e80fd864exxxx
+</I>&gt;&gt;<i> #RATE=24
+</I>&gt;&gt;<i> #CHANNEL=6
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> This looks good.
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>&gt;&gt;<i> While I can't use netconsole, I can use strace.  Accordingly attached is 
+</I>&gt;&gt;<i> the output from
+</I>&gt;&gt;<i> strace ifup eth1 &gt; nothing.txt 2&gt;output.txt
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> That's not very useful.  The interesting stuff is done in other
+</I>&gt;<i> processes.  You could try to follow them by adding &quot;-f&quot; and &quot;-F&quot; flags.
+</I>&gt;<i> But I think the first priority should be getting the kernel messages.
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>&gt;&gt;<i> If anyone has any ideas what's wrong with the wired ethernet...
+</I>&gt;&gt;<i> 09:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5752 
+</I>&gt;&gt;<i> Gigabit Ethernet PCI Express (rev 02)
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> Please ask in netdev.
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>&gt;&gt;<i> If I don't get any better suggestions I'll remake oldconfig but answer N 
+</I>&gt;&gt;<i> to all the new stuff and see if that makes a difference.  There are a 
+</I>&gt;&gt;<i> couple of new GE drivers, some experimental, and I'm guessing (with no 
+</I>&gt;&gt;<i> basis for the guess) that there may be interference there.
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> I would not change anything unless all possibilities for tracking down
+</I>&gt;<i> the bug are exhausted.  The bug can just disappear temporarily to appear
+</I>&gt;<i> later.
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>&gt;&gt;<i> access(&quot;/sbin/ip&quot;, X_OK)                = 0
+</I>&gt;&gt;<i> access(&quot;/sbin/ip&quot;, R_OK)                = 0
+</I>&gt;&gt;<i> rt_sigprocmask(SIG_BLOCK, [INT CHLD], [], 8) = 0
+</I>&gt;&gt;<i> _llseek(255, -1124, [9428], SEEK_CUR)   = 0
+</I>&gt;&gt;<i> clone(child_stack=0, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|
+</I>&gt;&gt;<i> SIGCHLD, child_tidptr=0xb7f5d918) = 3400
+</I>&gt;&gt;<i> rt_sigprocmask(SIG_SETMASK, [], NULL, 8) = 0
+</I>&gt;&gt;<i> rt_sigprocmask(SIG_BLOCK, [CHLD], [], 8) = 0
+</I>&gt;&gt;<i> rt_sigprocmask(SIG_SETMASK, [], NULL, 8) = 0
+</I>&gt;&gt;<i> rt_sigprocmask(SIG_BLOCK, [CHLD], [], 8) = 0
+</I>&gt;&gt;<i> rt_sigaction(SIGINT, {0x807a8c0, [], 0}, {SIG_DFL}, 8) = 0
+</I>&gt;&gt;<i> waitpid(-1, 
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> Either it was /sbin/ip that triggered the crash, or the end of the log
+</I>&gt;<i> wasn't written to the hard drive.  Generally, the console is designed to
+</I>&gt;<i> be more survivable than the storage devices in case of a panic, so using
+</I>&gt;<i> the console is preferred.
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/x-pkcs7-signature
+Size: 3283 bytes
+Desc: S/MIME Cryptographic Signature
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070511/9925497b/attachment.bin">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070511/9925497b/attachment.bin</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001242.html">2.6.21.1 works with ifconfig; fails with ifup
+</A></li>
+	<LI>Next message: <A HREF="001232.html">How to prevent bcm43xx from switching bit rate
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1244">[ date ]</a>
+              <a href="thread.html#1244">[ thread ]</a>
+              <a href="subject.html#1244">[ subject ]</a>
+              <a href="author.html#1244">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

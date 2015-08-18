@@ -1,0 +1,127 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Tons of interrupts on driver load
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C4812F53D.4040603%40coderworld.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003974.html">
+   <LINK REL="Next"  HREF="003977.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Tons of interrupts on driver load</H1>
+    <B>Richard Jonsson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C4812F53D.4040603%40coderworld.net%3E"
+       TITLE="Tons of interrupts on driver load">richie at coderworld.net
+       </A><BR>
+    <I>Sat Apr 26 11:26:21 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003974.html">Tons of interrupts on driver load
+</A></li>
+        <LI>Next message: <A HREF="003977.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3975">[ date ]</a>
+              <a href="thread.html#3975">[ thread ]</a>
+              <a href="subject.html#3975">[ subject ]</a>
+              <a href="author.html#3975">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Richard Jonsson skrev:
+&gt;<i> Larry Finger skrev:
+</I>&gt;&gt;<i> If Linus's latest git still has the problem, please do a bisection. I 
+</I>&gt;<i> 
+</I>&gt;<i> I've now completed the bisection, result below. I'm not really sure this 
+</I>&gt;<i> is the bad commit, as v2.6.25 is fine, and this commit is from february. 
+</I>&gt;<i> But then again, I don't fully understand how git does it's bisection.
+</I>&gt;<i> I've also tried a few kernels in the 2.6.25-rc series that don't show 
+</I>&gt;<i> this problem.
+</I>&gt;<i> 
+</I>&gt;<i> bb1eeff12d4cd6c706ef9fae340a9c93bb41ad05 is first bad commit
+</I>&gt;<i> commit bb1eeff12d4cd6c706ef9fae340a9c93bb41ad05
+</I>&gt;<i> Author: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+</I>&gt;<i> Date:   Sat Feb 9 12:08:58 2008 +0100
+</I>&gt;<i> 
+</I>&gt;<i>      b43: Fix bandswitch
+</I>
+I reverted the commit above from v2.6.25-4571-g87322bc and b43 now acts 
+normal.
+
+from /proc/interrupts:
+  19:          0        267   IO-APIC-fasteoi   b43
+
+from dmesg (no phy errors, no reloads):
+[   21.449377] ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x11, vendor 
+0x4243)
+[   21.449446] ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x0A, 
+vendor 0x4243)
+[   21.449515] ssb: Core 2 found: USB 1.1 Host (cc 0x817, rev 0x03, 
+vendor 0x4243)
+[   21.449587] ssb: Core 3 found: PCI-E (cc 0x820, rev 0x01, vendor 0x4243)
+[   21.479202] ssb: SPROM revision 2 detected.
+[   21.497398] PM: Adding info for ssb:ssb0:0
+[   21.497431] PM: Adding info for ssb:ssb0:1
+[   21.497443] ssb: Sonics Silicon Backplane found on PCI device 
+0000:01:00.0
+[   21.852393] b43-phy0: Broadcom 4311 WLAN found
+[   21.905761] b43-phy0 debug: Found PHY: Analog 4, Type 2, Revision 8
+[   21.905779] b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, 
+Revision 2
+[   29.254634] input: b43-phy0 as /class/input/input7
+[   29.389874] PM: Adding info for No Bus:ssb0:0
+[   29.466246] PM: Removing info for No Bus:ssb0:0
+[   29.466316] PM: Adding info for No Bus:ssb0:0
+[   29.474993] PM: Removing info for No Bus:ssb0:0
+[   29.475060] PM: Adding info for No Bus:ssb0:0
+[   29.486030] PM: Removing info for No Bus:ssb0:0
+[   29.486102] PM: Adding info for No Bus:ssb0:0
+[   29.494083] PM: Removing info for No Bus:ssb0:0
+[   29.609875] b43-phy0: Loading firmware version 351.126 (2006-07-29 
+05:54:02)
+[   29.609885] b43-phy0 warning: You are using an old firmware image. 
+Support for old firmware will be removed in July 2008.
+[   29.609890] b43-phy0 warning: You must go to 
+<A HREF="http://linuxwireless.org/en/users/Drivers/b43#devicefirmware">http://linuxwireless.org/en/users/Drivers/b43#devicefirmware</A> and 
+download the latest firmware (version 4).
+[   30.534466] b43-phy0 debug: Chip initialized
+[   30.534725] b43-phy0 debug: 32-bit DMA initialized
+[   30.570356] b43-phy0 debug: Wireless interface started
+[   30.570362] b43-phy0 debug: Adding Interface type 2
+[   30.570386] b43-phy0: Radio hardware status changed to DISABLED
+[   30.653921] b43-phy0: Radio turned on by software
+[   30.653930] b43-phy0: The hardware RF-kill button still turns the 
+radio physically off. Press the button to turn it on.
+
+regards, Richard
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003974.html">Tons of interrupts on driver load
+</A></li>
+	<LI>Next message: <A HREF="003977.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3975">[ date ]</a>
+              <a href="thread.html#3975">[ thread ]</a>
+              <a href="subject.html#3975">[ subject ]</a>
+              <a href="author.html#3975">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

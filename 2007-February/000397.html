@@ -1,0 +1,123 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Hack to make bcm43xx_d80211 work with 802.11g APs
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Hack%20to%20make%20bcm43xx_d80211%20work%20with%20802.11g%20APs&In-Reply-To=%3C1170918783.14208.19.camel%40dv%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000392.html">
+   <LINK REL="Next"  HREF="000399.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Hack to make bcm43xx_d80211 work with 802.11g APs</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Hack%20to%20make%20bcm43xx_d80211%20work%20with%20802.11g%20APs&In-Reply-To=%3C1170918783.14208.19.camel%40dv%3E"
+       TITLE="Hack to make bcm43xx_d80211 work with 802.11g APs">proski at gnu.org
+       </A><BR>
+    <I>Thu Feb  8 08:13:03 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000392.html">Latest firmware
+</A></li>
+        <LI>Next message: <A HREF="000399.html">Wrong phystatus0?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#397">[ date ]</a>
+              <a href="thread.html#397">[ thread ]</a>
+              <a href="subject.html#397">[ subject ]</a>
+              <a href="author.html#397">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello!
+
+This patch to bcm43xx_d80211 makes my bcm4312 associate with 802.11g
+access points immediately:
+
+diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+index e101ed5..1470c5b 100644
+--- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
++++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+@@ -135,7 +135,7 @@ static struct ieee80211_rate __bcm43xx_ratetable[] = {
+ #define bcm43xx_b_ratetable		(__bcm43xx_ratetable + 0)
+ #define bcm43xx_b_ratetable_size	4
+ #define bcm43xx_g_ratetable		(__bcm43xx_ratetable + 0)
+-#define bcm43xx_g_ratetable_size	12
++#define bcm43xx_g_ratetable_size	4
+ 
+ #define CHANTAB_ENT(_chanid, _freq) \
+ 	{							\
+
+
+As I wrote before, my card has a problem with 802.11g APs under
+bcm43xx_d80211 driver.  It would associate once given all parameters
+(channel, ap, essid), and it would even show a non-zero link quality,
+but no data packets would go through for at least several minutes.
+
+Note that even with this patch, the driver is still telling the d80211
+stack that is supports 802.11g and has an 802.11g PHY.  It just doesn't
+provide any OFDM rates.
+
+iperf over TCP shows rates around 4 Mbps, which is pretty decent,
+although less than 6 Mbps measured with the softmac driver in the same
+setup.
+
+I tried to enable rates 6, 9 and 12.  In this case, it takes a few
+seconds (but not minutes) before ping starts working.  The speed was
+much lower, about 800 kbps.  When trying to measure it again, the driver
+started printing this:
+
+bcm43xx_d80211: DMA queue
+overflow                                                              
+printk: 6645842 messages
+suppressed.                                                            
+bcm43xx_d80211: DMA queue
+overflow                                                              
+printk: 6687948 messages
+suppressed.                                                            
+bcm43xx_d80211: DMA queue
+overflow                                                              
+printk: 6699076 messages
+suppressed.                                                            
+bcm43xx_d80211: DMA queue
+overflow                                                              
+printk: 6686516 messages
+suppressed.                                                            
+
+The system became unresponsive and I had to reboot it.  I've never seen
+this problem if all OFDM rates are disabled.
+
+-- 
+Regards,
+Pavel Roskin
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000392.html">Latest firmware
+</A></li>
+	<LI>Next message: <A HREF="000399.html">Wrong phystatus0?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#397">[ date ]</a>
+              <a href="thread.html#397">[ thread ]</a>
+              <a href="subject.html#397">[ subject ]</a>
+              <a href="author.html#397">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

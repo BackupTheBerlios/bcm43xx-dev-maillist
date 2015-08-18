@@ -1,0 +1,200 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Performance issue
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Performance%20issue&In-Reply-To=%3C1217802370.9840.13.camel%40saive.lan%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004456.html">
+   <LINK REL="Next"  HREF="004458.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Performance issue</H1>
+    <B>Kobboi</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Performance%20issue&In-Reply-To=%3C1217802370.9840.13.camel%40saive.lan%3E"
+       TITLE="Performance issue">clermytt at hotmail.com
+       </A><BR>
+    <I>Mon Aug  4 00:26:09 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004456.html">b43 in MacBook Pro not showing interface
+</A></li>
+        <LI>Next message: <A HREF="004458.html">Performance issue
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4457">[ date ]</a>
+              <a href="thread.html#4457">[ thread ]</a>
+              <a href="subject.html#4457">[ subject ]</a>
+              <a href="author.html#4457">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello,
+
+I'm having a performance issue with my wireless card. I'd be grateful if
+someone could help out, pinpoint the cause or propose a solution. I'm
+using good old easy-to-crack WEP.
+
+Kobboi
+
+=== My hardware ==========
+
+03:0c.0 Network controller: Broadcom Corporation BCM4306 802.11b/g
+Wireless LAN Controller (rev 02) [0280: 14e4:4320 (rev 02)]
+Subsystem: Belkin Unknown device 7000 [1799:7000]
+Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B- DisINTx-
+Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort-
+&lt;MAbort- &gt;SERR- &lt;PERR- INTx-
+Latency: 64
+Interrupt: pin A routed to IRQ 20
+Region 0: Memory at f7efc000 (32-bit, non-prefetchable) [size=8K]
+Capabilities: [40] Power Management version 2
+Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot
++,D3cold+)
+Status: D0 PME-Enable- DSel=0 DScale=2 PME+
+Kernel driver in use: ndiswrapper
+
+=== My software ==========
+
+(o) ndiswrapper 1.50
+with bcmwl5.sys from some driver. dmesg says
+ndiswrapper: driver bcmwl5 (Broadcom,11/02/2005, 4.10.40.0) loaded
+ACPI: PCI Interrupt 0000:03:0c.0[A] -&gt; GSI 20 (level, low) -&gt; IRQ 20
+ndiswrapper: using IRQ 20
+wlan0: ethernet device 00:30:bd:97:da:20 using NDIS driver: bcmwl5,
+version: 0x40a2800, NDIS version: 0x501, vendor: 'NDIS Network Adapter',
+14E4:4320.5.conf
+wlan0: encryption modes supported: WEP; TKIP with WPA, WPA2, WPA2PSK;
+AES/CCMP with WPA, WPA2, WPA2PSK
+
+(o) linux kernel 2.6.26, from gentoo-sources package
+(=vanilla kernel with some &quot;safe&quot; gentoo patches), b43 and b43legacy
+built as modules
+
+(o) b43-fwcutter 011
+
+(o) b43 firmware from
+<A HREF="http://mirror2.openwrt.org/sources/broadcom-wl-4.150.10.5.tar.bz2">http://mirror2.openwrt.org/sources/broadcom-wl-4.150.10.5.tar.bz2</A>
+(wl_apsta_mimo.o)
+
+(o) b43legacy firmware from
+<A HREF="http://downloads.openwrt.org/sources/wl_apsta-3.130.20.0.o">http://downloads.openwrt.org/sources/wl_apsta-3.130.20.0.o</A>
+
+=== My problem ==========
+
+(o) My system boots with the ndiswrapper module loaded
+
+wlan0     IEEE 802.11g  ESSID:&quot;xxxxx&quot;  
+          Mode:Managed  Frequency:2.412 GHz  Access Point:
+00:11:F5:30:88:6A   
+          Bit Rate=48 Mb/s   Tx-Power:24 dBm   
+          RTS thr:2347 B   Fragment thr:2346 B   
+          Encryption key:xxxxx   Security mode:restricted
+          Power Management:off
+          Link Quality:51/100  Signal level:-63 dBm  Noise level:-96 dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+Rate is good, a 131MB wget from a server connected with a wire to the
+access point gets about 2MB/s.
+
+(o) rmmod ndiswrapper and modprobe b43
+dmesg says &quot;Broadcom 43xx driver loaded [ Features: P, Firmware-ID:
+FW13 ]&quot;
+Nothing happens, I guess this means my hardware is not supported by b43
+
+(o) rmmod b43 and modprobe b43legacy
+dmesg says
+
+b43legacy-phy0: Broadcom 4306 WLAN found
+b43legacy-phy0 debug: Found PHY: Analog 1, Type 2, Revision 1
+b43legacy-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision
+2
+b43legacy-phy0 debug: Radio initialized
+b43legacy-phy0 debug: DebugFS (CONFIG_DEBUG_FS) not enabled in kernel
+config
+phy0: Selected rate control algorithm 'pid'
+Broadcom 43xx-legacy driver loaded [ Features: PID, Firmware-ID: FW10 ]
+firmware: requesting b43legacy/ucode4.fw
+firmware: requesting b43legacy/pcm4.fw
+firmware: requesting b43legacy/b0g0initvals2.fw
+b43legacy-phy0: Loading firmware version 0x127, patch level 14
+(2005-04-18 02:36:27)
+b43legacy-phy0 debug: Chip initialized
+b43legacy-phy0 debug: 30-bit DMA initialized
+b43legacy-phy0 debug: Wireless interface started
+b43legacy-phy0 debug: Adding Interface type 2
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:11:f5:30:88:6a
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:11:f5:30:88:6a
+wlan0: RX authentication from 00:11:f5:30:88:6a (alg=0 transaction=2
+status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:11:f5:30:88:6a
+wlan0: authentication frame received from 00:11:f5:30:88:6a, but not in
+authenticate state - ignored
+wlan0: RX AssocResp from 00:11:f5:30:88:6a (capab=0x411 status=0 aid=1)
+wlan0: associated
+wlan0: switched to short barker preamble (BSSID=00:11:f5:30:88:6a)
+
+iwconfig says
+
+wlan0     IEEE 802.11  ESSID:&quot;xxxxx&quot;  
+          Mode:Managed  Frequency:2.412 GHz  Access Point:
+00:11:F5:30:88:6A   
+          Bit Rate=1 Mb/s   Tx-Power=27 dBm   
+          Retry min limit:7   RTS thr:off   Fragment thr=2352 B   
+          Encryption key:xxxxx
+          Link Quality=75/100  Signal level=-51 dBm  Noise level=-64 dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+Transfer speed for a wget of the same file as above is a bit shaky,
+average about 140-150KB/s (how can this be inline with 1Mb/s physical
+speed?)
+
+I can put the wireless speed to 54MB with iwconfig (and waiting a few
+seconds), but then the transfer speed of a large file drops to 0-20KB/s
+
+wlan0     IEEE 802.11  ESSID:&quot;xxxxx&quot;  
+          Mode:Managed  Frequency:2.412 GHz  Access Point:
+00:11:F5:30:88:6A   
+          Bit Rate=54 Mb/s   Tx-Power=27 dBm   
+          Retry min limit:7   RTS thr:off   Fragment thr=2352 B   
+          Encryption key:xxxxx
+          Link Quality=78/100  Signal level=-49 dBm  Noise level=-64 dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004456.html">b43 in MacBook Pro not showing interface
+</A></li>
+	<LI>Next message: <A HREF="004458.html">Performance issue
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4457">[ date ]</a>
+              <a href="thread.html#4457">[ thread ]</a>
+              <a href="subject.html#4457">[ subject ]</a>
+              <a href="author.html#4457">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

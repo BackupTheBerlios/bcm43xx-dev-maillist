@@ -1,0 +1,107 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.23-rc1-wireless-dev%20bcm43xx_mac80211%20associates%2C%20but%20Ethernet%0A%09appears%20broken&In-Reply-To=%3C46B9DD6D.1040200%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001865.html">
+   <LINK REL="Next"  HREF="001869.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.23-rc1-wireless-dev%20bcm43xx_mac80211%20associates%2C%20but%20Ethernet%0A%09appears%20broken&In-Reply-To=%3C46B9DD6D.1040200%40lwfinger.net%3E"
+       TITLE="2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Wed Aug  8 17:12:45 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001865.html">[PATCH] Fix handling of failure to create debugfs directory
+</A></li>
+        <LI>Next message: <A HREF="001869.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1868">[ date ]</a>
+              <a href="thread.html#1868">[ thread ]</a>
+              <a href="subject.html#1868">[ subject ]</a>
+              <a href="author.html#1868">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>To the list: The beginnings of this thread were done off-list, but I want to let everyone know about
+the problem, and to discover if anyone else has it. Since 2.6.23-rc1, Ehud has a problem in that the 
+information his interface is transmitting is garbled. He did a bisection and discovered that the 
+problem is involved with commit 85a83d26 &quot;bcm43xx-mac80211: Rewrite and simplify handling of the 
+initialization status.&quot;. Neither Michael nor I can reproduce the problem, nor is anything obviously 
+wrong with the patch, other than this patch exposes an error in the location of the initial 
+interrupt. I found this error on my old/slow notebook. Fixing that error did not resolve Ehud's 
+problem. That fix is now in Linville's tree.
+
+Ehud - please make your test tree current with a 'git checkout -f' command, and do a 'git pull' to
+make certain you have the latest code. Then apply the trial patch below, which reverts a small part 
+of Michael's patch, and see if it fixes the problem.
+
+Larry
+
+
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+@@ -1503,7 +1503,7 @@ static void bcm43xx_interrupt_ack(struct
+  /* Interrupt handler top-half */
+  static irqreturn_t bcm43xx_interrupt_handler(int irq, void *dev_id)
+  {
+-	irqreturn_t ret = IRQ_NONE;
++	irqreturn_t ret = IRQ_HANDLED;
+  	struct bcm43xx_wldev *dev = dev_id;
+  	u32 reason;
+
+@@ -1512,12 +1512,11 @@ static irqreturn_t bcm43xx_interrupt_han
+
+  	spin_lock(&amp;dev-&gt;wl-&gt;irq_lock);
+
+-	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED)
+-		goto out;
+  	reason = bcm43xx_read32(dev, BCM43xx_MMIO_GEN_IRQ_REASON);
+-	if (reason == 0xffffffff) /* shared IRQ */
++	if (reason == 0xffffffff) { /* shared IRQ */
++		ret = IRQ_NONE;
+  		goto out;
+-	ret = IRQ_HANDLED;
++	}
+  	reason &amp;= bcm43xx_read32(dev, BCM43xx_MMIO_GEN_IRQ_MASK);
+  	if (!reason)
+  		goto out;
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001865.html">[PATCH] Fix handling of failure to create debugfs directory
+</A></li>
+	<LI>Next message: <A HREF="001869.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1868">[ date ]</a>
+              <a href="thread.html#1868">[ thread ]</a>
+              <a href="subject.html#1868">[ subject ]</a>
+              <a href="author.html#1868">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

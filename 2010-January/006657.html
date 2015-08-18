@@ -1,0 +1,328 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 4/5] b43: N-PHY: add TX Gain tables
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%204/5%5D%20b43%3A%20N-PHY%3A%20add%20TX%20Gain%20tables&In-Reply-To=%3Cop.u54a76ic9lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006656.html">
+   <LINK REL="Next"  HREF="006658.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 4/5] b43: N-PHY: add TX Gain tables</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%204/5%5D%20b43%3A%20N-PHY%3A%20add%20TX%20Gain%20tables&In-Reply-To=%3Cop.u54a76ic9lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 4/5] b43: N-PHY: add TX Gain tables">zajec5 at gmail.com
+       </A><BR>
+    <I>Wed Jan  6 16:41:56 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006656.html">[PATCH 3/5] b43: N-PHY: clean table init, check PHY rev (V3)
+</A></li>
+        <LI>Next message: <A HREF="006658.html">[PATCH 5/5] b43: N-PHY: minor init code work
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6657">[ date ]</a>
+              <a href="thread.html#6657">[ thread ]</a>
+              <a href="subject.html#6657">[ subject ]</a>
+              <a href="author.html#6657">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>b43: N-PHY: add TX Gain tables
+
+
+ From 98cb0f7b40df6605690f9e09f5102380844880ab Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+Date: Wed, 6 Jan 2010 16:23:15 +0100
+Subject: [PATCH 4/5] b43: N-PHY: add TX Gain tables
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+  drivers/net/wireless/b43/phy_n.c       |   12 +-
+  drivers/net/wireless/b43/tables_nphy.c |  175 ++++++++++++++++++++++++++++++++
+  drivers/net/wireless/b43/tables_nphy.h |    6 +
+  3 files changed, 187 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 5341ba5..2b99d86 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -384,7 +384,7 @@ static struct nphy_txgains b43_nphy_get_tx_gains(struct b43_wldev *dev)
+
+  	u16 curr_gain[2];
+  	struct nphy_txgains target;
+-	u32 *table = NULL;
++	const u32 *table = NULL;
+
+  	if (nphy-&gt;txpwrctrl == 0) {
+  		int i;
+@@ -423,13 +423,13 @@ static struct nphy_txgains b43_nphy_get_tx_gains(struct b43_wldev *dev)
+  				} else {
+  					if (band == IEEE80211_BAND_5GHZ) {
+  						if (dev-&gt;phy.rev == 3)
+-							table = NULL; //FIXME: N PHY TX Power Control - TX Gain Table Rev &gt;= 3 (5 GHz)
++							table = b43_ntab_tx_gain_rev3_5ghz;
+  						else if (dev-&gt;phy.rev == 4)
+-							table = NULL; //FIXME: N PHY TX Power Control - TX Gain Table Rev 4 (5 GHz)
++							table = b43_ntab_tx_gain_rev4_5ghz;
+  						else
+-							table = NULL; //FIXME: N PHY TX Power Control - TX Gain Table Rev 5 (5 GHz)
++							table = b43_ntab_tx_gain_rev5plus_5ghz;
+  					} else {
+-						table = NULL; //FIXME: N PHY TX Power Control - TX Gain Table Rev &gt;= 3 (2.4 GHz)
++						table = b43_ntab_tx_gain_rev3plus_2ghz;
+  					}
+  				}
+
+@@ -438,7 +438,7 @@ static struct nphy_txgains b43_nphy_get_tx_gains(struct b43_wldev *dev)
+  				target.pga[i] = (table[index[i]] &gt;&gt; 24) &amp; 0xF;
+  				target.txgm[i] = (table[index[i]] &gt;&gt; 28) &amp; 0xF;
+  			} else {
+-				table = NULL; //FIXME: N PHY TX Power Control - TX Gain Table Rev &lt;= 2
++				table = b43_ntab_tx_gain_rev0_1_2;
+
+  				target.ipa[i] = (table[index[i]] &gt;&gt; 16) &amp; 0x3;
+  				target.pad[i] = (table[index[i]] &gt;&gt; 18) &amp; 0x3;
+diff --git a/drivers/net/wireless/b43/tables_nphy.c b/drivers/net/wireless/b43/tables_nphy.c
+index d0b91b5..9fa527d 100644
+--- a/drivers/net/wireless/b43/tables_nphy.c
++++ b/drivers/net/wireless/b43/tables_nphy.c
+@@ -2406,6 +2406,181 @@ static const u32 b43_ntab_tmap[] = {
+  	0x00000000, 0x00000000, 0x00000000, 0x00000000,
+  };
+
++const u32 b43_ntab_tx_gain_rev0_1_2[] = {
++	0x03cc2b44, 0x03cc2b42, 0x03cc2a44, 0x03cc2a42,
++	0x03cc2944, 0x03c82b44, 0x03c82b42, 0x03c82a44,
++	0x03c82a42, 0x03c82944, 0x03c82942, 0x03c82844,
++	0x03c82842, 0x03c42b44, 0x03c42b42, 0x03c42a44,
++	0x03c42a42, 0x03c42944, 0x03c42942, 0x03c42844,
++	0x03c42842, 0x03c42744, 0x03c42742, 0x03c42644,
++	0x03c42642, 0x03c42544, 0x03c42542, 0x03c42444,
++	0x03c42442, 0x03c02b44, 0x03c02b42, 0x03c02a44,
++	0x03c02a42, 0x03c02944, 0x03c02942, 0x03c02844,
++	0x03c02842, 0x03c02744, 0x03c02742, 0x03b02b44,
++	0x03b02b42, 0x03b02a44, 0x03b02a42, 0x03b02944,
++	0x03b02942, 0x03b02844, 0x03b02842, 0x03b02744,
++	0x03b02742, 0x03b02644, 0x03b02642, 0x03b02544,
++	0x03b02542, 0x03a02b44, 0x03a02b42, 0x03a02a44,
++	0x03a02a42, 0x03a02944, 0x03a02942, 0x03a02844,
++	0x03a02842, 0x03a02744, 0x03a02742, 0x03902b44,
++	0x03902b42, 0x03902a44, 0x03902a42, 0x03902944,
++	0x03902942, 0x03902844, 0x03902842, 0x03902744,
++	0x03902742, 0x03902644, 0x03902642, 0x03902544,
++	0x03902542, 0x03802b44, 0x03802b42, 0x03802a44,
++	0x03802a42, 0x03802944, 0x03802942, 0x03802844,
++	0x03802842, 0x03802744, 0x03802742, 0x03802644,
++	0x03802642, 0x03802544, 0x03802542, 0x03802444,
++	0x03802442, 0x03802344, 0x03802342, 0x03802244,
++	0x03802242, 0x03802144, 0x03802142, 0x03802044,
++	0x03802042, 0x03801f44, 0x03801f42, 0x03801e44,
++	0x03801e42, 0x03801d44, 0x03801d42, 0x03801c44,
++	0x03801c42, 0x03801b44, 0x03801b42, 0x03801a44,
++	0x03801a42, 0x03801944, 0x03801942, 0x03801844,
++	0x03801842, 0x03801744, 0x03801742, 0x03801644,
++	0x03801642, 0x03801544, 0x03801542, 0x03801444,
++	0x03801442, 0x03801344, 0x03801342, 0x00002b00,
++};
++
++const u32 b43_ntab_tx_gain_rev3plus_2ghz[] = {
++	0x1f410044, 0x1f410042, 0x1f410040, 0x1f41003e,
++	0x1f41003c, 0x1f41003b, 0x1f410039, 0x1f410037,
++	0x1e410044, 0x1e410042, 0x1e410040, 0x1e41003e,
++	0x1e41003c, 0x1e41003b, 0x1e410039, 0x1e410037,
++	0x1d410044, 0x1d410042, 0x1d410040, 0x1d41003e,
++	0x1d41003c, 0x1d41003b, 0x1d410039, 0x1d410037,
++	0x1c410044, 0x1c410042, 0x1c410040, 0x1c41003e,
++	0x1c41003c, 0x1c41003b, 0x1c410039, 0x1c410037,
++	0x1b410044, 0x1b410042, 0x1b410040, 0x1b41003e,
++	0x1b41003c, 0x1b41003b, 0x1b410039, 0x1b410037,
++	0x1a410044, 0x1a410042, 0x1a410040, 0x1a41003e,
++	0x1a41003c, 0x1a41003b, 0x1a410039, 0x1a410037,
++	0x19410044, 0x19410042, 0x19410040, 0x1941003e,
++	0x1941003c, 0x1941003b, 0x19410039, 0x19410037,
++	0x18410044, 0x18410042, 0x18410040, 0x1841003e,
++	0x1841003c, 0x1841003b, 0x18410039, 0x18410037,
++	0x17410044, 0x17410042, 0x17410040, 0x1741003e,
++	0x1741003c, 0x1741003b, 0x17410039, 0x17410037,
++	0x16410044, 0x16410042, 0x16410040, 0x1641003e,
++	0x1641003c, 0x1641003b, 0x16410039, 0x16410037,
++	0x15410044, 0x15410042, 0x15410040, 0x1541003e,
++	0x1541003c, 0x1541003b, 0x15410039, 0x15410037,
++	0x14410044, 0x14410042, 0x14410040, 0x1441003e,
++	0x1441003c, 0x1441003b, 0x14410039, 0x14410037,
++	0x13410044, 0x13410042, 0x13410040, 0x1341003e,
++	0x1341003c, 0x1341003b, 0x13410039, 0x13410037,
++	0x12410044, 0x12410042, 0x12410040, 0x1241003e,
++	0x1241003c, 0x1241003b, 0x12410039, 0x12410037,
++	0x11410044, 0x11410042, 0x11410040, 0x1141003e,
++	0x1141003c, 0x1141003b, 0x11410039, 0x11410037,
++	0x10410044, 0x10410042, 0x10410040, 0x1041003e,
++	0x1041003c, 0x1041003b, 0x10410039, 0x10410037,
++};
++
++const u32 b43_ntab_tx_gain_rev3_5ghz[] = {
++	0xcff70044, 0xcff70042, 0xcff70040, 0xcff7003e,
++	0xcff7003c, 0xcff7003b, 0xcff70039, 0xcff70037,
++	0xcef70044, 0xcef70042, 0xcef70040, 0xcef7003e,
++	0xcef7003c, 0xcef7003b, 0xcef70039, 0xcef70037,
++	0xcdf70044, 0xcdf70042, 0xcdf70040, 0xcdf7003e,
++	0xcdf7003c, 0xcdf7003b, 0xcdf70039, 0xcdf70037,
++	0xccf70044, 0xccf70042, 0xccf70040, 0xccf7003e,
++	0xccf7003c, 0xccf7003b, 0xccf70039, 0xccf70037,
++	0xcbf70044, 0xcbf70042, 0xcbf70040, 0xcbf7003e,
++	0xcbf7003c, 0xcbf7003b, 0xcbf70039, 0xcbf70037,
++	0xcaf70044, 0xcaf70042, 0xcaf70040, 0xcaf7003e,
++	0xcaf7003c, 0xcaf7003b, 0xcaf70039, 0xcaf70037,
++	0xc9f70044, 0xc9f70042, 0xc9f70040, 0xc9f7003e,
++	0xc9f7003c, 0xc9f7003b, 0xc9f70039, 0xc9f70037,
++	0xc8f70044, 0xc8f70042, 0xc8f70040, 0xc8f7003e,
++	0xc8f7003c, 0xc8f7003b, 0xc8f70039, 0xc8f70037,
++	0xc7f70044, 0xc7f70042, 0xc7f70040, 0xc7f7003e,
++	0xc7f7003c, 0xc7f7003b, 0xc7f70039, 0xc7f70037,
++	0xc6f70044, 0xc6f70042, 0xc6f70040, 0xc6f7003e,
++	0xc6f7003c, 0xc6f7003b, 0xc6f70039, 0xc6f70037,
++	0xc5f70044, 0xc5f70042, 0xc5f70040, 0xc5f7003e,
++	0xc5f7003c, 0xc5f7003b, 0xc5f70039, 0xc5f70037,
++	0xc4f70044, 0xc4f70042, 0xc4f70040, 0xc4f7003e,
++	0xc4f7003c, 0xc4f7003b, 0xc4f70039, 0xc4f70037,
++	0xc3f70044, 0xc3f70042, 0xc3f70040, 0xc3f7003e,
++	0xc3f7003c, 0xc3f7003b, 0xc3f70039, 0xc3f70037,
++	0xc2f70044, 0xc2f70042, 0xc2f70040, 0xc2f7003e,
++	0xc2f7003c, 0xc2f7003b, 0xc2f70039, 0xc2f70037,
++	0xc1f70044, 0xc1f70042, 0xc1f70040, 0xc1f7003e,
++	0xc1f7003c, 0xc1f7003b, 0xc1f70039, 0xc1f70037,
++	0xc0f70044, 0xc0f70042, 0xc0f70040, 0xc0f7003e,
++	0xc0f7003c, 0xc0f7003b, 0xc0f70039, 0xc0f70037,
++};
++
++const u32 b43_ntab_tx_gain_rev4_5ghz[] = {
++	0x2ff20044, 0x2ff20042, 0x2ff20040, 0x2ff2003e,
++	0x2ff2003c, 0x2ff2003b, 0x2ff20039, 0x2ff20037,
++	0x2ef20044, 0x2ef20042, 0x2ef20040, 0x2ef2003e,
++	0x2ef2003c, 0x2ef2003b, 0x2ef20039, 0x2ef20037,
++	0x2df20044, 0x2df20042, 0x2df20040, 0x2df2003e,
++	0x2df2003c, 0x2df2003b, 0x2df20039, 0x2df20037,
++	0x2cf20044, 0x2cf20042, 0x2cf20040, 0x2cf2003e,
++	0x2cf2003c, 0x2cf2003b, 0x2cf20039, 0x2cf20037,
++	0x2bf20044, 0x2bf20042, 0x2bf20040, 0x2bf2003e,
++	0x2bf2003c, 0x2bf2003b, 0x2bf20039, 0x2bf20037,
++	0x2af20044, 0x2af20042, 0x2af20040, 0x2af2003e,
++	0x2af2003c, 0x2af2003b, 0x2af20039, 0x2af20037,
++	0x29f20044, 0x29f20042, 0x29f20040, 0x29f2003e,
++	0x29f2003c, 0x29f2003b, 0x29f20039, 0x29f20037,
++	0x28f20044, 0x28f20042, 0x28f20040, 0x28f2003e,
++	0x28f2003c, 0x28f2003b, 0x28f20039, 0x28f20037,
++	0x27f20044, 0x27f20042, 0x27f20040, 0x27f2003e,
++	0x27f2003c, 0x27f2003b, 0x27f20039, 0x27f20037,
++	0x26f20044, 0x26f20042, 0x26f20040, 0x26f2003e,
++	0x26f2003c, 0x26f2003b, 0x26f20039, 0x26f20037,
++	0x25f20044, 0x25f20042, 0x25f20040, 0x25f2003e,
++	0x25f2003c, 0x25f2003b, 0x25f20039, 0x25f20037,
++	0x24f20044, 0x24f20042, 0x24f20040, 0x24f2003e,
++	0x24f2003c, 0x24f2003b, 0x24f20039, 0x24f20038,
++	0x23f20041, 0x23f20040, 0x23f2003f, 0x23f2003e,
++	0x23f2003c, 0x23f2003b, 0x23f20039, 0x23f20037,
++	0x22f20044, 0x22f20042, 0x22f20040, 0x22f2003e,
++	0x22f2003c, 0x22f2003b, 0x22f20039, 0x22f20037,
++	0x21f20044, 0x21f20042, 0x21f20040, 0x21f2003e,
++	0x21f2003c, 0x21f2003b, 0x21f20039, 0x21f20037,
++	0x20d20043, 0x20d20041, 0x20d2003e, 0x20d2003c,
++	0x20d2003a, 0x20d20038, 0x20d20036, 0x20d20034,
++};
++
++const u32 b43_ntab_tx_gain_rev5plus_5ghz[] = {
++	0x0f62004a, 0x0f620048, 0x0f620046, 0x0f620044,
++	0x0f620042, 0x0f620040, 0x0f62003e, 0x0f62003c,
++	0x0e620044, 0x0e620042, 0x0e620040, 0x0e62003e,
++	0x0e62003c, 0x0e62003d, 0x0e62003b, 0x0e62003a,
++	0x0d620043, 0x0d620041, 0x0d620040, 0x0d62003e,
++	0x0d62003d, 0x0d62003c, 0x0d62003b, 0x0d62003a,
++	0x0c620041, 0x0c620040, 0x0c62003f, 0x0c62003e,
++	0x0c62003c, 0x0c62003b, 0x0c620039, 0x0c620037,
++	0x0b620046, 0x0b620044, 0x0b620042, 0x0b620040,
++	0x0b62003e, 0x0b62003c, 0x0b62003b, 0x0b62003a,
++	0x0a620041, 0x0a620040, 0x0a62003e, 0x0a62003c,
++	0x0a62003b, 0x0a62003a, 0x0a620039, 0x0a620038,
++	0x0962003e, 0x0962003d, 0x0962003c, 0x0962003b,
++	0x09620039, 0x09620037, 0x09620035, 0x09620033,
++	0x08620044, 0x08620042, 0x08620040, 0x0862003e,
++	0x0862003c, 0x0862003b, 0x0862003a, 0x08620039,
++	0x07620043, 0x07620042, 0x07620040, 0x0762003f,
++	0x0762003d, 0x0762003b, 0x0762003a, 0x07620039,
++	0x0662003e, 0x0662003d, 0x0662003c, 0x0662003b,
++	0x06620039, 0x06620037, 0x06620035, 0x06620033,
++	0x05620046, 0x05620044, 0x05620042, 0x05620040,
++	0x0562003e, 0x0562003c, 0x0562003b, 0x05620039,
++	0x04620044, 0x04620042, 0x04620040, 0x0462003e,
++	0x0462003c, 0x0462003b, 0x04620039, 0x04620038,
++	0x0362003c, 0x0362003b, 0x0362003a, 0x03620039,
++	0x03620038, 0x03620037, 0x03620035, 0x03620033,
++	0x0262004c, 0x0262004a, 0x02620048, 0x02620047,
++	0x02620046, 0x02620044, 0x02620043, 0x02620042,
++	0x0162004a, 0x01620048, 0x01620046, 0x01620044,
++	0x01620043, 0x01620042, 0x01620041, 0x01620040,
++	0x00620042, 0x00620040, 0x0062003e, 0x0062003c,
++	0x0062003b, 0x00620039, 0x00620037, 0x00620035,
++};
++
+  static inline void assert_ntab_array_sizes(void)
+  {
+  #undef check
+diff --git a/drivers/net/wireless/b43/tables_nphy.h b/drivers/net/wireless/b43/tables_nphy.h
+index 1f0a602..423c884 100644
+--- a/drivers/net/wireless/b43/tables_nphy.h
++++ b/drivers/net/wireless/b43/tables_nphy.h
+@@ -131,4 +131,10 @@ void b43_ntab_write(struct b43_wldev *dev, u32 offset, u32 value);
+  void b43_nphy_rev0_1_2_tables_init(struct b43_wldev *dev);
+  void b43_nphy_rev3plus_tables_init(struct b43_wldev *dev);
+
++extern const u32 b43_ntab_tx_gain_rev0_1_2[];
++extern const u32 b43_ntab_tx_gain_rev3plus_2ghz[];
++extern const u32 b43_ntab_tx_gain_rev3_5ghz[];
++extern const u32 b43_ntab_tx_gain_rev4_5ghz[];
++extern const u32 b43_ntab_tx_gain_rev5plus_5ghz[];
++
+  #endif /* B43_TABLES_NPHY_H_ */
+-- 
+1.6.4.2
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: 0004-b43-N-PHY-add-TX-Gain-tables.patch
+Type: application/octet-stream
+Size: 11615 bytes
+Desc: not available
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20100106/fc4a0219/attachment.obj">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20100106/fc4a0219/attachment.obj</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006656.html">[PATCH 3/5] b43: N-PHY: clean table init, check PHY rev (V3)
+</A></li>
+	<LI>Next message: <A HREF="006658.html">[PATCH 5/5] b43: N-PHY: minor init code work
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6657">[ date ]</a>
+              <a href="thread.html#6657">[ thread ]</a>
+              <a href="subject.html#6657">[ subject ]</a>
+              <a href="author.html#6657">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

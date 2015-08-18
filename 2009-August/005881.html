@@ -1,0 +1,401 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Implement spec updates and remove resolved 	FIXMEs
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Implement%20spec%20updates%20and%20remove%20resolved%20%0A%09FIXMEs&In-Reply-To=%3C69e28c910908190757j69eb693cia7ea4ff45959fc8c%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005871.html">
+   <LINK REL="Next"  HREF="005883.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Implement spec updates and remove resolved 	FIXMEs</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Implement%20spec%20updates%20and%20remove%20resolved%20%0A%09FIXMEs&In-Reply-To=%3C69e28c910908190757j69eb693cia7ea4ff45959fc8c%40mail.gmail.com%3E"
+       TITLE="[PATCH] b43: LP-PHY: Implement spec updates and remove resolved 	FIXMEs">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Wed Aug 19 16:57:37 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005871.html">[PATCH] b43: LP-PHY: Implement spec updates and remove resolved 	FIXMEs
+</A></li>
+        <LI>Next message: <A HREF="005883.html">[PATCH] b43: LP-PHY: Implement spec updates and remove resolved 	FIXMEs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5881">[ date ]</a>
+              <a href="thread.html#5881">[ thread ]</a>
+              <a href="subject.html#5881">[ subject ]</a>
+              <a href="author.html#5881">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>False alert, sorry. Feel free to apply. The &quot;regression&quot; apparently
+resulted from the use of an incorrect firmware image - when Mark
+switched to the same firmware as Larry, his card started working
+again.
+
+2009/8/19 G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;:
+&gt;<i> John, please hold off this patch for now, it appears to be causing
+</I>&gt;<i> regressions. I will investigate this.
+</I>&gt;<i>
+</I>&gt;<i> 2009/8/18 G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;:
+</I>&gt;&gt;<i> Larry has started re-checking all current routines against a new
+</I>&gt;&gt;<i> version of the Broadcom MIPS driver. This patch implements the first
+</I>&gt;&gt;<i> round of changes he documented on the specs wiki.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Also remove a few FIXMEs regarding missing initial values for variables
+</I>&gt;&gt;<i> with dynamic initial values where reading the values has been implemented.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+</I>&gt;&gt;<i> ---
+</I>&gt;&gt;<i> drivers/net/wireless/b43/phy_lp.c &#160; &#160; &#160; | &#160; 98
+</I>&gt;&gt;<i> +++++++++++++++++++------------
+</I>&gt;&gt;<i> drivers/net/wireless/b43/phy_lp.h &#160; &#160; &#160; | &#160; 18 +++---
+</I>&gt;&gt;<i> drivers/net/wireless/b43/tables_lpphy.c | &#160; 12 ++++-
+</I>&gt;&gt;<i> 3 files changed, 82 insertions(+), 46 deletions(-)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> index 242338f..6c69cdb 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> @@ -719,9 +719,39 @@ static void lpphy_set_bb_mult(struct b43_wldev *dev, u8
+</I>&gt;&gt;<i> bb_mult)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_lptab_write(dev, B43_LPTAB16(0, 87), (u16)bb_mult &lt;&lt; 8);
+</I>&gt;&gt;<i> }
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> -static void lpphy_disable_crs(struct b43_wldev *dev)
+</I>&gt;&gt;<i> +static void lpphy_set_deaf(struct b43_wldev *dev, bool user)
+</I>&gt;&gt;<i> {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> + &#160; &#160; &#160; if (user)
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; lpphy-&gt;crs_usr_disable = 1;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; else
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; lpphy-&gt;crs_sys_disable = 1;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_maskset(dev, B43_LPPHY_CRSGAIN_CTL, 0xFF1F, 0x80);
+</I>&gt;&gt;<i> +}
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> +static void lpphy_clear_deaf(struct b43_wldev *dev, bool user)
+</I>&gt;&gt;<i> +{
+</I>&gt;&gt;<i> + &#160; &#160; &#160; struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> + &#160; &#160; &#160; if (user)
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; lpphy-&gt;crs_usr_disable = 0;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; else
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; lpphy-&gt;crs_sys_disable = 0;
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> + &#160; &#160; &#160; if (!lpphy-&gt;crs_usr_disable &amp;&amp; !lpphy-&gt;crs_sys_disable) {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_CRSGAIN_CTL,
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; 0xFF1F, 0x60);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; else
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_CRSGAIN_CTL,
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; 0xFF1F, 0x20);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; }
+</I>&gt;&gt;<i> +}
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> +static void lpphy_disable_crs(struct b43_wldev *dev, bool user)
+</I>&gt;&gt;<i> +{
+</I>&gt;&gt;<i> + &#160; &#160; &#160; lpphy_set_deaf(dev, user);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_maskset(dev, B43_LPPHY_RF_OVERRIDE_VAL_0, 0xFFFC, 0x1);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_0, 0x3);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_VAL_0, 0xFFFB);
+</I>&gt;&gt;<i> @@ -749,12 +779,9 @@ static void lpphy_disable_crs(struct b43_wldev *dev)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_write(dev, B43_LPPHY_RF_OVERRIDE_2, 0x3FF);
+</I>&gt;&gt;<i> }
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> -static void lpphy_restore_crs(struct b43_wldev *dev)
+</I>&gt;&gt;<i> +static void lpphy_restore_crs(struct b43_wldev *dev, bool user)
+</I>&gt;&gt;<i> {
+</I>&gt;&gt;<i> - &#160; &#160; &#160; if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_CRSGAIN_CTL, 0xFF1F, 0x60);
+</I>&gt;&gt;<i> - &#160; &#160; &#160; else
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_CRSGAIN_CTL, 0xFF1F, 0x20);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; lpphy_clear_deaf(dev, user);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_0, 0xFF80);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFC00);
+</I>&gt;&gt;<i> }
+</I>&gt;&gt;<i> @@ -800,10 +827,11 @@ static void lpphy_set_tx_gains(struct b43_wldev *dev,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_phy_maskset(dev, B43_LPPHY_TX_GAIN_CTL_OVERRIDE_VAL,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;0xF800, rf_gain);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;} else {
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; pa_gain = b43_phy_read(dev, B43_PHY_OFDM(0xFB)) &amp; 0x7F00;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; pa_gain = b43_phy_read(dev, B43_PHY_OFDM(0xFB)) &amp; 0x1FC0;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; pa_gain &lt;&lt;= 2;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_phy_write(dev, B43_LPPHY_TX_GAIN_CTL_OVERRIDE_VAL,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;(gains.pga &lt;&lt; 8) | gains.gm);
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_TX_GAIN_CTL_OVERRIDE_VAL,
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_maskset(dev, B43_PHY_OFDM(0xFB),
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;0x8000, gains.pad | pa_gain);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_phy_write(dev, B43_PHY_OFDM(0xFC),
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;(gains.pga &lt;&lt; 8) | gains.gm);
+</I>&gt;&gt;<i> @@ -817,7 +845,7 @@ static void lpphy_set_tx_gains(struct b43_wldev *dev,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_phy_maskset(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFF7F, 1 &lt;&lt;
+</I>&gt;&gt;<i> 7);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_phy_maskset(dev, B43_LPPHY_RF_OVERRIDE_2, 0xBFFF, 1 &lt;&lt;
+</I>&gt;&gt;<i> 14);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;&gt;<i> - &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFFBF, 1 &lt;&lt; 6);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_AFE_CTL_OVR, 0xFFBF, 1 &lt;&lt; 6);
+</I>&gt;&gt;<i> }
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> static void lpphy_rev0_1_set_rx_gain(struct b43_wldev *dev, u32 gain)
+</I>&gt;&gt;<i> @@ -857,33 +885,33 @@ static void lpphy_rev2plus_set_rx_gain(struct
+</I>&gt;&gt;<i> b43_wldev *dev, u32 gain)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;&gt;<i> }
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> -static void lpphy_enable_rx_gain_override(struct b43_wldev *dev)
+</I>&gt;&gt;<i> +static void lpphy_disable_rx_gain_override(struct b43_wldev *dev)
+</I>&gt;&gt;<i> {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_0, 0xFFFE);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_0, 0xFFEF);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_0, 0xFFBF);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;if (dev-&gt;phy.rev &gt;= 2) {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFEFF);
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (b43_current_band(dev-&gt;wl) != IEEE80211_BAND_2GHZ)
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; return;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFBFF);
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFFF7);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFBFF);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_mask(dev, B43_PHY_OFDM(0xE5), 0xFFF7);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; }
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;} else {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFDFF);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;&gt;<i> }
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> -static void lpphy_disable_rx_gain_override(struct b43_wldev *dev)
+</I>&gt;&gt;<i> +static void lpphy_enable_rx_gain_override(struct b43_wldev *dev)
+</I>&gt;&gt;<i> {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_0, 0x1);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_0, 0x10);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_0, 0x40);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;if (dev-&gt;phy.rev &gt;= 2) {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_2, 0x100);
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (b43_current_band(dev-&gt;wl) != IEEE80211_BAND_2GHZ)
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; return;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_2, 0x400);
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_2, 0x8);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_2, 0x400);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_set(dev, B43_PHY_OFDM(0xE5), 0x8);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; }
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;} else {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_2, 0x200);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;&gt;<i> @@ -1002,26 +1030,22 @@ static u32 lpphy_qdiv_roundup(u32 dividend, u32
+</I>&gt;&gt;<i> divisor, u8 precision)
+</I>&gt;&gt;<i> {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;u32 quotient, remainder, rbit, roundup, tmp;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> - &#160; &#160; &#160; if (divisor == 0) {
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; quotient = 0;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; remainder = 0;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; } else {
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; quotient = dividend / divisor;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; remainder = dividend % divisor;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; }
+</I>&gt;&gt;<i> + &#160; &#160; &#160; if (divisor == 0)
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; return 0;
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> + &#160; &#160; &#160; quotient = dividend / divisor;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; remainder = dividend % divisor;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;rbit = divisor &amp; 0x1;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;roundup = (divisor &gt;&gt; 1) + rbit;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; precision--;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> - &#160; &#160; &#160; while (precision != 0xFF) {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; while (precision != 0) {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;tmp = remainder - roundup;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;quotient &lt;&lt;= 1;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; remainder &lt;&lt;= 1;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (remainder &gt;= roundup) {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (remainder &gt;= roundup)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;remainder = (tmp &lt;&lt; 1) + rbit;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; quotient--;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; }
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; else
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; remainder &lt;&lt;= 1;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;precision--;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> @@ -1123,11 +1147,11 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev
+</I>&gt;&gt;<i> *dev)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;struct lpphy_iq_est iq_est;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;struct lpphy_tx_gains tx_gains;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; static const u32 ideal_pwr_table[22] = {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; static const u32 ideal_pwr_table[21] = {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;0x10000, 0x10557, 0x10e2d, 0x113e0, 0x10f22, 0x0ff64,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;0x0eda2, 0x0e5d4, 0x0efd1, 0x0fbe8, 0x0b7b8, 0x04b35,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;0x01a5e, 0x00a0b, 0x00444, 0x001fd, 0x000ff, 0x00088,
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; 0x0004c, 0x0002c, 0x0001a, 0xc0006,
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; 0x0004c, 0x0002c, 0x0001a,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;};
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;bool old_txg_ovr;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;u8 old_bbmult;
+</I>&gt;&gt;<i> @@ -1145,7 +1169,7 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev
+</I>&gt;&gt;<i> *dev)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &quot;RC calib: Failed to switch to channel 7, error = %d&quot;,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; err);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;&gt;<i> - &#160; &#160; &#160; old_txg_ovr = (b43_phy_read(dev, B43_LPPHY_AFE_CTL_OVR) &gt;&gt; 6) &amp; 1;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; old_txg_ovr = !!(b43_phy_read(dev, B43_LPPHY_AFE_CTL_OVR) &amp; 0x40);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;old_bbmult = lpphy_get_bb_mult(dev);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;if (old_txg_ovr)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;tx_gains = lpphy_get_tx_gains(dev);
+</I>&gt;&gt;<i> @@ -1160,7 +1184,7 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev
+</I>&gt;&gt;<i> *dev)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;old_txpctl = lpphy-&gt;txpctl_mode;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;lpphy_set_tx_power_control(dev, B43_LPPHY_TXPCTL_OFF);
+</I>&gt;&gt;<i> - &#160; &#160; &#160; lpphy_disable_crs(dev);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; lpphy_disable_crs(dev, true);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;loopback = lpphy_loopback(dev);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;if (loopback == -1)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;goto finish;
+</I>&gt;&gt;<i> @@ -1193,7 +1217,7 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev
+</I>&gt;&gt;<i> *dev)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;lpphy_stop_ddfs(dev);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> finish:
+</I>&gt;&gt;<i> - &#160; &#160; &#160; lpphy_restore_crs(dev);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; lpphy_restore_crs(dev, true);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_write(dev, B43_LPPHY_RF_OVERRIDE_VAL_0, old_rf_ovrval);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_write(dev, B43_LPPHY_RF_OVERRIDE_0, old_rf_ovr);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_phy_write(dev, B43_LPPHY_AFE_CTL_OVRVAL, old_afe_ovrval);
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/phy_lp.h
+</I>&gt;&gt;<i> b/drivers/net/wireless/b43/phy_lp.h
+</I>&gt;&gt;<i> index 99cb038..e158d1f 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/phy_lp.h
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/phy_lp.h
+</I>&gt;&gt;<i> @@ -825,11 +825,11 @@ struct b43_phy_lp {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;enum b43_lpphy_txpctl_mode txpctl_mode;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;/* Transmit isolation medium band */
+</I>&gt;&gt;<i> - &#160; &#160; &#160; u8 tx_isolation_med_band; /* FIXME initial value? */
+</I>&gt;&gt;<i> + &#160; &#160; &#160; u8 tx_isolation_med_band;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;/* Transmit isolation low band */
+</I>&gt;&gt;<i> - &#160; &#160; &#160; u8 tx_isolation_low_band; /* FIXME initial value? */
+</I>&gt;&gt;<i> + &#160; &#160; &#160; u8 tx_isolation_low_band;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;/* Transmit isolation high band */
+</I>&gt;&gt;<i> - &#160; &#160; &#160; u8 tx_isolation_hi_band; /* FIXME initial value? */
+</I>&gt;&gt;<i> + &#160; &#160; &#160; u8 tx_isolation_hi_band;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;/* Max transmit power medium band */
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;u16 max_tx_pwr_med_band;
+</I>&gt;&gt;<i> @@ -848,7 +848,7 @@ struct b43_phy_lp {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;s16 txpa[3], txpal[3], txpah[3];
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;/* Receive power offset */
+</I>&gt;&gt;<i> - &#160; &#160; &#160; u8 rx_pwr_offset; /* FIXME initial value? */
+</I>&gt;&gt;<i> + &#160; &#160; &#160; u8 rx_pwr_offset;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;/* TSSI transmit count */
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;u16 tssi_tx_count;
+</I>&gt;&gt;<i> @@ -864,16 +864,16 @@ struct b43_phy_lp {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;s8 tx_pwr_idx_over; /* FIXME initial value? */
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;/* RSSI vf */
+</I>&gt;&gt;<i> - &#160; &#160; &#160; u8 rssi_vf; /* FIXME initial value? */
+</I>&gt;&gt;<i> + &#160; &#160; &#160; u8 rssi_vf;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;/* RSSI vc */
+</I>&gt;&gt;<i> - &#160; &#160; &#160; u8 rssi_vc; /* FIXME initial value? */
+</I>&gt;&gt;<i> + &#160; &#160; &#160; u8 rssi_vc;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;/* RSSI gs */
+</I>&gt;&gt;<i> - &#160; &#160; &#160; u8 rssi_gs; /* FIXME initial value? */
+</I>&gt;&gt;<i> + &#160; &#160; &#160; u8 rssi_gs;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;/* RC cap */
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;u8 rc_cap; /* FIXME initial value? */
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;/* BX arch */
+</I>&gt;&gt;<i> - &#160; &#160; &#160; u8 bx_arch; /* FIXME initial value? */
+</I>&gt;&gt;<i> + &#160; &#160; &#160; u8 bx_arch;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;/* Full calibration channel */
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;u8 full_calib_chan; /* FIXME initial value? */
+</I>&gt;&gt;<i> @@ -885,6 +885,8 @@ struct b43_phy_lp {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;/* Used for &quot;Save/Restore Dig Filt State&quot; */
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;u16 dig_flt_state[9];
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> + &#160; &#160; &#160; bool crs_usr_disable, crs_sys_disable;
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;unsigned int pdiv;
+</I>&gt;&gt;<i> };
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/tables_lpphy.c
+</I>&gt;&gt;<i> b/drivers/net/wireless/b43/tables_lpphy.c
+</I>&gt;&gt;<i> index 2721310..60d472f 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/tables_lpphy.c
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/tables_lpphy.c
+</I>&gt;&gt;<i> @@ -2367,7 +2367,17 @@ static void lpphy_rev2plus_write_gain_table(struct
+</I>&gt;&gt;<i> b43_wldev *dev, int offset,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;tmp &#160;= data.pad &lt;&lt; 16;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;tmp |= data.pga &lt;&lt; 8;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;tmp |= data.gm;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; tmp |= 0x7f000000;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; if (dev-&gt;phy.rev &gt;= 3) {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ)
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; tmp |= 0x10 &lt;&lt; 24;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; else
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; tmp |= 0x70 &lt;&lt; 24;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; } else {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ)
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; tmp |= 0x14 &lt;&lt; 24;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; else
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; tmp |= 0x7F &lt;&lt; 24;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; }
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;b43_lptab_write(dev, B43_LPTAB32(7, 0xC0 + offset), tmp);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;tmp &#160;= data.bb_mult &lt;&lt; 20;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160;tmp |= data.dac &lt;&lt; 28;
+</I>&gt;&gt;<i> --
+</I>&gt;&gt;<i> 1.6.2.4
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i> Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005871.html">[PATCH] b43: LP-PHY: Implement spec updates and remove resolved 	FIXMEs
+</A></li>
+	<LI>Next message: <A HREF="005883.html">[PATCH] b43: LP-PHY: Implement spec updates and remove resolved 	FIXMEs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5881">[ date ]</a>
+              <a href="thread.html#5881">[ thread ]</a>
+              <a href="subject.html#5881">[ subject ]</a>
+              <a href="author.html#5881">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

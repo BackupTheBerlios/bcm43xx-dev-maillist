@@ -1,0 +1,224 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix radio LED problem
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20radio%20LED%20problem&In-Reply-To=%3C200711291958.45631.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002958.html">
+   <LINK REL="Next"  HREF="002953.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix radio LED problem</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20radio%20LED%20problem&In-Reply-To=%3C200711291958.45631.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix radio LED problem">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Nov 29 19:58:45 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002958.html">[PATCH] b43: Fix radio LED problem
+</A></li>
+        <LI>Next message: <A HREF="002953.html">[RFT] [PATCH] b43: fix calc_nrssi_slope
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2962">[ date ]</a>
+              <a href="thread.html#2962">[ thread ]</a>
+              <a href="subject.html#2962">[ subject ]</a>
+              <a href="author.html#2962">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Thursday 29 November 2007 00:48:40 Larry Finger wrote:
+
+&gt;<i> Index: wireless-2.6/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-2.6.orig/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> +++ wireless-2.6/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> @@ -60,8 +60,12 @@ static void b43_rfkill_poll(struct input
+</I>&gt;<i>  	}
+</I>&gt;<i>  	mutex_unlock(&amp;wl-&gt;mutex);
+</I>&gt;<i>  
+</I>&gt;<i> -	if (unlikely(report_change))
+</I>&gt;<i> -		input_report_key(poll_dev-&gt;input, KEY_WLAN, enabled);
+</I>&gt;<i> +	/* send the radio switch event to the system - note both a key press
+</I>&gt;<i> +	 * and a release are required */
+</I>
+Ok, nice. Didn't know that.
+
+&gt;<i> +	if (unlikely(report_change)) {
+</I>&gt;<i> +		input_report_key(poll_dev-&gt;input, KEY_WLAN, 1);
+</I>&gt;<i> +		input_report_key(poll_dev-&gt;input, KEY_WLAN, 0);
+</I>&gt;<i> +	}
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i>  /* Called when the RFKILL toggled in software. */
+</I>&gt;<i> @@ -133,6 +137,12 @@ void b43_rfkill_init(struct b43_wldev *d
+</I>&gt;<i>  	rfk-&gt;poll_dev-&gt;poll = b43_rfkill_poll;
+</I>&gt;<i>  	rfk-&gt;poll_dev-&gt;poll_interval = 1000; /* msecs */
+</I>&gt;<i>  
+</I>&gt;<i> +	rfk-&gt;poll_dev-&gt;input-&gt;name = rfk-&gt;name;
+</I>&gt;<i> +	rfk-&gt;poll_dev-&gt;input-&gt;id.bustype = BUS_HOST;
+</I>&gt;<i> +	rfk-&gt;poll_dev-&gt;input-&gt;id.vendor = dev-&gt;dev-&gt;bus-&gt;boardinfo.vendor;
+</I>&gt;<i> +	rfk-&gt;poll_dev-&gt;input-&gt;evbit[0] = BIT(EV_KEY);
+</I>&gt;<i> +	set_bit(KEY_WLAN, rfk-&gt;poll_dev-&gt;input-&gt;keybit);
+</I>&gt;<i> +
+</I>&gt;<i>  	err = rfkill_register(rfk-&gt;rfkill);
+</I>&gt;<i>  	if (err)
+</I>&gt;<i>  		goto err_free_polldev;
+</I>&gt;<i> Index: wireless-2.6/drivers/net/wireless/b43/main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-2.6.orig/drivers/net/wireless/b43/main.c
+</I>&gt;<i> +++ wireless-2.6/drivers/net/wireless/b43/main.c
+</I>&gt;<i> @@ -2156,7 +2156,6 @@ static void b43_mgmtframe_txantenna(stru
+</I>&gt;<i>  static void b43_chip_exit(struct b43_wldev *dev)
+</I>&gt;<i>  {
+</I>&gt;<i>  	b43_radio_turn_off(dev, 1);
+</I>&gt;<i> -	b43_leds_exit(dev);
+</I>&gt;<i>  	b43_gpio_cleanup(dev);
+</I>&gt;<i>  	/* firmware is released later */
+</I>&gt;<i>  }
+</I>&gt;<i> @@ -2184,11 +2183,10 @@ static int b43_chip_init(struct b43_wlde
+</I>&gt;<i>  	err = b43_gpio_init(dev);
+</I>&gt;<i>  	if (err)
+</I>&gt;<i>  		goto out;	/* firmware is released later */
+</I>&gt;<i> -	b43_leds_init(dev);
+</I>&gt;<i>  
+</I>&gt;<i>  	err = b43_upload_initvals(dev);
+</I>&gt;<i>  	if (err)
+</I>&gt;<i> -		goto err_leds_exit;
+</I>&gt;<i> +		goto err_gpio_clean;
+</I>&gt;<i>  	b43_radio_turn_on(dev);
+</I>&gt;<i>  
+</I>&gt;<i>  	b43_write16(dev, 0x03E6, 0x0000);
+</I>&gt;<i> @@ -2267,8 +2265,7 @@ out:
+</I>&gt;<i>  
+</I>&gt;<i>  err_radio_off:
+</I>&gt;<i>  	b43_radio_turn_off(dev, 1);
+</I>&gt;<i> -err_leds_exit:
+</I>&gt;<i> -	b43_leds_exit(dev);
+</I>&gt;<i> +err_gpio_clean:
+</I>&gt;<i>  	b43_gpio_cleanup(dev);
+</I>&gt;<i>  	return err;
+</I>&gt;<i>  }
+</I>&gt;<i> @@ -2703,7 +2700,8 @@ static int b43_antenna_from_ieee80211(u8
+</I>&gt;<i>  static int b43_op_config(struct ieee80211_hw *hw, struct ieee80211_conf *conf)
+</I>&gt;<i>  {
+</I>&gt;<i>  	struct b43_wl *wl = hw_to_b43_wl(hw);
+</I>&gt;<i> -	struct b43_wldev *dev;
+</I>&gt;<i> +	struct b43_rfkill *rfk = &amp;(wl-&gt;rfkill);
+</I>&gt;<i> +	struct b43_wldev *uninitialized_var(dev);
+</I>&gt;<i>  	struct b43_phy *phy;
+</I>&gt;<i>  	unsigned long flags;
+</I>&gt;<i>  	unsigned int new_phymode = 0xFFFF;
+</I>&gt;<i> @@ -2802,6 +2800,13 @@ static int b43_op_config(struct ieee8021
+</I>&gt;<i>        out_unlock_mutex:
+</I>&gt;<i>  	mutex_unlock(&amp;wl-&gt;mutex);
+</I>&gt;<i>  
+</I>&gt;<i> +	/* if a LED is devoted to the radio and the switch is on, send
+</I>&gt;<i> +	 * KEY_WLAN press/release keystrokes */
+</I>&gt;<i> +	if (!err &amp;&amp; dev-&gt;radio_hw_enable &amp;&amp; &amp;dev-&gt;led_radio) {
+</I>                                            ^^^^^^^^^^^^^^^
+This condition is always true.
+
+&gt;<i> +		input_report_key(rfk-&gt;poll_dev-&gt;input, KEY_WLAN, 1);
+</I>&gt;<i> +		input_report_key(rfk-&gt;poll_dev-&gt;input, KEY_WLAN, 0);
+</I>&gt;<i> +	}
+</I>&gt;<i> +
+</I>
+Anyway, sending a key event here seems pretty bogus. The comment
+doesn't really say anything useful why this is needed.
+
+&gt;<i>  	return err;
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i> @@ -3284,9 +3289,7 @@ static void b43_wireless_core_exit(struc
+</I>&gt;<i>  		return;
+</I>&gt;<i>  	b43_set_status(dev, B43_STAT_UNINIT);
+</I>&gt;<i>  
+</I>&gt;<i> -	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
+</I>&gt;<i> -	b43_rfkill_exit(dev);
+</I>&gt;<i> -	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+</I>&gt;<i> +	b43_leds_exit(dev);
+</I>&gt;<i>  
+</I>&gt;<i>  	b43_rng_exit(dev-&gt;wl);
+</I>&gt;<i>  	b43_pio_free(dev);
+</I>&gt;<i> @@ -3409,8 +3412,8 @@ static int b43_wireless_core_init(struct
+</I>&gt;<i>  	memset(wl-&gt;mac_addr, 0, ETH_ALEN);
+</I>&gt;<i>  	b43_upload_card_macaddress(dev);
+</I>&gt;<i>  	b43_security_init(dev);
+</I>&gt;<i> -	b43_rfkill_init(dev);
+</I>&gt;<i>  	b43_rng_init(wl);
+</I>&gt;<i> +	b43_leds_init(dev);
+</I>&gt;<i>  
+</I>&gt;<i>  	b43_set_status(dev, B43_STAT_INITIALIZED);
+</I>&gt;<i>  
+</I>&gt;<i> @@ -3503,6 +3506,7 @@ static int b43_op_start(struct ieee80211
+</I>&gt;<i>  	int did_init = 0;
+</I>&gt;<i>  	int err = 0;
+</I>&gt;<i>  
+</I>&gt;<i> +	b43_rfkill_init(dev);
+</I>
+Init rfkill _after_ the device is up.
+
+&gt;<i>  	mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;<i>  
+</I>&gt;<i>  	if (b43_status(dev) &lt; B43_STAT_INITIALIZED) {
+</I>&gt;<i> @@ -3537,6 +3541,7 @@ static void b43_op_stop(struct ieee80211
+</I>&gt;<i>  		b43_wireless_core_stop(dev);
+</I>&gt;<i>  	b43_wireless_core_exit(dev);
+</I>&gt;<i>  	mutex_unlock(&amp;wl-&gt;mutex);
+</I>&gt;<i> +	b43_rfkill_exit(dev);
+</I>
+Exit rfkill before the device is going down.
+
+&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i>  static int b43_op_set_retry_limit(struct ieee80211_hw *hw,
+</I>&gt;<i> Index: wireless-2.6/drivers/net/wireless/b43/leds.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-2.6.orig/drivers/net/wireless/b43/leds.c
+</I>&gt;<i> +++ wireless-2.6/drivers/net/wireless/b43/leds.c
+</I>&gt;<i> @@ -232,4 +232,5 @@ void b43_leds_exit(struct b43_wldev *dev
+</I>&gt;<i>  	b43_unregister_led(&amp;dev-&gt;led_tx);
+</I>&gt;<i>  	b43_unregister_led(&amp;dev-&gt;led_rx);
+</I>&gt;<i>  	b43_unregister_led(&amp;dev-&gt;led_assoc);
+</I>&gt;<i> +	b43_unregister_led(&amp;dev-&gt;led_radio);
+</I>&gt;<i>  }
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002958.html">[PATCH] b43: Fix radio LED problem
+</A></li>
+	<LI>Next message: <A HREF="002953.html">[RFT] [PATCH] b43: fix calc_nrssi_slope
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2962">[ date ]</a>
+              <a href="thread.html#2962">[ thread ]</a>
+              <a href="subject.html#2962">[ subject ]</a>
+              <a href="author.html#2962">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

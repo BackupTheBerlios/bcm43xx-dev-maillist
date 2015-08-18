@@ -1,0 +1,190 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/3] bcm43xx-mac80211: Catch dma mapping failures.
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/3%5D%20bcm43xx-mac80211%3A%20Catch%20dma%20mapping%20failures.&In-Reply-To=%3C11757457917-git-send-email-will.dyson%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000919.html">
+   <LINK REL="Next"  HREF="000940.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/3] bcm43xx-mac80211: Catch dma mapping failures.</H1>
+    <B>Will Dyson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/3%5D%20bcm43xx-mac80211%3A%20Catch%20dma%20mapping%20failures.&In-Reply-To=%3C11757457917-git-send-email-will.dyson%40gmail.com%3E"
+       TITLE="[PATCH 1/3] bcm43xx-mac80211: Catch dma mapping failures.">will.dyson at gmail.com
+       </A><BR>
+    <I>Thu Apr  5 06:03:11 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000919.html">OpenBSD bcw: Possible GPL license violation issues
+</A></li>
+        <LI>Next message: <A HREF="000940.html">[PATCH 1/3] bcm43xx-mac80211: Catch dma mapping failures.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#920">[ date ]</a>
+              <a href="thread.html#920">[ thread ]</a>
+              <a href="subject.html#920">[ subject ]</a>
+              <a href="author.html#920">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: will &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">will at zod.</A>(none)&gt;
+
+Check result of dma_map_single(), print warnings and propagate errors up the
+call stack.
+
+Signed-off-by: Will Dyson &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">will.dyson at gmail.com</A>&gt;
+---
+ .../net/wireless/mac80211/bcm43xx/bcm43xx_dma.c    |   39 +++++++++++++++-----
+ 1 files changed, 30 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
+index d53679d..4abc6c8 100644
+--- a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
++++ b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
+@@ -525,9 +525,11 @@ static int setup_rx_descbuffer(struct bcm43xx_dmaring *ring,
+ 		return -ENOMEM;
+ 	dmaaddr = map_descbuffer(ring, skb-&gt;data,
+ 				 ring-&gt;rx_buffersize, 0);
++	if (dma_mapping_error(dmaaddr))
++		return -EIO;
++
+ 	meta-&gt;skb = skb;
+ 	meta-&gt;dmaaddr = dmaaddr;
+-
+ 	ring-&gt;ops-&gt;fill_descriptor(ring, desc, dmaaddr,
+ 				   ring-&gt;rx_buffersize, 0, 0, 0);
+ 
+@@ -552,8 +554,10 @@ static int alloc_initial_descbuffers(struct bcm43xx_dmaring *ring)
+ 		desc = ring-&gt;ops-&gt;idx2desc(ring, i, &amp;meta);
+ 
+ 		err = setup_rx_descbuffer(ring, desc, meta, GFP_KERNEL);
+-		if (err)
++		if (err) {
++			printk(KERN_ERR PFX &quot;Failed to allocate initial descbuffers\n&quot;);
+ 			goto err_unwind;
++		}
+ 	}
+ 	mb();
+ 	ring-&gt;used_slots = ring-&gt;nr_slots;
+@@ -1017,7 +1021,7 @@ struct bcm43xx_dmaring * parse_cookie(struct bcm43xx_wldev *dev,
+ 	return ring;
+ }
+ 
+-static void dma_tx_fragment(struct bcm43xx_dmaring *ring,
++static int dma_tx_fragment(struct bcm43xx_dmaring *ring,
+ 			    struct sk_buff *skb,
+ 			    struct ieee80211_tx_control *ctl)
+ {
+@@ -1026,23 +1030,26 @@ static void dma_tx_fragment(struct bcm43xx_dmaring *ring,
+ 	int slot;
+ 	struct bcm43xx_dmadesc_generic *desc;
+ 	struct bcm43xx_dmadesc_meta *meta;
++	struct bcm43xx_dmadesc_meta *meta_hdr;
+ 
+ #define SLOTS_PER_PACKET  2
+ 	assert(skb_shinfo(skb)-&gt;nr_frags == 0);
+ 
+ 	/* Get a slot for the header. */
+ 	slot = request_slot(ring);
+-	desc = ops-&gt;idx2desc(ring, slot, &amp;meta);
+-	memset(meta, 0, sizeof(*meta));
++	desc = ops-&gt;idx2desc(ring, slot, &amp;meta_hdr);
++	memset(meta_hdr, 0, sizeof(*meta_hdr));
+ 
+ 	header = &amp;(ring-&gt;txhdr_cache[slot * sizeof(struct bcm43xx_txhdr_fw4)]);
+ 	bcm43xx_generate_txhdr(ring-&gt;dev, header,
+ 			       skb-&gt;data, skb-&gt;len, ctl,
+ 			       generate_cookie(ring, slot));
+ 
+-	meta-&gt;dmaaddr = map_descbuffer(ring, (unsigned char *)header,
++	meta_hdr-&gt;dmaaddr = map_descbuffer(ring, (unsigned char *)header,
+ 				       sizeof(struct bcm43xx_txhdr_fw4), 1);
+-	ops-&gt;fill_descriptor(ring, desc, meta-&gt;dmaaddr,
++	if (dma_mapping_error(meta_hdr-&gt;dmaaddr))
++		return -EIO;
++	ops-&gt;fill_descriptor(ring, desc, meta_hdr-&gt;dmaaddr,
+ 			     sizeof(struct bcm43xx_txhdr_fw4), 1, 0, 0);
+ 
+ 	/* Get a slot for the payload. */
+@@ -1052,8 +1059,10 @@ static void dma_tx_fragment(struct bcm43xx_dmaring *ring,
+ 
+ 	memcpy(&amp;meta-&gt;txstat.control, ctl, sizeof(*ctl));
+ 	meta-&gt;skb = skb;
+-	meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+ 	meta-&gt;is_last_fragment = 1;
++	meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
++	if(dma_mapping_error(meta-&gt;dmaaddr))
++		goto out_unmap_hdr;
+ 
+ 	ops-&gt;fill_descriptor(ring, desc, meta-&gt;dmaaddr,
+ 			     skb-&gt;len, 0, 1, 1);
+@@ -1061,6 +1070,12 @@ static void dma_tx_fragment(struct bcm43xx_dmaring *ring,
+ 	/* Now transfer the whole frame. */
+ 	wmb();
+ 	ops-&gt;poke_tx(ring, next_slot(ring, slot));
++	return 0;
++
++out_unmap_hdr:
++	unmap_descbuffer(ring, meta_hdr-&gt;dmaaddr,
++			sizeof(struct bcm43xx_txhdr_fw4), 1);
++	return -EIO;
+ }
+ 
+ int bcm43xx_dma_tx(struct bcm43xx_wldev *dev,
+@@ -1068,6 +1083,7 @@ int bcm43xx_dma_tx(struct bcm43xx_wldev *dev,
+ 		   struct ieee80211_tx_control *ctl)
+ {
+ 	struct bcm43xx_dmaring *ring = dev-&gt;dma.tx_ring1;
++	int err = 0;
+ 
+ 	assert(ring-&gt;tx);
+ 	if (unlikely(free_slots(ring) &lt; SLOTS_PER_PACKET)) {
+@@ -1078,7 +1094,12 @@ int bcm43xx_dma_tx(struct bcm43xx_wldev *dev,
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+-	dma_tx_fragment(ring, skb, ctl);
++	err = dma_tx_fragment(ring, skb, ctl);
++	if (unlikely(err)) {
++		printkl(KERN_ERR PFX &quot;DMA tx mapping failure\n&quot;);
++		return NETDEV_TX_BUSY;
++	}
++
+ 	ring-&gt;nr_tx_packets++;
+ 	if (free_slots(ring) &lt; SLOTS_PER_PACKET) {
+ 		/* FIXME: we currently only have one queue */
+-- 
+1.5.0.3
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000919.html">OpenBSD bcw: Possible GPL license violation issues
+</A></li>
+	<LI>Next message: <A HREF="000940.html">[PATCH 1/3] bcm43xx-mac80211: Catch dma mapping failures.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#920">[ date ]</a>
+              <a href="thread.html#920">[ thread ]</a>
+              <a href="subject.html#920">[ subject ]</a>
+              <a href="author.html#920">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

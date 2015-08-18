@@ -1,0 +1,140 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH -mm 2/5] Misc: Add possibility to remove misc devices during	suspend/resume
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20-mm%202/5%5D%20Misc%3A%20Add%20possibility%20to%20remove%20misc%20devices%20during%0A%09suspend/resume&In-Reply-To=%3C200801250131.50924.rjw%40sisk.pl%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003279.html">
+   <LINK REL="Next"  HREF="003281.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH -mm 2/5] Misc: Add possibility to remove misc devices during	suspend/resume</H1>
+    <B>Rafael J. Wysocki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20-mm%202/5%5D%20Misc%3A%20Add%20possibility%20to%20remove%20misc%20devices%20during%0A%09suspend/resume&In-Reply-To=%3C200801250131.50924.rjw%40sisk.pl%3E"
+       TITLE="[PATCH -mm 2/5] Misc: Add possibility to remove misc devices during	suspend/resume">rjw at sisk.pl
+       </A><BR>
+    <I>Fri Jan 25 01:31:49 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003279.html">[PATCH -mm 1/5] PM: Export device_pm_schedule_removal
+</A></li>
+        <LI>Next message: <A HREF="003281.html">[PATCH -mm 3/5] HWRNG: Add possibility to remove hwrng devices during	suspend/resume
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3283">[ date ]</a>
+              <a href="thread.html#3283">[ thread ]</a>
+              <a href="subject.html#3283">[ subject ]</a>
+              <a href="author.html#3283">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: Rafael J. Wysocki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">rjw at sisk.pl</A>&gt;
+
+Make it possible to unregister a misc device object in a safe way
+during a suspend/resume cycle.
+
+Signed-off-by: Rafael J. Wysocki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">rjw at sisk.pl</A>&gt;
+---
+ drivers/char/misc.c        |   13 +++++++++----
+ include/linux/miscdevice.h |   10 +++++++++-
+ 2 files changed, 18 insertions(+), 5 deletions(-)
+
+Index: linux-2.6.24-rc8-mm1/include/linux/miscdevice.h
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/include/linux/miscdevice.h
++++ linux-2.6.24-rc8-mm1/include/linux/miscdevice.h
+@@ -43,7 +43,15 @@ struct miscdevice  {
+ };
+ 
+ extern int misc_register(struct miscdevice * misc);
+-extern int misc_deregister(struct miscdevice * misc);
++extern int __misc_deregister(struct miscdevice *misc, bool suspended);
++static inline int misc_deregister(struct miscdevice *misc)
++{
++	return __misc_deregister(misc, false);
++}
++static inline int misc_deregister_suspended(struct miscdevice *misc)
++{
++	return __misc_deregister(misc, true);
++}
+ 
+ #define MODULE_ALIAS_MISCDEV(minor)				\
+ 	MODULE_ALIAS(&quot;char-major-&quot; __stringify(MISC_MAJOR)	\
+Index: linux-2.6.24-rc8-mm1/drivers/char/misc.c
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/char/misc.c
++++ linux-2.6.24-rc8-mm1/drivers/char/misc.c
+@@ -232,8 +232,9 @@ int misc_register(struct miscdevice * mi
+ }
+ 
+ /**
+- *	misc_deregister - unregister a miscellaneous device
++ *	__misc_deregister - unregister a miscellaneous device
+  *	@misc: device to unregister
++ *	@suspended: to be set if the function is used during suspend/resume
+  *
+  *	Unregister a miscellaneous device that was previously
+  *	successfully registered with misc_register(). Success
+@@ -241,7 +242,7 @@ int misc_register(struct miscdevice * mi
+  *	indicates an error.
+  */
+ 
+-int misc_deregister(struct miscdevice * misc)
++int __misc_deregister(struct miscdevice *misc, bool suspended)
+ {
+ 	int i = misc-&gt;minor;
+ 
+@@ -250,7 +251,11 @@ int misc_deregister(struct miscdevice * 
+ 
+ 	mutex_lock(&amp;misc_mtx);
+ 	list_del(&amp;misc-&gt;list);
+-	device_destroy(misc_class, MKDEV(MISC_MAJOR, misc-&gt;minor));
++	if (suspended)
++		destroy_suspended_device(misc_class,
++					MKDEV(MISC_MAJOR, misc-&gt;minor));
++	else
++		device_destroy(misc_class, MKDEV(MISC_MAJOR, misc-&gt;minor));
+ 	if (i &lt; DYNAMIC_MINORS &amp;&amp; i&gt;0) {
+ 		misc_minors[i&gt;&gt;3] &amp;= ~(1 &lt;&lt; (misc-&gt;minor &amp; 7));
+ 	}
+@@ -259,7 +264,7 @@ int misc_deregister(struct miscdevice * 
+ }
+ 
+ EXPORT_SYMBOL(misc_register);
+-EXPORT_SYMBOL(misc_deregister);
++EXPORT_SYMBOL(__misc_deregister);
+ 
+ static int __init misc_init(void)
+ {
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003279.html">[PATCH -mm 1/5] PM: Export device_pm_schedule_removal
+</A></li>
+	<LI>Next message: <A HREF="003281.html">[PATCH -mm 3/5] HWRNG: Add possibility to remove hwrng devices during	suspend/resume
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3283">[ date ]</a>
+              <a href="thread.html#3283">[ thread ]</a>
+              <a href="subject.html#3283">[ subject ]</a>
+              <a href="author.html#3283">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

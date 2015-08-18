@@ -1,0 +1,173 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Error message from b43
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Error%20message%20from%20b43&In-Reply-To=%3C46C32443.1010601%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002081.html">
+   <LINK REL="Next"  HREF="002083.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Error message from b43</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Error%20message%20from%20b43&In-Reply-To=%3C46C32443.1010601%40lwfinger.net%3E"
+       TITLE="Error message from b43">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Wed Aug 15 18:05:23 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002081.html">Error message from b43
+</A></li>
+        <LI>Next message: <A HREF="002083.html">Error message from b43
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2082">[ date ]</a>
+              <a href="thread.html#2082">[ thread ]</a>
+              <a href="subject.html#2082">[ subject ]</a>
+              <a href="author.html#2082">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Johannes Berg wrote:
+&gt;<i> On Wed, 2007-08-15 at 10:24 -0500, Larry Finger wrote:
+</I>&gt;<i> 
+</I>&gt;&gt;<i> MODALIAS=ssb:v4243id0812rev0a
+</I>&gt;<i> 
+</I>&gt;<i> Oh. I see. Somewhere case got confused, the modalias is this:
+</I>&gt;<i> 
+</I>&gt;<i> alias:          ssb:v4243id0812rev0A*
+</I>&gt;<i> 
+</I>&gt;<i> Apparently we have to use %.2X and not %.2x in the uevent generation
+</I>&gt;<i> code. Michael, want a patch or can you just fix it?
+</I>
+This patch did not fix the problem:
+
+Index: wireless-dev/drivers/ssb/main.c
+===================================================================
+--- wireless-dev.orig/drivers/ssb/main.c
++++ wireless-dev/drivers/ssb/main.c
+@@ -331,7 +331,7 @@ static int ssb_device_uevent(struct devi
+
+         ret = add_uevent_var(envp, num_envp, &amp;i,
+                              buffer, buffer_size, &amp;length,
+-                            &quot;MODALIAS=ssb:v%.4xid%.4xrev%.2x&quot;,
++                            &quot;MODALIAS=ssb:v%.4xid%.4xrev%.2X&quot;,
+                              ssb_dev-&gt;id.vendor, ssb_dev-&gt;id.coreid,
+                              ssb_dev-&gt;id.revision);
+         envp[i] = NULL;
+
+With this patch, the output of udevmonitor --env now is:
+
+UEVENT[1187193083.069367] add@/module/ssb
+ACTION=add
+DEVPATH=/module/ssb
+SUBSYSTEM=module
+SEQNUM=1748
+
+UEVENT[1187193083.070838] add@/bus/ssb
+ACTION=add
+DEVPATH=/bus/ssb
+SUBSYSTEM=bus
+SEQNUM=1749
+
+UEVENT[1187193083.072529] add@/bus/pci/drivers/b43-pci-bridge
+ACTION=add
+DEVPATH=/bus/pci/drivers/b43-pci-bridge
+SUBSYSTEM=drivers
+SEQNUM=1750
+
+UDEV  [1187193083.076531] add@/module/ssb
+UDEV_LOG=3
+ACTION=add
+DEVPATH=/module/ssb
+SUBSYSTEM=module
+SEQNUM=1748
+UDEVD_EVENT=1
+
+UDEV  [1187193083.080356] add@/bus/ssb
+UDEV_LOG=3
+ACTION=add
+DEVPATH=/bus/ssb
+SUBSYSTEM=bus
+SEQNUM=1749
+UDEVD_EVENT=1
+
+UDEV  [1187193083.083627] add@/bus/pci/drivers/b43-pci-bridge
+UDEV_LOG=3
+ACTION=add
+DEVPATH=/bus/pci/drivers/b43-pci-bridge
+SUBSYSTEM=drivers
+SEQNUM=1750
+UDEVD_EVENT=1
+
+UEVENT[1187193083.148865] add@/devices/pci0000:00/0000:00:02.0/0000:01:00.0/ssb0:0
+ACTION=add
+DEVPATH=/devices/pci0000:00/0000:00:02.0/0000:01:00.0/ssb0:0
+SUBSYSTEM=ssb
+SEQNUM=1751
+PHYSDEVBUS=ssb
+MODALIAS=ssb:v4243id0812rev0A
+
+UEVENT[1187193083.150987] add@/devices/pci0000:00/0000:00:02.0/0000:01:00.0/ssb0:1
+ACTION=add
+DEVPATH=/devices/pci0000:00/0000:00:02.0/0000:01:00.0/ssb0:1
+SUBSYSTEM=ssb
+SEQNUM=1752
+PHYSDEVBUS=ssb
+MODALIAS=ssb:v4243id0817rev03
+
+UDEV  [1187193083.156997] add@/devices/pci0000:00/0000:00:02.0/0000:01:00.0/ssb0:1
+UDEV_LOG=3
+ACTION=add
+DEVPATH=/devices/pci0000:00/0000:00:02.0/0000:01:00.0/ssb0:1
+SUBSYSTEM=ssb
+SEQNUM=1752
+PHYSDEVBUS=ssb
+MODALIAS=ssb:v4243id0817rev03
+UDEVD_EVENT=1
+
+UDEV  [1187193083.162392] add@/devices/pci0000:00/0000:00:02.0/0000:01:00.0/ssb0:0
+UDEV_LOG=3
+ACTION=add
+DEVPATH=/devices/pci0000:00/0000:00:02.0/0000:01:00.0/ssb0:0
+SUBSYSTEM=ssb
+SEQNUM=1751
+PHYSDEVBUS=ssb
+MODALIAS=ssb:v4243id0812rev0A
+UDEVD_EVENT=1
+
+Am I correct in assuming that we don't need the PCIe core listed here because that driver is built 
+into ssb?
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002081.html">Error message from b43
+</A></li>
+	<LI>Next message: <A HREF="002083.html">Error message from b43
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2082">[ date ]</a>
+              <a href="thread.html#2082">[ thread ]</a>
+              <a href="subject.html#2082">[ subject ]</a>
+              <a href="author.html#2082">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

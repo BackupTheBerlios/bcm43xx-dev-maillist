@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20machine%20check%20errors%20for%20PPC%20architecture%0A%09with%20BCM4306/2&In-Reply-To=%3C46EC1F5A.7030800%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002408.html">
+   <LINK REL="Next"  HREF="002410.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20machine%20check%20errors%20for%20PPC%20architecture%0A%09with%20BCM4306/2&In-Reply-To=%3C46EC1F5A.7030800%40lwfinger.net%3E"
+       TITLE="[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Sat Sep 15 20:07:22 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002408.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+        <LI>Next message: <A HREF="002410.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2409">[ date ]</a>
+              <a href="thread.html#2409">[ thread ]</a>
+              <a href="subject.html#2409">[ subject ]</a>
+              <a href="author.html#2409">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> On Saturday 15 September 2007 19:39:34 Larry Finger wrote:
+</I>&gt;&gt;<i> In b43, the variable gmode merely indicates whether the given core
+</I>&gt;&gt;<i> has a GPHY or a BPHY. In b43legacy, this is always true; however,
+</I>&gt;&gt;<i> on a BCM4306/2 it must be set only when the PHY is connected to the
+</I>&gt;&gt;<i> ssb backplane, otherwise, reads of the PHY registers are invalid.
+</I>&gt;&gt;<i> For x86 architecture, these read failures cause no problems; however,
+</I>&gt;&gt;<i> on the ppc architecture, they cause a machine check. This patch has been
+</I>&gt;&gt;<i> tested on an i386 platform using special code to detect these invalid
+</I>&gt;&gt;<i> reads, and on two different Powerbooks.
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;&gt;<i> ---
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> John,
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> This patch fixes a problem with the Fedora Rawhide kernel reported by David
+</I>&gt;&gt;<i> Woodhouse on the bcm43xx mailing list and by Will Woods at 
+</I>&gt;&gt;<i> <A HREF="https://bugzilla.redhat.com/show_bug.cgi?id=233011.">https://bugzilla.redhat.com/show_bug.cgi?id=233011.</A>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Larry
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>  drivers/net/wireless/b43legacy/main.c |    5 ++++-
+</I>&gt;&gt;<i>  1 file changed, 4 insertions(+), 1 deletion(-)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Index: wireless-dev/drivers/net/wireless/b43legacy/main.c
+</I>&gt;&gt;<i> ===================================================================
+</I>&gt;&gt;<i> --- wireless-dev.orig/drivers/net/wireless/b43legacy/main.c
+</I>&gt;&gt;<i> +++ wireless-dev/drivers/net/wireless/b43legacy/main.c
+</I>&gt;&gt;<i> @@ -738,8 +738,11 @@ void b43legacy_wireless_core_reset(struc
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i>  	macctl = b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
+</I>&gt;&gt;<i>  	macctl &amp;= ~B43legacy_MACCTL_GMODE;
+</I>&gt;&gt;<i> -	if (flags &amp; B43legacy_TMSLOW_GMODE)
+</I>&gt;&gt;<i> +	if (flags &amp; B43legacy_TMSLOW_GMODE) {
+</I>&gt;&gt;<i>  		macctl |= B43legacy_MACCTL_GMODE;
+</I>&gt;&gt;<i> +		dev-&gt;phy.gmode = 1;
+</I>&gt;&gt;<i> +	} else
+</I>&gt;&gt;<i> +		dev-&gt;phy.gmode = 0;
+</I>&gt;&gt;<i>  	macctl |= B43legacy_MACCTL_IHR_ENABLED;
+</I>&gt;&gt;<i>  	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, macctl);
+</I>&gt;&gt;<i>  }
+</I>&gt;&gt;<i> @@ -3424,7 +3427,6 @@ static int b43legacy_wireless_core_attac
+</I>&gt;&gt;<i>  	int err;
+</I>&gt;&gt;<i>  	int have_bphy = 0;
+</I>&gt;&gt;<i>  	int have_gphy = 0;
+</I>&gt;&gt;<i> -	u32 tmp;
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i>  	/* Do NOT do any device initialization here.
+</I>&gt;&gt;<i>  	 * Do it in wireless_core_init() instead.
+</I>&gt;&gt;<i> @@ -3456,9 +3458,7 @@ static int b43legacy_wireless_core_attac
+</I>&gt;&gt;<i>  	if (err)
+</I>&gt;&gt;<i>  		goto err_powerdown;
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -	dev-&gt;phy.gmode = (have_gphy || have_bphy);
+</I>&gt;&gt;<i> -	tmp = dev-&gt;phy.gmode ? B43legacy_TMSLOW_GMODE : 0;
+</I>&gt;&gt;<i> -	b43legacy_wireless_core_reset(dev, tmp);
+</I>&gt;&gt;<i> +	b43legacy_wireless_core_reset(dev, B43legacy_TMSLOW_GMODE);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i>  	err = b43legacy_phy_versioning(dev);
+</I>&gt;&gt;<i>  	if (err)
+</I>&gt;&gt;<i> @@ -3482,9 +3482,7 @@ static int b43legacy_wireless_core_attac
+</I>&gt;&gt;<i>  			B43legacy_BUG_ON(1);
+</I>&gt;&gt;<i>  		}
+</I>&gt;&gt;<i>  	}
+</I>&gt;&gt;<i> -	dev-&gt;phy.gmode = (have_gphy || have_bphy);
+</I>&gt;&gt;<i> -	tmp = dev-&gt;phy.gmode ? B43legacy_TMSLOW_GMODE : 0;
+</I>&gt;&gt;<i> -	b43legacy_wireless_core_reset(dev, tmp);
+</I>&gt;&gt;<i> +	b43legacy_wireless_core_reset(dev, B43legacy_TMSLOW_GMODE);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i>  	err = b43legacy_validate_chipaccess(dev);
+</I>&gt;&gt;<i>  	if (err)
+</I>&gt;&gt;<i> Index: wireless-dev/drivers/net/wireless/b43legacy/b43legacy.h
+</I>&gt;&gt;<i> ===================================================================
+</I>&gt;&gt;<i> --- wireless-dev.orig/drivers/net/wireless/b43legacy/b43legacy.h
+</I>&gt;&gt;<i> +++ wireless-dev/drivers/net/wireless/b43legacy/b43legacy.h
+</I>&gt;&gt;<i> @@ -389,7 +389,7 @@ struct b43legacy_lopair {
+</I>&gt;&gt;<i>  struct b43legacy_phy {
+</I>&gt;&gt;<i>  	/* Possible PHYMODEs on this PHY */
+</I>&gt;&gt;<i>  	u8 possible_phymodes;
+</I>&gt;&gt;<i> -	/* GMODE bit enabled? */
+</I>&gt;&gt;<i> +	/* True if PHY connected to ssb backplane */
+</I>&gt;&gt;<i>  	bool gmode;
+</I>&gt;<i> 
+</I>&gt;<i> Nono, wait. That &quot;PHY Connected&quot; bit never existed. It was a bug
+</I>&gt;<i> in the specification. It really is &quot;Drive the PHY in G-mode&quot;.
+</I>&gt;<i> It has nothing to do with &quot;connecting&quot; something.
+</I>&gt;<i> So your changes above are, strictly said, also wrong.
+</I>&gt;<i> The bit must be enabled, if we want to use the G-mode PHY on the
+</I>&gt;<i> device and disabled otherwise. This is for multi-phy devices with
+</I>&gt;<i> an A PHY and a B/G PHY.
+</I>&gt;<i> So, well. As you won't ever support an A-PHY in the driver, I am
+</I>&gt;<i> probably OK with always forcing the GMODE bit on (which your above code does,
+</I>&gt;<i> but I don't see how this could fix anything). Better, yet, fix the _real_
+</I>&gt;<i> cause why gmode wasn't set (that's what you are trying to fix, no?)
+</I>&gt;<i> And please don't break the comment above. :)
+</I>&gt;<i> It _really_ is a &quot;GMODE bit enabled&quot; bit.
+</I>&gt;<i> 
+</I>&gt;<i> Again: This has nothing to do with connecting some PHY to anything.
+</I>
+Your comments may be correct; however, the fact remains that with a rev 4 BCM4306, the original code
+generates many, many machine checks on PPC architecture, and I get reads with all ones on i386
+indicating that the read is invalid. These all occur before the firmware is loaded. Making the
+&quot;gmode&quot; bit mimic the behavior of the phy_connected variable of bcm43xx gets rid of the problems on
+both platforms. The registers that error are not just the extended GPHY registers that caused
+problems in the past, but all the PHY registers.
+
+If you can suggest a reordering of the initialization that delays PHY setup until the &quot;magic step&quot;
+that eliminates this problem is done on/to the ssb backplane, I will be happy to test it. I was
+unable to find such a solution.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002408.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+	<LI>Next message: <A HREF="002410.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2409">[ date ]</a>
+              <a href="thread.html#2409">[ thread ]</a>
+              <a href="subject.html#2409">[ subject ]</a>
+              <a href="author.html#2409">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

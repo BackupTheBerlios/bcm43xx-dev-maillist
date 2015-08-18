@@ -1,0 +1,209 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [ANN] b43 LP-PHY support (BCM4310/4312/4315) working (partially)!
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BANN%5D%20b43%20LP-PHY%20support%20%28BCM4310/4312/4315%29%20working%20%28partially%29%21&In-Reply-To=%3C4A8CF7C2.30400%40huijgen.tk%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005880.html">
+   <LINK REL="Next"  HREF="005886.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[ANN] b43 LP-PHY support (BCM4310/4312/4315) working (partially)!</H1>
+    <B>Mark Huijgen</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BANN%5D%20b43%20LP-PHY%20support%20%28BCM4310/4312/4315%29%20working%20%28partially%29%21&In-Reply-To=%3C4A8CF7C2.30400%40huijgen.tk%3E"
+       TITLE="[ANN] b43 LP-PHY support (BCM4310/4312/4315) working (partially)!">mark.sf.net at huijgen.tk
+       </A><BR>
+    <I>Thu Aug 20 09:14:10 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005880.html">[ANN] b43 LP-PHY support (BCM4310/4312/4315) working (partially)!
+</A></li>
+        <LI>Next message: <A HREF="005886.html">[ANN] b43 LP-PHY support (BCM4310/4312/4315) working (partially)!
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5885">[ date ]</a>
+              <a href="thread.html#5885">[ thread ]</a>
+              <a href="subject.html#5885">[ subject ]</a>
+              <a href="author.html#5885">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>G&#225;bor Stefanik wrote:
+&gt;<i> 2009/8/19 Mark Huijgen &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mark.sf.net at huijgen.tk</A>&gt;:
+</I>&gt;<i>   
+</I>&gt;&gt;<i> To summarize, all cases with patches and new firmware:
+</I>&gt;&gt;<i> case 1: cold boot with default channel 7, RC calib error and 'init
+</I>&gt;&gt;<i> channel failed' error,
+</I>&gt;&gt;<i> case 2: recompile+reload b43 with default channel 1, just 'init channel
+</I>&gt;&gt;<i> failed' error,
+</I>&gt;&gt;<i> case 3: recompile+reload b43 with default channel 7, works
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> You mean 'iw dev wlan0 set channel 1' for example?
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> In case 2 (with default chan 1), ifconfig wlan0 gives error
+</I>&gt;&gt;<i> &quot;SIOCSIFFLAGS: Input/output error&quot;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> # iw dev wlan0 set channel 1
+</I>&gt;&gt;<i> no output generated, also nothing in dmesg
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> # iw dev wlan0 scan trigger
+</I>&gt;&gt;<i> command failed: Network is down (-100)
+</I>&gt;&gt;<i> nothing in dmesg.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Both commands do not give any output in dmesg in case 3 either.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Tried channel 1 up to 11, 12 and higher gives 'command failed: Invalid
+</I>&gt;&gt;<i> argument (-22)', which is expected I think.
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> Set your regulatory domain to something that allows higher channels
+</I>&gt;<i> (e.g. iw reg set JP - this one unlocks channels 1-14 (14 is
+</I>&gt;<i> CCK/802.11b only); or iw reg set HU - channels 1-13) to test channels
+</I>&gt;<i> 14 and up.
+</I>&gt;<i>   
+</I># iw reg set JP
+[  606.879287] cfg80211: Calling CRDA for country: JP
+# iw phy phy5 info
+&lt;&lt;snip&gt;&gt;
+                        * 2467 MHz [12] (disabled)
+                        * 2472 MHz [13] (disabled)
+                        * 2484 MHz [14] (disabled)
+&lt;&lt;snip&gt;&gt;
+
+# iw dev wlan0 set channel 14
+command failed: Invalid argument (-22)
+
+
+
+&gt;<i> Also, test this:
+</I>&gt;<i>
+</I>&gt;<i> Create a monitor interface (iw dev wlan0 interface add mon0 type monitor)
+</I>&gt;<i> Up the interface (ifconfig mon0 up)
+</I>&gt;<i> Set channel to 1 (iwconfig mon0 channel 1 or iw dev wlan0 set channel 1)
+</I>&gt;<i> Run tcpdump on the interface (tcpdump -i mon0).
+</I>&gt;<i>   
+</I>This produces quite a lot of packages, small snippet:
+08:35:31.676268 171437241us tsft 1.0 Mb/s 31 MHz (0x00a0) -82dB signal
+0dB noise antenna 0 [0x0000000e] Beacon ESS, PRIVACY
+08:35:31.679047 171439995us tsft 1.0 Mb/s 31 MHz (0x00a0) -82dB signal
+0dB noise antenna 0 [0x0000000e] Beacon ESS, PRIVACY
+08:35:31.691757 171454461us tsft 1.0 Mb/s 31 MHz (0x00a0) -72dB signal
+0dB noise antenna 0 [0x0000000e] Data IV:8a27a7 Pad 20 KeyID 1
+08:35:31.693722 171457076us tsft 2.0 Mb/s 31 MHz (0x00a0) -58dB signal
+0dB noise antenna 0 [0x0000000e] Probe Request () [1.0* 2.0* 5.5* 11.0*
+9.0 18.0 36.0 54.0 Mbit]
+08:35:31.710293 171472955us tsft 1.0 Mb/s 31 MHz (0x00a0) -59dB signal
+0dB noise antenna 0 [0x0000000e] Beacon ESS, PRIVACY
+
+So channel 1 does receive packets it seems. Should I be able to see data
+packets from another system thats associated and downloading from my AP
+on channel 1? Protected by WPA. Or are they not shown?
+I don't see any, only thin I notice is the number of pkgs/second is a
+lot less when I'm downloading something on the other system.
+
+If I cycle through the channels with iw dev mon0 set channel N, all
+channels give similar output in tcpdump.
+
+&gt;<i> Try for other channel values as well. (You don't need to recreate the
+</I>&gt;<i> interface for each channel, just use the channel-setting command to
+</I>&gt;<i> switch the channel.) You should see packets on all channels.
+</I>&gt;<i>
+</I>&gt;<i> Another thing to try: add a printk to b43_lpphy_op_set_channel and
+</I>&gt;<i> print out new_channel. This will log all channel change requests
+</I>&gt;<i> (including automatic ones) to dmesg, which can be helpful.
+</I>&gt;<i>   
+</I>Done, see further down in this mail.
+&gt;<i> If you set your AP to channel 11, can you connect to it &amp; use it as normal?
+</I>&gt;<i>   
+</I>After doing my tripple module load/recompile to switch default chan from
+7-&gt;1-&gt;7,
+yes, then everything seems to work on channel 11. Then all reloads with
+default chan 7 still work fine,
+but if I try a default chan of 1 again, it fails to bring the inteface up.
+
+I cannot connect to my AP on channel 1, since it does not show up in the
+scan results (on another system right beside it, with another type of
+card, it does show up and work).
+
+
+With the added printk in switch channel:
+
+After cold boot with default chan 1:
+[   70.066976] b43-phy1 debug: Switching to channel: 7
+[   70.071314] b43-phy1 debug: Switching to channel: 1
+[   70.071808] b43-phy1 debug: Switch to init channel failed, error = -5.
+[   70.071844] b43-phy1 debug: Switching to channel: 1
+[   70.072341] b43-phy1 ERROR: PHY init: Channel switch to default failed
+
+After recompile with default chan 7:
+[  226.810985] b43-phy2 debug: Switching to channel: 7
+[  226.815320] b43-phy2 debug: Switching to channel: 7
+[  226.815632] b43-phy2 debug: Switching to channel: 7
+[  226.824062] b43-phy2 debug: Chip initialized
+[  226.824274] b43-phy2 debug: 64-bit DMA initialized
+[  226.845588] Registered led device: b43-phy2::tx
+[  226.845610] Registered led device: b43-phy2::rx
+[  226.845630] Registered led device: b43-phy2::radio
+[  226.845696] b43-phy2 debug: Wireless interface started
+[  226.845717] b43-phy2 debug: Adding Interface type 2
+[  226.845812] b43-phy2 debug: Switching to channel: 1
+
+And a working interface.
+
+Another cold boot, this time starting with default chan 7:
+[  100.426965] b43-phy1 debug: Switching to channel: 7
+[  100.431295] b43-phy1 debug: Switching to channel: 7
+[  100.431607] b43-phy1 debug: Switching to channel: 7
+[  100.440061] b43-phy1 debug: Chip initialized
+[  100.440259] b43-phy1 debug: 64-bit DMA initialized
+[  100.461545] Registered led device: b43-phy1::tx
+[  100.461567] Registered led device: b43-phy1::rx
+[  100.461587] Registered led device: b43-phy1::radio
+[  100.461653] b43-phy1 debug: Wireless interface started
+[  100.461673] b43-phy1 debug: Adding Interface type 2
+[  100.461755] b43-phy1 debug: Switching to channel: 1
+
+Working directly after boot ! Are the printk's slowing something down
+enough to make it work better?
+Note: phy0 is from autoloading on boot, no interface up attempts done,
+just a reload with verbose=3.
+
+Just to be sure I did another reboot, with autoloading disabled. Also
+working right away with default channel 7.
+Default channel 1 still no go, and also still not seeing any AP's on
+channel 1 in scan results.
+
+Mark
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005880.html">[ANN] b43 LP-PHY support (BCM4310/4312/4315) working (partially)!
+</A></li>
+	<LI>Next message: <A HREF="005886.html">[ANN] b43 LP-PHY support (BCM4310/4312/4315) working (partially)!
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5885">[ date ]</a>
+              <a href="thread.html#5885">[ thread ]</a>
+              <a href="subject.html#5885">[ subject ]</a>
+              <a href="author.html#5885">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

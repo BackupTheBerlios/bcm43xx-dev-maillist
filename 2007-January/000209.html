@@ -1,0 +1,164 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm43xx-d80211: remove_interface bug
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm43xx-d80211%3A%20remove_interface%20bug&In-Reply-To=%3C200701262030.57545.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000208.html">
+   <LINK REL="Next"  HREF="000210.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm43xx-d80211: remove_interface bug</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm43xx-d80211%3A%20remove_interface%20bug&In-Reply-To=%3C200701262030.57545.mb%40bu3sch.de%3E"
+       TITLE="bcm43xx-d80211: remove_interface bug">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jan 26 20:30:57 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000208.html">Bcm43xx oops after suspend to disk
+</A></li>
+        <LI>Next message: <A HREF="000210.html">Bcm43xx oops after suspend to disk
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#209">[ date ]</a>
+              <a href="thread.html#209">[ thread ]</a>
+              <a href="subject.html#209">[ subject ]</a>
+              <a href="author.html#209">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 26 January 2007 16:58, Jiri Benc wrote:
+&gt;<i> (The latest wireless-dev tree. How to reproduce: associate (probably
+</I>&gt;<i> bringing the interface up is enough) and eject the cardbus card.)
+</I>
+Is this linville's tree or mine?
+Either way, did you apply that DMA skb doublefree patch? It fixes
+memory corruption, which could probablb cause this.
+
+&gt;<i> wlan0: Initial auth_alg=0
+</I>&gt;<i> wlan0: authenticate with AP 00:11:2f:a2:96:da
+</I>&gt;<i> wlan0: RX authentication from 00:11:2f:a2:96:da (alg=0 transaction=2
+</I>&gt;<i> status=0) wlan0: authenticated
+</I>&gt;<i> wlan0: associate with AP 00:11:2f:a2:96:da
+</I>&gt;<i> wlan0: RX AssocResp from 00:11:2f:a2:96:da (capab=0x1 status=0 aid=3)
+</I>&gt;<i> wlan0: associated
+</I>&gt;<i> wmaster0: Added STA 00:11:2f:a2:96:da
+</I>&gt;<i> wlan0: CTS protection enabled (BSSID=00:11:2f:a2:96:da)
+</I>&gt;<i> pccard: card ejected from slot 0
+</I>&gt;<i> bcm43xx_d80211: Removing Interface type 2
+</I>&gt;<i> bcm43xx_d80211: ASSERTION FAILED (!dev-&gt;started) at:
+</I>&gt;<i> drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c:3255:bcm43xx_remove_interface()
+</I>
+But this assertion failure should not happen.
+Do we call remove_interface after hw-&gt;stop was called? I did not
+check d80211 code, but my assumption in the code is that
+hw-&gt;open is always called after the first add_interface and hw-&gt;stop
+is called before the last remove_interface. Is that a wrong assumption?
+If yes, it should probably be fixed in the stack.
+
+&gt;<i> BUG: unable to handle kernel paging request at virtual address 6b6b6b87
+</I>&gt;<i> printing eip: c0137202
+</I>&gt;<i> *pde = 00000000
+</I>&gt;<i> Oops: 0000 [#1]
+</I>&gt;<i> SMP 
+</I>&gt;<i> Modules linked in: arc4 ecb blkcipher rc80211_simple bcm43xx_d80211 ssb
+</I>&gt;<i> 80211 netconsole CPU:    0
+</I>&gt;<i> EIP:    0060:[&lt;c0137202&gt;]    Not tainted VLI
+</I>&gt;<i> EFLAGS: 00010046   (2.6.20-rc6-test #74)
+</I>&gt;<i> EIP is at __lock_acquire+0x42/0xe60
+</I>&gt;<i> eax: 00000002   ebx: 00000046   ecx: 00000000   edx: 00000000
+</I>&gt;<i> esi: 00000000   edi: 6b6b6b83   ebp: c1eafbcc   esp: c1eafb54
+</I>&gt;<i> ds: 007b   es: 007b   ss: 0068
+</I>&gt;<i> Process pccardd (pid: 797, ti=c1eae000 task=c1d34070 task.ti=c1eae000)
+</I>&gt;<i> Stack: c1e11eac c1eafb68 00000046 c1d34070 00000251 00000000 00000000
+</I>&gt;<i> 00000000 c03455c7 c1d34070 f70f5960 c1eafb8c c0272c2f 00000097 c1eafc04
+</I>&gt;<i> c0279278 00000000 00000000 c1d34070 c06b72c0 c1d34670 00000000 c1d345a8
+</I>&gt;<i> c1e11e44 Call Trace:
+</I>&gt;<i>  [&lt;c0103f3a&gt;] show_trace_log_lvl+0x1a/0x30
+</I>&gt;<i>  [&lt;c0104006&gt;] show_stack_log_lvl+0xb6/0x100
+</I>&gt;<i>  [&lt;c010433f&gt;] show_registers+0x1af/0x2b0
+</I>&gt;<i>  [&lt;c0104691&gt;] die+0x111/0x220
+</I>&gt;<i>  [&lt;c03c4105&gt;] do_page_fault+0x2c5/0x630
+</I>&gt;<i>  [&lt;c03c2734&gt;] error_code+0x7c/0x84
+</I>&gt;<i>  [&lt;c0138397&gt;] lock_acquire+0x57/0x70
+</I>&gt;<i>  [&lt;c03c1f4c&gt;] _spin_lock+0x2c/0x40
+</I>&gt;<i>  [&lt;f8b4cf0c&gt;] bcm43xx_interrupt_handler+0x1c/0x2f0 [bcm43xx_d80211]
+</I>&gt;<i>  [&lt;c0141758&gt;] handle_IRQ_event+0x28/0x60
+</I>&gt;<i>  [&lt;c0143338&gt;] handle_level_irq+0x88/0x120
+</I>&gt;<i>  [&lt;c01051b4&gt;] do_IRQ+0x64/0xc0
+</I>&gt;<i>  [&lt;c01039d2&gt;] common_interrupt+0x2e/0x34
+</I>&gt;<i>  [&lt;c011c73b&gt;] printk+0x1b/0x20
+</I>&gt;<i>  [&lt;f8b485b5&gt;] bcm43xx_remove_interface+0x185/0x190 [bcm43xx_d80211]
+</I>&gt;<i>  [&lt;f8b2158e&gt;] ieee80211_stop+0x6e/0x110 [80211]
+</I>&gt;<i>  [&lt;c03452d4&gt;] dev_close+0x44/0x90
+</I>&gt;<i>  [&lt;c0345e90&gt;] unregister_netdevice+0x170/0x210
+</I>&gt;<i>  [&lt;f8b31d0c&gt;] __ieee80211_if_del+0x1c/0x20 [80211]
+</I>&gt;<i>  [&lt;f8b20aaa&gt;] ieee80211_unregister_hw+0x8a/0x280 [80211]
+</I>&gt;<i>  [&lt;f8b470d9&gt;] bcm43xx_wireless_exit+0x19/0x40 [bcm43xx_d80211]
+</I>&gt;<i>  [&lt;f8b4724a&gt;] bcm43xx_remove+0x7a/0xc0 [bcm43xx_d80211]
+</I>&gt;<i>  [&lt;f883819c&gt;] ssb_device_remove+0x1c/0x30 [ssb]
+</I>&gt;<i>  [&lt;c026bb3a&gt;] __device_release_driver+0x6a/0x90
+</I>&gt;<i>  [&lt;c026beb5&gt;] device_release_driver+0x35/0x50
+</I>&gt;<i>  [&lt;c026b348&gt;] bus_remove_device+0x68/0x90
+</I>&gt;<i>  [&lt;c0269c29&gt;] device_del+0x189/0x1f0
+</I>&gt;<i>  [&lt;c0269c9b&gt;] device_unregister+0xb/0x20
+</I>&gt;<i>  [&lt;f8838311&gt;] ssb_bus_unregister+0x61/0xa0 [ssb]
+</I>&gt;<i>  [&lt;f8b5b9f3&gt;] bcm43xx_pci_remove+0x23/0x50 [bcm43xx_d80211]
+</I>&gt;<i>  [&lt;c0203af9&gt;] pci_device_remove+0x19/0x40
+</I>&gt;<i>  [&lt;c026bb3a&gt;] __device_release_driver+0x6a/0x90
+</I>&gt;<i>  [&lt;c026beb5&gt;] device_release_driver+0x35/0x50
+</I>&gt;<i>  [&lt;c026b348&gt;] bus_remove_device+0x68/0x90
+</I>&gt;<i>  [&lt;c0269c29&gt;] device_del+0x189/0x1f0
+</I>&gt;<i>  [&lt;c0269c9b&gt;] device_unregister+0xb/0x20
+</I>&gt;<i>  [&lt;c0200846&gt;] pci_stop_dev+0x26/0x60
+</I>&gt;<i>  [&lt;c020090b&gt;] pci_remove_bus_device+0x2b/0xa0
+</I>&gt;<i>  [&lt;c02009aa&gt;] pci_remove_behind_bridge+0x2a/0x40
+</I>&gt;<i>  [&lt;c02c459a&gt;] cb_free+0x1a/0x20
+</I>&gt;<i>  [&lt;c02c0b07&gt;] socket_shutdown+0x77/0xd0
+</I>&gt;<i>  [&lt;c02c0cf6&gt;] socket_remove+0x26/0x30
+</I>&gt;<i>  [&lt;c02c144d&gt;] pccardd+0x21d/0x250
+</I>&gt;<i>  [&lt;c012f8ba&gt;] kthread+0xda/0xe0
+</I>&gt;<i>  [&lt;c0103c4b&gt;] kernel_thread_helper+0x7/0x1c
+</I>&gt;<i>  =======================
+</I>&gt;<i> Code: 40 19 4c c0 89 4d a4 85 c0 0f 84 8a 04 00 00 9c 58 f6 c4 02 0f 85
+</I>&gt;<i> 13 0a 00 00 83 fa 07 0f 87 3c 0a 00 00 85 d2 0f 85 70 02 00 00 &lt;8b&gt; 57
+</I>&gt;<i> 04 85 d2 89 55 b0 0f 84 62 02 00 00 8b 45 b0 e8 88 de ff EIP:
+</I>&gt;<i> [&lt;c0137202&gt;] __lock_acquire+0x42/0xe60 SS:ESP 0068:c1eafb54 &lt;0&gt;Kernel
+</I>&gt;<i> panic - not syncing: Fatal exception in interrupt
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000208.html">Bcm43xx oops after suspend to disk
+</A></li>
+	<LI>Next message: <A HREF="000210.html">Bcm43xx oops after suspend to disk
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#209">[ date ]</a>
+              <a href="thread.html#209">[ thread ]</a>
+              <a href="subject.html#209">[ subject ]</a>
+              <a href="author.html#209">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

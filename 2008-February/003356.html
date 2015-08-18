@@ -1,0 +1,175 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20WiFi%20-%20Broadcom%204306%20on%20kernel%202.6.24%20%28b43%20module%29&In-Reply-To=%3Cdd5a13890802061417r5924d1e9w2dbcc22e67c15d0c%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003353.html">
+   <LINK REL="Next"  HREF="003358.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)</H1>
+    <B>Marcelo Juchem</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20WiFi%20-%20Broadcom%204306%20on%20kernel%202.6.24%20%28b43%20module%29&In-Reply-To=%3Cdd5a13890802061417r5924d1e9w2dbcc22e67c15d0c%40mail.gmail.com%3E"
+       TITLE="WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)">juchem at gmail.com
+       </A><BR>
+    <I>Wed Feb  6 23:17:16 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003353.html">[PATCH] b43: Fix DMA for 30/32-bit DMA engines
+</A></li>
+        <LI>Next message: <A HREF="003358.html">WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3356">[ date ]</a>
+              <a href="thread.html#3356">[ thread ]</a>
+              <a href="subject.html#3356">[ subject ]</a>
+              <a href="author.html#3356">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi,
+
+	I have a HP Presario zv6015 laptop with Debian 4.0 installed (using
+the official unstable repository). When running the kernel 2.6.23,
+everything works fine, even the Broadcom 4306 wireless card (using
+module bcm43xx shipped with the kernel and firmware ripped with
+bcm43xx-fwcutter from official Debian unstable repository). But when I
+boot with the new kernel 2.6.24, the wireless network stops working. I
+tried everything found in
+<A HREF="http://www.linuxwireless.org/en/users/Drivers/b43">http://www.linuxwireless.org/en/users/Drivers/b43</A> and searched a lot
+of solutions on the Internet, but had no success. Both modules b43 and
+b43 legacy were tried. I think it is a firmware issue, since I had the
+same problem with bcm43xx and it was solved when I changed the
+firmware. I have the following firmware files (tried every version
+listed below):
+/lib/firmware/b43/*.fw - 4.x firmware extracted with b43-fwcutter
+/lib/firmware/b43legacy/*.fw - 3.x firmware extracted with b43-fwcutter
+/lib/firmware/*.fw - 3.x firmware extracted with bcm43xx-fwcutter
+Any ideas? I don't have much free time available due to work and
+college, but I have good C and C++ coding skills and am willing to
+help.
+
+	Thanks,
+
+Marcelo Juchem
+
+Following is the output of some commands and content of some config
+files to help the diagnostic.
+----------------------------------------------
+
+using debian linux with kernel linux-image-2.6.24-1-686
+updated as of 01/31/2008 from the official debian unstable repository
+
+firmware extracted to /lib/firmware/b43
+broadcom-wl-4.80.53.0 - extracted with b43-fwcutter 009
+broadcom-wl-4.150.10.5 - extracted with b43-fwcutter 010
+
+firmware extracted from these files, found at
+<A HREF="http://www.linuxwireless.org/en/users/Drivers/b43:">http://www.linuxwireless.org/en/users/Drivers/b43:</A>
+broadcom-wl-4.80.53.0/kmod/wl_apsta_mimo.o
+broadcom-wl-4.80.53.0/kmod/wl_apsta.o
+broadcom-wl-4.150.10.5/driver/wl_apsta_mimo.o
+
+b43-fwcutter version 009: obtained from the official debian unstable
+repository as of 01/31/2008
+b43-fwcutter version 010: compiled from sources found at
+<A HREF="http://www.bu3sch.de/b43/fwcutter/">http://www.bu3sch.de/b43/fwcutter/</A>
+
+--- 'lspci' output - BEGIN ---
+03:02.0 Network controller: Broadcom Corporation BCM4306 802.11b/g
+Wireless LAN Controller (rev 03)
+--- 'lspci' output - END ---
+
+--- /etc/network/interfaces - BEGIN ---
+# I changed the ESSID, nickname and password to placeholders
+iface lo inet loopback
+auto lo
+
+iface eth1 inet dhcp
+wireless-essid WiFiNetworkESSID
+wireless-mode Managed
+wireless-channel 6
+wireless-nickname nickname
+wireless-key open s:password
+hostname nickname
+auto eth1
+--- /etc/network/interfaces - END ---
+
+--- 'dmesg' output - BEGIN ---
+b43-phy1: Broadcom 4306 WLAN found
+phy1: Selected rate control algorithm 'simple'
+udev: renamed network interface wmaster0 to eth1
+--- 'dmesg' output - END ---
+
+--- 'iwlist eth1 scan' output - BEGIN ---
+eth1 Interface doesn't support scanning.
+--- 'iwlist eth1 scan' output - END ---
+
+--- 'ifup' output - BEGIN ---
+Error for wireless request &quot;Set Mode&quot; (8B06) :
+SET failed on device eth1 ; Operation not supported.
+Error for wireless request &quot;Set Encode&quot; (8B2A) :
+SET failed on device eth1 ; Operation not supported.
+Error for wireless request &quot;Set Frequency&quot; (8B04) :
+SET failed on device eth1 ; Operation not supported.
+Error for wireless request &quot;Set ESSID&quot; (8B1A) :
+SET failed on device eth1 ; Operation not supported.
+Internet Systems Consortium DHCP Client V3.1.0
+Copyright 2004-2007 Internet Systems Consortium.
+All rights reserved.
+For info, please visit <A HREF="http://www.isc.org/sw/dhcp/">http://www.isc.org/sw/dhcp/</A>
+
+eth1: unknown hardware address type 801
+SIOCSIFFLAGS: Operation not supported
+SIOCSIFFLAGS: Operation not supported
+eth1: unknown hardware address type 801
+Listening on LPF/eth1/
+Sending on LPF/eth1/
+Sending on Socket/fallback
+receive_packet failed on eth1: Network is down
+option_space_encapsulate: option space agent does not exist, but is configured.
+DHCPDISCOVER on eth1 to 255.255.255.255 port 67 interval 8
+send_packet: Network is down
+DHCPDISCOVER on eth1 to 255.255.255.255 port 67 interval 10
+send_packet: Network is down
+DHCPDISCOVER on eth1 to 255.255.255.255 port 67 interval 21
+send_packet: Network is down
+DHCPDISCOVER on eth1 to 255.255.255.255 port 67 interval 19
+send_packet: Network is down
+DHCPDISCOVER on eth1 to 255.255.255.255 port 67 interval 3
+send_packet: Network is down
+No DHCPOFFERS received.
+No working leases in persistent database - sleeping.
+--- 'ifup' output - END ---
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003353.html">[PATCH] b43: Fix DMA for 30/32-bit DMA engines
+</A></li>
+	<LI>Next message: <A HREF="003358.html">WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3356">[ date ]</a>
+              <a href="thread.html#3356">[ thread ]</a>
+              <a href="subject.html#3356">[ subject ]</a>
+              <a href="author.html#3356">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

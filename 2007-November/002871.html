@@ -1,0 +1,130 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> mac80211 regression: doesn't associate automatically
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mac80211%20regression%3A%20doesn%27t%20associate%20automatically&In-Reply-To=%3C47462A72.8010303%40wetwork.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002870.html">
+   <LINK REL="Next"  HREF="002872.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>mac80211 regression: doesn't associate automatically</H1>
+    <B>Ehud Gavron</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mac80211%20regression%3A%20doesn%27t%20associate%20automatically&In-Reply-To=%3C47462A72.8010303%40wetwork.net%3E"
+       TITLE="mac80211 regression: doesn't associate automatically">gavron at wetwork.net
+       </A><BR>
+    <I>Fri Nov 23 02:18:42 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002870.html">mac80211 regression: doesn't associate automatically
+</A></li>
+        <LI>Next message: <A HREF="002872.html">mac80211 regression: doesn't associate automatically
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2871">[ date ]</a>
+              <a href="thread.html#2871">[ thread ]</a>
+              <a href="subject.html#2871">[ subject ]</a>
+              <a href="author.html#2871">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I think this may be related.  If it isn't, my apologies for thread 
+crapping.  If it is, I'm willing to do what I can to help find the 
+problem and correct it.
+
+I've had occasional troubles with all sorts of association related 
+issues, and the only solution I've found is to remove the b43 module and 
+reinsert it.
+(modprobe -r b43 &amp;&amp; sleep 1 &amp;&amp; modprobe b43).
+
+Here are different scenarios that are 100% reproducable:
+
+FYI All of my house uses the same ESSID with the same WEP key and 
+different channels (1,6,11 from one end to the other).
+
+If I move from the living room (Ch1) to the bedroom (Ch11) then I am 
+still associated to the Living Room AP.
+***SOMETIMES*** a &quot;iwconfig wlan0 ap off&quot; will make it reassociate with 
+the bedroom AP
+***NEVER*** does an &quot;iwconfig wlan0 essid same-essid&quot; do anything
+***SOMETIMES*** does an &quot;iwconfig wlan0 essid no-such-essid &amp;&amp; sleep 1 
+&amp;&amp; iwconfig wlan0 essid origina-essid&quot; works
+***ALWAYS*** &quot;modprobe -r b43 &amp;&amp; sleep 1 &amp;&amp; modprobe b43&quot; works
+
+If I move from the bedroom (Ch11) to the living room (Ch1) I DON'T NEED 
+TO DO ANYTHING. 
+All APs are buffalo airbridges with the same rev firmware.
+
+I find similar symptoms at my Las Vegas hotel where I am this weekend. 
+
+Here are the exact symptoms:
+1. Link quality reads 0.  No iwconfig command will fix it (most of the 
+time, sometimes the change of ESSID or ap off will fix it).
+2. dmesg repeats: wlan0: authentication with AP 00:50:bf:b1:da:64 timed out
+3. an iwlist wlan0 scan DOES show the active APs, but no matter which I 
+choose none will associate
+4. I just upgraded to F8 and am now using NM to manage the link (most of 
+the time).  Most of the time it does work but every now and then (like 
+here at the hotel after I rebooted the laptop) it will fail to connect.  
+Symptoms #1 and #2 appear in the log, and the &quot;modprobe -4/modprobe&quot; 
+fixes it.
+
+I'm not sure if this is a mac80211 or a b43 bug... and if anyone has 
+ideas to try I'm game.
+
+Ehud
+
+
+
+Pavel Roskin wrote:
+&gt;<i> On Thu, 2007-11-22 at 08:26 -0500, John W. Linville wrote:
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>&gt;&gt;<i> As it stands, setting the SSID is the closest thing we have to an
+</I>&gt;&gt;<i> &quot;associate now&quot; trigger.  I would have to advise distros and users to
+</I>&gt;&gt;<i> always set it last in the wireless init, just before running dhclient
+</I>&gt;&gt;<i> or whatever.
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> Maybe mac80211 should have a &quot;grace period&quot; of 0.5 seconds or so to
+</I>&gt;<i> allow other settings to be set before the scanning starts?  The same
+</I>&gt;<i> applies to other events causing scanning, such as bringing up the
+</I>&gt;<i> interface.  It's too short to be noticeable, yet long enough for the
+</I>&gt;<i> next command to run even on slow systems.
+</I>&gt;<i>
+</I>&gt;<i> I think setting the key should not cause reassociation if there is an
+</I>&gt;<i> association.  It can break some schemes where the WEP key changes
+</I>&gt;<i> periodically on both sides.
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002870.html">mac80211 regression: doesn't associate automatically
+</A></li>
+	<LI>Next message: <A HREF="002872.html">mac80211 regression: doesn't associate automatically
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2871">[ date ]</a>
+              <a href="thread.html#2871">[ thread ]</a>
+              <a href="subject.html#2871">[ subject ]</a>
+              <a href="author.html#2871">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,211 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Broadcom 4318 with newer bcm43xx&amp;firmware doesn't works
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Broadcom%204318%20with%20newer%20bcm43xx%26firmware%20doesn%27t%20works&In-Reply-To=%3C20070628172535.96320%40gmx.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001469.html">
+   <LINK REL="Next"  HREF="001473.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Broadcom 4318 with newer bcm43xx&amp;firmware doesn't works</H1>
+    <B>Florian Erfurth</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Broadcom%204318%20with%20newer%20bcm43xx%26firmware%20doesn%27t%20works&In-Reply-To=%3C20070628172535.96320%40gmx.net%3E"
+       TITLE="Broadcom 4318 with newer bcm43xx&amp;firmware doesn't works">Eyes-Killer at gmx.de
+       </A><BR>
+    <I>Thu Jun 28 19:25:35 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001469.html">2.6.22-rc6, dhcp, promiscuous mode, and other things
+</A></li>
+        <LI>Next message: <A HREF="001473.html">Broadcom 4318 with newer bcm43xx&amp;firmware doesn't works
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1472">[ date ]</a>
+              <a href="thread.html#1472">[ thread ]</a>
+              <a href="subject.html#1472">[ subject ]</a>
+              <a href="author.html#1472">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi, I'm using notebook Acer Aspire 5022 with builtin WLAN Broadcom 4318.
+&gt;&gt;&gt;<i>
+</I>[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# lspci -v
+[snip]
+
+06:05.0 Network controller: Broadcom Corporation BCM4318 [AirForce One 54g]
+802.11g Wireless LAN Controller (rev 02)
+        Subsystem: AMBIT Microsystem Corp. Aspire 3022WLMi, 5024WLMi, 5020
+        Flags: bus master, fast devsel, latency 64, IRQ 21
+        Memory at c0204000 (32-bit, non-prefetchable) [size=8K]
+[snip]
+&lt;&lt;&lt;
+My wlan worked well until I upgraded from fedora core 6 to fedora 7. Then
+bcm43xx-Driver complaints about old firmware version, so I have to get
+newer driver. I downloaded broadcom-wl-4.80.53.0.tar.bz2 from
+<A HREF="http://downloads.openwrt.org/sources/">http://downloads.openwrt.org/sources/</A> and then use bcm43xx-fwcutter which
+has following version:
+&gt;&gt;&gt;<i>
+</I>[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> bcm43xx]# rpm -q bcm43xx-fwcutter
+bcm43xx-fwcutter-006-1.fc7.x86_64
+&lt;&lt;&lt;
+Until here it seems to be ok, but the fwcutter warns me, because I use the
+new driver (4.xx). I think its ok.
+
+Following command shows you, what dmesg says after booting (the modules
+seems to be loaded automatically):
+&gt;&gt;&gt;<i>
+</I>[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# dmesg | grep bcm
+bcm43xx_mac80211: Broadcom 4318 WLAN found
+bcm43xx_mac80211: Found PHY: Analog 3, Type 2, Revision 7
+bcm43xx_mac80211: Found Radio: Manuf 0x17F, Version 0x2050, Revision 8
+bcm43xx_mac80211: Radio turned off
+
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# lsmod | grep bcm
+bcm43xx_mac80211      415137  0
+ssb                    43589  1 bcm43xx_mac80211
+mac80211              164297  2 rc80211_simple,bcm43xx_mac80211
+&lt;&lt;&lt;
+
+Now let try to use wlan. First I have to turn on wlan since the wlan-button
+isn't working under linux:
+&gt;&gt;&gt;<i>
+</I>[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# modprobe acer_acpi
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# echo &quot;enabled : 1&quot; &gt; /proc/acpi/acer/wireless
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# dmesg
+[snip]
+acer_acpi: Acer Laptop ACPI Extras version 0.5
+acer_acpi: Wireless value 0
+acer_acpi: Wireless value 1
+&lt;&lt;&lt;
+After enabling wlan with the command 'echo &gt; wireless' the last line in
+dmesg appears.
+
+First I check if there is a device wlan0:
+&gt;&gt;&gt;<i>
+</I>[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# iwconfig wlan0
+wlan0     IEEE 802.11g  ESSID:&quot;&quot;
+          Mode:Managed  Channel:0  Access Point: Not-Associated
+          Retry min limit:7   RTS thr:off   Fragment thr=2346 B
+          Encryption key:off
+          Link Quality:0  Signal level:0  Noise level:0
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+&lt;&lt;&lt;
+
+Now try to get up wlan0 and try to get ip-through dhcp (I already tried with
+fixed IP at home, but no success :( ):
+&gt;&gt;&gt;<i>
+</I>[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# ifup wlan0
+
+Determining IP information for wlan0... failed.
+&lt;&lt;&lt;
+At least the wlan-LED was blinking slowly. now let look into dmesg again:
+&gt;&gt;&gt;<i>
+</I>[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# dmesg
+[snip]
+bcm43xx_mac80211: Adding Interface type 2
+bcm43xx_mac80211: Loading firmware version 351.126 (2006-07-29 05:54:02)
+ssb: Switching to ChipCommon core, index 0
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_mac80211: Radio turned on
+bcm43xx_mac80211: Radio enabled by hardware
+bcm43xx_mac80211: Chip initialized
+bcm43xx_mac80211: 32-bit DMA initialized
+bcm43xx_mac80211: Wireless interface started
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+bridge-wlan0: enabling the bridge
+bridge-wlan0: up
+bcm43xx_mac80211: Using hardware based encryption for keyidx: 0, mac:
+ff:ff:ff:ff:ff:ff
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP XX:XX:XX:XX:XX:XX
+wlan0: RX authentication from XX:XX:XX:XX:XX:XX (alg=0 transaction=2
+status=0)
+wlan0: authenticated
+wlan0: associate with AP XX:XX:XX:XX:XX:XX
+wlan0: RX ReassocResp from XX:XX:XX:XX:XX:XX (capab=0x431 status=0 aid=20)
+wlan0: associated
+ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+wlan0: no IPv6 routers present
+&lt;&lt;&lt;
+There is a warning line, which may be the cause of nonworking. :(
+
+If I look into iwconfig it shows Link-Quality, Signal- and Noise-level. Does
+it sound good?
+&gt;&gt;&gt;<i>
+</I>[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# iwconfig
+lo        no wireless extensions.
+
+wmaster0  no wireless extensions.
+
+wlan0     IEEE 802.11g  ESSID:&quot;Guest Access&quot;
+          Mode:Managed  Frequency:2.462 GHz  Access Point: XX:XX:XX:XX:XX:XX
+          Bit Rate=18 Mb/s
+          Retry min limit:7   RTS thr:off   Fragment thr=2346 B
+          Encryption key:XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX
+          Link Quality=193/146  Signal level=-238 dBm  Noise level=-73 dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+eth0      no wireless extensions.
+
+vmnet8    no wireless extensions.
+&lt;&lt;&lt;
+But wait, what the hell is wmaster0? In FC6 there was no wmaster0! Whatever.
+
+Now look again into ifconfig. You can see that some bytes was sent/received
+(I think it's from trying getting IP-Adress from dhcp-server):
+&gt;&gt;&gt;<i>
+</I>[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# ifconfig wlan0
+wlan0     Link encap:Ethernet  HWaddr XX:XX:XX:XX:XX:XX
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1
+          RX packets:1 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:29 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:346 (346.0 b)  TX bytes:8657 (8.4 KiB)
+&lt;&lt;&lt;
+
+If I try with 'iwlist scan' the AccessPoints are shown in wlan0 which looks
+very good. So where is a problem? I hope someone of you could help me.
+Please!
+
+cu Floh
+PS: With the newer version of bcm43xx there is no need to 'modprobe bcm43xx'
+(I mean 'bcm43xx' not 'bcm43xx_mac80211'), am I right?
+PS2: I've tried with Windows-Vista-driver for broadcom-chip, but
+unfortunatelly it's too new for fwcutter. :(
+-- 
+GMX FreeMail: 1 GB Postfach, 5 E-Mail-Adressen, 10 Free SMS.
+Alle Infos und kostenlose Anmeldung: <A HREF="http://www.gmx.net/de/go/freemail">http://www.gmx.net/de/go/freemail</A>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001469.html">2.6.22-rc6, dhcp, promiscuous mode, and other things
+</A></li>
+	<LI>Next message: <A HREF="001473.html">Broadcom 4318 with newer bcm43xx&amp;firmware doesn't works
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1472">[ date ]</a>
+              <a href="thread.html#1472">[ thread ]</a>
+              <a href="subject.html#1472">[ subject ]</a>
+              <a href="author.html#1472">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

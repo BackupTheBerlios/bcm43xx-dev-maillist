@@ -1,0 +1,164 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH V2] ssb: Implement virtual SPROM on disk
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20ssb%3A%20Implement%20virtual%20SPROM%20on%20disk&In-Reply-To=%3C4BAC2E36.8000900%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="007165.html">
+   <LINK REL="Next"  HREF="007167.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH V2] ssb: Implement virtual SPROM on disk</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20ssb%3A%20Implement%20virtual%20SPROM%20on%20disk&In-Reply-To=%3C4BAC2E36.8000900%40lwfinger.net%3E"
+       TITLE="[PATCH V2] ssb: Implement virtual SPROM on disk">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Mar 26 04:47:02 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="007165.html">[PATCH V2] ssb: Implement virtual SPROM on disk
+</A></li>
+        <LI>Next message: <A HREF="007167.html">[PATCH V4] ssb: Implement virtual SPROM
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7166">[ date ]</a>
+              <a href="thread.html#7166">[ thread ]</a>
+              <a href="subject.html#7166">[ subject ]</a>
+              <a href="author.html#7166">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 03/24/2010 02:21 PM, Michael Buesch wrote:
+&gt;<i> On Wednesday 24 March 2010 15:16:03 Larry Finger wrote:
+</I>&gt;&gt;<i> I have modified ssb to supply a MAC address of 80:80:80:80:80:80, rather than
+</I>&gt;<i> 
+</I>&gt;<i> What about also setting the local-assignment bit for this temporary address?
+</I>&gt;<i> 
+</I>&gt;&gt;<i> The one remaining problem is that the interface has already been renamed before
+</I>&gt;&gt;<i> 60-persistent-b43-mac.rules is processed. In my case, the interface is wlan13,
+</I>&gt;&gt;<i> not wlan0. After I manually modified 60-..., then the new address is applied.
+</I>&gt;&gt;<i> I'm still working on this problem.
+</I>&gt;<i> 
+</I>&gt;<i> Well, udev scripts are processed in alphabetical order. Can't you simply run
+</I>&gt;<i> the persistent mac rules before the persistent ifname rules?
+</I>
+I finally figured out the problem I was having. The address attribute was not
+being changed by the &quot;ifconfig&quot; call that changed the hardware address. The fix
+is to create a new environment when the hardware address and lock out the rule
+generation process when that value is detected. The new code for
+/lib/udev/rules.d/65-persistent-b43-mac-generator.rules is as follows (Note:
+These files are line-wrapped here.):
+
+#=======================================
+#
+# Rules file to assign a unique, permanent address to BCM43XX devices without
+# an SPROM.
+#
+# Copyright (c) 2010 by Calvin Walton &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">calvin.walton at gmail.com</A>&gt;
+# Copyright (c) 2010 by Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+
+# skip this code if action is not add, i.e. change or remove
+
+ACTION!=&quot;add&quot;, GOTO=&quot;persistent_b43_mac_generator_end&quot;
+
+# Use the value of the MAC_CHANGED environment variable to see if the address
+# has already been changed.
+
+ENV{MAC_CHANGED}==&quot;yes&quot;, GOTO=&quot;persistent_b43_mac_generator_end&quot;
+
+# Call script to get a random address - if this device previously encountered,
+# the address will already have been changed.
+
+SUBSYSTEM==&quot;net&quot;, ATTR{address}==&quot;82:82:82:82:82:82&quot;,
+IMPORT{program}=&quot;write_persistent_b43_mac&quot;
+
+# Apply the new hardware address returned by the script
+
+SUBSYSTEM==&quot;net&quot;, ATTR{address}==&quot;82:82:82:82:82:82&quot;, RUN+=&quot;/sbin/ifconfig
+$env{INTERFACE} hw ether $env{MACADDRESS_NEW}&quot;
+
+LABEL=&quot;persistent_b43_mac_generator_end&quot;
+#=======================================
+
+The code for /lib/udev/write_persistent_b43_mac is as follows:
+
+#=======================================
+#!/bin/bash
+
+# Script to Generate a random MAC address for a BCM43XX device without
+# an SPROM.
+#
+# Copyright (c) 2010 by Calvin Walton &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">calvin.walton at gmail.com</A>&gt;
+# Copyright (c) 2010 by Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+
+# Use /dev/urandom to generate the last 5 bytes of the address.
+# Make the first byte 2 to avoid generating a multicast address and to set
+#  the locally administered address bit.
+
+MACADDRESS=$(/bin/dd if=/dev/urandom bs=1 count=5 2&gt;/dev/null | /usr/bin/od -tx1
+|<i> /usr/bin/head -1 | \
+</I>/usr/bin/cut -d' ' -f2- | /usr/bin/awk '{ print &quot;02:&quot;$1&quot;:&quot;$2&quot;:&quot;$3&quot;:&quot;$4&quot;:&quot;$5 }')
+
+# Define the output rules file
+RULES_FILE='/etc/udev/rules.d/60-persistent-b43-mac.rules'
+
+. /lib/udev/rule_generator.functions
+
+# Prevent concurrent processes from modifying the file at the same time.
+lock_rules_file
+
+# Check if the rules file is writeable.
+choose_rules_file
+
+# The rule should apply for all wlan devices -s some other wireless driver might
+# be loaded first - change wlanNN to wlan*
+GEN_PATH=$(echo $DEVPATH | /usr/bin/sed s/wlan[0-9]*/wlan*/)
+
+# Output new rule
+echo &quot;SUBSYSTEM==\&quot;net\&quot;, DEVPATH==\&quot;$GEN_PATH\&quot;,
+ATTR{address}==\&quot;82:82:82:82:82:82\&quot;, ENV{MAC_CHANGED}=\&quot;yes\&quot;,
+RUN+=\&quot;/sbin/ifconfig \$env{INTERFACE} hw ether $MACADDRESS\&quot;&quot; &gt;&gt; $RULES_FILE
+
+# Report the new address back to the caller who will set the address for this
+new interface
+echo &quot;MACADDRESS_NEW=$MACADDRESS&quot;
+
+unlock_rules_file
+
+exit 0
+#=======================================
+
+Is there a location to put a tar file containing the script and rules files?
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="007165.html">[PATCH V2] ssb: Implement virtual SPROM on disk
+</A></li>
+	<LI>Next message: <A HREF="007167.html">[PATCH V4] ssb: Implement virtual SPROM
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7166">[ date ]</a>
+              <a href="thread.html#7166">[ thread ]</a>
+              <a href="subject.html#7166">[ subject ]</a>
+              <a href="author.html#7166">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

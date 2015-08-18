@@ -1,0 +1,195 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 3/6] b43: N-PHY: add update TX cal ladder
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/6%5D%20b43%3A%20N-PHY%3A%20add%20update%20TX%20cal%20ladder&In-Reply-To=%3Cop.u6jn12l09lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006748.html">
+   <LINK REL="Next"  HREF="006755.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 3/6] b43: N-PHY: add update TX cal ladder</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/6%5D%20b43%3A%20N-PHY%3A%20add%20update%20TX%20cal%20ladder&In-Reply-To=%3Cop.u6jn12l09lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 3/6] b43: N-PHY: add update TX cal ladder">zajec5 at gmail.com
+       </A><BR>
+    <I>Thu Jan 14 23:43:04 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006748.html">[PATCH 2/6] b43: N-PHY: add TX cal radio setup for rev &lt; 3
+</A></li>
+        <LI>Next message: <A HREF="006755.html">[PATCH 3/6] b43: N-PHY: add update TX cal ladder
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6749">[ date ]</a>
+              <a href="thread.html#6749">[ thread ]</a>
+              <a href="subject.html#6749">[ subject ]</a>
+              <a href="author.html#6749">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+  drivers/net/wireless/b43/phy_n.c       |   23 +++++++++++++++++
+  drivers/net/wireless/b43/phy_n.h       |    1 +
+  drivers/net/wireless/b43/tables_nphy.c |   42 ++++++++++++++++++++++++++++++++
+  drivers/net/wireless/b43/tables_nphy.h |    6 ++++
+  4 files changed, 72 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 77be96d..67717c1 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -686,6 +686,29 @@ static void b43_nphy_tx_iq_workaround(struct b43_wldev *dev)
+  	b43_shm_write16(dev, B43_SHM_SHARED, B43_SHM_SH_NPHY_TXIQW3, array[3]);
+  }
+
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/UpdateTxCalLadder">http://bcm-v4.sipsolutions.net/802.11/PHY/N/UpdateTxCalLadder</A> */
++static void b43_nphy_update_tx_cal_ladder(struct b43_wldev *dev, u16 core)
++{
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
++	int i;
++	u16 scale, entry;
++
++	u16 tmp = nphy-&gt;txcal_bbmult;
++	if (core == 0)
++		tmp &gt;&gt;= 8;
++	tmp &amp;= 0xff;
++
++	for (i = 0; i &lt; 18; i++) {
++		scale = (ladder_lo[i].percent * tmp) / 100;
++		entry = ((scale &amp; 0xFF) &lt;&lt; 8) | ladder_lo[i].g_env;
++		//TODO: Write an N PHY Table with ID 15, length 1, offset i, width 16, and data entry
++
++		scale = (ladder_iq[i].percent * tmp) / 100;
++		entry = ((scale &amp; 0xFF) &lt;&lt; 8) | ladder_iq[i].g_env;
++		//TODO: Write an N PHY Table with ID 15, length 1, offset i + 32, width 16, and data entry
++	}
++}
++
+  /* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/CalRxIqRev2">http://bcm-v4.sipsolutions.net/802.11/PHY/N/CalRxIqRev2</A> */
+  static int b43_nphy_rev2_cal_rx_iq(struct b43_wldev *dev,
+  			struct nphy_txgains target, u8 type, bool debug)
+diff --git a/drivers/net/wireless/b43/phy_n.h b/drivers/net/wireless/b43/phy_n.h
+index d435720..a5f3a94 100644
+--- a/drivers/net/wireless/b43/phy_n.h
++++ b/drivers/net/wireless/b43/phy_n.h
+@@ -972,6 +972,7 @@ struct b43_phy_n {
+  	u8 mphase_cal_phase_id;
+  	u8 antsel_type;
+  	u16 tx_rx_cal_radio_saveregs[22];
++	u16 txcal_bbmult;
+  	u16 papd_epsilon_offset[2];
+  	u32 deaf_count;
+  	u32 rxcalparams;
+diff --git a/drivers/net/wireless/b43/tables_nphy.c b/drivers/net/wireless/b43/tables_nphy.c
+index de8a609..4816b70 100644
+--- a/drivers/net/wireless/b43/tables_nphy.c
++++ b/drivers/net/wireless/b43/tables_nphy.c
+@@ -2746,6 +2746,48 @@ const u16 tbl_iqcal_gainparams[2][9][8] = {
+  	}
+  };
+
++const struct nphy_txiqcal_ladder ladder_lo[] = {
++	{ 3, 0 },
++	{ 4, 0 },
++	{ 6, 0 },
++	{ 9, 0 },
++	{ 13, 0 },
++	{ 18, 0 },
++	{ 25, 0 },
++	{ 25, 1 },
++	{ 25, 2 },
++	{ 25, 3 },
++	{ 25, 4 },
++	{ 25, 5 },
++	{ 25, 6 },
++	{ 25, 7 },
++	{ 35, 7 },
++	{ 50, 7 },
++	{ 71, 7 },
++	{ 100, 7 }
++};
++
++const struct nphy_txiqcal_ladder ladder_iq[] = {
++	{ 3, 0 },
++	{ 4, 0 },
++	{ 6, 0 },
++	{ 9, 0 },
++	{ 13, 0 },
++	{ 18, 0 },
++	{ 25, 0 },
++	{ 35, 0 },
++	{ 50, 0 },
++	{ 71, 0 },
++	{ 100, 0 },
++	{ 100, 1 },
++	{ 100, 2 },
++	{ 100, 3 },
++	{ 100, 4 },
++	{ 100, 5 },
++	{ 100, 6 },
++	{ 100, 7 }
++};
++
+  static inline void assert_ntab_array_sizes(void)
+  {
+  #undef check
+diff --git a/drivers/net/wireless/b43/tables_nphy.h b/drivers/net/wireless/b43/tables_nphy.h
+index 86c394c..b5e0e4b 100644
+--- a/drivers/net/wireless/b43/tables_nphy.h
++++ b/drivers/net/wireless/b43/tables_nphy.h
+@@ -43,6 +43,10 @@ struct b43_nphy_channeltab_entry {
+  	u16 unk2;
+  };
+
++struct nphy_txiqcal_ladder {
++	u8 percent;
++	u8 g_env;
++};
+
+  struct b43_wldev;
+
+@@ -142,5 +146,7 @@ extern const u32 txpwrctrl_tx_gain_ipa_rev5[];
+  extern const u32 txpwrctrl_tx_gain_ipa_rev6[];
+  extern const u32 txpwrctrl_tx_gain_ipa_5g[];
+  extern const u16 tbl_iqcal_gainparams[2][9][8];
++extern const struct nphy_txiqcal_ladder ladder_lo[];
++extern const struct nphy_txiqcal_ladder ladder_iq[];
+
+  #endif /* B43_TABLES_NPHY_H_ */
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006748.html">[PATCH 2/6] b43: N-PHY: add TX cal radio setup for rev &lt; 3
+</A></li>
+	<LI>Next message: <A HREF="006755.html">[PATCH 3/6] b43: N-PHY: add update TX cal ladder
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6749">[ date ]</a>
+              <a href="thread.html#6749">[ thread ]</a>
+              <a href="subject.html#6749">[ subject ]</a>
+              <a href="author.html#6749">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Regression%20in%202.6.27-rcX%20caused%20by%20commit%0A%09bc19d6e0b74ef03a3baf035412c95192b54dfc6f&In-Reply-To=%3C48D0183E.9010301%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004663.html">
+   <LINK REL="Next"  HREF="004667.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Regression%20in%202.6.27-rcX%20caused%20by%20commit%0A%09bc19d6e0b74ef03a3baf035412c95192b54dfc6f&In-Reply-To=%3C48D0183E.9010301%40lwfinger.net%3E"
+       TITLE="Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Tue Sep 16 22:34:06 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004663.html">Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+        <LI>Next message: <A HREF="004667.html">Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4664">[ date ]</a>
+              <a href="thread.html#4664">[ thread ]</a>
+              <a href="subject.html#4664">[ subject ]</a>
+              <a href="author.html#4664">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Matthew Garrett wrote:
+&gt;<i> On Tue, Sep 16, 2008 at 12:08:48PM -0500, Larry Finger wrote:
+</I>&gt;<i> 
+</I>&gt;&gt;<i> I agree with Michael. From what I know, the only possible reason for
+</I>&gt;&gt;<i> having this state would be if user space could somehow affect the
+</I>&gt;&gt;<i> state of the hardware switch. As the user's finger is the only such
+</I>&gt;&gt;<i> thing, then there is no use for the RFKILL_STATE_HARD_BLOCKED state,
+</I>&gt;&gt;<i> particularly when it breaks LED operations.
+</I>&gt;<i> 
+</I>&gt;<i> RFKILL_STATE_HARD_BLOCKED indicates that the hardware is disabled in a 
+</I>&gt;<i> way that userspace can't influence, so sounds like exactly the right 
+</I>&gt;<i> state to have here. I still have absolutely no idea what b43 rfkill is 
+</I>&gt;<i> supposed to be doing - why on earth is it requesting rfkill-input, and 
+</I>&gt;<i> why does it generate keypress events? I /think/ it should e something 
+</I>&gt;<i> like the following (untested, I'm not near any of my b43 hardware at the 
+</I>&gt;<i> moment). This basically does the following:
+</I>&gt;<i> 
+</I>&gt;<i> 1) Split the update function in two, so it can be called by either 
+</I>&gt;<i> polling or an interrupt driven event on newer hardware (not implemented 
+</I>&gt;<i> yet)
+</I>&gt;<i> 2) Remove all the input handling
+</I>&gt;<i> 3) Change the state updates to use rfkill_force_state, which will 
+</I>&gt;<i> generate an event that gets sent up to userland
+</I>&gt;<i> 4) Retains the RFKILL_STATE_HARD_BLOCKED code
+</I>&gt;<i> 
+</I>&gt;<i> When the user flicks a switch or presses a button that physically 
+</I>&gt;<i> disables the radio, the state will now automatically change to 
+</I>&gt;<i> RFKILL_STATE_HARD_BLOCKED. If they have a key that generates KEY_WLAN 
+</I>&gt;<i> but doesn't change the radio state, rfkill-input will trigger a change 
+</I>&gt;<i> to RFKILL_STATE_SOFT_BLOCKED.
+</I>&gt;<i> 
+</I>&gt;<i> Like I said, this is only build-tested - I won't be back at a b43 until 
+</I>&gt;<i> next week. If someone could give this a go, that would be great.
+</I>
+It locks up tight with a kernel panic when booting. I have a screen
+picture that I will send separately to Matthew.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004663.html">Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+	<LI>Next message: <A HREF="004667.html">Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4664">[ date ]</a>
+              <a href="thread.html#4664">[ thread ]</a>
+              <a href="subject.html#4664">[ subject ]</a>
+              <a href="author.html#4664">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

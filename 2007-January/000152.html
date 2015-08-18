@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH resend] bcm43xx-d80211: Fix DMA TX skb doublefree
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20resend%5D%20bcm43xx-d80211%3A%20Fix%20DMA%20TX%20skb%20doublefree&In-Reply-To=%3C200701231740.18708.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000151.html">
+   <LINK REL="Next"  HREF="000153.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH resend] bcm43xx-d80211: Fix DMA TX skb doublefree</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20resend%5D%20bcm43xx-d80211%3A%20Fix%20DMA%20TX%20skb%20doublefree&In-Reply-To=%3C200701231740.18708.mb%40bu3sch.de%3E"
+       TITLE="[PATCH resend] bcm43xx-d80211: Fix DMA TX skb doublefree">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Jan 23 17:40:18 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000151.html">[PATCH] bcm43xx: Fix problem with &gt;1 GB RAM
+</A></li>
+        <LI>Next message: <A HREF="000153.html">bcm43xx on HPC nx6325 - partial success
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#152">[ date ]</a>
+              <a href="thread.html#152">[ thread ]</a>
+              <a href="subject.html#152">[ subject ]</a>
+              <a href="author.html#152">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes a possible double-free of the TX skb buffers.
+Always NULL the pointer after freeing.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+--
+
+I already sent this patch to you on 21 Dec 2006.
+This is a pretty critical patch, so I'd like to make sure
+it's in your merge queue and is not lost.
+
+
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c	2006-12-07 17:25:19.000000000 +0100
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c	2006-12-21 19:05:28.000000000 +0100
+@@ -388,6 +388,7 @@ void free_descriptor_buffer(struct bcm43
+ 			dev_kfree_skb_irq(meta-&gt;skb);
+ 		else
+ 			dev_kfree_skb(meta-&gt;skb);
++		meta-&gt;skb = NULL;
+ 	}
+ }
+ 
+@@ -1131,6 +1132,7 @@ void bcm43xx_dma_handle_txstatus(struct 
+ 			meta-&gt;txstat.retry_count = status-&gt;frame_count - 1;
+ 			ieee80211_tx_status_irqsafe(bcm-&gt;ieee, meta-&gt;skb, &amp;(meta-&gt;txstat));
+ 			/* skb is freed by ieee80211_tx_status_irqsafe() */
++			meta-&gt;skb = NULL;
+ 		} else {
+ 			/* No need to call free_descriptor_buffer here, as
+ 			 * this is only the txhdr, which is not allocated.
+
+
+-- 
+Greetings Michael.
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000151.html">[PATCH] bcm43xx: Fix problem with &gt;1 GB RAM
+</A></li>
+	<LI>Next message: <A HREF="000153.html">bcm43xx on HPC nx6325 - partial success
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#152">[ date ]</a>
+              <a href="thread.html#152">[ thread ]</a>
+              <a href="subject.html#152">[ subject ]</a>
+              <a href="author.html#152">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

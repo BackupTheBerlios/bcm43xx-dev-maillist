@@ -1,0 +1,200 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC/T] b43: Implement the BCM94311MCG rev 02 card with a rev	13 802.11 core
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/T%5D%20b43%3A%20Implement%20the%20BCM94311MCG%20rev%2002%20card%20with%20a%20rev%0A%0913%20802.11%20core&In-Reply-To=%3C473C5F98.1050007%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002786.html">
+   <LINK REL="Next"  HREF="002790.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC/T] b43: Implement the BCM94311MCG rev 02 card with a rev	13 802.11 core</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/T%5D%20b43%3A%20Implement%20the%20BCM94311MCG%20rev%2002%20card%20with%20a%20rev%0A%0913%20802.11%20core&In-Reply-To=%3C473C5F98.1050007%40lwfinger.net%3E"
+       TITLE="[RFC/T] b43: Implement the BCM94311MCG rev 02 card with a rev	13 802.11 core">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Thu Nov 15 16:02:48 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002786.html">[RFC/T] b43: Implement the BCM94311MCG rev 02 card with a rev 13	802.11 core
+</A></li>
+        <LI>Next message: <A HREF="002790.html">[RFC/T] b43: Implement the BCM94311MCG rev 02 card with a rev 13	802.11 core
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2787">[ date ]</a>
+              <a href="thread.html#2787">[ thread ]</a>
+              <a href="subject.html#2787">[ subject ]</a>
+              <a href="author.html#2787">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> On Thursday 15 November 2007 06:55:42 Larry Finger wrote:
+</I>&gt;&gt;<i> --- wireless-2.6.orig/drivers/net/wireless/b43/dma.c
+</I>&gt;&gt;<i> +++ wireless-2.6/drivers/net/wireless/b43/dma.c
+</I>&gt;&gt;<i> @@ -165,7 +165,7 @@ static void op64_fill_descriptor(struct 
+</I>&gt;&gt;<i>  	addrhi = (((u64) dmaaddr &gt;&gt; 32) &amp; ~SSB_DMA_TRANSLATION_MASK);
+</I>&gt;&gt;<i>  	addrext = (((u64) dmaaddr &gt;&gt; 32) &amp; SSB_DMA_TRANSLATION_MASK)
+</I>&gt;&gt;<i>  	    &gt;&gt; SSB_DMA_TRANSLATION_SHIFT;
+</I>&gt;&gt;<i> -	addrhi |= ssb_dma_translation(ring-&gt;dev-&gt;dev);
+</I>&gt;&gt;<i> +	addrhi |= (ssb_dma_translation(ring-&gt;dev-&gt;dev) &lt;&lt; 1);
+</I>&gt;&gt;<i>  	if (slot == ring-&gt;nr_slots - 1)
+</I>&gt;&gt;<i>  		ctl0 |= B43_DMA64_DCTL0_DTABLEEND;
+</I>&gt;&gt;<i>  	if (start)
+</I>&gt;<i> 
+</I>&gt;<i> Wait, this looks broken to me. It looks like the bug is more
+</I>&gt;<i> inside of the ssb_dma_translation function, rather than here.
+</I>
+Yes and no. In the DMA specs (<A HREF="http://bcm-v4.sipsolutions.net/802.11/DMA">http://bcm-v4.sipsolutions.net/802.11/DMA</A>), a 2-bit &quot;routing code&quot; is
+used for the address portion of a descriptor. For 32-bit, a value of 1 indicates &quot;Client Mode
+Translation&quot;. With a 64-bit device, a value of 2 is the valid routing code and 1 leads to DMA
+Errors. It seemed easier to take a 0/1 output from ssb_dma_translation and shift it for the 64-bit
+case than to teach ssb to distinguish between 32- and 64-bit DMA. BTW, we do have one other option -
+we could ignore the routing and address extension bits and _limit_ the user to a maximum of 0.5
+Zettabytes! What is the probability that any machine will exceed that amount of memory within our
+lifetimes? But then, I never expected to see Terrabyte disk drives in a 3.5 inch package!! Have you
+noted that Broadcom uses a 2-bit routing code _AND_ a 2-bit address extension? Why they didn't use a
+flat 64-bit address is a mystery.
+
+I can, however, go either way - your drivers and your call.
+
+&gt;&gt;<i> @@ -426,14 +426,15 @@ static inline
+</I>&gt;&gt;<i>  static int alloc_ringmemory(struct b43_dmaring *ring)
+</I>&gt;&gt;<i>  {
+</I>&gt;&gt;<i>  	struct device *dev = ring-&gt;dev-&gt;dev-&gt;dev;
+</I>&gt;&gt;<i> +	int size = (ring-&gt;dma64) ? 8192 : B43_DMA_RINGMEMSIZE;
+</I>&gt;<i> 
+</I>&gt;<i> Uhm, a page is also 4k in x86_64?
+</I>&gt;<i> Why doesn't using a page here work? What does happen?
+</I>
+You get random 4K/8K alignment and the driver fails with a Fatal DMA error for those with 4K alignment.
+
+&gt;&gt;<i> @@ -636,18 +637,13 @@ static int dmacontroller_setup(struct b4
+</I>&gt;&gt;<i>  		if (ring-&gt;dma64) {
+</I>&gt;&gt;<i>  			u64 ringbase = (u64) (ring-&gt;dmabase);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -			addrext = ((ringbase &gt;&gt; 32) &amp; SSB_DMA_TRANSLATION_MASK)
+</I>&gt;&gt;<i> -			    &gt;&gt; SSB_DMA_TRANSLATION_SHIFT;
+</I>&gt;&gt;<i> -			value = B43_DMA64_TXENABLE;
+</I>&gt;&gt;<i> -			value |= (addrext &lt;&lt; B43_DMA64_TXADDREXT_SHIFT)
+</I>&gt;&gt;<i> -			    &amp; B43_DMA64_TXADDREXT_MASK;
+</I>&gt;&gt;<i> -			b43_dma_write(ring, B43_DMA64_TXCTL, value);
+</I>&gt;&gt;<i> +			b43_dma_write(ring, B43_DMA64_TXCTL,
+</I>&gt;&gt;<i> +				      B43_DMA64_TXENABLE);
+</I>&gt;<i> 
+</I>&gt;<i> Ehm, why are you removing this?
+</I>
+Unlike 32-bit DMA and the 64-bit descriptors, the 64-bit case uses two full 32-bit words to store
+the Descriptor Ring Address. No fancy packing of the upper bits into the control word are needed.
+
+&gt;&gt;<i>  			b43_dma_write(ring, B43_DMA64_TXRINGLO,
+</I>&gt;&gt;<i>  				      (ringbase &amp; 0xFFFFFFFF));
+</I>&gt;&gt;<i>  			b43_dma_write(ring, B43_DMA64_TXRINGHI,
+</I>&gt;&gt;<i>  				      ((ringbase &gt;&gt; 32) &amp;
+</I>&gt;&gt;<i> -				       ~SSB_DMA_TRANSLATION_MASK)
+</I>&gt;&gt;<i> -				      | trans);
+</I>&gt;&gt;<i> +				       0xFFFFFFFF));
+</I>&gt;<i> 
+</I>&gt;<i> Huh?
+</I>
+This mask is not needed. It is a carryover from when I was having a problem. This will become
+b43_dma_write(ring, B43_DMA64_TXRINGHI,(ringbase &gt;&gt; 32)); in the next version.
+
+&gt;&gt;<i>  		} else {
+</I>&gt;&gt;<i>  			u32 ringbase = (u32) (ring-&gt;dmabase);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> @@ -668,20 +664,16 @@ static int dmacontroller_setup(struct b4
+</I>&gt;&gt;<i>  		if (ring-&gt;dma64) {
+</I>&gt;&gt;<i>  			u64 ringbase = (u64) (ring-&gt;dmabase);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -			addrext = ((ringbase &gt;&gt; 32) &amp; SSB_DMA_TRANSLATION_MASK)
+</I>&gt;&gt;<i> -			    &gt;&gt; SSB_DMA_TRANSLATION_SHIFT;
+</I>&gt;&gt;<i> -			value = (ring-&gt;frameoffset &lt;&lt; B43_DMA64_RXFROFF_SHIFT);
+</I>&gt;&gt;<i> -			value |= B43_DMA64_RXENABLE;
+</I>&gt;&gt;<i> -			value |= (addrext &lt;&lt; B43_DMA64_RXADDREXT_SHIFT)
+</I>&gt;&gt;<i> -			    &amp; B43_DMA64_RXADDREXT_MASK;
+</I>&gt;&gt;<i> +			value = (ring-&gt;frameoffset &lt;&lt; B43_DMA64_RXFROFF_SHIFT)
+</I>&gt;&gt;<i> +				| B43_DMA64_RXENABLE;
+</I>&gt;&gt;<i>  			b43_dma_write(ring, B43_DMA64_RXCTL, value);
+</I>&gt;&gt;<i>  			b43_dma_write(ring, B43_DMA64_RXRINGLO,
+</I>&gt;&gt;<i>  				      (ringbase &amp; 0xFFFFFFFF));
+</I>&gt;&gt;<i>  			b43_dma_write(ring, B43_DMA64_RXRINGHI,
+</I>&gt;&gt;<i>  				      ((ringbase &gt;&gt; 32) &amp;
+</I>&gt;&gt;<i> -				       ~SSB_DMA_TRANSLATION_MASK)
+</I>&gt;&gt;<i> -				      | trans);
+</I>&gt;&gt;<i> -			b43_dma_write(ring, B43_DMA64_RXINDEX, 200);
+</I>&gt;&gt;<i> +				       0xFFFFFFFF));
+</I>&gt;&gt;<i> +			b43_dma_write(ring, B43_DMA64_RXINDEX, ring-&gt;nr_slots *
+</I>&gt;&gt;<i> +				      sizeof(struct b43_dmadesc64));
+</I>&gt;<i> 
+</I>&gt;<i> Same here.
+</I>
+Same change for the RX Descriptor Ring Address.
+
+&gt;&gt;<i> @@ -695,11 +687,12 @@ static int dmacontroller_setup(struct b4
+</I>&gt;&gt;<i>  			b43_dma_write(ring, B43_DMA32_RXRING,
+</I>&gt;&gt;<i>  				      (ringbase &amp; ~SSB_DMA_TRANSLATION_MASK)
+</I>&gt;&gt;<i>  				      | trans);
+</I>&gt;&gt;<i> -			b43_dma_write(ring, B43_DMA32_RXINDEX, 200);
+</I>&gt;&gt;<i> +			b43_dma_write(ring, B43_DMA32_RXINDEX, ring-&gt;nr_slots *
+</I>&gt;&gt;<i> +				      sizeof(struct b43_dmadesc32));
+</I>&gt;<i> 
+</I>&gt;<i> I'm not sure why you do this change.
+</I>
+It took me a while to figure out where the magic number of 200 came from, and what I needed for the
+64-bit case. In fact I think the 200 is a bug and should be 0x200. To me, this change makes it clearer.
+
+&gt;&gt;<i> Index: wireless-2.6/drivers/net/wireless/b43/dma.h
+</I>&gt;&gt;<i> ===================================================================
+</I>&gt;&gt;<i> --- wireless-2.6.orig/drivers/net/wireless/b43/dma.h
+</I>&gt;&gt;<i> +++ wireless-2.6/drivers/net/wireless/b43/dma.h
+</I>&gt;&gt;<i> @@ -260,6 +260,13 @@ static inline u32 b43_dma_read(struct b4
+</I>&gt;&gt;<i>  static inline
+</I>&gt;&gt;<i>      void b43_dma_write(struct b43_dmaring *ring, u16 offset, u32 value)
+</I>&gt;&gt;<i>  {
+</I>&gt;&gt;<i> +	/* temporary debugging code */
+</I>&gt;&gt;<i> +	if (((offset == 8) || (offset == 0x28)) &amp;&amp; ring-&gt;dma64 &amp;&amp;
+</I>&gt;&gt;<i> +	     ((value &amp; 0x1FFF) != 0)) {
+</I>&gt;&gt;<i> +		printk(KERN_ERR &quot;b43: bad desc ring address for 64-bit DMA&quot;
+</I>&gt;&gt;<i> +		       &quot; - offset, value: 0x%.2X 0x%.4X\n&quot;, offset, value);
+</I>&gt;&gt;<i> +		dump_stack();
+</I>&gt;&gt;<i> +	}
+</I>&gt;<i> 
+</I>&gt;<i> Ok, temporary. You know what that means :)
+</I>
+In this case, it disappears before the patch goes to John!
+
+Larry
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002786.html">[RFC/T] b43: Implement the BCM94311MCG rev 02 card with a rev 13	802.11 core
+</A></li>
+	<LI>Next message: <A HREF="002790.html">[RFC/T] b43: Implement the BCM94311MCG rev 02 card with a rev 13	802.11 core
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2787">[ date ]</a>
+              <a href="thread.html#2787">[ thread ]</a>
+              <a href="subject.html#2787">[ subject ]</a>
+              <a href="author.html#2787">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

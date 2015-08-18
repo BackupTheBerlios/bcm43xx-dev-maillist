@@ -1,0 +1,229 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Wireless-testing%27s%20b43%20panics%20in%20b43_generate_txhdr%20on%20packet%0A%09transmit&In-Reply-To=%3C69e28c910805310934w7d2bc2ddkec27926a8c8033c4%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004162.html">
+   <LINK REL="Next"  HREF="004164.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit</H1>
+    <B>Stefanik G&#225;bor</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Wireless-testing%27s%20b43%20panics%20in%20b43_generate_txhdr%20on%20packet%0A%09transmit&In-Reply-To=%3C69e28c910805310934w7d2bc2ddkec27926a8c8033c4%40mail.gmail.com%3E"
+       TITLE="Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Sat May 31 18:34:29 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004162.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+        <LI>Next message: <A HREF="004164.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4163">[ date ]</a>
+              <a href="thread.html#4163">[ thread ]</a>
+              <a href="subject.html#4163">[ subject ]</a>
+              <a href="author.html#4163">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sat, May 31, 2008 at 5:11 PM, Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; wrote:
+&gt;<i> On Saturday 31 May 2008 16:23:58 Stefanik G&#225;bor wrote:
+</I>&gt;&gt;<i> In the latest wireless-testing kernel, I get a panic when I try to
+</I>&gt;&gt;<i> connect to a network or inject a packet in monitor mode using b43
+</I>&gt;&gt;<i> (stack obtained using kdump and crash):
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> crash&gt; bt -l
+</I>&gt;&gt;<i> PID: 0      TASK: c0431340  CPU: 0   COMMAND: &quot;swapper&quot;
+</I>&gt;&gt;<i>  #0 [c04617bc] crash_kexec at c015ce2a
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/kernel/kexec.c: 1077
+</I>&gt;&gt;<i>  #1 [c046180c] die at c01054ba
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/arch/x86/kernel/traps_32.c: 476
+</I>&gt;&gt;<i>  #2 [c0461828] do_page_fault at c034ef1f
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/arch/x86/mm/fault.c: 858
+</I>&gt;&gt;<i>  #3 [c0461994] error_code (via page_fault) at c034d2e8
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/arch/i386/kernel/entry.S
+</I>&gt;&gt;<i>     EAX: 00000000  EBX: 00000000  ECX: f6103000  EDX: f75ed4a0  EBP: c0461a58
+</I>&gt;&gt;<i>     DS:  007b      ESI: 00000002  ES:  007b      EDI: 00000074
+</I>&gt;&gt;<i>     CS:  0060      EIP: f8dd3a99  ERR: ffffffff  EFLAGS: 00010046
+</I>&gt;&gt;<i>  #4 [c04619c8] b43_generate_txhdr at f8dd3a99
+</I>&gt;&gt;<i>  #5 [c0461a5c] b43_dma_tx at f8dd83d7
+</I>&gt;&gt;<i>  #6 [c0461ae4] b43_op_tx at f8dc4d32
+</I>&gt;&gt;<i>  #7 [c0461afc] __ieee80211_tx at f89c3ed4
+</I>&gt;&gt;<i>  #8 [c0461b14] ieee80211_master_start_xmit at f89c4b6d
+</I>&gt;&gt;<i>  #9 [c0461b74] dev_hard_start_xmit at c02d4cb5
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/net/core/dev.c: 1558
+</I>&gt;&gt;<i> #10 [c0461ba0] __qdisc_run at c02e678d
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/net/sched/sch_generic.c: 155
+</I>&gt;&gt;<i> #11 [c0461bd8] dev_queue_xmit at c02d5172
+</I>&gt;&gt;<i>     include/net/pkt_sched.h: 89
+</I>&gt;&gt;<i> #12 [c0461c04] ieee80211_subif_start_xmit at f89c45db
+</I>&gt;&gt;<i> #13 [c0461cc0] dev_hard_start_xmit at c02d4cb5
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/net/core/dev.c: 1558
+</I>&gt;&gt;<i> #14 [c0461cec] __qdisc_run at c02e678d
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/net/sched/sch_generic.c: 155
+</I>&gt;&gt;<i> #15 [c0461d24] dev_queue_xmit at c02d5172
+</I>&gt;&gt;<i>     include/net/pkt_sched.h: 89
+</I>&gt;&gt;<i> #16 [c0461d50] neigh_resolve_output at c02dac3e
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/net/core/neighbour.c: 1215
+</I>&gt;&gt;<i> #17 [c0461d90] ip6_output_finish at f8d55c9e
+</I>&gt;&gt;<i> #18 [c0461db0] ip6_output2 at f8d57e63
+</I>&gt;&gt;<i> #19 [c0461dd4] ip6_output at f8d58418
+</I>&gt;&gt;<i> #20 [c0461e50] mld_sendpack at f8d70d8d
+</I>&gt;&gt;<i> #21 [c0461ebc] mld_ifc_timer_expire at f8d71a94
+</I>&gt;&gt;<i> #22 [c0461ef0] run_timer_softirq at c0138547
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/kernel/timer.c: 798
+</I>&gt;&gt;<i> #23 [c0461f34] __do_softirq at c0134230
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/kernel/softirq.c: 234
+</I>&gt;&gt;<i> #24 [c0461f50] do_softirq at c0134318
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/kernel/softirq.c: 271
+</I>&gt;&gt;<i> #25 [c0461f5c] irq_exit at c01344b0
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/kernel/softirq.c: 310
+</I>&gt;&gt;<i> #26 [c0461f64] smp_apic_timer_interrupt at c0113583
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/arch/x86/kernel/apic_32.c: 619
+</I>&gt;&gt;<i> #27 [c0461f7c] apic_timer_interrupt at c0104963
+</I>&gt;&gt;<i>     include/linux/kdev_t.h: 52
+</I>&gt;&gt;<i> #28 [c0461fbc] cpu_idle at c0102d69
+</I>&gt;&gt;<i>     /usr/src/wl-hack/wireless-testing/arch/x86/kernel/process_32.c: 188
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> No out-of-tree patches applied on b43. (I used to have a patch
+</I>&gt;&gt;<i> applied, but I removed it to test reproducibility of this crash.)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Any ideas why this happens?
+</I>&gt;<i>
+</I>&gt;<i> Please provide more information. For example as for what &quot;crash&quot; means.
+</I>&gt;<i> Is this a NULL pointer dereference or whatever?
+</I>&gt;<i> Please put a few printks into b43_generate_txhdr()
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i> Greetings Michael.
+</I>&gt;<i>
+</I>
+&quot;Crash&quot; = /usr/bin/crash, the GDB-based crashdump debugger.
+It's a NULL pointer dereference. I didn't know that when I sent my
+previous message, because the kernel doesn't boot in anything but
+80x25 mode (vesafb modes result in a blank screen, other VGA modes
+like 80x50 either show a jumbled mess of fonts or are ignored in favor
+of 80x25, likely a vesafb bug - BTW nvidia video card), so I only see
+the bottom of the panic message. (That's why I had to use Crash to
+retrieve the stack.) I used the command &quot;bt -l&quot; to get the stack
+originally. Since then I discovered the &quot;log&quot; command, which allowed
+me to retrieve the full message. (It's the first time I ever debug a
+kdump, sorry.)
+So, anyway, here is the full panic message, as it was printed out on the screen:
+
+&quot;BUG: unable to handle kernel NULL pointer dereference at 00000004
+IP: [&lt;f8dd3a99&gt;] :b43:b43_generate_txhdr+0x6a9/0x790
+*pdpt = 00000000360f0001 *pde = 0000000000000000
+Oops: 0000 [#1] SMP
+Modules linked in: rfkill_input b43 ocfs2_dlmfs ocfs2_dlm
+ocfs2_nodemanager configfs ipv6 microcode af_packet snd_pcm_oss
+binfmt_misc snd_mixer_oss snd_seq snd_seq_device fuse ext3 jbd mbcache
+loop dm_mod joydev rt73usb crc_itu_t arc4 rt2x00usb snd_hda_intel
+rt2x00lib ecb crypto_blkcipher ssb rfkill snd_aw2 pcmcia usbhid
+forcedeth snd_pcm ohci1394 pcmcia_core zd1211rw sr_mod led_class hid
+sata_nv ieee1394 snd_hwdep snd_timer firmware_class i2c_nforce2 cdrom
+isp1760 button input_polldev snd ff_memless i2c_core snd_page_alloc
+mac80211 soundcore sg cfg80211 ehci_hcd ohci_hcd sd_mod usbcore edd
+reiserfs fan pata_amd libata scsi_mod dock thermal processor [last
+unloaded: speedstep_lib]
+
+Pid: 0, comm: swapper Not tainted (2.6.26-rc4-wl-wireless6 #8)
+EIP: 0060:[&lt;f8dd3a99&gt;] EFLAGS: 00010046 CPU: 0
+EIP is at b43_generate_txhdr+0x6a9/0x790 [b43]
+EAX: 00000000 EBX: 00000000 ECX: f6103000 EDX: f75ed4a0
+ESI: 00000002 EDI: 00000074 EBP: c0461a58 ESP: c04619d0
+ DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+Process swapper (pid: 0, ti=c0460000 task=c0431340 task.ti=c0460000)
+Stack: 00000000 00000000 00000000 f78aee00 00000040 00004108 40201a0c f61c302c
+       f6880dc0 f6103000 00000101 00000002 00000002 00000d80 02984108 00000074
+       f88a2bc7 3798e6c0 00000000 f798e6c0 f798e060 f798e6c0 00000200 00000000
+Call Trace:
+ [&lt;f88a2bc7&gt;] ? qh_urb_transaction+0xe7/0x3e0 [ehci_hcd]
+ [&lt;f8dd83dc&gt;] ? b43_dma_tx+0x19c/0x800 [b43]
+ [&lt;f8dc4d37&gt;] ? b43_op_tx+0x57/0xc0 [b43]
+ [&lt;f89c3ed6&gt;] ? __ieee80211_tx+0x16/0x120 [mac80211]
+ [&lt;f89c4b72&gt;] ? ieee80211_master_start_xmit+0x262/0x310 [mac80211]
+ [&lt;c02d4cbb&gt;] ? dev_hard_start_xmit+0x24b/0x2e0
+ [&lt;c02e6792&gt;] ? __qdisc_run+0x62/0x1e0
+ [&lt;c02d5177&gt;] ? dev_queue_xmit+0x307/0x380
+ [&lt;f89c45e0&gt;] ? ieee80211_subif_start_xmit+0x3e0/0x710 [mac80211]
+ [&lt;c0123da4&gt;] ? __enqueue_entity+0xd4/0x100
+ [&lt;c011f3c7&gt;] ? enqueue_task+0x57/0x70
+ [&lt;c01251b4&gt;] ? try_to_wake_up+0x74/0x1f0
+ [&lt;c02d4cbb&gt;] ? dev_hard_start_xmit+0x24b/0x2e0
+ [&lt;c012533b&gt;] ? default_wake_function+0xb/0x10
+ [&lt;c014366b&gt;] ? autoremove_wake_function+0x1b/0x50
+ [&lt;c02e6792&gt;] ? __qdisc_run+0x62/0x1e0
+ [&lt;c02d5177&gt;] ? dev_queue_xmit+0x307/0x380
+ [&lt;c02dac41&gt;] ? neigh_resolve_output+0xf1/0x2a0
+ [&lt;f8d6fdcc&gt;] ? ipv6_chk_mcast_addr+0xbc/0x180 [ipv6]
+ [&lt;f8d55ca1&gt;] ? ip6_output_finish+0x91/0xe0 [ipv6]
+ [&lt;f8d57e68&gt;] ? ip6_output2+0x138/0x220 [ipv6]
+ [&lt;f8d5841d&gt;] ? ip6_output+0x4cd/0xb30 [ipv6]
+ [&lt;c0138be5&gt;] ? lock_timer_base+0x25/0x50
+ [&lt;c0138d91&gt;] ? __mod_timer+0xa1/0xe0
+ [&lt;c0138e87&gt;] ? mod_timer+0x37/0x80
+ [&lt;f8d641db&gt;] ? fib6_force_start_gc+0x2b/0x30 [ipv6]
+ [&lt;f8d70d90&gt;] ? mld_sendpack+0x2d0/0x330 [ipv6]
+ [&lt;f8d71a99&gt;] ? mld_ifc_timer_expire+0x259/0x2f0 [ipv6]
+ [&lt;c014cf7b&gt;] ? clockevents_program_event+0x9b/0x150
+ [&lt;c013854a&gt;] ? run_timer_softirq+0x12a/0x1f0
+ [&lt;f8d71840&gt;] ? mld_ifc_timer_expire+0x0/0x2f0 [ipv6]
+ [&lt;f8d71840&gt;] ? mld_ifc_timer_expire+0x0/0x2f0 [ipv6]
+ [&lt;c0134232&gt;] ? __do_softirq+0x92/0x120
+ [&lt;c013431d&gt;] ? do_softirq+0x5d/0x60
+ [&lt;c01344b5&gt;] ? irq_exit+0x75/0xa0
+ [&lt;c0113588&gt;] ? smp_apic_timer_interrupt+0x58/0x90
+ [&lt;c0109ca0&gt;] ? mwait_idle+0x0/0x50
+ [&lt;c0104968&gt;] ? apic_timer_interrupt+0x28/0x30
+ [&lt;c0109ca0&gt;] ? mwait_idle+0x0/0x50
+ [&lt;c0109cd2&gt;] ? mwait_idle+0x32/0x50
+ [&lt;c0102d6b&gt;] ? cpu_idle+0x6b/0xf0
+ [&lt;c033e09e&gt;] ? rest_init+0x4e/0x60
+ =======================
+Code: 26 00 c7 45 d8 0c 00 00 00 90 e9 7b fc ff ff 8d 76 00 0f b6 4d
+af c7 45 d8 02 00 00 00 89 4d f0 eb ae 8b 55 0c 8b 4d 9c 8b 42 0c &lt;0f&gt;
+b6 58 04 3a 99 c2 03 00 00 0f 83 b9 00 00 00 8b 7d 9c 0f b6
+EIP: [&lt;f8dd3a99&gt;] b43_generate_txhdr+0x6a9/0x790 [b43] SS:ESP 0068:c04619d0&quot;
+
+Full output of crash&gt;log (essentially &quot;dmesg&quot; on a kdump) is attached as a file.
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: b43_generate_txhdr_panic.log
+Type: text/x-log
+Size: 43919 bytes
+Desc: not available
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080531/392c4a10/attachment.bin">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080531/392c4a10/attachment.bin</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004162.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+	<LI>Next message: <A HREF="004164.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4163">[ date ]</a>
+              <a href="thread.html#4163">[ thread ]</a>
+              <a href="subject.html#4163">[ subject ]</a>
+              <a href="author.html#4163">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

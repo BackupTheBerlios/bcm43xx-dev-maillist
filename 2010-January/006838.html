@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 4/4] b43: N-PHY: use cordic to generate samples
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%204/4%5D%20b43%3A%20N-PHY%3A%20use%20cordic%20to%20generate%20samples&In-Reply-To=%3C1264442401-6364-5-git-send-email-zajec5%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006837.html">
+   <LINK REL="Next"  HREF="006844.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 4/4] b43: N-PHY: use cordic to generate samples</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%204/4%5D%20b43%3A%20N-PHY%3A%20use%20cordic%20to%20generate%20samples&In-Reply-To=%3C1264442401-6364-5-git-send-email-zajec5%40gmail.com%3E"
+       TITLE="[PATCH 4/4] b43: N-PHY: use cordic to generate samples">zajec5 at gmail.com
+       </A><BR>
+    <I>Mon Jan 25 19:00:01 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006837.html">[PATCH 3/4] b43: update cordic code to match current specs
+</A></li>
+        <LI>Next message: <A HREF="006844.html">LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6838">[ date ]</a>
+              <a href="thread.html#6838">[ thread ]</a>
+              <a href="subject.html#6838">[ subject ]</a>
+              <a href="author.html#6838">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_n.c |   21 ++++++++++++---------
+ 1 files changed, 12 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 061b01b..e15f05c 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -821,8 +821,9 @@ static u16 b43_nphy_gen_load_samples(struct b43_wldev *dev, u32 freq, u16 max,
+ 					bool test)
+ {
+ 	int i;
+-	u16 bw, len, num, rot, angle;
+-	/* TODO: *buffer; */
++	u16 bw, len, rot, angle;
++	b43_c32 *samples;
++	
+ 
+ 	bw = (dev-&gt;phy.is_40mhz) ? 40 : 20;
+ 	len = bw &lt;&lt; 3;
+@@ -839,18 +840,20 @@ static u16 b43_nphy_gen_load_samples(struct b43_wldev *dev, u32 freq, u16 max,
+ 		len = bw &lt;&lt; 1;
+ 	}
+ 
+-	/* TODO: buffer = kzalloc(len * sizeof(u32), GFP_KERNEL); */
+-	num = len;
++	samples = kzalloc(len * sizeof(b43_c32), GFP_KERNEL);
+ 	rot = (((freq * 36) / bw) &lt;&lt; 16) / 100;
+ 	angle = 0;
+ 
+-	for (i = 0; i &lt; num; i++) {
+-		/* TODO */
++	for (i = 0; i &lt; len; i++) {
++		samples[i] = b43_cordic(angle);
++		angle += rot;
++		samples[i].q = CORDIC_CONVERT(samples[i].q * max);
++		samples[i].i = CORDIC_CONVERT(samples[i].i * max);
+ 	}
+ 
+-	/* TODO: Call N PHY Load Sample Table with buffer, num as arguments */
+-	/* TODO: kfree(buffer); */
+-	return num;
++	/* TODO: Call N PHY Load Sample Table with buffer, len as arguments */
++	kfree(samples);
++	return len;
+ }
+ 
+ /* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/RunSamples">http://bcm-v4.sipsolutions.net/802.11/PHY/N/RunSamples</A> */
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006837.html">[PATCH 3/4] b43: update cordic code to match current specs
+</A></li>
+	<LI>Next message: <A HREF="006844.html">LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6838">[ date ]</a>
+              <a href="thread.html#6838">[ thread ]</a>
+              <a href="subject.html#6838">[ subject ]</a>
+              <a href="author.html#6838">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

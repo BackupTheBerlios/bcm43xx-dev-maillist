@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix radio LED problem
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20radio%20LED%20problem&In-Reply-To=%3C200712070112.35515.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002982.html">
+   <LINK REL="Next"  HREF="002985.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix radio LED problem</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20radio%20LED%20problem&In-Reply-To=%3C200712070112.35515.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix radio LED problem">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Dec  7 01:12:35 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002982.html">[PATCH] b43: Fix radio LED problem
+</A></li>
+        <LI>Next message: <A HREF="002985.html">SPROM rev 4
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2983">[ date ]</a>
+              <a href="thread.html#2983">[ thread ]</a>
+              <a href="subject.html#2983">[ subject ]</a>
+              <a href="author.html#2983">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 07 December 2007 01:05:11 Larry Finger wrote:
+&gt;<i> Sorry it has taken so long to answer, but I am traveling.
+</I>&gt;<i> 
+</I>&gt;<i> Michael Buesch wrote:
+</I>&gt;<i> &gt; On Thursday 29 November 2007 00:48:40 Larry Finger wrote:
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt;&gt; @@ -2802,6 +2800,13 @@ static int b43_op_config(struct ieee8021
+</I>&gt;<i> &gt;&gt;        out_unlock_mutex:
+</I>&gt;<i> &gt;&gt;  	mutex_unlock(&amp;wl-&gt;mutex);
+</I>&gt;<i> &gt;&gt;  
+</I>&gt;<i> &gt;&gt; +	/* if a LED is devoted to the radio and the switch is on, send
+</I>&gt;<i> &gt;&gt; +	 * KEY_WLAN press/release keystrokes */
+</I>&gt;<i> &gt;&gt; +	if (!err &amp;&amp; dev-&gt;radio_hw_enable &amp;&amp; &amp;dev-&gt;led_radio) {
+</I>&gt;<i> &gt;                                             ^^^^^^^^^^^^^^^
+</I>&gt;<i> &gt; This condition is always true.
+</I>&gt;<i> 
+</I>&gt;<i> It looks to me that the code uses the contents of the LED section of the SPROM to initialize
+</I>&gt;<i> dev-&gt;led_radio. Can we be certain that the initialization will always be done?
+</I>
+I think you didn't quite understand what I tried to say.
+Let's give a more obvious example:
+
+int a;
+if (&amp;a) {
+	/* This is always true, as (&amp;a) can't be a NULL pointer. */
+}
+
+Your condition above can never be false. (in practice)
+I guess you tried to check if a radio led exists.
+I'd suggest you do
+if (... &amp;&amp; dev-&gt;led_radio.dev)
+
+The code in led.c does also assume that the LED is used, if struct b43_led-&gt;dev was
+assigned to something non-NULL. So I think that kind of check would be OK.
+But it might need an additional comment if done here outside of the led.c context.
+
+&gt;<i> &gt;&gt; +		input_report_key(rfk-&gt;poll_dev-&gt;input, KEY_WLAN, 1);
+</I>&gt;<i> &gt;&gt; +		input_report_key(rfk-&gt;poll_dev-&gt;input, KEY_WLAN, 0);
+</I>&gt;<i> &gt;&gt; +	}
+</I>&gt;<i> &gt;&gt; +
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Anyway, sending a key event here seems pretty bogus. The comment
+</I>&gt;<i> &gt; doesn't really say anything useful why this is needed.
+</I>&gt;<i> 
+</I>&gt;<i> If a key event (down/up) is not sent, the LED remains off. This location may not be the best place,
+</I>&gt;<i> but it is needed someplace, otherwise the switch must be cycled off/on to get the LED on.
+</I>
+So I guess we should do this at initialization and not in the config callback.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002982.html">[PATCH] b43: Fix radio LED problem
+</A></li>
+	<LI>Next message: <A HREF="002985.html">SPROM rev 4
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2983">[ date ]</a>
+              <a href="thread.html#2983">[ thread ]</a>
+              <a href="subject.html#2983">[ subject ]</a>
+              <a href="author.html#2983">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

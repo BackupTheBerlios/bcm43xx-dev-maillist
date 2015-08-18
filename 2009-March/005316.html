@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Fedora Problem
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Fedora%20Problem&In-Reply-To=%3C30353c3d0903180605r6037f20l37c09f725326e68c%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005315.html">
+   <LINK REL="Next"  HREF="005317.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Fedora Problem</H1>
+    <B>David Ellingsworth</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Fedora%20Problem&In-Reply-To=%3C30353c3d0903180605r6037f20l37c09f725326e68c%40mail.gmail.com%3E"
+       TITLE="Fedora Problem">david at identd.dyndns.org
+       </A><BR>
+    <I>Wed Mar 18 14:05:03 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005315.html">Fedora Problem
+</A></li>
+        <LI>Next message: <A HREF="005317.html">[PATCH] b43: Mask PHY TX error interrupt, if not debugging
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5316">[ date ]</a>
+              <a href="thread.html#5316">[ thread ]</a>
+              <a href="subject.html#5316">[ subject ]</a>
+              <a href="author.html#5316">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tue, Mar 17, 2009 at 10:57 PM, Frank Middleton
+&lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">f.middleton at apogeect.com</A>&gt; wrote:
+&gt;<i> Before submitting this to bugzilla.redhat.com, I hope you won't
+</I>&gt;<i> mind my asking your advice here. I just returned from a round trip
+</I>&gt;<i> to Florida, and thanks to your hard work I was able to use WiFi
+</I>&gt;<i> everywhere I went, and I can't thank you enough.
+</I>&gt;<i>
+</I>&gt;<i> However, upon my return I decided to catch up on all the updates
+</I>&gt;<i> and now my FC10 installation is up to date. However, WiFi doesn't
+</I>&gt;<i> work any more, or to be exact, dhcp doesn't. I have a d-link router
+</I>&gt;<i> that does both wired and wireless, and my laptop can connect either
+</I>&gt;<i> way. dhclient eth0 works fine, dhclient wlan0 doesn't. However, I
+</I>&gt;<i> can manually assign an IP address to wlan0, edit the routing tables
+</I>&gt;<i> and /etc/resolv.conf, and WiFi works just fine.
+</I>&gt;<i>
+</I>&gt;<i> The router is configured to use a specific IP address for eth0 and
+</I>&gt;<i> a different one for wlan0, using their MAC addresses as a index.
+</I>&gt;<i>
+</I>&gt;<i> I asked about this on the Fedora networking forum and only got a reply
+</I>&gt;<i> from someone else having a similar problem. So my questions are:
+</I>&gt;<i>
+</I>&gt;<i> Is this a problem with dhclient, wpa_supplicant, or b43 (or something
+</I>&gt;<i> else)? Can you suggest a way to troubleshoot this? I can see nothing at
+</I>&gt;<i> all unusual in any logs and I won't clog up your inbox with dumps unless
+</I>&gt;<i> you ask for them. Here's all I ever get from dhclient
+</I>&gt;<i>
+</I>&gt;<i> # dhclient -v -d wlan0
+</I>&gt;<i> Internet Systems Consortium DHCP Client 4.0.0
+</I>&gt;<i> Copyright 2004-2007 Internet Systems Consortium.
+</I>&gt;<i> All rights reserved.
+</I>&gt;<i> For info, please visit <A HREF="http://www.isc.org/sw/dhcp/">http://www.isc.org/sw/dhcp/</A>
+</I>&gt;<i>
+</I>&gt;<i> Listening on LPF/wlan0/00:90:96:7b:45:f1
+</I>&gt;<i> Sending on &#160; LPF/wlan0/00:90:96:7b:45:f1
+</I>&gt;<i> Sending on &#160; Socket/fallback
+</I>&gt;<i> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 8
+</I>&gt;<i> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 12
+</I>&gt;<i> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 15
+</I>&gt;<i> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 19
+</I>&gt;<i> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 7
+</I>&gt;<i> No DHCPOFFERS received.
+</I>&gt;<i> No working leases in persistent database - sleeping.
+</I>&gt;<i> etc...
+</I>&gt;<i>
+</I>&gt;<i> The current kernel: 2.6.27.19-170.2.35.fc10.x86_64
+</I>&gt;<i>
+</I>&gt;<i> There are several other WiFi devices on this network getting good
+</I>&gt;<i> responses from dhcp, so I don't think it is the router, and there are
+</I>&gt;<i> no other APs for miles. Any insights would be much appreciated, and
+</I>&gt;<i> thanks for your time.
+</I>&gt;<i>
+</I>&gt;<i> -- Frank
+</I>
+Frank,
+
+I had a similar problem not too long ago. From what I understand, the
+problem is due to the malformed behavior of dhclient. Rather than
+merely reconfiguring the device, dhclient takes the interface down and
+then brings it back up again. From my experience this can lead to a
+situation where an ip address can not be obtained. A work around for
+this problem can be achieved by using dhcpcd rather than dhclient for
+obtaining ip addresses from a dchp server. In my case, merely
+installing dhcpcd was enough as all my distribution's network scripts
+preferred it over dhclient, ymmv.
+
+Regards,
+
+David Ellingsworth
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005315.html">Fedora Problem
+</A></li>
+	<LI>Next message: <A HREF="005317.html">[PATCH] b43: Mask PHY TX error interrupt, if not debugging
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5316">[ date ]</a>
+              <a href="thread.html#5316">[ thread ]</a>
+              <a href="subject.html#5316">[ subject ]</a>
+              <a href="author.html#5316">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

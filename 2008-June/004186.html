@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] mac80211: fix panic when using hardware WEP
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20mac80211%3A%20fix%20panic%20when%20using%20hardware%20WEP&In-Reply-To=%3C20080602115437.12734.42209.stgit%40dv.roinet.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004187.html">
+   <LINK REL="Next"  HREF="004188.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] mac80211: fix panic when using hardware WEP</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20mac80211%3A%20fix%20panic%20when%20using%20hardware%20WEP&In-Reply-To=%3C20080602115437.12734.42209.stgit%40dv.roinet.com%3E"
+       TITLE="[PATCH] mac80211: fix panic when using hardware WEP">proski at gnu.org
+       </A><BR>
+    <I>Mon Jun  2 13:54:50 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004187.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+        <LI>Next message: <A HREF="004188.html">[PATCH] mac80211: fix panic when using hardware WEP
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4186">[ date ]</a>
+              <a href="thread.html#4186">[ thread ]</a>
+              <a href="subject.html#4186">[ subject ]</a>
+              <a href="author.html#4186">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>57ccbb1cbe3f8e10a500ff8b9fb26dc1a542fe99 misplaced code for setting
+hardware WEP keys.  Move it back.  This fixes kernel panic in b43 if WEP
+is used and hardware encryption is enabled.
+
+Signed-off-by: Pavel Roskin &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">proski at gnu.org</A>&gt;
+---
+
+ net/mac80211/wep.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/mac80211/wep.c b/net/mac80211/wep.c
+index c9fd129..e7b6344 100644
+--- a/net/mac80211/wep.c
++++ b/net/mac80211/wep.c
+@@ -335,10 +335,10 @@ static int wep_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb)
+ 	info-&gt;control.icv_len = WEP_ICV_LEN;
+ 
+ 	if (!(tx-&gt;key-&gt;flags &amp; KEY_FLAG_UPLOADED_TO_HARDWARE)) {
+-		info-&gt;control.hw_key = &amp;tx-&gt;key-&gt;conf;
+ 		if (ieee80211_wep_encrypt(tx-&gt;local, skb, tx-&gt;key))
+ 			return -1;
+ 	} else {
++		info-&gt;control.hw_key = &amp;tx-&gt;key-&gt;conf;
+ 		if (tx-&gt;key-&gt;conf.flags &amp; IEEE80211_KEY_FLAG_GENERATE_IV) {
+ 			if (!ieee80211_wep_add_iv(tx-&gt;local, skb, tx-&gt;key))
+ 				return -1;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004187.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+	<LI>Next message: <A HREF="004188.html">[PATCH] mac80211: fix panic when using hardware WEP
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4186">[ date ]</a>
+              <a href="thread.html#4186">[ thread ]</a>
+              <a href="subject.html#4186">[ subject ]</a>
+              <a href="author.html#4186">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] mac80211: fix software decryption with b43legacy
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20mac80211%3A%20fix%20software%20decryption%20with%20b43legacy&In-Reply-To=%3C46CA2F3B.1060500%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002170.html">
+   <LINK REL="Next"  HREF="002141.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] mac80211: fix software decryption with b43legacy</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20mac80211%3A%20fix%20software%20decryption%20with%20b43legacy&In-Reply-To=%3C46CA2F3B.1060500%40lwfinger.net%3E"
+       TITLE="[RFC] mac80211: fix software decryption with b43legacy">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Tue Aug 21 02:18:03 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002170.html">ALERT: firmware change for b43
+</A></li>
+        <LI>Next message: <A HREF="002141.html">sometimes bcm43xx-mac80211 just stays on 1mb/s
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2140">[ date ]</a>
+              <a href="thread.html#2140">[ thread ]</a>
+              <a href="subject.html#2140">[ subject ]</a>
+              <a href="author.html#2140">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Ulrich Kunitz wrote:
+&gt;<i> Larry Finger wrote:
+</I>&gt;<i> 
+</I>&gt;&gt;<i> I have added the lists to this message.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> I got b43legacy up and running with the software decryption modifications. 
+</I>&gt;&gt;<i> It started OK with WPA-PSK TKIP encryption, but soon thereafter, I got this 
+</I>&gt;&gt;<i> message:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> eth1: No ProbeResp from current AP 00:1a:70:46:ba:b1 - assume out of range
+</I>&gt;&gt;<i>
+</I>&gt;<i> 
+</I>&gt;<i> Since the git tree reorg wireless-dev branch created comparable
+</I>&gt;<i> problems for zd1211rw-mac80211 too. It might be related:
+</I>&gt;<i> 
+</I>&gt;<i> Aug 19 07:08:51 keks kernel: [   83.572628] wlan0: CCMP replay detected for RX frame from 00:04:0e:68:ad:70 (RX PN 00000000000c &lt;= prev. PN 00000000000c)
+</I>&gt;<i> Aug 19 07:08:54 keks kernel: [   87.432010] usb 1-2: handle_regs_int() regs interrupt ignored
+</I>&gt;<i> Aug 19 07:08:55 keks kernel: [   87.898447] wlan0: No ProbeResp from current AP 00:04:0e:68:ad:70 - assume out of range
+</I>&gt;<i> Aug 19 07:08:55 keks kernel: [   87.899649] wmaster0: Removed STA 00:04:0e:68:ad:70
+</I>&gt;<i> Aug 19 07:08:55 keks kernel: [   87.901406] wlan0: set_encrypt - unknown addr 00:04:0e:68:ad:70
+</I>&gt;<i> 
+</I>&gt;<i> The first message might be a simple duplicate. The
+</I>&gt;<i> handle_regs_int() is absolutely suspicious and I cannot really
+</I>&gt;<i> explain it right now. The &quot;No ProbeResp&quot; might be a follow-up
+</I>&gt;<i> problem. The whole USB subsystem becomes absolutely instable to
+</I>&gt;<i> the point that I can't use keyboard and mouse anymore. 
+</I>&gt;<i> 
+</I>&gt;<i> I will try Johannes' patch tomorrow.
+</I>&gt;<i> 
+</I>&gt;<i> BTW the wireless-dev reorg makes it impossible to actually use
+</I>&gt;<i> git-bisect to find the patch, which caused the problem. 
+</I>&gt;<i> 
+</I>&gt;<i> BTW the current Linus tree following patch doesn't work with the
+</I>&gt;<i> current zd1211rw-mac80211. The offending patch is the following one:
+</I>&gt;<i> 
+</I>&gt;<i> commit b9bf1e60a294fc7795d5198f94a917290e52865b
+</I>&gt;<i> Author: John W. Linville &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>&gt;
+</I>&gt;<i> Date:   Tue Aug 7 16:33:15 2007 -0400
+</I>&gt;<i> 
+</I>&gt;<i>     [PATCH] mac80211: probe for hidden SSIDs in pre-auth scan
+</I>&gt;<i>     
+</I>&gt;<i>     Probe for hidden SSIDs if initiating pre-authentication scan and SSID
+</I>&gt;<i>     is set for STA interface.
+</I>&gt;<i>     
+</I>&gt;<i>     Signed-off-by: John W. Linville &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>&gt;
+</I>&gt;<i> 
+</I>
+This patch is not in my tree, but adding it breaks WEP. WPA fails with it in or out at the moment. 
+I'm still looking at that problem.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002170.html">ALERT: firmware change for b43
+</A></li>
+	<LI>Next message: <A HREF="002141.html">sometimes bcm43xx-mac80211 just stays on 1mb/s
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2140">[ date ]</a>
+              <a href="thread.html#2140">[ thread ]</a>
+              <a href="subject.html#2140">[ subject ]</a>
+              <a href="author.html#2140">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Tons of interrupts on driver load
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C48121F48.7090908%40coderworld.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003996.html">
+   <LINK REL="Next"  HREF="003945.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Tons of interrupts on driver load</H1>
+    <B>Richard Jonsson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C48121F48.7090908%40coderworld.net%3E"
+       TITLE="Tons of interrupts on driver load">richie at coderworld.net
+       </A><BR>
+    <I>Fri Apr 25 20:13:28 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003996.html">Tons of interrupts on driver load
+</A></li>
+        <LI>Next message: <A HREF="003945.html">Feedback on ASUS WL-138G V2 on x86_64
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3969">[ date ]</a>
+              <a href="thread.html#3969">[ thread ]</a>
+              <a href="subject.html#3969">[ subject ]</a>
+              <a href="author.html#3969">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Here comes a slice of dmesg with debugging turned on. This is from 
+v2.6.25-4571-g87322bc of mainline. Same as before.
+
+Richard Jonsson skrev:
+ &gt;&gt; OK, after bootup with v2.5.25-rc3-git I get this, looks sane to me:
+ &gt;&gt;
+ &gt;&gt; [   32.474786] b43-phy0: Loading firmware version 351.126 (2006-07-29
+ &gt;&gt; 05:54:02)
+ &gt;&gt; [   32.474797] b43-phy0 warning: You are using an old firmware image.
+ &gt;&gt; Support for old firmware will be removed in July 2008.
+ &gt;&gt; [   32.474802] b43-phy0 warning: You must go to
+ &gt;&gt; <A HREF="http://linuxwireless.org/en/users/Drivers/b43#devicefirmware">http://linuxwireless.org/en/users/Drivers/b43#devicefirmware</A> and
+ &gt;&gt; download the latest firmware (version 4).
+ &gt;&gt; [   30.137115] warning: `avahi-daemon' uses 32-bit capabilities (legacy
+ &gt;&gt; support in use)
+ &gt;&gt; [   32.774279] PM: Adding info for No Bus:vcs7
+ &gt;&gt; [   32.774317] PM: Adding info for No Bus:vcsa7
+ &gt;&gt; [   31.049445] PM: Adding info for No Bus:hw_random
+ &gt;&gt; [   31.062460] b43-phy0: Radio hardware status changed to DISABLED
+ &gt;&gt; [   31.773470] b43-phy0: Radio turned on by software
+ &gt;&gt; [   31.773475] b43-phy0: The hardware RF-kill button still turns the
+ &gt;&gt; radio physically off. Press the button to turn it on.
+ &gt;&gt; [   45.919959] NET: Registered protocol family 17
+ &gt;&gt; [   54.874707] NET: Registered protocol family 10
+ &gt;&gt; [   54.875253] lo: Disabled Privacy Extensions
+ &gt;&gt; [   54.878600] ADDRCONF(NETDEV_UP): wlan0: link is not ready
+ &gt;&gt; [   67.096841] eth0: no IPv6 routers present
+ &gt;&gt;
+ &gt;&gt; As for the original question I had, interrupts seem sane too.
+ &gt;&gt;
+ &gt;&gt; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">richie at laptop</A>:~$ cat /proc/interrupts|grep &quot;19:&quot;
+ &gt;&gt;   19:          0        185   IO-APIC-fasteoi   b43
+ &gt;&gt;
+ &gt;
+ &gt; Forgot to mension that rfkill-led is behaving as I described earlier,
+ &gt; and has been for as long as I can remember. I don't have specific kernel
+ &gt; versions, sorry.
+ &gt;
+ &gt; It is always blue, as in wlan active, except if I disable wireless in
+ &gt; knetworkmanager. Killswitch doesn't affect the led.
+ &gt;
+ &gt; disable wireless in knetworkmanager, radio hw disabled, led turns red
+ &gt; [ 1333.692522] PM: Removing info for No Bus:event7
+ &gt; [ 1333.716523] PM: Removing info for No Bus:input7
+ &gt; [ 1333.716600] PM: Removing info for No Bus:rfkill0
+ &gt; [ 1333.728542] PM: Removing info for No Bus:hw_random
+ &gt; [ 1378.346660] PM: Adding info for No Bus:rfkill1
+ &gt; [ 1378.708529] PM: Adding info for No Bus:input8
+ &gt; [ 1378.708568] input: b43-phy0 as /class/input/input8
+ &gt; [ 1378.757574] PM: Adding info for No Bus:event7
+ &gt; [ 1378.949550] b43-phy0: Loading firmware version 351.126 (2006-07-29
+ &gt; 05:54:02)
+ &gt; [ 1378.949563] b43-phy0 warning: You are using an old firmware image.
+ &gt; Support for old firmware will be removed in July 2008.
+ &gt; [ 1378.949567] b43-phy0 warning: You must go to
+ &gt; <A HREF="http://linuxwireless.org/en/users/Drivers/b43#devicefirmware">http://linuxwireless.org/en/users/Drivers/b43#devicefirmware</A> and
+ &gt; download the latest firmware (version 4).
+ &gt;
+ &gt; enable wireless again, radio hw still disabled, led turns blue
+ &gt; [ 1380.606214] PM: Adding info for No Bus:hw_random
+ &gt; [ 1380.685925] b43-phy0: Radio hardware status changed to DISABLED
+ &gt; [ 1380.698005] ADDRCONF(NETDEV_UP): wlan0: link is not ready
+ &gt;
+ &gt; flipping switch a few times, led unchanged
+ &gt; [ 1534.770048] b43-phy0: Radio hardware status changed to ENABLED
+ &gt; [ 1550.778511] b43-phy0: Radio hardware status changed to DISABLED
+ &gt; [ 1562.783474] b43-phy0: Radio hardware status changed to ENABLED
+ &gt; [ 1565.788237] b43-phy0: Radio hardware status changed to DISABLED
+ &gt;
+ &gt; regards, Richard
+ &gt; _______________________________________________
+ &gt; Bcm43xx-dev mailing list
+ &gt; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+ &gt; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003996.html">Tons of interrupts on driver load
+</A></li>
+	<LI>Next message: <A HREF="003945.html">Feedback on ASUS WL-138G V2 on x86_64
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3969">[ date ]</a>
+              <a href="thread.html#3969">[ thread ]</a>
+              <a href="subject.html#3969">[ subject ]</a>
+              <a href="author.html#3969">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

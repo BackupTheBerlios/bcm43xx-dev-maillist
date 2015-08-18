@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> IPV6 autoconf problems
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20IPV6%20autoconf%20problems&In-Reply-To=%3C1179792806.2771.108.camel%40shinybook.infradead.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001277.html">
+   <LINK REL="Next"  HREF="001281.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>IPV6 autoconf problems</H1>
+    <B>David Woodhouse</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20IPV6%20autoconf%20problems&In-Reply-To=%3C1179792806.2771.108.camel%40shinybook.infradead.org%3E"
+       TITLE="IPV6 autoconf problems">dwmw2 at infradead.org
+       </A><BR>
+    <I>Tue May 22 02:13:26 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001277.html">IPV6 autoconf problems
+</A></li>
+        <LI>Next message: <A HREF="001281.html">IPV6 autoconf problems
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1280">[ date ]</a>
+              <a href="thread.html#1280">[ thread ]</a>
+              <a href="subject.html#1280">[ subject ]</a>
+              <a href="author.html#1280">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Fri, 2007-05-18 at 19:51 +0200, Andrea Lusuardi - UoVoBW wrote:
+&gt;<i> 
+</I>&gt;<i> but that makes no difference.
+</I>&gt;<i> Any help would be highly appreciated, and i have no problem providing
+</I>&gt;<i> more debug - once i know what to write - or even ssh access to my
+</I>&gt;<i> laptop
+</I>&gt;<i> - ibook g4 with a bcm4306 card, 
+</I>
+I've seen the same problem -- it'll be a generic problem with Ethernet
+multicast.
+
+Anyone can set up radvd to test this -- they don't even need proper IPv6
+connectivity (although that's trivial to arrange too). They can just set
+it up with site-local addresses (the fec0::/16 subnet).
+
+On any machine on the subnet, just 'ip -6 addr add fec0::1/64 dev
+eth0' (or whatever the equivalent is in your distribution's network
+config scripts), install radvd and set up /etc/radvd.conf to look
+something like this...
+
+interface eth1
+{
+        AdvSendAdvert on;
+        MinRtrAdvInterval 30;
+        MaxRtrAdvInterval 100;
+        prefix fec0::/64
+        {
+                AdvOnLink on;
+                AdvAutonomous on;
+                AdvRouterAddr off;
+        };
+
+};
+
+You'll find that with the softmac bcm43xx driver, you pick up an address
+like fec0::20a:95ff:fef3:9992 automatically, fairly reliably. With the
+mac80211 version, it works much more rarely, and slowly. You can tcpdump
+and watch for the multicast traffic at both ends.
+ 
+-- 
+dwmw2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001277.html">IPV6 autoconf problems
+</A></li>
+	<LI>Next message: <A HREF="001281.html">IPV6 autoconf problems
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1280">[ date ]</a>
+              <a href="thread.html#1280">[ thread ]</a>
+              <a href="subject.html#1280">[ subject ]</a>
+              <a href="author.html#1280">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b44/b43/b43legacy: Fix switch warnings introduced by SSB-SDIO
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b44/b43/b43legacy%3A%20Fix%20switch%20warnings%20introduced%20by%20SSB-SDIO&In-Reply-To=%3C200909081933.31981.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006005.html">
+   <LINK REL="Next"  HREF="006007.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b44/b43/b43legacy: Fix switch warnings introduced by SSB-SDIO</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b44/b43/b43legacy%3A%20Fix%20switch%20warnings%20introduced%20by%20SSB-SDIO&In-Reply-To=%3C200909081933.31981.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b44/b43/b43legacy: Fix switch warnings introduced by SSB-SDIO">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Sep  8 19:33:31 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006005.html">[PATCH] ssb: Implement SDIO host bus support
+</A></li>
+        <LI>Next message: <A HREF="006007.html">b43 dma error
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6006">[ date ]</a>
+              <a href="thread.html#6006">[ thread ]</a>
+              <a href="subject.html#6006">[ subject ]</a>
+              <a href="author.html#6006">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes some gcc warnings for switch statements.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+
+Index: wireless-testing/drivers/net/b44.c
+===================================================================
+--- wireless-testing.orig/drivers/net/b44.c	2009-09-08 19:21:34.000000000 +0200
++++ wireless-testing/drivers/net/b44.c	2009-09-08 19:21:37.000000000 +0200
+@@ -1302,10 +1302,13 @@ static void b44_chip_reset(struct b44 *b
+ 		     &amp; MDIO_CTRL_MAXF_MASK)));
+ 		break;
+ 	case SSB_BUSTYPE_PCI:
+-	case SSB_BUSTYPE_PCMCIA:
+ 		bw32(bp, B44_MDIO_CTRL, (MDIO_CTRL_PREAMBLE |
+ 		     (0x0d &amp; MDIO_CTRL_MAXF_MASK)));
+ 		break;
++	case SSB_BUSTYPE_PCMCIA:
++	case SSB_BUSTYPE_SDIO:
++		WARN_ON(1); /* A device with this bus does not exist. */
++		break;
+ 	}
+ 
+ 	br32(bp, B44_MDIO_CTRL);
+@@ -1763,10 +1766,13 @@ static void b44_get_drvinfo (struct net_
+ 	case SSB_BUSTYPE_PCI:
+ 		strncpy(info-&gt;bus_info, pci_name(bus-&gt;host_pci), sizeof(info-&gt;bus_info));
+ 		break;
+-	case SSB_BUSTYPE_PCMCIA:
+ 	case SSB_BUSTYPE_SSB:
+ 		strncpy(info-&gt;bus_info, &quot;SSB&quot;, sizeof(info-&gt;bus_info));
+ 		break;
++	case SSB_BUSTYPE_PCMCIA:
++	case SSB_BUSTYPE_SDIO:
++		WARN_ON(1); /* A device with this bus does not exist. */
++		break;
+ 	}
+ }
+ 
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2009-09-08 19:19:01.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2009-09-08 19:25:30.000000000 +0200
+@@ -4099,16 +4099,20 @@ static void b43_imcfglo_timeouts_workaro
+ 	    bus-&gt;pcicore.dev-&gt;id.revision &lt;= 5) {
+ 		/* IMCFGLO timeouts workaround. */
+ 		tmp = ssb_read32(dev-&gt;dev, SSB_IMCFGLO);
+-		tmp &amp;= ~SSB_IMCFGLO_REQTO;
+-		tmp &amp;= ~SSB_IMCFGLO_SERTO;
+ 		switch (bus-&gt;bustype) {
+ 		case SSB_BUSTYPE_PCI:
+ 		case SSB_BUSTYPE_PCMCIA:
++			tmp &amp;= ~SSB_IMCFGLO_REQTO;
++			tmp &amp;= ~SSB_IMCFGLO_SERTO;
+ 			tmp |= 0x32;
+ 			break;
+ 		case SSB_BUSTYPE_SSB:
++			tmp &amp;= ~SSB_IMCFGLO_REQTO;
++			tmp &amp;= ~SSB_IMCFGLO_SERTO;
+ 			tmp |= 0x53;
+ 			break;
++		default:
++			break;
+ 		}
+ 		ssb_write32(dev-&gt;dev, SSB_IMCFGLO, tmp);
+ 	}
+Index: wireless-testing/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/main.c	2009-08-23 00:06:40.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43legacy/main.c	2009-09-08 19:26:03.000000000 +0200
+@@ -3106,16 +3106,20 @@ static void b43legacy_imcfglo_timeouts_w
+ 	    bus-&gt;pcicore.dev-&gt;id.revision &lt;= 5) {
+ 		/* IMCFGLO timeouts workaround. */
+ 		tmp = ssb_read32(dev-&gt;dev, SSB_IMCFGLO);
+-		tmp &amp;= ~SSB_IMCFGLO_REQTO;
+-		tmp &amp;= ~SSB_IMCFGLO_SERTO;
+ 		switch (bus-&gt;bustype) {
+ 		case SSB_BUSTYPE_PCI:
+ 		case SSB_BUSTYPE_PCMCIA:
++			tmp &amp;= ~SSB_IMCFGLO_REQTO;
++			tmp &amp;= ~SSB_IMCFGLO_SERTO;
+ 			tmp |= 0x32;
+ 			break;
+ 		case SSB_BUSTYPE_SSB:
++			tmp &amp;= ~SSB_IMCFGLO_REQTO;
++			tmp &amp;= ~SSB_IMCFGLO_SERTO;
+ 			tmp |= 0x53;
+ 			break;
++		default:
++			break;
+ 		}
+ 		ssb_write32(dev-&gt;dev, SSB_IMCFGLO, tmp);
+ 	}
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006005.html">[PATCH] ssb: Implement SDIO host bus support
+</A></li>
+	<LI>Next message: <A HREF="006007.html">b43 dma error
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6006">[ date ]</a>
+              <a href="thread.html#6006">[ thread ]</a>
+              <a href="subject.html#6006">[ subject ]</a>
+              <a href="author.html#6006">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

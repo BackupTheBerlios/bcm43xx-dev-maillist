@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Poison RX buffers
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Poison%20RX%20buffers&In-Reply-To=%3C200903272251.58384.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005342.html">
+   <LINK REL="Next"  HREF="005353.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Poison RX buffers</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Poison%20RX%20buffers&In-Reply-To=%3C200903272251.58384.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Poison RX buffers">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Mar 27 22:51:58 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005342.html">[PATCH] b43: Add BCM4307 PCI-ID
+</A></li>
+        <LI>Next message: <A HREF="005353.html">[PATCH] b43: Poison RX buffers
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5351">[ date ]</a>
+              <a href="thread.html#5351">[ thread ]</a>
+              <a href="subject.html#5351">[ subject ]</a>
+              <a href="author.html#5351">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This patch adds poisoning and sanity checking to the RX DMA buffers.
+This is used for protection against buggy hardware/firmware that raises
+RX interrupts without doing an actual DMA transfer.
+
+This mechanism protects against rare &quot;bad packets&quot; (due to uninitialized skb data)
+and rare kernel crashes due to uninitialized RX headers.
+
+The poison is selected to not match on valid frames and to be cheap for checking.
+
+The poison check mechanism _might_ trigger incorrectly, if we are voluntarily
+receiving frames with bad PLCP headers. However, this is nonfatal, because the
+chance of such a match is basically zero and in case it happens it just results
+in dropping the packet.
+Bad-PLCP RX defaults to off, and you should leave it off unless you want to listen
+to the latest news broadcasted by your microwave oven.
+
+This patch also moves the initialization of the RX-header &quot;length&quot; field in front of
+the mapping of the DMA buffer. The CPU should not touch the buffer after we mapped it.
+
+Cc: <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stable at kernel.org</A>
+Reported-by: Francesco Gringoli &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">francesco.gringoli at ing.unibs.it</A>&gt;
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+Francesco, please stresstest this.
+John, please queue as bugfix.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-03-27 12:29:57.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-03-27 22:22:21.000000000 +0100
+@@ -555,11 +555,32 @@ address_error:
+ 	return 1;
+ }
+ 
++static bool b43_rx_buffer_is_poisoned(struct b43_dmaring *ring, struct sk_buff *skb)
++{
++	unsigned char *f = skb-&gt;data + ring-&gt;frameoffset;
++
++	return ((f[0] &amp; f[1] &amp; f[2] &amp; f[3] &amp; f[4] &amp; f[5] &amp; f[6] &amp; f[7]) == 0xFF);
++}
++
++static void b43_poison_rx_buffer(struct b43_dmaring *ring, struct sk_buff *skb)
++{
++	struct b43_rxhdr_fw4 *rxhdr;
++	unsigned char *frame;
++
++	/* This poisons the RX buffer to detect DMA failures. */
++
++	rxhdr = (struct b43_rxhdr_fw4 *)(skb-&gt;data);
++	rxhdr-&gt;frame_len = 0;
++
++	B43_WARN_ON(ring-&gt;rx_buffersize &lt; ring-&gt;frameoffset + sizeof(struct b43_plcp_hdr6) + 2);
++	frame = skb-&gt;data + ring-&gt;frameoffset;
++	memset(frame, 0xFF, sizeof(struct b43_plcp_hdr6) + 2 /* padding */);
++}
++
+ static int setup_rx_descbuffer(struct b43_dmaring *ring,
+ 			       struct b43_dmadesc_generic *desc,
+ 			       struct b43_dmadesc_meta *meta, gfp_t gfp_flags)
+ {
+-	struct b43_rxhdr_fw4 *rxhdr;
+ 	dma_addr_t dmaaddr;
+ 	struct sk_buff *skb;
+ 
+@@ -568,6 +589,7 @@ static int setup_rx_descbuffer(struct b4
+ 	skb = __dev_alloc_skb(ring-&gt;rx_buffersize, gfp_flags);
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
++	b43_poison_rx_buffer(ring, skb);
+ 	dmaaddr = map_descbuffer(ring, skb-&gt;data, ring-&gt;rx_buffersize, 0);
+ 	if (b43_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize, 0)) {
+ 		/* ugh. try to realloc in zone_dma */
+@@ -578,6 +600,7 @@ static int setup_rx_descbuffer(struct b4
+ 		skb = __dev_alloc_skb(ring-&gt;rx_buffersize, gfp_flags);
+ 		if (unlikely(!skb))
+ 			return -ENOMEM;
++		b43_poison_rx_buffer(ring, skb);
+ 		dmaaddr = map_descbuffer(ring, skb-&gt;data,
+ 					 ring-&gt;rx_buffersize, 0);
+ 		if (b43_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize, 0)) {
+@@ -592,9 +615,6 @@ static int setup_rx_descbuffer(struct b4
+ 	ring-&gt;ops-&gt;fill_descriptor(ring, desc, dmaaddr,
+ 				   ring-&gt;rx_buffersize, 0, 0, 0);
+ 
+-	rxhdr = (struct b43_rxhdr_fw4 *)(skb-&gt;data);
+-	rxhdr-&gt;frame_len = 0;
+-
+ 	return 0;
+ }
+ 
+@@ -1489,6 +1509,15 @@ static void dma_rx(struct b43_dmaring *r
+ 			goto drop;
+ 		}
+ 	}
++	if (unlikely(b43_rx_buffer_is_poisoned(ring, skb))) {
++		/* Something went wrong with the DMA.
++		 * The device did not touch the buffer and did not overwrite the poison. */
++		b43dbg(ring-&gt;dev-&gt;wl, &quot;DMA RX: Dropping poisoned buffer.\n&quot;);
++		/* recycle the descriptor buffer. */
++		sync_descbuffer_for_device(ring, meta-&gt;dmaaddr,
++					   ring-&gt;rx_buffersize);
++		goto drop;
++	}
+ 	if (unlikely(len &gt; ring-&gt;rx_buffersize)) {
+ 		/* The data did not fit into one descriptor buffer
+ 		 * and is split over multiple buffers.
+
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005342.html">[PATCH] b43: Add BCM4307 PCI-ID
+</A></li>
+	<LI>Next message: <A HREF="005353.html">[PATCH] b43: Poison RX buffers
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5351">[ date ]</a>
+              <a href="thread.html#5351">[ thread ]</a>
+              <a href="subject.html#5351">[ subject ]</a>
+              <a href="author.html#5351">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx-mac80211: Set antenna gains if not in sprom
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx-mac80211%3A%20Set%20antenna%20gains%20if%20not%20in%20sprom&In-Reply-To=%3C46b39d7d.4kGviB6QZBFl2jfv%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001807.html">
+   <LINK REL="Next"  HREF="001763.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx-mac80211: Set antenna gains if not in sprom</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx-mac80211%3A%20Set%20antenna%20gains%20if%20not%20in%20sprom&In-Reply-To=%3C46b39d7d.4kGviB6QZBFl2jfv%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] bcm43xx-mac80211: Set antenna gains if not in sprom">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Aug  3 23:26:21 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001807.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, 	but?Ethernet appears broken
+</A></li>
+        <LI>Next message: <A HREF="001763.html">[PATCH] bcm43xx-mac80211: Set antenna gains if not in sprom
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1762">[ date ]</a>
+              <a href="thread.html#1762">[ thread ]</a>
+              <a href="subject.html#1762">[ subject ]</a>
+              <a href="author.html#1762">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>In the sprom for bcm43xx devices, any unprogrammed values are set to all ones.
+In the case of antenna gains, the specs indicate that a gain of 2 dBm should
+be set if no value is stored. This patch implements that provision.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+@@ -3805,6 +3805,12 @@ static void bcm43xx_sprom_fixup(struct s
+ 	    bus-&gt;boardinfo.rev &gt; 0x40)
+ 		bus-&gt;sprom.r1.boardflags_lo |= BCM43xx_BFL_PACTRL;
+ 
++	/* Handle case when gain is not set in sprom */
++	if (bus-&gt;sprom.r1.antenna_gain_a == 0xFF)
++		bus-&gt;sprom.r1.antenna_gain_a = 2;
++	if (bus-&gt;sprom.r1.antenna_gain_bg == 0xFF)
++		bus-&gt;sprom.r1.antenna_gain_bg = 2;
++
+ 	/* Convert Antennagain values to Q5.2 */
+ 	bus-&gt;sprom.r1.antenna_gain_a &lt;&lt;= 2;
+ 	bus-&gt;sprom.r1.antenna_gain_bg &lt;&lt;= 2;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001807.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, 	but?Ethernet appears broken
+</A></li>
+	<LI>Next message: <A HREF="001763.html">[PATCH] bcm43xx-mac80211: Set antenna gains if not in sprom
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1762">[ date ]</a>
+              <a href="thread.html#1762">[ thread ]</a>
+              <a href="subject.html#1762">[ subject ]</a>
+              <a href="author.html#1762">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

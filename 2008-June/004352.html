@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BUG(?): dev-&gt;wl-&gt;if_type is 0 for monitor interfaces (should be 5);	b43_is_mode(dev-&gt;wl; IEEE80211_IF_TYPE_MNTR) is always false
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BUG%28%3F%29%3A%20dev-%3Ewl-%3Eif_type%20is%200%20for%20monitor%20interfaces%20%28should%20be%205%29%3B%0A%09b43_is_mode%28dev-%3Ewl%3B%20IEEE80211_IF_TYPE_MNTR%29%20is%20always%20false&In-Reply-To=%3C69e28c910806251322i31a8cb4flc7b6c85e8884a5ca%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004356.html">
+   <LINK REL="Next"  HREF="004353.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BUG(?): dev-&gt;wl-&gt;if_type is 0 for monitor interfaces (should be 5);	b43_is_mode(dev-&gt;wl; IEEE80211_IF_TYPE_MNTR) is always false</H1>
+    <B>Stefanik G&#225;bor</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BUG%28%3F%29%3A%20dev-%3Ewl-%3Eif_type%20is%200%20for%20monitor%20interfaces%20%28should%20be%205%29%3B%0A%09b43_is_mode%28dev-%3Ewl%3B%20IEEE80211_IF_TYPE_MNTR%29%20is%20always%20false&In-Reply-To=%3C69e28c910806251322i31a8cb4flc7b6c85e8884a5ca%40mail.gmail.com%3E"
+       TITLE="BUG(?): dev-&gt;wl-&gt;if_type is 0 for monitor interfaces (should be 5);	b43_is_mode(dev-&gt;wl; IEEE80211_IF_TYPE_MNTR) is always false">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Wed Jun 25 22:22:31 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004356.html">Regression (FC8 to FC9)
+</A></li>
+        <LI>Next message: <A HREF="004353.html">BUG(?): dev-&gt;wl-&gt;if_type is 0 for monitor interfaces (should be	5); b43_is_mode(dev-&gt;wl; IEEE80211_IF_TYPE_MNTR) is always false
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4352">[ date ]</a>
+              <a href="thread.html#4352">[ thread ]</a>
+              <a href="subject.html#4352">[ subject ]</a>
+              <a href="author.html#4352">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>In both b43 and b43legacy, dev-&gt;wl-&gt;if_type is 0
+(IEEE80211_IF_TYPE_INVALID) when injecting/transmitting packets on a
+monitor interface (not sure about receiving), while the logical result
+would be  5 (IEEE80211_IF_TYPE_MNTR). Due to this, the check
+b43(legacy)_is_mode(dev-&gt;wl; IEEE80211_IF_TYPE_MNTR) always returns 0.
+
+I discovered this when updating the b43/b43legacy injection patches.
+This is the latest patch I made, working around this bug by checking
+for both 0 and 5 (I added a quick printk(&quot;B43 DEBUG: dev-&gt;wl-&gt;if_type
+= %d&quot;, dev-&gt;wl-&gt;if_type) after the /* MAC control */ comment, which
+helped me find this bug):
+
+diff --git a/drivers/net/wireless/b43/xmit.c b/drivers/net/wireless/b43/xmit.c
+index f9e1cff..b7553ab 100644
+--- a/drivers/net/wireless/b43/xmit.c
++++ b/drivers/net/wireless/b43/xmit.c
+@@ -315,9 +315,11 @@ int b43_generate_txhdr(struct b43_wldev *dev,
+ 	}
+
+ 	/* MAC control */
+-	if (!(info-&gt;flags &amp; IEEE80211_TX_CTL_NO_ACK))
++	if (dev-&gt;wl-&gt;if_type != 5 &amp;&amp; dev-&gt;wl-&gt;if_type != 0 &amp;&amp;
++	      !(info-&gt;flags &amp; IEEE80211_TX_CTL_NO_ACK))
+ 		mac_ctl |= B43_TXH_MAC_ACK;
+-	if (!(((fctl &amp; IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_CTL) &amp;&amp;
++	if (dev-&gt;wl-&gt;if_type != 5 &amp;&amp; dev-&gt;wl-&gt;if_type != 0 &amp;&amp;
++	      !(((fctl &amp; IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_CTL) &amp;&amp;
+ 	      ((fctl &amp; IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_PSPOLL)))
+ 		mac_ctl |= B43_TXH_MAC_HWSEQ;
+ 	if (info-&gt;flags &amp; IEEE80211_TX_CTL_FIRST_FRAGMENT)
+
+Is this intentional? I don't know, but it does looks strange for sure.
+
+--G&#225;bor
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004356.html">Regression (FC8 to FC9)
+</A></li>
+	<LI>Next message: <A HREF="004353.html">BUG(?): dev-&gt;wl-&gt;if_type is 0 for monitor interfaces (should be	5); b43_is_mode(dev-&gt;wl; IEEE80211_IF_TYPE_MNTR) is always false
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4352">[ date ]</a>
+              <a href="thread.html#4352">[ thread ]</a>
+              <a href="subject.html#4352">[ subject ]</a>
+              <a href="author.html#4352">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

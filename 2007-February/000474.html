@@ -1,0 +1,1120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: Fix loss of association after resume
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20loss%20of%20association%20after%20resume&In-Reply-To=%3C200702111514.04893.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000473.html">
+   <LINK REL="Next"  HREF="000475.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: Fix loss of association after resume</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20loss%20of%20association%20after%20resume&In-Reply-To=%3C200702111514.04893.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] bcm43xx: Fix loss of association after resume">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Feb 11 15:14:04 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000473.html">[PATCH] bcm43xx: Fix loss of association after resume
+</A></li>
+        <LI>Next message: <A HREF="000475.html">[PATCH] bcm43xx: Fix loss of association after resume
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#474">[ date ]</a>
+              <a href="thread.html#474">[ thread ]</a>
+              <a href="subject.html#474">[ subject ]</a>
+              <a href="author.html#474">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday 11 February 2007 15:02, Rafael J. Wysocki wrote:
+&gt;<i> On Sunday, 11 February 2007 14:07, Michael Buesch wrote:
+</I>&gt;<i> &gt; On Sunday 11 February 2007 13:56, Rafael J. Wysocki wrote:
+</I>&gt;<i> &gt; &gt; On Saturday, 10 February 2007 21:33, Larry Finger wrote:
+</I>&gt;<i> &gt; &gt; &gt; Rafael,
+</I>&gt;<i> &gt; &gt; &gt; 
+</I>&gt;<i> &gt; &gt; &gt; Rafael J. Wysocki wrote:
+</I>&gt;<i> &gt; &gt; &gt; &gt; 
+</I>&gt;<i> &gt; &gt; &gt; &gt; I'm running with this patch applied right now, but the association is lost
+</I>&gt;<i> &gt; &gt; &gt; &gt; after the resume anyway.  I have to reload bcm43xx to make it associate with
+</I>&gt;<i> &gt; &gt; &gt; &gt; the AP again (no big deal).
+</I>&gt;<i> &gt; &gt; &gt; 
+</I>&gt;<i> &gt; &gt; &gt; 
+</I>&gt;<i> &gt; &gt; &gt; Please send me the output of iwconfig and ifconfig after the resume, but before you reload bcm43xx.
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; albercik:~ # iwconfig
+</I>&gt;<i> &gt; &gt; lo        no wireless extensions.
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; eth0      no wireless extensions.
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; eth1      IEEE 802.11b/g  ESSID:&quot;DI524&quot;  Nickname:&quot;Broadcom 4311&quot;
+</I>&gt;<i> &gt; &gt;           Mode:Managed  Frequency=2.484 GHz  Access Point: Invalid
+</I>&gt;<i> &gt; &gt;           Bit Rate=1 Mb/s   Tx-Power=18 dBm
+</I>&gt;<i> &gt; &gt;           RTS thr:off   Fragment thr:off
+</I>&gt;<i> &gt; &gt;           Encryption key:off
+</I>&gt;<i> &gt; &gt;           Link Quality=0/100  Signal level=-256 dBm  Noise level=-256 dBm
+</I>&gt;<i> &gt; &gt;           Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+</I>&gt;<i> &gt; &gt;           Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; albercik:~ # ifconfig eth1
+</I>&gt;<i> &gt; &gt; eth1      Link encap:Ethernet  HWaddr 00:14:A5:BE:95:31
+</I>&gt;<i> &gt; &gt;           inet addr:192.168.100.101  Bcast:192.168.100.255  Mask:255.255.255.0
+</I>&gt;<i> &gt; &gt;           inet6 addr: fe80::214:a5ff:febe:9531/64 Scope:Link
+</I>&gt;<i> &gt; &gt;           UP BROADCAST MULTICAST  MTU:1500  Metric:1
+</I>&gt;<i> &gt; &gt;           RX packets:5137 errors:0 dropped:120 overruns:0 frame:0
+</I>&gt;<i> &gt; &gt;           TX packets:5703 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;<i> &gt; &gt;           collisions:0 txqueuelen:1000
+</I>&gt;<i> &gt; &gt;           RX bytes:4569090 (4.3 Mb)  TX bytes:156826797 (149.5 Mb)
+</I>&gt;<i> &gt; &gt;           Interrupt:18
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; albercik:~ # ifconfig eth1 down
+</I>&gt;<i> &gt; &gt; albercik:~ # ifconfig eth1 up
+</I>&gt;<i> &gt; &gt; SIOCSIFFLAGS: No such device
+</I>&gt;<i> &gt; 		^^^^^
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; I'd like to see dmesg, please.
+</I>&gt;<i> 
+</I>&gt;<i> Appended.  It covers one suspend-resume cycle (suspend to disk).  I have
+</I>&gt;<i> filtered HID-related messages out of it.
+</I>&gt;<i> 
+</I>&gt;<i> Greetings,
+</I>&gt;<i> Rafael
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> ton.000e = 0
+</I>&gt;<i> usb 3-1: usb auto-resume
+</I>&gt;<i> ohci_hcd 0000:00:13.1: GetStatus roothub.portstatus [0] = 0x00040103 PSSC PPS PES CCS
+</I>&gt;<i> usb 3-1: finish resume
+</I>&gt;<i> usb usb1: usb auto-resume
+</I>&gt;<i> usb usb1: finish resume
+</I>&gt;<i> hub 1-0:1.0: hub_resume
+</I>&gt;<i> ehci_hcd 0000:00:13.2: resume root hub
+</I>&gt;<i> hub 1-0:1.0: state 7 ports 8 chg 0000 evt 0000
+</I>&gt;<i> usb 3-1: usb auto-suspend
+</I>&gt;<i> hub 1-0:1.0: hub_suspend
+</I>&gt;<i> usb usb1: usb auto-suspend
+</I>&gt;<i> PM: Adding info for No Bus:vcs8
+</I>&gt;<i> PM: Adding info for No Bus:vcsa8
+</I>&gt;<i> SoftMAC: Scanning finished: scanned 14 channels starting with channel 1
+</I>&gt;<i> Stopping tasks ... done.
+</I>&gt;<i> Shrinking memory...  -\|/-\|/-\done (113015 pages freed)
+</I>&gt;<i> Freed 452060 kbytes in 1.44 seconds (313.93 MB/s)
+</I>&gt;<i> Suspending console(s)
+</I>&gt;<i> usbhid 3-4:1.0: freeze
+</I>&gt;<i> usb 3-4: freeze
+</I>&gt;<i> usbhid 3-4:1.0: suspend
+</I>&gt;<i> usb 3-4: usb suspend
+</I>&gt;<i>  usbdev3.18: PM: suspend 0-&gt;1, parent 3-1 already 2
+</I>&gt;<i>  usbdev3.18_ep02: PM: suspend 0-&gt;1, parent 3-1:1.0 already 2
+</I>&gt;<i>  usbdev3.18_ep81: PM: suspend 0-&gt;1, parent 3-1:1.0 already 2
+</I>&gt;<i> usb 3-1:1.0: PM: suspend 2--&gt;1
+</I>&gt;<i> usb 3-1:1.0: PM: suspend 2-&gt;1, parent 3-1 already 2
+</I>&gt;<i>  usbdev3.18_ep00: PM: suspend 0-&gt;1, parent 3-1 already 2
+</I>&gt;<i> usb 3-1: PM: suspend 2--&gt;1
+</I>&gt;<i> usb 2-2:1.3: freeze
+</I>&gt;<i> usb 2-2:1.2: freeze
+</I>&gt;<i> hci_usb 2-2:1.1: freeze
+</I>&gt;<i> hci_usb 2-2:1.0: freeze
+</I>&gt;<i> usb 2-2: freeze
+</I>&gt;<i> usb 2-2: usb suspend
+</I>&gt;<i> serio serio6: freeze
+</I>&gt;<i> platform bluetooth: freeze
+</I>&gt;<i> hub 3-0:1.0: freeze
+</I>&gt;<i> usb usb3: freeze
+</I>&gt;<i> hub 3-0:1.0: hub_suspend
+</I>&gt;<i> ohci_hcd 0000:00:13.1: suspend root hub
+</I>&gt;<i> usb usb3: usb suspend
+</I>&gt;<i> hub 2-0:1.0: freeze
+</I>&gt;<i> usb usb2: freeze
+</I>&gt;<i> hub 2-0:1.0: hub_suspend
+</I>&gt;<i> ohci_hcd 0000:00:13.0: suspend root hub
+</I>&gt;<i> usb usb2: usb suspend
+</I>&gt;<i>  usbdev1.1: PM: suspend 0-&gt;1, parent usb1 already 2
+</I>&gt;<i>  usbdev1.1_ep81: PM: suspend 0-&gt;1, parent 1-0:1.0 already 2
+</I>&gt;<i> hub 1-0:1.0: PM: suspend 2--&gt;1
+</I>&gt;<i> hub 1-0:1.0: PM: suspend 2-&gt;1, parent usb1 already 2
+</I>&gt;<i>  usbdev1.1_ep00: PM: suspend 0-&gt;1, parent usb1 already 2
+</I>&gt;<i> usb usb1: PM: suspend 2--&gt;1
+</I>&gt;<i> ide-cdrom 0.0: freeze
+</I>&gt;<i> psmouse serio4: freeze
+</I>&gt;<i> serio serio3: freeze
+</I>&gt;<i> serio serio2: freeze
+</I>&gt;<i> serio serio1: freeze
+</I>&gt;<i> atkbd serio0: freeze
+</I>&gt;<i> i8042 i8042: freeze
+</I>&gt;<i> sd 0:0:0:0: freeze
+</I>&gt;<i> serial8250 serial8250: freeze
+</I>&gt;<i> vesafb vesafb.0: freeze
+</I>&gt;<i> pci_express 0000:00:06.0:pcie03: freeze
+</I>&gt;<i> pci_express 0000:00:06.0:pcie01: freeze
+</I>&gt;<i> pci_express 0000:00:06.0:pcie00: freeze
+</I>&gt;<i> pci_express 0000:00:05.0:pcie03: freeze
+</I>&gt;<i> pci_express 0000:00:05.0:pcie01: freeze
+</I>&gt;<i> pci_express 0000:00:05.0:pcie00: freeze
+</I>&gt;<i> pci_express 0000:00:04.0:pcie03: freeze
+</I>&gt;<i> pci_express 0000:00:04.0:pcie01: freeze
+</I>&gt;<i> pci_express 0000:00:04.0:pcie00: freeze
+</I>&gt;<i> pcspkr pcspkr: freeze
+</I>&gt;<i> sdhci 0000:02:04.3: freeze
+</I>&gt;<i> ACPI: PCI interrupt for device 0000:02:04.3 disabled
+</I>&gt;<i> tifm_7xx1 0000:02:04.2: freeze
+</I>&gt;<i> ACPI: PCI interrupt for device 0000:02:04.2 disabled
+</I>&gt;<i> ohci1394 0000:02:04.1: freeze
+</I>&gt;<i> ohci1394 does not fully support suspend and resume yet
+</I>&gt;<i> ieee1394: hpsb_bus_reset called while bus reset already in progress
+</I>&gt;<i> yenta_cardbus 0000:02:04.0: freeze
+</I>&gt;<i> tg3 0000:02:01.0: freeze
+</I>&gt;<i> PM: Writing back config space on device 0000:02:01.0 at offset b (was 3ed173b, writing 30b0103c)
+</I>&gt;<i> PM: Writing back config space on device 0000:02:01.0 at offset 3 (was 0, writing 4010)
+</I>&gt;<i> PM: Writing back config space on device 0000:02:01.0 at offset 2 (was 2000000, writing 2000003)
+</I>&gt;<i> PM: Writing back config space on device 0000:02:01.0 at offset 1 (was 2b00000, writing 2b00006)
+</I>&gt;<i> PM: Writing back config space on device 0000:02:01.0 at offset 0 (was 3ed173b, writing 169c14e4)
+</I>&gt;<i> bcm43xx 0000:30:00.0: freeze
+</I>&gt;<i> bcm43xx: Suspending...
+</I>&gt;<i> PM: Removing info for No Bus:hw_random
+</I>&gt;<i> bcm43xx: Radio turned off
+</I>&gt;<i> bcm43xx: DMA-32 0x0200 (RX) max used slots: 3/64
+</I>&gt;<i> bcm43xx: DMA-32 0x02A0 (TX) max used slots: 0/512
+</I>&gt;<i> bcm43xx: DMA-32 0x0280 (TX) max used slots: 0/512
+</I>&gt;<i> bcm43xx: DMA-32 0x0260 (TX) max used slots: 0/512
+</I>&gt;<i> bcm43xx: DMA-32 0x0240 (TX) max used slots: 0/512
+</I>&gt;<i> bcm43xx: DMA-32 0x0220 (TX) max used slots: 3/512
+</I>&gt;<i> bcm43xx: DMA-32 0x0200 (TX) max used slots: 0/512
+</I>&gt;<i> ACPI: PCI interrupt for device 0000:30:00.0 disabled
+</I>&gt;<i> bcm43xx: Device suspended.
+</I>&gt;<i> pci 0000:01:05.0: freeze
+</I>&gt;<i> k8temp 0000:00:18.3: freeze
+</I>&gt;<i> pci 0000:00:18.2: freeze
+</I>&gt;<i> pci 0000:00:18.1: freeze
+</I>&gt;<i> pci 0000:00:18.0: freeze
+</I>&gt;<i> pci 0000:00:14.4: freeze
+</I>&gt;<i> pci 0000:00:14.3: freeze
+</I>&gt;<i> HDA Intel 0000:00:14.2: freeze
+</I>&gt;<i> ACPI: PCI interrupt for device 0000:00:14.2 disabled
+</I>&gt;<i> ATIIXP_IDE 0000:00:14.1: freeze
+</I>&gt;<i> piix4_smbus 0000:00:14.0: freeze
+</I>&gt;<i> ehci_hcd 0000:00:13.2: freeze
+</I>&gt;<i> ACPI: PCI interrupt for device 0000:00:13.2 disabled
+</I>&gt;<i> ehci_hcd 0000:00:13.2: --&gt; PCI D3
+</I>&gt;<i> ohci_hcd 0000:00:13.1: freeze
+</I>&gt;<i> ACPI: PCI interrupt for device 0000:00:13.1 disabled
+</I>&gt;<i> ohci_hcd 0000:00:13.1: --&gt; PCI D0/legacy
+</I>&gt;<i> ohci_hcd 0000:00:13.0: freeze
+</I>&gt;<i> ACPI: PCI interrupt for device 0000:00:13.0 disabled
+</I>&gt;<i> ohci_hcd 0000:00:13.0: --&gt; PCI D0/legacy
+</I>&gt;<i> sata_sil 0000:00:12.0: freeze
+</I>&gt;<i> pcieport-driver 0000:00:06.0: freeze
+</I>&gt;<i> pcieport-driver 0000:00:05.0: freeze
+</I>&gt;<i> pcieport-driver 0000:00:04.0: freeze
+</I>&gt;<i> pci 0000:00:01.0: freeze
+</I>&gt;<i> pci 0000:00:00.0: freeze
+</I>&gt;<i> ACPI Thermal Zone Driver thermal:03: freeze
+</I>&gt;<i> ACPI Thermal Zone Driver thermal:02: freeze
+</I>&gt;<i> ACPI Thermal Zone Driver thermal:01: freeze
+</I>&gt;<i> ACPI Fan Driver PNP0C0B:03: freeze
+</I>&gt;<i> ACPI Fan Driver PNP0C0B:02: freeze
+</I>&gt;<i> ACPI: Transitioning device [C351] to D0
+</I>&gt;<i> ACPI: Transitioning device [C351] to D0
+</I>&gt;<i> ACPI Fan Driver PNP0C0B:01: freeze
+</I>&gt;<i> ACPI: Transitioning device [C350] to D0
+</I>&gt;<i> ACPI: Transitioning device [C350] to D0
+</I>&gt;<i> ACPI Fan Driver PNP0C0B:00: freeze
+</I>&gt;<i> ACPI: Transitioning device [C34F] to D0
+</I>&gt;<i> ACPI: Transitioning device [C34F] to D0
+</I>&gt;<i> ACPI Power Resource Driver power_resource:06: freeze
+</I>&gt;<i> ACPI Power Resource Driver power_resource:05: freeze
+</I>&gt;<i> ACPI Power Resource Driver power_resource:04: freeze
+</I>&gt;<i> ACPI Power Resource Driver power_resource:03: freeze
+</I>&gt;<i> acpi thermal:00: freeze
+</I>&gt;<i> acpi PNP0C02:02: freeze
+</I>&gt;<i> acpi PNP0C14:00: freeze
+</I>&gt;<i> ACPI Button Driver PNP0C0D:00: freeze
+</I>&gt;<i> ACPI Button Driver PNP0C0E:00: freeze
+</I>&gt;<i> ACPI AC Adapter Driver ACPI0003:00: freeze
+</I>&gt;<i> ACPI Battery Driver PNP0C0A:01: freeze
+</I>&gt;<i> ACPI Battery Driver PNP0C0A:00: freeze
+</I>&gt;<i> acpi HPQ0006:00: freeze
+</I>&gt;<i> acpi PNP0C02:01: freeze
+</I>&gt;<i> acpi device:49: freeze
+</I>&gt;<i> acpi device:48: freeze
+</I>&gt;<i> acpi device:47: freeze
+</I>&gt;<i> acpi device:46: freeze
+</I>&gt;<i> acpi device:45: freeze
+</I>&gt;<i> acpi device:44: freeze
+</I>&gt;<i> acpi device:43: freeze
+</I>&gt;<i> acpi device:42: freeze
+</I>&gt;<i> acpi device:41: freeze
+</I>&gt;<i> acpi device:40: freeze
+</I>&gt;<i> acpi device:3f: freeze
+</I>&gt;<i> acpi device:3e: freeze
+</I>&gt;<i> acpi device:3d: freeze
+</I>&gt;<i> acpi device:3c: freeze
+</I>&gt;<i> acpi device:3b: freeze
+</I>&gt;<i> acpi device:3a: freeze
+</I>&gt;<i> acpi device:39: freeze
+</I>&gt;<i> acpi device:38: freeze
+</I>&gt;<i> acpi device:37: freeze
+</I>&gt;<i> acpi device:36: freeze
+</I>&gt;<i> acpi device:35: freeze
+</I>&gt;<i> acpi device:34: freeze
+</I>&gt;<i> acpi device:33: freeze
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:07: freeze
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:06: freeze
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:05: freeze
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:04: freeze
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:03: freeze
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:02: freeze
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:01: freeze
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:00: freeze
+</I>&gt;<i> acpi device:32: freeze
+</I>&gt;<i> acpi device:31: freeze
+</I>&gt;<i> acpi device:30: freeze
+</I>&gt;<i> acpi device:2f: freeze
+</I>&gt;<i> acpi device:2e: freeze
+</I>&gt;<i> acpi device:2d: freeze
+</I>&gt;<i> acpi device:2c: freeze
+</I>&gt;<i> acpi device:2b: freeze
+</I>&gt;<i> acpi device:2a: freeze
+</I>&gt;<i> acpi device:29: freeze
+</I>&gt;<i> acpi device:28: freeze
+</I>&gt;<i> acpi device:27: freeze
+</I>&gt;<i> acpi device:26: freeze
+</I>&gt;<i> acpi device:25: freeze
+</I>&gt;<i> acpi device:24: freeze
+</I>&gt;<i> acpi device:23: freeze
+</I>&gt;<i> acpi device:22: freeze
+</I>&gt;<i> acpi device:21: freeze
+</I>&gt;<i> acpi device:20: freeze
+</I>&gt;<i> acpi device:1f: freeze
+</I>&gt;<i> acpi device:1e: freeze
+</I>&gt;<i> acpi device:1d: freeze
+</I>&gt;<i> acpi device:1c: freeze
+</I>&gt;<i> acpi device:1b: freeze
+</I>&gt;<i> acpi device:1a: freeze
+</I>&gt;<i> acpi device:19: freeze
+</I>&gt;<i> acpi device:18: freeze
+</I>&gt;<i> acpi device:17: freeze
+</I>&gt;<i> acpi device:16: freeze
+</I>&gt;<i> acpi device:15: freeze
+</I>&gt;<i> acpi device:14: freeze
+</I>&gt;<i> acpi device:13: freeze
+</I>&gt;<i> acpi device:12: freeze
+</I>&gt;<i> acpi device:11: freeze
+</I>&gt;<i> acpi device:10: freeze
+</I>&gt;<i> acpi PNP0C02:00: freeze
+</I>&gt;<i> acpi PNP0000:00: freeze
+</I>&gt;<i> ACPI Power Resource Driver power_resource:02: freeze
+</I>&gt;<i> acpi SYN0118:00: freeze
+</I>&gt;<i> acpi PNP0303:00: freeze
+</I>&gt;<i> acpi PNP0B00:00: freeze
+</I>&gt;<i> acpi PNP0800:00: freeze
+</I>&gt;<i> acpi PNP0200:00: freeze
+</I>&gt;<i> acpi PNP0100:00: freeze
+</I>&gt;<i> acpi PNP0C04:00: freeze
+</I>&gt;<i> acpi IFX0102:00: freeze
+</I>&gt;<i> ACPI Power Resource Driver power_resource:01: freeze
+</I>&gt;<i> acpi PNP0401:00: freeze
+</I>&gt;<i> ACPI container driver PNP0A06:00: freeze
+</I>&gt;<i> ACPI Embedded Controller Driver PNP0C09:00: freeze
+</I>&gt;<i> acpi device:0f: freeze
+</I>&gt;<i> acpi device:0e: freeze
+</I>&gt;<i> ACPI Power Resource Driver power_resource:00: freeze
+</I>&gt;<i> acpi device:0d: freeze
+</I>&gt;<i> acpi device:0c: freeze
+</I>&gt;<i> acpi device:0b: freeze
+</I>&gt;<i> acpi device:0a: freeze
+</I>&gt;<i> acpi device:09: freeze
+</I>&gt;<i> acpi device:08: freeze
+</I>&gt;<i> acpi device:07: freeze
+</I>&gt;<i> acpi device:06: freeze
+</I>&gt;<i> acpi device:05: freeze
+</I>&gt;<i> acpi device:04: freeze
+</I>&gt;<i> acpi device:03: freeze
+</I>&gt;<i> acpi device:02: freeze
+</I>&gt;<i> acpi video:00: freeze
+</I>&gt;<i> acpi device:01: freeze
+</I>&gt;<i> ACPI PCI Root Bridge Driver PNP0A03:00: freeze
+</I>&gt;<i> acpi PNP0C01:00: freeze
+</I>&gt;<i> acpi device:00: freeze
+</I>&gt;<i> ACPI Processor Driver ACPI0007:01: freeze
+</I>&gt;<i> ACPI Processor Driver ACPI0007:00: freeze
+</I>&gt;<i> ACPI Button Driver button_power:00: freeze
+</I>&gt;<i> acpi acpi_system:00: freeze
+</I>&gt;<i> Disabling non-boot CPUs ...
+</I>&gt;<i> CPU 1 is now offline
+</I>&gt;<i> SMP alternatives: switching to UP code
+</I>&gt;<i> CPU1 is down
+</I>&gt;<i> platform bluetooth: LATE freeze
+</I>&gt;<i> i8042 i8042: LATE freeze
+</I>&gt;<i> serial8250 serial8250: LATE freeze
+</I>&gt;<i> vesafb vesafb.0: LATE freeze
+</I>&gt;<i> pcspkr pcspkr: LATE freeze
+</I>&gt;<i> sdhci 0000:02:04.3: LATE freeze
+</I>&gt;<i> tifm_7xx1 0000:02:04.2: LATE freeze
+</I>&gt;<i> ohci1394 0000:02:04.1: LATE freeze
+</I>&gt;<i> yenta_cardbus 0000:02:04.0: LATE freeze
+</I>&gt;<i> tg3 0000:02:01.0: LATE freeze
+</I>&gt;<i> bcm43xx 0000:30:00.0: LATE freeze
+</I>&gt;<i> pci 0000:01:05.0: LATE freeze
+</I>&gt;<i> k8temp 0000:00:18.3: LATE freeze
+</I>&gt;<i> pci 0000:00:18.2: LATE freeze
+</I>&gt;<i> pci 0000:00:18.1: LATE freeze
+</I>&gt;<i> pci 0000:00:18.0: LATE freeze
+</I>&gt;<i> pci 0000:00:14.4: LATE freeze
+</I>&gt;<i> pci 0000:00:14.3: LATE freeze
+</I>&gt;<i> HDA Intel 0000:00:14.2: LATE freeze
+</I>&gt;<i> ATIIXP_IDE 0000:00:14.1: LATE freeze
+</I>&gt;<i> piix4_smbus 0000:00:14.0: LATE freeze
+</I>&gt;<i> pcieport-driver 0000:00:06.0: LATE freeze
+</I>&gt;<i> pcieport-driver 0000:00:05.0: LATE freeze
+</I>&gt;<i> pcieport-driver 0000:00:04.0: LATE freeze
+</I>&gt;<i> pci 0000:00:01.0: LATE freeze
+</I>&gt;<i> pci 0000:00:00.0: LATE freeze
+</I>&gt;<i> Extended CMOS year: 2000
+</I>&gt;<i> swsusp: critical section: 
+</I>&gt;<i> swsusp: Need to copy 95157 pages
+</I>&gt;<i> swsusp: Normal pages needed: 95157 + 1024 + 20, available pages: 134073
+</I>&gt;<i> Extended CMOS year: 2000
+</I>&gt;<i> pci 0000:00:00.0: EARLY resume
+</I>&gt;<i> pci 0000:00:01.0: EARLY resume
+</I>&gt;<i> pcieport-driver 0000:00:04.0: EARLY resume
+</I>&gt;<i> pcieport-driver 0000:00:05.0: EARLY resume
+</I>&gt;<i> pcieport-driver 0000:00:06.0: EARLY resume
+</I>&gt;<i> sata_sil 0000:00:12.0: EARLY resume
+</I>&gt;<i> ohci_hcd 0000:00:13.0: EARLY resume
+</I>&gt;<i> ohci_hcd 0000:00:13.1: EARLY resume
+</I>&gt;<i> ehci_hcd 0000:00:13.2: EARLY resume
+</I>&gt;<i> piix4_smbus 0000:00:14.0: EARLY resume
+</I>&gt;<i> ATIIXP_IDE 0000:00:14.1: EARLY resume
+</I>&gt;<i> HDA Intel 0000:00:14.2: EARLY resume
+</I>&gt;<i> pci 0000:00:14.3: EARLY resume
+</I>&gt;<i> pci 0000:00:14.4: EARLY resume
+</I>&gt;<i> pci 0000:00:18.0: EARLY resume
+</I>&gt;<i> pci 0000:00:18.1: EARLY resume
+</I>&gt;<i> pci 0000:00:18.2: EARLY resume
+</I>&gt;<i> k8temp 0000:00:18.3: EARLY resume
+</I>&gt;<i> pci 0000:01:05.0: EARLY resume
+</I>&gt;<i> bcm43xx 0000:30:00.0: EARLY resume
+</I>&gt;<i> tg3 0000:02:01.0: EARLY resume
+</I>&gt;<i> yenta_cardbus 0000:02:04.0: EARLY resume
+</I>&gt;<i> ohci1394 0000:02:04.1: EARLY resume
+</I>&gt;<i> tifm_7xx1 0000:02:04.2: EARLY resume
+</I>&gt;<i> sdhci 0000:02:04.3: EARLY resume
+</I>&gt;<i> pcspkr pcspkr: EARLY resume
+</I>&gt;<i> vesafb vesafb.0: EARLY resume
+</I>&gt;<i> serial8250 serial8250: EARLY resume
+</I>&gt;<i> i8042 i8042: EARLY resume
+</I>&gt;<i> platform bluetooth: EARLY resume
+</I>&gt;<i> Enabling non-boot CPUs ...
+</I>&gt;<i> SMP alternatives: switching to SMP code
+</I>&gt;<i> Booting processor 1/2 APIC 0x1
+</I>&gt;<i> Initializing CPU#1
+</I>&gt;<i> Calibrating delay using timer specific routine.. 3990.23 BogoMIPS (lpj=7980462)
+</I>&gt;<i> CPU: L1 I Cache: 64K (64 bytes/line), D cache 64K (64 bytes/line)
+</I>&gt;<i> CPU: L2 Cache: 512K (64 bytes/line)
+</I>&gt;<i> CPU: Physical Processor ID: 0
+</I>&gt;<i> CPU: Processor Core ID: 1
+</I>&gt;<i> AMD Turion(tm) 64 X2 Mobile Technology TL-60 stepping 02
+</I>&gt;<i> CPU 1: Syncing TSC to CPU 0.
+</I>&gt;<i> CPU 1: synchronized TSC with CPU 0 (last diff 0 cycles, maxerr 510 cycles)
+</I>&gt;<i> powernow-k8:    0 : fid 0xc (2000 MHz), vid 0x13
+</I>&gt;<i> powernow-k8:    1 : fid 0xa (1800 MHz), vid 0x15
+</I>&gt;<i> powernow-k8:    2 : fid 0x8 (1600 MHz), vid 0x17
+</I>&gt;<i> powernow-k8:    3 : fid 0x0 (800 MHz), vid 0x1e
+</I>&gt;<i> CPU1 is up
+</I>&gt;<i> acpi acpi_system:00: resuming
+</I>&gt;<i> ACPI Button Driver button_power:00: resuming
+</I>&gt;<i> ACPI Processor Driver ACPI0007:00: resuming
+</I>&gt;<i> ACPI Processor Driver ACPI0007:01: resuming
+</I>&gt;<i> acpi device:00: resuming
+</I>&gt;<i> acpi PNP0C01:00: resuming
+</I>&gt;<i> ACPI PCI Root Bridge Driver PNP0A03:00: resuming
+</I>&gt;<i> acpi device:01: resuming
+</I>&gt;<i> acpi video:00: resuming
+</I>&gt;<i> acpi device:02: resuming
+</I>&gt;<i> acpi device:03: resuming
+</I>&gt;<i> acpi device:04: resuming
+</I>&gt;<i> acpi device:05: resuming
+</I>&gt;<i> acpi device:06: resuming
+</I>&gt;<i> acpi device:07: resuming
+</I>&gt;<i> acpi device:08: resuming
+</I>&gt;<i> acpi device:09: resuming
+</I>&gt;<i> acpi device:0a: resuming
+</I>&gt;<i> acpi device:0b: resuming
+</I>&gt;<i> acpi device:0c: resuming
+</I>&gt;<i> acpi device:0d: resuming
+</I>&gt;<i> ACPI Power Resource Driver power_resource:00: resuming
+</I>&gt;<i> acpi device:0e: resuming
+</I>&gt;<i> acpi device:0f: resuming
+</I>&gt;<i> ACPI Embedded Controller Driver PNP0C09:00: resuming
+</I>&gt;<i> ACPI container driver PNP0A06:00: resuming
+</I>&gt;<i> acpi PNP0401:00: resuming
+</I>&gt;<i> ACPI Power Resource Driver power_resource:01: resuming
+</I>&gt;<i> acpi IFX0102:00: resuming
+</I>&gt;<i> acpi PNP0C04:00: resuming
+</I>&gt;<i> acpi PNP0100:00: resuming
+</I>&gt;<i> acpi PNP0200:00: resuming
+</I>&gt;<i> acpi PNP0800:00: resuming
+</I>&gt;<i> acpi PNP0B00:00: resuming
+</I>&gt;<i> acpi PNP0303:00: resuming
+</I>&gt;<i> acpi SYN0118:00: resuming
+</I>&gt;<i> ACPI Power Resource Driver power_resource:02: resuming
+</I>&gt;<i> acpi PNP0000:00: resuming
+</I>&gt;<i> acpi PNP0C02:00: resuming
+</I>&gt;<i> acpi device:10: resuming
+</I>&gt;<i> acpi device:11: resuming
+</I>&gt;<i> acpi device:12: resuming
+</I>&gt;<i> acpi device:13: resuming
+</I>&gt;<i> acpi device:14: resuming
+</I>&gt;<i> acpi device:15: resuming
+</I>&gt;<i> acpi device:16: resuming
+</I>&gt;<i> acpi device:17: resuming
+</I>&gt;<i> acpi device:18: resuming
+</I>&gt;<i> acpi device:19: resuming
+</I>&gt;<i> acpi device:1a: resuming
+</I>&gt;<i> acpi device:1b: resuming
+</I>&gt;<i> acpi device:1c: resuming
+</I>&gt;<i> acpi device:1d: resuming
+</I>&gt;<i> acpi device:1e: resuming
+</I>&gt;<i> acpi device:1f: resuming
+</I>&gt;<i> acpi device:20: resuming
+</I>&gt;<i> acpi device:21: resuming
+</I>&gt;<i> acpi device:22: resuming
+</I>&gt;<i> acpi device:23: resuming
+</I>&gt;<i> acpi device:24: resuming
+</I>&gt;<i> acpi device:25: resuming
+</I>&gt;<i> acpi device:26: resuming
+</I>&gt;<i> acpi device:27: resuming
+</I>&gt;<i> acpi device:28: resuming
+</I>&gt;<i> acpi device:29: resuming
+</I>&gt;<i> acpi device:2a: resuming
+</I>&gt;<i> acpi device:2b: resuming
+</I>&gt;<i> acpi device:2c: resuming
+</I>&gt;<i> acpi device:2d: resuming
+</I>&gt;<i> acpi device:2e: resuming
+</I>&gt;<i> acpi device:2f: resuming
+</I>&gt;<i> acpi device:30: resuming
+</I>&gt;<i> acpi device:31: resuming
+</I>&gt;<i> acpi device:32: resuming
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:00: resuming
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:01: resuming
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:02: resuming
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:03: resuming
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:04: resuming
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:05: resuming
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:06: resuming
+</I>&gt;<i> ACPI PCI Interrupt Link Driver PNP0C0F:07: resuming
+</I>&gt;<i> acpi device:33: resuming
+</I>&gt;<i> acpi device:34: resuming
+</I>&gt;<i> acpi device:35: resuming
+</I>&gt;<i> acpi device:36: resuming
+</I>&gt;<i> acpi device:37: resuming
+</I>&gt;<i> acpi device:38: resuming
+</I>&gt;<i> acpi device:39: resuming
+</I>&gt;<i> acpi device:3a: resuming
+</I>&gt;<i> acpi device:3b: resuming
+</I>&gt;<i> acpi device:3c: resuming
+</I>&gt;<i> acpi device:3d: resuming
+</I>&gt;<i> acpi device:3e: resuming
+</I>&gt;<i> acpi device:3f: resuming
+</I>&gt;<i> acpi device:40: resuming
+</I>&gt;<i> acpi device:41: resuming
+</I>&gt;<i> acpi device:42: resuming
+</I>&gt;<i> acpi device:43: resuming
+</I>&gt;<i> acpi device:44: resuming
+</I>&gt;<i> acpi device:45: resuming
+</I>&gt;<i> acpi device:46: resuming
+</I>&gt;<i> acpi device:47: resuming
+</I>&gt;<i> acpi device:48: resuming
+</I>&gt;<i> acpi device:49: resuming
+</I>&gt;<i> acpi PNP0C02:01: resuming
+</I>&gt;<i> acpi HPQ0006:00: resuming
+</I>&gt;<i> ACPI Battery Driver PNP0C0A:00: resuming
+</I>&gt;<i> ACPI Battery Driver PNP0C0A:01: resuming
+</I>&gt;<i> ACPI AC Adapter Driver ACPI0003:00: resuming
+</I>&gt;<i> ACPI Button Driver PNP0C0E:00: resuming
+</I>&gt;<i> ACPI Button Driver PNP0C0D:00: resuming
+</I>&gt;<i> acpi PNP0C14:00: resuming
+</I>&gt;<i> acpi PNP0C02:02: resuming
+</I>&gt;<i> acpi thermal:00: resuming
+</I>&gt;<i> ACPI Power Resource Driver power_resource:03: resuming
+</I>&gt;<i> ACPI Power Resource Driver power_resource:04: resuming
+</I>&gt;<i> ACPI Power Resource Driver power_resource:05: resuming
+</I>&gt;<i> ACPI Power Resource Driver power_resource:06: resuming
+</I>&gt;<i> ACPI Fan Driver PNP0C0B:00: resuming
+</I>&gt;<i> ACPI: Transitioning device [C34F] to D0
+</I>&gt;<i> ACPI: Transitioning device [C34F] to D0
+</I>&gt;<i> ACPI Fan Driver PNP0C0B:01: resuming
+</I>&gt;<i> ACPI: Transitioning device [C350] to D0
+</I>&gt;<i> ACPI: Transitioning device [C350] to D0
+</I>&gt;<i> ACPI Fan Driver PNP0C0B:02: resuming
+</I>&gt;<i> ACPI: Transitioning device [C351] to D0
+</I>&gt;<i> ACPI: Transitioning device [C351] to D0
+</I>&gt;<i> ACPI Fan Driver PNP0C0B:03: resuming
+</I>&gt;<i> ACPI Thermal Zone Driver thermal:01: resuming
+</I>&gt;<i> ACPI Thermal Zone Driver thermal:02: resuming
+</I>&gt;<i> ACPI Thermal Zone Driver thermal:03: resuming
+</I>&gt;<i> pci 0000:00:00.0: resuming
+</I>&gt;<i> pci 0000:00:01.0: resuming
+</I>&gt;<i> pcieport-driver 0000:00:04.0: resuming
+</I>&gt;<i> PCI: Setting latency timer of device 0000:00:04.0 to 64
+</I>&gt;<i> pcieport-driver 0000:00:05.0: resuming
+</I>&gt;<i> PCI: Setting latency timer of device 0000:00:05.0 to 64
+</I>&gt;<i> pcieport-driver 0000:00:06.0: resuming
+</I>&gt;<i> PCI: Setting latency timer of device 0000:00:06.0 to 64
+</I>&gt;<i> sata_sil 0000:00:12.0: resuming
+</I>&gt;<i> ohci_hcd 0000:00:13.0: resuming
+</I>&gt;<i> ohci_hcd 0000:00:13.0: PCI legacy resume
+</I>&gt;<i> ACPI: PCI Interrupt 0000:00:13.0[A] -&gt; GSI 19 (level, low) -&gt; IRQ 19
+</I>&gt;<i> ohci_hcd 0000:00:13.1: resuming
+</I>&gt;<i> ohci_hcd 0000:00:13.1: PCI legacy resume
+</I>&gt;<i> ACPI: PCI Interrupt 0000:00:13.1[A] -&gt; GSI 19 (level, low) -&gt; IRQ 19
+</I>&gt;<i> ehci_hcd 0000:00:13.2: resuming
+</I>&gt;<i> ehci_hcd 0000:00:13.2: PCI D0, from previous PCI D3
+</I>&gt;<i> ACPI: PCI Interrupt 0000:00:13.2[A] -&gt; GSI 19 (level, low) -&gt; IRQ 19
+</I>&gt;<i> PM: Writing back config space on device 0000:00:13.2 at offset 1 (was 2b00007, writing 2b00017)
+</I>&gt;<i> ehci_hcd 0000:00:13.2: lost power, restarting
+</I>&gt;<i> usb usb1: root hub lost power or was reset
+</I>&gt;<i> ehci_hcd 0000:00:13.2: reset command 080002 (park)=0 ithresh=8 period=1024 Reset HALT
+</I>&gt;<i> ehci_hcd 0000:00:13.2: MWI active
+</I>&gt;<i> piix4_smbus 0000:00:14.0: resuming
+</I>&gt;<i> ATIIXP_IDE 0000:00:14.1: resuming
+</I>&gt;<i> ACPI: PCI Interrupt 0000:00:14.1[A] -&gt; GSI 16 (level, low) -&gt; IRQ 16
+</I>&gt;<i> HDA Intel 0000:00:14.2: resuming
+</I>&gt;<i> PM: Writing back config space on device 0000:00:14.2 at offset f (was 10a, writing a)
+</I>&gt;<i> PM: Writing back config space on device 0000:00:14.2 at offset 1 (was 4100006, writing 4100002)
+</I>&gt;<i> ACPI: PCI Interrupt 0000:00:14.2[A] -&gt; GSI 16 (level, low) -&gt; IRQ 16
+</I>&gt;<i> pci 0000:00:14.3: resuming
+</I>&gt;<i> pci 0000:00:14.4: resuming
+</I>&gt;<i> PM: Writing back config space on device 0000:00:14.4 at offset 6 (was 40030200, writing 40060200)
+</I>&gt;<i> pci 0000:00:18.0: resuming
+</I>&gt;<i> pci 0000:00:18.1: resuming
+</I>&gt;<i> pci 0000:00:18.2: resuming
+</I>&gt;<i> k8temp 0000:00:18.3: resuming
+</I>&gt;<i> pci 0000:01:05.0: resuming
+</I>&gt;<i> bcm43xx 0000:30:00.0: resuming
+</I>&gt;<i> bcm43xx: Resuming...
+</I>&gt;<i> ACPI: PCI Interrupt 0000:30:00.0[A] -&gt; GSI 18 (level, low) -&gt; IRQ 18
+</I>&gt;<i> bcm43xx: PHY connected
+</I>&gt;<i> bcm43xx: Microcode rev 0x127, pl 0xe (2005-04-18  02:36:27)
+</I>&gt;<i> bcm43xx: Radio turned on
+</I>&gt;<i> bcm43xx: Radio enabled by hardware
+</I>&gt;<i> ata2: SATA link down (SStatus 0 SControl 300)
+</I>&gt;<i> bcm43xx: Chip initialized
+</I>&gt;<i> bcm43xx: 32-bit DMA initialized
+</I>&gt;<i> bcm43xx: Keys cleared
+</I>&gt;<i> bcm43xx: Selected 802.11 core (phytype 2)
+</I>&gt;<i> PM: Adding info for No Bus:hw_random
+</I>&gt;<i> bcm43xx: Device resumed.
+</I>&gt;<i> tg3 0000:02:01.0: resuming
+</I>&gt;<i> PM: Writing back config space on device 0000:02:01.0 at offset b (was 3ed173b, writing 30b0103c)
+</I>&gt;<i> PM: Writing back config space on device 0000:02:01.0 at offset 3 (was 0, writing 4010)
+</I>&gt;<i> PM: Writing back config space on device 0000:02:01.0 at offset 2 (was 2000000, writing 2000003)
+</I>&gt;<i> PM: Writing back config space on device 0000:02:01.0 at offset 1 (was 2b00000, writing 2b00006)
+</I>&gt;<i> PM: Writing back config space on device 0000:02:01.0 at offset 0 (was 3ed173b, writing 169c14e4)
+</I>&gt;<i> SoftMAC: Associate: Scanning for networks first.
+</I>&gt;<i> yenta_cardbus 0000:02:04.0: resuming
+</I>&gt;<i> PM: Writing back config space on device 0000:02:04.0 at offset f (was 3c4010a, writing 5c0010a)
+</I>&gt;<i> PM: Writing back config space on device 0000:02:04.0 at offset 3 (was 824010, writing 82a810)
+</I>&gt;<i> ohci1394 0000:02:04.1: resuming
+</I>&gt;<i> ohci1394: fw-host0: OHCI-1394 1.1 (PCI): IRQ=[20]  MMIO=[d4011000-d40117ff]  Max Packet=[2048]  IR/IT contexts=[4/8]
+</I>&gt;<i> tifm_7xx1 0000:02:04.2: resuming
+</I>&gt;<i> ACPI: PCI Interrupt 0000:02:04.2[A] -&gt; GSI 20 (level, low) -&gt; IRQ 20
+</I>&gt;<i> sdhci 0000:02:04.3: resuming
+</I>&gt;<i> ACPI: PCI Interrupt 0000:02:04.3[A] -&gt; GSI 20 (level, low) -&gt; IRQ 20
+</I>&gt;<i> pcspkr pcspkr: resuming
+</I>&gt;<i> pci_express 0000:00:04.0:pcie00: resuming
+</I>&gt;<i> pci_express 0000:00:04.0:pcie01: resuming
+</I>&gt;<i> pci_express 0000:00:04.0:pcie03: resuming
+</I>&gt;<i> pci_express 0000:00:05.0:pcie00: resuming
+</I>&gt;<i> pci_express 0000:00:05.0:pcie01: resuming
+</I>&gt;<i> pci_express 0000:00:05.0:pcie03: resuming
+</I>&gt;<i> pci_express 0000:00:06.0:pcie00: resuming
+</I>&gt;<i> pci_express 0000:00:06.0:pcie01: resuming
+</I>&gt;<i> pci_express 0000:00:06.0:pcie03: resuming
+</I>&gt;<i> vesafb vesafb.0: resuming
+</I>&gt;<i> serial8250 serial8250: resuming
+</I>&gt;<i> sd 0:0:0:0: resuming
+</I>&gt;<i> i8042 i8042: resuming
+</I>&gt;<i> atkbd serio0: resuming
+</I>&gt;<i> serio serio1: resuming
+</I>&gt;<i> serio serio2: resuming
+</I>&gt;<i> serio serio3: resuming
+</I>&gt;<i> psmouse serio4: resuming
+</I>&gt;<i> synaptics reset failed
+</I>&gt;<i> synaptics reset failed
+</I>&gt;<i> synaptics reset failed
+</I>&gt;<i> SoftMAC: Scanning finished: scanned 14 channels starting with channel 1
+</I>&gt;<i> ide-cdrom 0.0: resuming
+</I>&gt;<i> usb usb1: resuming
+</I>&gt;<i> usb usb1: usb resume
+</I>&gt;<i> usb usb1: finish resume
+</I>&gt;<i> hub 1-0:1.0: hub_resume
+</I>&gt;<i> ehci_hcd 0000:00:13.2: resume root hub after power loss
+</I>&gt;<i> usb usb2: resuming
+</I>&gt;<i> usb usb2: usb resume
+</I>&gt;<i> usb usb2: finish resume
+</I>&gt;<i> hub 2-0:1.0: hub_resume
+</I>&gt;<i> ohci_hcd 0000:00:13.0: BIOS/SMM active, control 008
+</I>&gt;<i> usb usb2: root hub lost power or was reset
+</I>&gt;<i> ohci_hcd 0000:00:13.0: resetting from state 'reset', control = 0x8
+</I>&gt;<i> ohci_hcd 0000:00:13.0: OHCI controller state
+</I>&gt;<i> ohci_hcd 0000:00:13.0: OHCI 1.0, NO legacy support registers
+</I>&gt;<i> ohci_hcd 0000:00:13.0: control 0x083 HCFS=operational CBSR=3
+</I>&gt;<i> ohci_hcd 0000:00:13.0: cmdstatus 0x00000 SOC=0
+</I>&gt;<i> ohci_hcd 0000:00:13.0: intrstatus 0x00000004 SF
+</I>&gt;<i> ohci_hcd 0000:00:13.0: intrenable 0x8000005a MIE RHSC UE RD WDH
+</I>&gt;<i> ohci_hcd 0000:00:13.0: hcca frame #0005
+</I>&gt;<i> ohci_hcd 0000:00:13.0: roothub.a 02000204 POTPGT=2 NPS NDP=4(4)
+</I>&gt;<i> ohci_hcd 0000:00:13.0: roothub.b 00000000 PPCM=0000 DR=0000
+</I>&gt;<i> ohci_hcd 0000:00:13.0: roothub.status 00008000 DRWE
+</I>&gt;<i> ohci_hcd 0000:00:13.0: roothub.portstatus [0] 0x00000100 PPS
+</I>&gt;<i> ohci_hcd 0000:00:13.0: roothub.portstatus [1] 0x00010100 CSC PPS
+</I>&gt;<i> ohci_hcd 0000:00:13.0: roothub.portstatus [2] 0x00000100 PPS
+</I>&gt;<i> ohci_hcd 0000:00:13.0: roothub.portstatus [3] 0x00000100 PPS
+</I>&gt;<i> ohci_hcd 0000:00:13.0: restart complete
+</I>&gt;<i> hub 2-0:1.0: resuming
+</I>&gt;<i> usb usb3: resuming
+</I>&gt;<i> usb usb3: usb resume
+</I>&gt;<i> usb usb3: finish resume
+</I>&gt;<i> hub 3-0:1.0: hub_resume
+</I>&gt;<i> ohci_hcd 0000:00:13.1: BIOS/SMM active, control 008
+</I>&gt;<i> usb usb3: root hub lost power or was reset
+</I>&gt;<i> ohci_hcd 0000:00:13.1: resetting from state 'reset', control = 0x8
+</I>&gt;<i> ohci_hcd 0000:00:13.1: OHCI controller state
+</I>&gt;<i> ohci_hcd 0000:00:13.1: OHCI 1.0, NO legacy support registers
+</I>&gt;<i> ohci_hcd 0000:00:13.1: control 0x083 HCFS=operational CBSR=3
+</I>&gt;<i> ohci_hcd 0000:00:13.1: cmdstatus 0x00000 SOC=0
+</I>&gt;<i> ohci_hcd 0000:00:13.1: intrstatus 0x00000004 SF
+</I>&gt;<i> ohci_hcd 0000:00:13.1: intrenable 0x8000005a MIE RHSC UE RD WDH
+</I>&gt;<i> ohci_hcd 0000:00:13.1: hcca frame #0005
+</I>&gt;<i> ohci_hcd 0000:00:13.1: roothub.a 02000204 POTPGT=2 NPS NDP=4(4)
+</I>&gt;<i> ohci_hcd 0000:00:13.1: roothub.b 00000000 PPCM=0000 DR=0000
+</I>&gt;<i> ohci_hcd 0000:00:13.1: roothub.status 00008000 DRWE
+</I>&gt;<i> ohci_hcd 0000:00:13.1: roothub.portstatus [0] 0x00010100 CSC PPS
+</I>&gt;<i> ohci_hcd 0000:00:13.1: roothub.portstatus [1] 0x00000100 PPS
+</I>&gt;<i> ohci_hcd 0000:00:13.1: roothub.portstatus [2] 0x00000100 PPS
+</I>&gt;<i> ohci_hcd 0000:00:13.1: roothub.portstatus [3] 0x00010100 CSC PPS
+</I>&gt;<i> ohci_hcd 0000:00:13.1: restart complete
+</I>&gt;<i> hub 3-0:1.0: resuming
+</I>&gt;<i> platform bluetooth: resuming
+</I>&gt;<i> serio serio6: resuming
+</I>&gt;<i> usb 2-2: resuming
+</I>&gt;<i>  usbdev2.10_ep00: PM: resume from 0, parent 2-2 still 1
+</I>&gt;<i> hci_usb 2-2:1.0: PM: resume from 1, parent 2-2 still 1
+</I>&gt;<i> hci_usb 2-2:1.0: resuming
+</I>&gt;<i>  hci0: PM: resume from 0, parent 2-2:1.0 still 1
+</I>&gt;<i>  usbdev2.10_ep81: PM: resume from 0, parent 2-2:1.0 still 1
+</I>&gt;<i>  usbdev2.10_ep82: PM: resume from 0, parent 2-2:1.0 still 1
+</I>&gt;<i>  usbdev2.10_ep02: PM: resume from 0, parent 2-2:1.0 still 1
+</I>&gt;<i> hci_usb 2-2:1.1: PM: resume from 1, parent 2-2 still 1
+</I>&gt;<i> hci_usb 2-2:1.1: resuming
+</I>&gt;<i>  usbdev2.10_ep83: PM: resume from 0, parent 2-2:1.1 still 1
+</I>&gt;<i>  usbdev2.10_ep03: PM: resume from 0, parent 2-2:1.1 still 1
+</I>&gt;<i> usb 2-2:1.2: PM: resume from 1, parent 2-2 still 1
+</I>&gt;<i> usb 2-2:1.2: resuming
+</I>&gt;<i>  usbdev2.10_ep84: PM: resume from 0, parent 2-2:1.2 still 1
+</I>&gt;<i>  usbdev2.10_ep04: PM: resume from 0, parent 2-2:1.2 still 1
+</I>&gt;<i> usb 2-2:1.3: PM: resume from 1, parent 2-2 still 1
+</I>&gt;<i> usb 2-2:1.3: resuming
+</I>&gt;<i>  usbdev2.10: PM: resume from 0, parent 2-2 still 1
+</I>&gt;<i>  usbdev3.18_ep00: PM: resume from 0, parent 3-1 still 2
+</I>&gt;<i>  usbdev3.18_ep81: PM: resume from 0, parent 3-1:1.0 still 2
+</I>&gt;<i>  usbdev3.18_ep02: PM: resume from 0, parent 3-1:1.0 still 2
+</I>&gt;<i>  usbdev3.18: PM: resume from 0, parent 3-1 still 2
+</I>&gt;<i> usb 3-4: resuming
+</I>&gt;<i>  usbdev3.19_ep00: PM: resume from 0, parent 3-4 still 1
+</I>&gt;<i> usbhid 3-4:1.0: PM: resume from 1, parent 3-4 still 1
+</I>&gt;<i> usbhid 3-4:1.0: resuming
+</I>&gt;<i>  usbdev3.19_ep81: PM: resume from 0, parent 3-4:1.0 still 1
+</I>&gt;<i>  usbdev3.19: PM: resume from 0, parent 3-4 still 1
+</I>&gt;<i> Restarting tasks ... &lt;7&gt;hub 2-0:1.0: state 7 ports 4 chg 0004 evt 001e
+</I>&gt;<i> ohci_hcd 0000:00:13.0: GetStatus roothub.portstatus [0] = 0x00010100 CSC PPS
+</I>&gt;<i> hub 2-0:1.0: port 1, status 0100, change 0001, 12 Mb/s
+</I>&gt;<i> done.
+</I>&gt;<i> PM: Removing info for No Bus:vcs8
+</I>&gt;<i> PM: Removing info for No Bus:vcsa8
+</I>&gt;<i> ata1: SATA link up 1.5 Gbps (SStatus 113 SControl 300)
+</I>&gt;<i> ata1.00: configured for UDMA/100
+</I>&gt;<i> SCSI device sda: 156301488 512-byte hdwr sectors (80026 MB)
+</I>&gt;<i> sda: Write Protect is off
+</I>&gt;<i> sda: Mode Sense: 00 3a 00 00
+</I>&gt;<i> SCSI device sda: write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+</I>&gt;<i> hub 2-0:1.0: debounce: port 1: total 100ms stable 100ms status 0x100
+</I>&gt;<i> ohci_hcd 0000:00:13.0: GetStatus roothub.portstatus [1] = 0x00010100 CSC PPS
+</I>&gt;<i> hub 2-0:1.0: port 2, status 0100, change 0001, 12 Mb/s
+</I>&gt;<i> usb 2-2: USB disconnect, address 10
+</I>&gt;<i> usb 2-2: unregistering device
+</I>&gt;<i> usb 2-2: usb_disable_device nuking all URBs
+</I>&gt;<i> usb 2-2: unregistering interface 2-2:1.0
+</I>&gt;<i> PM: Removing info for No Bus:usbdev2.10_ep81
+</I>&gt;<i>  usbdev2.10_ep81: ep_device_release called for usbdev2.10_ep81
+</I>&gt;<i> PM: Removing info for No Bus:usbdev2.10_ep82
+</I>&gt;<i>  usbdev2.10_ep82: ep_device_release called for usbdev2.10_ep82
+</I>&gt;<i> PM: Removing info for No Bus:usbdev2.10_ep02
+</I>&gt;<i>  usbdev2.10_ep02: ep_device_release called for usbdev2.10_ep02
+</I>&gt;<i> PM: Removing info for No Bus:hci0
+</I>&gt;<i> PM: Removing info for usb:2-2:1.0
+</I>&gt;<i> usb 2-2:1.0: uevent
+</I>&gt;<i> usb 2-2: unregistering interface 2-2:1.1
+</I>&gt;<i> PM: Removing info for No Bus:usbdev2.10_ep83
+</I>&gt;<i>  usbdev2.10_ep83: ep_device_release called for usbdev2.10_ep83
+</I>&gt;<i> PM: Removing info for No Bus:usbdev2.10_ep03
+</I>&gt;<i>  usbdev2.10_ep03: ep_device_release called for usbdev2.10_ep03
+</I>&gt;<i> PM: Removing info for usb:2-2:1.1
+</I>&gt;<i> usb 2-2:1.1: uevent
+</I>&gt;<i> usb 2-2: unregistering interface 2-2:1.2
+</I>&gt;<i> PM: Removing info for No Bus:usbdev2.10_ep84
+</I>&gt;<i>  usbdev2.10_ep84: ep_device_release called for usbdev2.10_ep84
+</I>&gt;<i> PM: Removing info for No Bus:usbdev2.10_ep04
+</I>&gt;<i>  usbdev2.10_ep04: ep_device_release called for usbdev2.10_ep04
+</I>&gt;<i> PM: Removing info for usb:2-2:1.2
+</I>&gt;<i> usb 2-2:1.2: uevent
+</I>&gt;<i> usb 2-2: unregistering interface 2-2:1.3
+</I>&gt;<i> PM: Removing info for usb:2-2:1.3
+</I>&gt;<i> usb 2-2:1.3: uevent
+</I>&gt;<i> PM: Removing info for No Bus:usbdev2.10
+</I>&gt;<i> PM: Removing info for No Bus:usbdev2.10_ep00
+</I>&gt;<i>  usbdev2.10_ep00: ep_device_release called for usbdev2.10_ep00
+</I>&gt;<i> PM: Removing info for usb:2-2
+</I>&gt;<i> usb 2-2: uevent
+</I>&gt;<i> SoftMAC: Scanning finished: scanned 14 channels starting with channel 1
+</I>&gt;<i> hub 2-0:1.0: debounce: port 2: total 100ms stable 100ms status 0x100
+</I>&gt;<i> ohci_hcd 0000:00:13.0: GetStatus roothub.portstatus [2] = 0x00010100 CSC PPS
+</I>&gt;<i> hub 2-0:1.0: port 3, status 0100, change 0001, 12 Mb/s
+</I>&gt;<i> hub 2-0:1.0: debounce: port 3: total 100ms stable 100ms status 0x100
+</I>&gt;<i> ohci_hcd 0000:00:13.0: GetStatus roothub.portstatus [3] = 0x00010100 CSC PPS
+</I>&gt;<i> hub 2-0:1.0: port 4, status 0100, change 0001, 12 Mb/s
+</I>&gt;<i> hub 2-0:1.0: debounce: port 4: total 100ms stable 100ms status 0x100
+</I>&gt;<i> hub 3-0:1.0: state 7 ports 4 chg 0012 evt 001e
+</I>&gt;<i> ohci_hcd 0000:00:13.1: GetStatus roothub.portstatus [0] = 0x00010100 CSC PPS
+</I>&gt;<i> hub 3-0:1.0: port 1, status 0100, change 0001, 12 Mb/s
+</I>&gt;<i> usb 3-1: USB disconnect, address 18
+</I>&gt;<i> usb 3-1: unregistering device
+</I>&gt;<i> usb 3-1: usb_disable_device nuking all URBs
+</I>&gt;<i> usb 3-1: unregistering interface 3-1:1.0
+</I>&gt;<i> PM: Removing info for No Bus:usbdev3.18_ep81
+</I>&gt;<i>  usbdev3.18_ep81: ep_device_release called for usbdev3.18_ep81
+</I>&gt;<i> PM: Removing info for No Bus:usbdev3.18_ep02
+</I>&gt;<i>  usbdev3.18_ep02: ep_device_release called for usbdev3.18_ep02
+</I>&gt;<i> PM: Removing info for usb:3-1:1.0
+</I>&gt;<i> usb 3-1:1.0: uevent
+</I>&gt;<i> PM: Removing info for No Bus:usbdev3.18
+</I>&gt;<i> PM: Removing info for No Bus:usbdev3.18_ep00
+</I>&gt;<i>  usbdev3.18_ep00: ep_device_release called for usbdev3.18_ep00
+</I>&gt;<i> PM: Removing info for usb:3-1
+</I>&gt;<i> usb 3-1: uevent
+</I>&gt;<i> hub 3-0:1.0: debounce: port 1: total 100ms stable 100ms status 0x100
+</I>&gt;<i> ohci_hcd 0000:00:13.1: GetStatus roothub.portstatus [1] = 0x00010100 CSC PPS
+</I>&gt;<i> hub 3-0:1.0: port 2, status 0100, change 0001, 12 Mb/s
+</I>&gt;<i> hub 3-0:1.0: debounce: port 2: total 100ms stable 100ms status 0x100
+</I>&gt;<i> ohci_hcd 0000:00:13.1: GetStatus roothub.portstatus [2] = 0x00010100 CSC PPS
+</I>&gt;<i> hub 3-0:1.0: port 3, status 0100, change 0001, 12 Mb/s
+</I>&gt;<i> hub 3-0:1.0: debounce: port 3: total 100ms stable 100ms status 0x100
+</I>&gt;<i> ohci_hcd 0000:00:13.1: GetStatus roothub.portstatus [3] = 0x00010100 CSC PPS
+</I>&gt;<i> hub 3-0:1.0: port 4, status 0100, change 0001, 12 Mb/s
+</I>&gt;<i> usb 3-4: USB disconnect, address 19
+</I>&gt;<i> usb 3-4: unregistering device
+</I>&gt;<i> usb 3-4: usb_disable_device nuking all URBs
+</I>&gt;<i> usb 3-4: unregistering interface 3-4:1.0
+</I>&gt;<i> PM: Removing info for No Bus:usbdev3.19_ep81
+</I>&gt;<i>  usbdev3.19_ep81: ep_device_release called for usbdev3.19_ep81
+</I>&gt;<i> PM: Removing info for usb:3-4:1.0
+</I>&gt;<i> usb 3-4:1.0: uevent
+</I>&gt;<i> PM: Removing info for No Bus:usbdev3.19
+</I>&gt;<i> PM: Removing info for No Bus:usbdev3.19_ep00
+</I>&gt;<i>  usbdev3.19_ep00: ep_device_release called for usbdev3.19_ep00
+</I>&gt;<i> PM: Removing info for usb:3-4
+</I>&gt;<i> usb 3-4: uevent
+</I>&gt;<i> hub 3-0:1.0: debounce: port 4: total 100ms stable 100ms status 0x100
+</I>&gt;<i> hub 1-0:1.0: state 7 ports 8 chg 0000 evt 010c
+</I>&gt;<i> ehci_hcd 0000:00:13.2: GetStatus port 2 status 001803 POWER sig=j CSC CONNECT
+</I>&gt;<i> hub 1-0:1.0: port 2, status 0501, change 0001, 480 Mb/s
+</I>&gt;<i> hub 1-0:1.0: debounce: port 2: total 100ms stable 100ms status 0x501
+</I>&gt;<i> ehci_hcd 0000:00:13.2: port 2 full speed --&gt; companion
+</I>&gt;<i> ehci_hcd 0000:00:13.2: GetStatus port 2 status 003801 POWER OWNER sig=j CONNECT
+</I>&gt;<i> hub 1-0:1.0: port 2 not reset yet, waiting 50ms
+</I>&gt;<i> ehci_hcd 0000:00:13.2: GetStatus port 2 status 003002 POWER OWNER sig=se0 CSC
+</I>&gt;<i> ehci_hcd 0000:00:13.2: GetStatus port 3 status 001803 POWER sig=j CSC CONNECT
+</I>&gt;<i> hub 1-0:1.0: port 3, status 0501, change 0001, 480 Mb/s
+</I>&gt;<i> hub 1-0:1.0: debounce: port 3: total 100ms stable 100ms status 0x501
+</I>&gt;<i> ehci_hcd 0000:00:13.2: port 3 full speed --&gt; companion
+</I>&gt;<i> ehci_hcd 0000:00:13.2: GetStatus port 3 status 003801 POWER OWNER sig=j CONNECT
+</I>&gt;<i> hub 1-0:1.0: port 3 not reset yet, waiting 50ms
+</I>&gt;<i> ehci_hcd 0000:00:13.2: GetStatus port 3 status 003002 POWER OWNER sig=se0 CSC
+</I>&gt;<i> ehci_hcd 0000:00:13.2: GetStatus port 8 status 001403 POWER sig=k CSC CONNECT
+</I>&gt;<i> hub 1-0:1.0: port 8, status 0501, change 0001, 480 Mb/s
+</I>&gt;<i> hub 1-0:1.0: debounce: port 8: total 100ms stable 100ms status 0x501
+</I>&gt;<i> ehci_hcd 0000:00:13.2: port 8 low speed --&gt; companion
+</I>&gt;<i> ehci_hcd 0000:00:13.2: GetStatus port 8 status 003002 POWER OWNER sig=se0 CSC
+</I>&gt;<i> hub 2-0:1.0: state 7 ports 4 chg 0000 evt 0004
+</I>&gt;<i> ohci_hcd 0000:00:13.0: GetStatus roothub.portstatus [1] = 0x00010101 CSC PPS CCS
+</I>&gt;<i> hub 2-0:1.0: port 2, status 0101, change 0001, 12 Mb/s
+</I>&gt;<i> hub 2-0:1.0: debounce: port 2: total 100ms stable 100ms status 0x101
+</I>&gt;<i> ohci_hcd 0000:00:13.0: GetStatus roothub.portstatus [1] = 0x00100103 PRSC PPS PES CCS
+</I>&gt;<i> usb 2-2: new full speed USB device using ohci_hcd and address 11
+</I>&gt;<i> ohci_hcd 0000:00:13.0: GetStatus roothub.portstatus [1] = 0x00100103 PRSC PPS PES CCS
+</I>&gt;<i> usb 2-2: skipped 1 descriptor after interface
+</I>&gt;<i> usb 2-2: default language 0x0409
+</I>&gt;<i> usb 2-2: new device strings: Mfr=1, Product=2, SerialNumber=0
+</I>&gt;<i> usb 2-2: Product: HP Integrated Module
+</I>&gt;<i> usb 2-2: Manufacturer: Broadcom Corp
+</I>&gt;<i> PM: Adding info for usb:2-2
+</I>&gt;<i> usb 2-2: uevent
+</I>&gt;<i> usb 2-2: usb_probe_device
+</I>&gt;<i> PM: Adding info for No Bus:usbdev2.11_ep00
+</I>&gt;<i> usb 2-2: configuration #1 chosen from 1 choice
+</I>&gt;<i> usb 2-2: adding 2-2:1.0 (config #1, interface 0)
+</I>&gt;<i> PM: Adding info for usb:2-2:1.0
+</I>&gt;<i> usb 2-2:1.0: uevent
+</I>&gt;<i> hci_usb 2-2:1.0: usb_probe_interface
+</I>&gt;<i> hci_usb 2-2:1.0: usb_probe_interface - got id
+</I>&gt;<i> PM: Adding info for No Bus:hci0
+</I>&gt;<i> PM: Adding info for No Bus:usbdev2.11_ep81
+</I>&gt;<i> PM: Adding info for No Bus:usbdev2.11_ep82
+</I>&gt;<i> PM: Adding info for No Bus:usbdev2.11_ep02
+</I>&gt;<i> usb 2-2: adding 2-2:1.1 (config #1, interface 1)
+</I>&gt;<i> PM: Adding info for usb:2-2:1.1
+</I>&gt;<i> usb 2-2:1.1: uevent
+</I>&gt;<i> PM: Adding info for No Bus:usbdev2.11_ep83
+</I>&gt;<i> PM: Adding info for No Bus:usbdev2.11_ep03
+</I>&gt;<i> usb 2-2: adding 2-2:1.2 (config #1, interface 2)
+</I>&gt;<i> PM: Adding info for usb:2-2:1.2
+</I>&gt;<i> usb 2-2:1.2: uevent
+</I>&gt;<i> hci_usb 2-2:1.2: usb_probe_interface
+</I>&gt;<i> hci_usb 2-2:1.2: usb_probe_interface - got id
+</I>&gt;<i> PM: Adding info for No Bus:usbdev2.11_ep84
+</I>&gt;<i> PM: Adding info for No Bus:usbdev2.11_ep04
+</I>&gt;<i> usb 2-2: adding 2-2:1.3 (config #1, interface 3)
+</I>&gt;<i> PM: Adding info for usb:2-2:1.3
+</I>&gt;<i> usb 2-2:1.3: uevent
+</I>&gt;<i> hci_usb 2-2:1.3: usb_probe_interface
+</I>&gt;<i> hci_usb 2-2:1.3: usb_probe_interface - got id
+</I>&gt;<i> PM: Adding info for No Bus:usbdev2.11
+</I>&gt;<i> drivers/usb/core/inode.c: creating file '011'
+</I>&gt;<i> hub 3-0:1.0: state 7 ports 4 chg 0000 evt 0012
+</I>&gt;<i> ohci_hcd 0000:00:13.1: GetStatus roothub.portstatus [0] = 0x00010101 CSC PPS CCS
+</I>&gt;<i> hub 3-0:1.0: port 1, status 0101, change 0001, 12 Mb/s
+</I>&gt;<i> hub 3-0:1.0: debounce: port 1: total 100ms stable 100ms status 0x101
+</I>&gt;<i> ohci_hcd 0000:00:13.1: GetStatus roothub.portstatus [0] = 0x00100103 PRSC PPS PES CCS
+</I>&gt;<i> usb 3-1: new full speed USB device using ohci_hcd and address 20
+</I>&gt;<i> ohci_hcd 0000:00:13.1: GetStatus roothub.portstatus [0] = 0x00100103 PRSC PPS PES CCS
+</I>&gt;<i> usb 3-1: ep0 maxpacket = 8
+</I>&gt;<i> usb 3-1: default language 0x0409
+</I>&gt;<i> usb 3-1: new device strings: Mfr=0, Product=1, SerialNumber=0
+</I>&gt;<i> usb 3-1: Product: Fingerprint Sensor
+</I>&gt;<i> PM: Adding info for usb:3-1
+</I>&gt;<i> usb 3-1: uevent
+</I>&gt;<i> usb 3-1: usb_probe_device
+</I>&gt;<i> PM: Adding info for No Bus:usbdev3.20_ep00
+</I>&gt;<i> usb 3-1: configuration #1 chosen from 1 choice
+</I>&gt;<i> usb 3-1: adding 3-1:1.0 (config #1, interface 0)
+</I>&gt;<i> PM: Adding info for usb:3-1:1.0
+</I>&gt;<i> usb 3-1:1.0: uevent
+</I>&gt;<i> PM: Adding info for No Bus:usbdev3.20_ep81
+</I>&gt;<i> PM: Adding info for No Bus:usbdev3.20_ep02
+</I>&gt;<i> PM: Adding info for No Bus:usbdev3.20
+</I>&gt;<i> drivers/usb/core/inode.c: creating file '020'
+</I>&gt;<i> ohci_hcd 0000:00:13.1: GetStatus roothub.portstatus [3] = 0x00010301 CSC LSDA PPS CCS
+</I>&gt;<i> hub 3-0:1.0: port 4, status 0301, change 0001, 1.5 Mb/s
+</I>&gt;<i> hub 3-0:1.0: debounce: port 4: total 100ms stable 100ms status 0x301
+</I>&gt;<i> ohci_hcd 0000:00:13.1: GetStatus roothub.portstatus [3] = 0x00100303 PRSC LSDA PPS PES CCS
+</I>&gt;<i> usb 3-4: new low speed USB device using ohci_hcd and address 21
+</I>&gt;<i> ohci_hcd 0000:00:13.1: GetStatus roothub.portstatus [3] = 0x00100303 PRSC LSDA PPS PES CCS
+</I>&gt;<i> usb 3-4: skipped 1 descriptor after interface
+</I>&gt;<i> usb 3-4: default language 0x0409
+</I>&gt;<i> usb 3-4: new device strings: Mfr=1, Product=2, SerialNumber=0
+</I>&gt;<i> usb 3-4: Product: USB Receiver
+</I>&gt;<i> usb 3-4: Manufacturer: Logitech
+</I>&gt;<i> PM: Adding info for usb:3-4
+</I>&gt;<i> usb 3-4: uevent
+</I>&gt;<i> usb 3-4: usb_probe_device
+</I>&gt;<i> PM: Adding info for No Bus:usbdev3.21_ep00
+</I>&gt;<i> usb 3-4: configuration #1 chosen from 1 choice
+</I>&gt;<i> usb 3-4: adding 3-4:1.0 (config #1, interface 0)
+</I>&gt;<i> PM: Adding info for usb:3-4:1.0
+</I>&gt;<i> usb 3-4:1.0: uevent
+</I>&gt;<i> usbhid 3-4:1.0: usb_probe_interface
+</I>&gt;<i> usbhid 3-4:1.0: usb_probe_interface - got id
+</I>&gt;<i>   INPUT[INPUT]
+</I>&gt;<i>     Field(0)
+</I>&gt;<i>       Physical(GenericDesktop.Pointer)
+</I>&gt;<i>       Usage(8)
+</I>&gt;<i>         Button.0001
+</I>&gt;<i>         Button.0002
+</I>&gt;<i>         Button.0003
+</I>&gt;<i>         Button.0004
+</I>&gt;<i>         Button.0005
+</I>&gt;<i>         Button.0006
+</I>&gt;<i>         Button.0007
+</I>&gt;<i>         Button.0008
+</I>&gt;<i>       Logical Minimum(0)
+</I>&gt;<i>       Logical Maximum(1)
+</I>&gt;<i>       Report Size(1)
+</I>&gt;<i>       Report Count(8)
+</I>&gt;<i>       Report Offset(0)
+</I>&gt;<i>       Flags( Variable Absolute )
+</I>&gt;<i>     Field(1)
+</I>&gt;<i>       Physical(GenericDesktop.Pointer)
+</I>&gt;<i>       Usage(3)
+</I>&gt;<i>         GenericDesktop.X
+</I>&gt;<i>         GenericDesktop.Y
+</I>&gt;<i>         GenericDesktop.Wheel
+</I>&gt;<i>       Logical Minimum(-127)
+</I>&gt;<i>       Logical Maximum(127)
+</I>&gt;<i>       Report Size(8)
+</I>&gt;<i>       Report Count(3)
+</I>&gt;<i>       Report Offset(8)
+</I>&gt;<i>       Flags( Variable Relative )
+</I>&gt;<i>     Field(2)
+</I>&gt;<i>       Physical(GenericDesktop.Pointer)
+</I>&gt;<i>       Usage(1)
+</I>&gt;<i>         Consumer.HorizontalWheel
+</I>&gt;<i>       Logical Minimum(-127)
+</I>&gt;<i>       Logical Maximum(127)
+</I>&gt;<i>       Report Size(8)
+</I>&gt;<i>       Report Count(1)
+</I>&gt;<i>       Report Offset(32)
+</I>&gt;<i>       Flags( Variable Relative )
+</I>&gt;<i>     Field(3)
+</I>&gt;<i>       Usage(8)
+</I>&gt;<i>         LED.GenericIndicator
+</I>&gt;<i>         LED.GenericIndicator
+</I>&gt;<i>         LED.GenericIndicator
+</I>&gt;<i>         LED.GenericIndicator
+</I>&gt;<i>         LED.GenericIndicator
+</I>&gt;<i>         LED.GenericIndicator
+</I>&gt;<i>         LED.GenericIndicator
+</I>&gt;<i>         LED.GenericIndicator
+</I>&gt;<i>       Logical Minimum(0)
+</I>&gt;<i>       Logical Maximum(1)
+</I>&gt;<i>       Report Size(1)
+</I>&gt;<i>       Report Count(8)
+</I>&gt;<i>       Report Offset(40)
+</I>&gt;<i>       Flags( Variable Absolute )
+</I>&gt;<i>     Field(4)
+</I>&gt;<i>       Usage(8)
+</I>&gt;<i>         Button.0009
+</I>&gt;<i>         Button.000a
+</I>&gt;<i>         Button.000b
+</I>&gt;<i>         Button.000c
+</I>&gt;<i>         Button.000d
+</I>&gt;<i>         Button.000e
+</I>&gt;<i>         Button.000f
+</I>&gt;<i>         Button.0010
+</I>&gt;<i>       Logical Minimum(0)
+</I>&gt;<i>       Logical Maximum(1)
+</I>&gt;<i>       Report Size(1)
+</I>&gt;<i>       Report Count(8)
+</I>&gt;<i>       Report Offset(48)
+</I>&gt;<i>       Flags( Variable Absolute )
+</I>&gt;<i>   FEATURE[FEATURE]
+</I>&gt;<i>     Field(0)
+</I>&gt;<i>       Usage(1)
+</I>&gt;<i>         GenericDesktop.MotionWakeup
+</I>&gt;<i>       Logical Minimum(0)
+</I>&gt;<i>       Logical Maximum(1)
+</I>&gt;<i>       Report Size(1)
+</I>&gt;<i>       Report Count(1)
+</I>&gt;<i>       Report Offset(0)
+</I>&gt;<i>       Flags( Variable Absolute NoPrefferedState )
+</I>&gt;<i> Mapping: Button.0001 ---&gt; Key.LeftBtn
+</I>&gt;<i> Mapping: Button.0002 ---&gt; Key.RightBtn
+</I>&gt;<i> Mapping: Button.0003 ---&gt; Key.MiddleBtn
+</I>&gt;<i> Mapping: Button.0004 ---&gt; Key.SideBtn
+</I>&gt;<i> Mapping: Button.0005 ---&gt; Key.ExtraBtn
+</I>&gt;<i> Mapping: Button.0006 ---&gt; Key.ForwardBtn
+</I>&gt;<i> Mapping: Button.0007 ---&gt; Key.BackBtn
+</I>&gt;<i> Mapping: Button.0008 ---&gt; Key.TaskBtn
+</I>&gt;<i> Mapping: GenericDesktop.X ---&gt; Relative.X
+</I>&gt;<i> Mapping: GenericDesktop.Y ---&gt; Relative.Y
+</I>&gt;<i> Mapping: GenericDesktop.Wheel ---&gt; Relative.Wheel
+</I>&gt;<i> Mapping: Consumer.HorizontalWheel ---&gt; Relative.HWheel
+</I>&gt;<i> Mapping: LED.GenericIndicator ---&gt; LED.Misc
+</I>&gt;<i> Mapping: LED.GenericIndicator ---&gt; LED.?
+</I>&gt;<i> Mapping: LED.GenericIndicator ---&gt; LED.?
+</I>&gt;<i> Mapping: LED.GenericIndicator ---&gt; LED.?
+</I>&gt;<i> Mapping: LED.GenericIndicator ---&gt; LED.?
+</I>&gt;<i> Mapping: LED.GenericIndicator ---&gt; LED.?
+</I>&gt;<i> Mapping: LED.GenericIndicator ---&gt; LED.?
+</I>&gt;<i> Mapping: LED.GenericIndicator ---&gt; LED.?
+</I>&gt;<i> Mapping: Button.0009 ---&gt; Key.?
+</I>&gt;<i> Mapping: Button.000a ---&gt; Key.?
+</I>&gt;<i> Mapping: Button.000b ---&gt; Key.?
+</I>&gt;<i> Mapping: Button.000c ---&gt; Key.?
+</I>&gt;<i> Mapping: Button.000d ---&gt; Key.?
+</I>&gt;<i> Mapping: Button.000e ---&gt; Key.?
+</I>&gt;<i> Mapping: Button.000f ---&gt; Key.?
+</I>&gt;<i> Mapping: Button.0010 ---&gt; Key.?
+</I>&gt;<i> input: Logitech USB Receiver as /class/input/input16
+</I>&gt;<i> hid-pidff: starting pid init
+</I>&gt;<i> hid-pidff: not a PID device, no output report
+</I>&gt;<i> input: USB HID v1.10 Mouse [Logitech USB Receiver] on usb-0000:00:13.1-4
+</I>&gt;<i> PM: Adding info for No Bus:usbdev3.21_ep81
+</I>&gt;<i> PM: Adding info for No Bus:usbdev3.21
+</I>&gt;<i> drivers/usb/core/inode.c: creating file '021'
+</I>&gt;<i> hub 1-0:1.0: state 7 ports 8 chg 0000 evt 0100
+</I>&gt;<i> hub 2-0:1.0: state 7 ports 4 chg 0000 evt 0004
+</I>&gt;<i> hub 3-0:1.0: state 7 ports 4 chg 0000 evt 0002
+</I>&gt;<i> usb 3-1: usb auto-suspend
+</I>&gt;<i> SoftMAC: Scanning finished: scanned 14 channels starting with channel 1
+</I>&gt;<i> hub 1-0:1.0: hub_suspend
+</I>&gt;<i> usb usb1: usb auto-suspend
+</I>&gt;<i> SoftMAC: Scanning finished: scanned 14 channels starting with channel 1
+</I>&gt;<i> PM: Removing info for No Bus:hw_random
+</I>&gt;<i> bcm43xx: Radio turned off
+</I>&gt;<i> bcm43xx: DMA-32 0x0200 (RX) max used slots: 0/64
+</I>&gt;<i> bcm43xx: DMA-32 0x02A0 (TX) max used slots: 0/512
+</I>&gt;<i> bcm43xx: DMA-32 0x0280 (TX) max used slots: 0/512
+</I>&gt;<i> bcm43xx: DMA-32 0x0260 (TX) max used slots: 0/512
+</I>&gt;<i> bcm43xx: DMA-32 0x0240 (TX) max used slots: 0/512
+</I>&gt;<i> bcm43xx: DMA-32 0x0220 (TX) max used slots: 56/512
+</I>&gt;<i> bcm43xx: DMA-32 0x0200 (TX) max used slots: 0/512
+</I>&gt;<i> PM: Adding info for No Bus:0000:30:00.0
+</I>&gt;<i> PM: Removing info for No Bus:0000:30:00.0
+</I>&gt;<i> PM: Adding info for No Bus:0000:30:00.0
+</I>&gt;<i> PM: Removing info for No Bus:0000:30:00.0
+</I>&gt;<i> PM: Adding info for No Bus:0000:30:00.0
+</I>&gt;<i> PM: Removing info for No Bus:0000:30:00.0
+</I>&gt;<i> PM: Adding info for No Bus:0000:30:00.0
+</I>&gt;<i> PM: Removing info for No Bus:0000:30:00.0
+</I>&gt;<i> bcm43xx: IRQ_READY timeout
+</I>&gt;<i> bcm43xx: core_up for active 802.11 core failed (-19)
+</I>
+I never tried suspend to disk with the driver.
+Larry, an idea why the microcode doesn't respond?
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000473.html">[PATCH] bcm43xx: Fix loss of association after resume
+</A></li>
+	<LI>Next message: <A HREF="000475.html">[PATCH] bcm43xx: Fix loss of association after resume
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#474">[ date ]</a>
+              <a href="thread.html#474">[ thread ]</a>
+              <a href="subject.html#474">[ subject ]</a>
+              <a href="author.html#474">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

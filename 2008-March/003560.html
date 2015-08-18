@@ -1,0 +1,188 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm 4311 + 2.6.25-rc4 problems
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm%204311%20%2B%202.6.25-rc4%20problems&In-Reply-To=%3C8fa12ca90803081448i5b71310cm7437383aeabd9384%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003559.html">
+   <LINK REL="Next"  HREF="003561.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm 4311 + 2.6.25-rc4 problems</H1>
+    <B>DragonK</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm%204311%20%2B%202.6.25-rc4%20problems&In-Reply-To=%3C8fa12ca90803081448i5b71310cm7437383aeabd9384%40mail.gmail.com%3E"
+       TITLE="bcm 4311 + 2.6.25-rc4 problems">dragonk at gmail.com
+       </A><BR>
+    <I>Sat Mar  8 23:48:43 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003559.html">b43 on gutsy using 2.6.24 doesn't work
+</A></li>
+        <LI>Next message: <A HREF="003561.html">Invalid MAC address with B43 and Broadcom 4318
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3560">[ date ]</a>
+              <a href="thread.html#3560">[ thread ]</a>
+              <a href="subject.html#3560">[ subject ]</a>
+              <a href="author.html#3560">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi,
+
+I'm having problems with my broadcom 4311 card, using the latest
+snapshot from the wireless-testing tree; I can't connect to my AP, nor
+I see any wireless networks with iwlist scan.
+
+I've used b43-fwcutter 011 and firmware from broadcom-wl-4.150.10.5
+
+Here are my system's details:
+
+# lspci -n -v
+...
+0b:00.0 0280: 14e4:4311 (rev 01)
+        Subsystem: 1028:0007
+        Flags: bus master, fast devsel, latency 0, IRQ 16
+        Memory at efcfc000 (32-bit, non-prefetchable) [size=16K]
+        Capabilities: [40] Power Management version 2
+        Capabilities: [58] Message Signalled Interrupts: Mask- 64bit-
+Queue=0/0 Enable-
+        Capabilities: [d0] Express Legacy Endpoint, MSI 00
+        Capabilities: [100] Advanced Error Reporting &lt;?&gt;
+        Capabilities: [13c] Virtual Channel &lt;?&gt;
+        Kernel driver in use: b43-pci-bridge
+        Kernel modules: ssb
+
+# uname -a
+Linux dell.lan.local 2.6.25-rc4-wl #3 SMP Sun Mar 9 00:22:58 EET 2008
+x86_64 Intel(R) Core(TM)2 CPU T7200 @ 2.00GHz GenuineIntel GNU/Linux
+
+# lsmod
+Module                  Size  Used by
+b43                   174192  0
+tun                    13248  0
+fuse                   54976  0
+arc4                    2496  2
+ecb                     4288  2
+firmware_class         11328  1 b43
+mac80211              154764  1 b43
+cfg80211               30800  1 mac80211
+firewire_ohci          21952  0
+ohci_hcd               28996  0
+b44                    31568  0
+firewire_core          49504  1 firewire_ohci
+led_class               6408  1 b43
+crc_itu_t               2624  1 firewire_core
+sdhci                  20364  0
+ohci1394               41396  0
+mmc_core               55264  1 sdhci
+mii                     6528  1 b44
+ieee1394              106488  1 ohci1394
+i2c_i801               11612  0
+wmi                     8896  0
+i2c_core               28512  1 i2c_i801
+ssb                    37956  3 b43,ohci_hcd,b44
+rng_core                6024  1 b43
+uhci_hcd               27544  0
+sr_mod                 18948  0
+cdrom                  40424  1 sr_mod
+
+# modinfo b43
+filename:
+/lib/modules/2.6.25-rc4-wl/kernel/drivers/net/wireless/b43/b43.ko
+firmware:       FW13
+license:        GPL
+author:         Michael Buesch
+author:         Stefano Brivio
+author:         Martin Langer
+description:    Broadcom B43 wireless driver
+alias:          ssb:v4243id0812rev0D*
+alias:          ssb:v4243id0812rev0B*
+alias:          ssb:v4243id0812rev0A*
+alias:          ssb:v4243id0812rev09*
+alias:          ssb:v4243id0812rev07*
+alias:          ssb:v4243id0812rev06*
+alias:          ssb:v4243id0812rev05*
+depends:        mac80211,ssb,led-class,rng-core,firmware_class
+vermagic:       2.6.25-rc4-wl SMP mod_unload
+parm:           bad_frames_preempt:enable(1) / disable(0) Bad Frames
+Preemption (int)
+parm:           fwpostfix:Postfix for the .fw files to load. (string)
+parm:           hwpctl:Enable hardware-side power control (default off) (int)
+parm:           nohwcrypt:Disable hardware encryption. (int)
+parm:           qos:Enable QOS support (default on) (int)
+
+
+I've attached a copy of the messages in syslog which I got after
+inserting the b43 module and trying to connect to the AP a couple of
+times.
+
+...
+Mar  9 00:29:08 dell eth1: RX authentication from 00:16:b6:d9:7b:6f
+(alg=0 transaction=2 status=0)
+Mar  9 00:29:08 dell eth1: authenticated
+Mar  9 00:29:08 dell eth1: associate with AP 00:16:b6:d9:7b:6f
+Mar  9 00:29:08 dell eth1: associate with AP 00:16:b6:d9:7b:6f
+Mar  9 00:29:09 dell eth1: associate with AP 00:16:b6:d9:7b:6f
+Mar  9 00:29:09 dell eth1: association with AP 00:16:b6:d9:7b:6f timed out
+Mar  9 00:29:13 dell eth1: association frame received from
+00:16:b6:d9:7b:6f, but not in associate state - ignored
+Mar  9 00:29:13 dell eth1: association frame received from
+00:16:b6:d9:7b:6f, but not in associate state - ignored
+Mar  9 00:29:13 dell eth1: association frame received from
+00:16:b6:d9:7b:6f, but not in associate state - ignored
+...
+
+What should I understand from this? That my laptop's card receives the
+association frame too late, from the AP ?
+
+Scanning for networks is not working either and I know for sure there
+are about 5 around my location:
+
+# iwlist eth1 scan
+eth1      No scan results
+
+
+Thanks for any feedback!
+
+PS: I'm not using any encryption at all on my wireless network.
+
+-- 
+...it's only a matter of time...
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: messages
+Type: application/octet-stream
+Size: 6606 bytes
+Desc: not available
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080309/46ea271f/attachment.obj">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080309/46ea271f/attachment.obj</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003559.html">b43 on gutsy using 2.6.24 doesn't work
+</A></li>
+	<LI>Next message: <A HREF="003561.html">Invalid MAC address with B43 and Broadcom 4318
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3560">[ date ]</a>
+              <a href="thread.html#3560">[ thread ]</a>
+              <a href="subject.html#3560">[ subject ]</a>
+              <a href="author.html#3560">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> RFT: bcm43xx resume patch
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20RFT%3A%20bcm43xx%20resume%20patch&In-Reply-To=%3C45C4CB52.2050605%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000307.html">
+   <LINK REL="Next"  HREF="000312.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>RFT: bcm43xx resume patch</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20RFT%3A%20bcm43xx%20resume%20patch&In-Reply-To=%3C45C4CB52.2050605%40lwfinger.net%3E"
+       TITLE="RFT: bcm43xx resume patch">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Feb  3 18:50:10 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000307.html">[PATCH] bcm43xx-sprom: fix access to et0mdcport and et1mdcport
+</A></li>
+        <LI>Next message: <A HREF="000312.html">RFT: bcm43xx resume patch
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#310">[ date ]</a>
+              <a href="thread.html#310">[ thread ]</a>
+              <a href="subject.html#310">[ subject ]</a>
+              <a href="author.html#310">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>If you are having trouble with communications after a suspend/resume cycle, please try the patch
+below. The patch was made against wireless-2.6, but should apply to any 2.6.18 or later kernel. I
+cannot test this one as my video driver refuses to suspend.
+
+Thanks,
+
+Larry
+
+=====================
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -4295,6 +4295,7 @@ static int bcm43xx_resume(struct pci_dev
+ {
+ 	struct net_device *net_dev = pci_get_drvdata(pdev);
+ 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
++	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	int err = 0;
+
+ 	dprintk(KERN_INFO PFX &quot;Resuming...\n&quot;);
+@@ -4314,6 +4315,7 @@ static int bcm43xx_resume(struct pci_dev
+ 		printk(KERN_ERR PFX &quot;Resume failed!\n&quot;);
+ 		return err;
+ 	}
++	phy-&gt;lo_control-&gt;txctl2 = 0xFFFF; /* force initial lo calibration */
+ 	netif_device_attach(net_dev);
+
+ 	dprintk(KERN_INFO PFX &quot;Device resumed.\n&quot;);
+
+===========
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000307.html">[PATCH] bcm43xx-sprom: fix access to et0mdcport and et1mdcport
+</A></li>
+	<LI>Next message: <A HREF="000312.html">RFT: bcm43xx resume patch
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#310">[ date ]</a>
+              <a href="thread.html#310">[ thread ]</a>
+              <a href="subject.html#310">[ subject ]</a>
+              <a href="author.html#310">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

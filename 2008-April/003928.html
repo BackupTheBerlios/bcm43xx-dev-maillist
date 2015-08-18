@@ -1,0 +1,540 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Problems with bcm4318 wlan card on debian unstable (linux kernel	2.6.24)
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Problems%20with%20bcm4318%20wlan%20card%20on%20debian%20unstable%20%28linux%20kernel%0A%092.6.24%29&In-Reply-To=%3C1208813713.4002.12.camel%40debian%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003927.html">
+   <LINK REL="Next"  HREF="003929.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Problems with bcm4318 wlan card on debian unstable (linux kernel	2.6.24)</H1>
+    <B>&#1040;&#1083;&#1077;&#1082;&#1089;&#1072;&#1085;&#1076;&#1098;&#1088; &#1045;&#1084;&#1080;&#1083;&#1086;&#1074; &#1043;&#1086;&#1076;&#1091;&#1084;&#1086;&#1074;</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Problems%20with%20bcm4318%20wlan%20card%20on%20debian%20unstable%20%28linux%20kernel%0A%092.6.24%29&In-Reply-To=%3C1208813713.4002.12.camel%40debian%3E"
+       TITLE="Problems with bcm4318 wlan card on debian unstable (linux kernel	2.6.24)">a.godumov at gmail.com
+       </A><BR>
+    <I>Mon Apr 21 23:35:13 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003927.html">b43 speed problem over 2.6.24 (was: One more log file from when	the network was unusable)
+</A></li>
+        <LI>Next message: <A HREF="003929.html">Feedback on ASUS WL-138G V2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3928">[ date ]</a>
+              <a href="thread.html#3928">[ thread ]</a>
+              <a href="subject.html#3928">[ subject ]</a>
+              <a href="author.html#3928">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I have a broadcom bcm4318 wireless lan card on an Acer Travelmate 2492
+notebook. The problem i have with it is that since the introduction of
+the new b43 driver i cannot get it work (before b43 i used ndiswrapper
+and it worked fine). What i want to do is to set up an ad-hoc wireless
+networ. Apparrently however b43 fails to set the wireless mode (which i
+want to be ad-hoc) and also fails to set the essid. It does not appear
+to have problems setting the wep key (at least i get no errors about
+this). Here is some relevant information:
+
+06:02.0 Network controller: Broadcom Corporation BCM4318 [AirForce One
+54g] 802.11g Wireless LAN Controller (rev 02)
+	Subsystem: AMBIT Microsystem Corp. TravelMate 2410
+	Flags: bus master, fast devsel, latency 64, IRQ 21
+	Memory at d0002000 (32-bit, non-prefetchable) [size=8K]
+	Kernel driver in use: b43-pci-bridge
+	Kernel modules: ssb
+
+debian:/home/hellfire# uname -r
+2.6.24-1-686
+
+debian:/home/hellfire# cat /etc/network/interfaces
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+allow-hotplug eth0
+iface eth0 inet static
+pre-up iptables-restore &lt; /etc/iptables/iptables
+hwaddress ether 00:16:36:A4:64:85
+netmask 255.255.255.252
+gateway 192.168.0.1
+address 192.168.0.2
+auto eth0
+
+allow-hotplug wlan0
+iface wlan0 inet static
+address 172.16.0.1
+netmask 255.255.0.0
+wireless-mode Ad-Hoc
+wireless-key s:xxxxxxxxxxxxx
+wireless-essid Debian
+auto wlan0
+
+I must also point out that i have installed the correct firmware
+(4.80.53.0) - when i installed b43-fwcutter it automatically downloaded
+it and that ndiswrapper worked fine with the above mentioned interfaces
+file. Also this is the exact error i get - i get it at startup when my
+network initializes or when i restart the networking script&quot;
+
+debian:/home/hellfire# /etc/init.d/networking restart
+Reconfiguring network interfaces...Error for wireless request &quot;Set
+Mode&quot; (8B06) :
+    SET failed on device wlan0 ; Invalid argument.
+Error for wireless request &quot;Set ESSID&quot; (8B1A) :
+    SET failed on device wlan0 ; Invalid argument.
+if-up.d/mountnfs[eth0]: waiting for interface wlan0 before doing NFS
+mounts
+done.
+
+As a result iwlist scan cannot find the network i have tried to create.
+It does hoever find other networks if they are present. Here is what
+iwconfig and ifconfig say about wlan0:
+
+debian:/home/hellfire# iwconfig
+wmaster0  no wireless extensions.
+
+wlan0     IEEE 802.11g  ESSID:&quot;Debian&quot;  
+          Mode:Ad-Hoc  Frequency:2.412 GHz  Cell: 1A:B2:3F:BA:96:EC   
+          Tx-Power=27 dBm   
+          Retry min limit:7   RTS thr:off   Fragment thr=2346 B   
+          Encryption key:6465-7473-6B69-7370-6F6D-656E-6A
+          Link Quality:0  Signal level:0  Noise level:0
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+debian:/home/hellfire# ifconfig
+wlan0     Link encap:Ethernet  HWaddr 00:16:cf:9c:5e:d1  
+          inet addr:172.16.0.1  Bcast:172.16.255.255  Mask:255.255.0.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:85 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:0 (0.0 B)  TX bytes:12774 (12.4 KiB)
+
+wmaster0  Link encap:UNSPEC  HWaddr
+00-16-CF-9C-5E-D1-00-00-00-00-00-00-00-00-00-00  
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+
+
+And finally here is what dmesg says:
+
+debian:/home/hellfire# dmesg | grep b43
+input: b43-phy0 as /class/input/input11
+Registered led device: b43-phy0:tx
+Registered led device: b43-phy0:rx
+Registered led device: b43-phy0:radio
+
+
+debian:/home/hellfire# dmesg | grep wlan0
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=140
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=120 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=140
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=120 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=140
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=120 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=128
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=108 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=136
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=116 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=136
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=116 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=136
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=116 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=197
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=177 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=112
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=92 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=197
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=177 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=128
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=108 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=197
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=177 
+wlan0: Creating new IBSS network, BSSID 66:61:4d:bf:4c:a1
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+phy0: Adding new IBSS station 00:18:de:bf:58:94 (dev=wlan0)
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+wlan0: Trigger new scan to find an IBSS to join
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=141
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=121 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=224
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=204 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=224
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=204 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=224
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=204 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=206
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=186 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=141
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=121 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=206
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=186 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=197
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=177 
+wlan0: Trigger new scan to find an IBSS to join
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=206
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=186 
+wlan0: Trigger new scan to find an IBSS to join
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+wlan0: Trigger new scan to find an IBSS to join
+wlan0: Trigger new scan to find an IBSS to join
+wlan0: Trigger new scan to find an IBSS to join
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+wlan0: Trigger new scan to find an IBSS to join
+wlan0: Trigger new scan to find an IBSS to join
+wlan0: Creating new IBSS network, BSSID 1a:b2:3f:ba:96:ec
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:18:de:bf:58:94 (dev=wlan0)
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: expiring inactive STA 00:18:de:bf:58:94
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:18:de:bf:58:94 (dev=wlan0)
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: expiring inactive STA 00:18:de:bf:58:94
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:18:de:bf:58:94 (dev=wlan0)
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: expiring inactive STA 00:18:de:bf:58:94
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:18:de:bf:58:94 (dev=wlan0)
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: expiring inactive STA 00:18:de:bf:58:94
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+phy0: Adding new IBSS station 00:18:de:bf:58:94 (dev=wlan0)
+wlan0: expiring inactive STA 00:18:de:bf:58:94
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+phy0: Adding new IBSS station 00:18:de:bf:58:94 (dev=wlan0)
+wlan0: expiring inactive STA 00:18:de:bf:58:94
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:18:de:bf:58:94 (dev=wlan0)
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: expiring inactive STA 00:18:de:bf:58:94
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+phy0: Adding new IBSS station 00:0c:30:75:61:e3 (dev=wlan0)
+phy0: Adding new IBSS station 00:18:de:bf:58:94 (dev=wlan0)
+wlan0: expiring inactive STA 00:18:de:bf:58:94
+wlan0: expiring inactive STA 00:0c:30:75:61:e3
+wlan0: No active IBSS STAs - trying to scan for other IBSS networks with
+same SSID (merge)
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+wlan0: Selected IBSS BSSID 1a:b2:3f:ba:96:ec based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=224
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=204 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=141
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=121 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=224
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=204 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=224
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=204 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=206
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=186 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=141
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=121 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=206
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=186 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+wlan0: Selected IBSS BSSID 66:61:4d:bf:4c:a1 based on configured SSID
+wlan0: Failed to configure IBSS beacon template
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=197
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=177 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=206
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=186 
+Unknown InputIN=wlan0 OUT= MAC= SRC=172.16.0.1 DST=224.0.0.251 LEN=68
+TOS=0x00 PREC=0x00 TTL=255 ID=0 DF PROTO=UDP SPT=5353 DPT=5353 LEN=48 
+
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003927.html">b43 speed problem over 2.6.24 (was: One more log file from when	the network was unusable)
+</A></li>
+	<LI>Next message: <A HREF="003929.html">Feedback on ASUS WL-138G V2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3928">[ date ]</a>
+              <a href="thread.html#3928">[ thread ]</a>
+              <a href="subject.html#3928">[ subject ]</a>
+              <a href="author.html#3928">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

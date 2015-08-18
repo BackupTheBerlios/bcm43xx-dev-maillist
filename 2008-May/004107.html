@@ -1,0 +1,220 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add hooks for firmware debugging
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20hooks%20for%20firmware%20debugging&In-Reply-To=%3C200805172244.35966.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004105.html">
+   <LINK REL="Next"  HREF="004108.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add hooks for firmware debugging</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20hooks%20for%20firmware%20debugging&In-Reply-To=%3C200805172244.35966.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add hooks for firmware debugging">mb at bu3sch.de
+       </A><BR>
+    <I>Sat May 17 22:44:35 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004105.html">[PATCH] b43: Fix typo in firmware file name for 802.11 cores	with rev 13
+</A></li>
+        <LI>Next message: <A HREF="004108.html">[PATCH] b43: Add hooks for firmware debugging
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4107">[ date ]</a>
+              <a href="thread.html#4107">[ thread ]</a>
+              <a href="subject.html#4107">[ subject ]</a>
+              <a href="author.html#4107">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This patch adds some hooks for firmware debugging.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, this is for 2.6.27
+
+
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h	2008-05-15 23:31:37.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/b43.h	2008-05-17 20:22:56.000000000 +0200
+@@ -419,12 +419,18 @@ enum {
+ 					 B43_IRQ_TXFIFO_FLUSH_OK | \
+ 					 B43_IRQ_NOISESAMPLE_OK | \
+ 					 B43_IRQ_UCODE_DEBUG | \
+ 					 B43_IRQ_RFKILL | \
+ 					 B43_IRQ_TX_OK)
+ 
++/* Debug-IRQ reasons. */
++#define B43_DEBUGIRQ_PANIC		0	/* The firmware panic'ed */
++#define B43_DEBUGIRQ_DUMP_SHM		1	/* Dump shared SHM */
++#define B43_DEBUGIRQ_DUMP_REGS		2	/* Dump the microcode registers */
++#define B43_DEBUGIRQ_ACK		0xFFFF	/* The host writes that to ACK the IRQ */
++
+ /* Device specific rate values.
+  * The actual values defined here are (rate_in_mbps * 2).
+  * Some code depends on this. Don't change it. */
+ #define B43_CCK_RATE_1MB		0x02
+ #define B43_CCK_RATE_2MB		0x04
+ #define B43_CCK_RATE_5MB		0x0B
+@@ -763,12 +769,15 @@ struct b43_firmware {
+ 	struct b43_firmware_file initvals_band;
+ 
+ 	/* Firmware revision */
+ 	u16 rev;
+ 	/* Firmware patchlevel */
+ 	u16 patch;
++
++	/* Set to true, if we are using an opensource firmware. */
++	bool opensource;
+ };
+ 
+ /* Device (802.11 core) initialization status. */
+ enum {
+ 	B43_STAT_UNINIT = 0,	/* Uninitialized. */
+ 	B43_STAT_INITIALIZED = 1,	/* Initialized, but not started, yet. */
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-05-15 23:31:37.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-05-17 22:35:00.000000000 +0200
+@@ -1663,13 +1663,70 @@ static void b43_set_beacon_int(struct b4
+ 	b43_time_unlock(dev);
+ 	b43dbg(dev-&gt;wl, &quot;Set beacon interval to %u\n&quot;, beacon_int);
+ }
+ 
+ static void handle_irq_ucode_debug(struct b43_wldev *dev)
+ {
+-	//TODO
++	unsigned int i, cnt;
++	u16 reason;
++	__le16 *buf;
++
++	/* The proprietary firmware doesn't have this IRQ. */
++	if (!dev-&gt;fw.opensource)
++		return;
++
++	/* Microcode register 63 contains the debug-IRQ reason. */
++	reason = b43_shm_read16(dev, B43_SHM_SCRATCH, 63);
++	switch (reason) {
++	case B43_DEBUGIRQ_PANIC:
++		/* The reason for the panic is in register 3. */
++		reason = b43_shm_read16(dev, B43_SHM_SCRATCH, 3);
++		b43err(dev-&gt;wl, &quot;Whoopsy, the microcode panic'ed! Reason: %u\n&quot;,
++		       reason);
++		b43_controller_restart(dev, &quot;Microcode panic&quot;);
++		break;
++	case B43_DEBUGIRQ_DUMP_SHM:
++		if (!B43_DEBUG)
++			break; /* Only with driver debugging enabled. */
++		buf = kmalloc(4096, GFP_ATOMIC);
++		if (!buf) {
++			b43dbg(dev-&gt;wl, &quot;SHM-dump: Failed to allocate memory\n&quot;);
++			goto out;
++		}
++		for (i = 0; i &lt; 4096; i += 2) {
++			u16 tmp = b43_shm_read16(dev, B43_SHM_SHARED, i);
++			buf[i / 2] = cpu_to_le16(tmp);
++		}
++		b43info(dev-&gt;wl, &quot;Shared memory dump:\n&quot;);
++		print_hex_dump(KERN_INFO, &quot;&quot;, DUMP_PREFIX_OFFSET,
++			       16, 2, buf, 4096, 1);
++		kfree(buf);
++		break;
++	case B43_DEBUGIRQ_DUMP_REGS:
++		if (!B43_DEBUG)
++			break; /* Only with driver debugging enabled. */
++		b43info(dev-&gt;wl, &quot;Microcode register dump:\n&quot;);
++		for (i = 0, cnt = 0; i &lt; 64; i++) {
++			u16 tmp = b43_shm_read16(dev, B43_SHM_SCRATCH, i);
++			if (cnt == 0)
++				printk(KERN_INFO);
++			printk(&quot;r%02u: 0x%04X  &quot;, i, tmp);
++			cnt++;
++			if (cnt == 6) {
++				printk(&quot;\n&quot;);
++				cnt = 0;
++			}
++		}
++		printk(&quot;\n&quot;);
++		break;
++	default:
++		b43dbg(dev-&gt;wl, &quot;Debug-IRQ triggered for unknown reason: %u\n&quot;,
++		       reason);
++	}
++out:
++	b43_shm_write16(dev, B43_SHM_SCRATCH, 63, B43_DEBUGIRQ_ACK);
+ }
+ 
+ /* Interrupt handler bottom-half */
+ static void b43_interrupt_tasklet(struct b43_wldev *dev)
+ {
+ 	u32 reason;
+@@ -2121,20 +2178,28 @@ static int b43_upload_microcode(struct b
+ 		       &quot;binary drivers older than version 4.x is unsupported. &quot;
+ 		       &quot;You must upgrade your firmware files.\n&quot;);
+ 		b43_print_fw_helptext(dev-&gt;wl, 1);
+ 		err = -EOPNOTSUPP;
+ 		goto error;
+ 	}
+-	b43info(dev-&gt;wl, &quot;Loading firmware version %u.%u &quot;
+-		&quot;(20%.2i-%.2i-%.2i %.2i:%.2i:%.2i)\n&quot;,
+-		fwrev, fwpatch,
+-		(fwdate &gt;&gt; 12) &amp; 0xF, (fwdate &gt;&gt; 8) &amp; 0xF, fwdate &amp; 0xFF,
+-		(fwtime &gt;&gt; 11) &amp; 0x1F, (fwtime &gt;&gt; 5) &amp; 0x3F, fwtime &amp; 0x1F);
+-
+ 	dev-&gt;fw.rev = fwrev;
+ 	dev-&gt;fw.patch = fwpatch;
++	dev-&gt;fw.opensource = (fwdate == 0xFFFF);
++
++	if (dev-&gt;fw.opensource) {
++		/* Patchlevel info is encoded in the &quot;time&quot; field. */
++		dev-&gt;fw.patch = fwtime;
++		b43info(dev-&gt;wl, &quot;Loading OpenSource firmware version %u.%u\n&quot;,
++			dev-&gt;fw.rev, dev-&gt;fw.patch);
++	} else {
++		b43info(dev-&gt;wl, &quot;Loading firmware version %u.%u &quot;
++			&quot;(20%.2i-%.2i-%.2i %.2i:%.2i:%.2i)\n&quot;,
++			fwrev, fwpatch,
++			(fwdate &gt;&gt; 12) &amp; 0xF, (fwdate &gt;&gt; 8) &amp; 0xF, fwdate &amp; 0xFF,
++			(fwtime &gt;&gt; 11) &amp; 0x1F, (fwtime &gt;&gt; 5) &amp; 0x3F, fwtime &amp; 0x1F);
++	}
+ 
+ 	if (b43_is_old_txhdr_format(dev)) {
+ 		b43warn(dev-&gt;wl, &quot;You are using an old firmware image. &quot;
+ 			&quot;Support for old firmware will be removed in July 2008.\n&quot;);
+ 		b43_print_fw_helptext(dev-&gt;wl, 0);
+ 	}
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004105.html">[PATCH] b43: Fix typo in firmware file name for 802.11 cores	with rev 13
+</A></li>
+	<LI>Next message: <A HREF="004108.html">[PATCH] b43: Add hooks for firmware debugging
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4107">[ date ]</a>
+              <a href="thread.html#4107">[ thread ]</a>
+              <a href="subject.html#4107">[ subject ]</a>
+              <a href="author.html#4107">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

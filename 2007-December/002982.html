@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix radio LED problem
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20radio%20LED%20problem&In-Reply-To=%3C47588E37.4080400%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002981.html">
+   <LINK REL="Next"  HREF="002983.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix radio LED problem</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20radio%20LED%20problem&In-Reply-To=%3C47588E37.4080400%40lwfinger.net%3E"
+       TITLE="[PATCH] b43: Fix radio LED problem">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Fri Dec  7 01:05:11 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002981.html">b43 seemingly broken with Fedora (2.6.23.8-63.fc8) kernel
+</A></li>
+        <LI>Next message: <A HREF="002983.html">[PATCH] b43: Fix radio LED problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2982">[ date ]</a>
+              <a href="thread.html#2982">[ thread ]</a>
+              <a href="subject.html#2982">[ subject ]</a>
+              <a href="author.html#2982">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Sorry it has taken so long to answer, but I am traveling.
+
+Michael Buesch wrote:
+&gt;<i> On Thursday 29 November 2007 00:48:40 Larry Finger wrote:
+</I>&gt;<i> 
+</I>&gt;&gt;<i> @@ -2802,6 +2800,13 @@ static int b43_op_config(struct ieee8021
+</I>&gt;&gt;<i>        out_unlock_mutex:
+</I>&gt;&gt;<i>  	mutex_unlock(&amp;wl-&gt;mutex);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> +	/* if a LED is devoted to the radio and the switch is on, send
+</I>&gt;&gt;<i> +	 * KEY_WLAN press/release keystrokes */
+</I>&gt;&gt;<i> +	if (!err &amp;&amp; dev-&gt;radio_hw_enable &amp;&amp; &amp;dev-&gt;led_radio) {
+</I>&gt;<i>                                             ^^^^^^^^^^^^^^^
+</I>&gt;<i> This condition is always true.
+</I>
+It looks to me that the code uses the contents of the LED section of the SPROM to initialize
+dev-&gt;led_radio. Can we be certain that the initialization will always be done?
+&gt;<i> 
+</I>&gt;&gt;<i> +		input_report_key(rfk-&gt;poll_dev-&gt;input, KEY_WLAN, 1);
+</I>&gt;&gt;<i> +		input_report_key(rfk-&gt;poll_dev-&gt;input, KEY_WLAN, 0);
+</I>&gt;&gt;<i> +	}
+</I>&gt;&gt;<i> +
+</I>&gt;<i> 
+</I>&gt;<i> Anyway, sending a key event here seems pretty bogus. The comment
+</I>&gt;<i> doesn't really say anything useful why this is needed.
+</I>
+If a key event (down/up) is not sent, the LED remains off. This location may not be the best place,
+but it is needed someplace, otherwise the switch must be cycled off/on to get the LED on.
+
+
+Larry
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002981.html">b43 seemingly broken with Fedora (2.6.23.8-63.fc8) kernel
+</A></li>
+	<LI>Next message: <A HREF="002983.html">[PATCH] b43: Fix radio LED problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2982">[ date ]</a>
+              <a href="thread.html#2982">[ thread ]</a>
+              <a href="subject.html#2982">[ subject ]</a>
+              <a href="author.html#2982">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

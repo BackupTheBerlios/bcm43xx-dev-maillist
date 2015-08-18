@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 locks the machine when resuming after suspend to disk
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20locks%20the%20machine%20when%20resuming%20after%20suspend%20to%20disk&In-Reply-To=%3C200807022340.31894.rjw%40sisk.pl%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004392.html">
+   <LINK REL="Next"  HREF="004395.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 locks the machine when resuming after suspend to disk</H1>
+    <B>Rafael J. Wysocki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20locks%20the%20machine%20when%20resuming%20after%20suspend%20to%20disk&In-Reply-To=%3C200807022340.31894.rjw%40sisk.pl%3E"
+       TITLE="b43 locks the machine when resuming after suspend to disk">rjw at sisk.pl
+       </A><BR>
+    <I>Wed Jul  2 23:40:31 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004392.html">+	drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init.patch	added to -mm tree
+</A></li>
+        <LI>Next message: <A HREF="004395.html">b43 locks the machine when resuming after suspend to disk
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4394">[ date ]</a>
+              <a href="thread.html#4394">[ thread ]</a>
+              <a href="subject.html#4394">[ subject ]</a>
+              <a href="author.html#4394">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Wednesday, 2 of July 2008, Giacomo Mulas wrote:
+&gt;<i> I tried searching on the list for this, before posting, but searching the
+</I>&gt;<i> mailing list archives with keywords such as b43, suspend, resume... brings
+</I>&gt;<i> up such a ludicrous amount of threads that it's not realistic to check them
+</I>&gt;<i> all, so just tell me what to look for if it's been asked already.
+</I>&gt;<i> 
+</I>&gt;<i> Whenever I do a suspend to disk after using b43, the computer freezes hard
+</I>&gt;<i> as soon as it attempts again to access b43 after resume.
+</I>&gt;<i> 
+</I>&gt;<i> Minimal how to reproduce the freeze:
+</I>&gt;<i> 1) modprobe b43
+</I>&gt;<i> 2) hibernate (using any suspend to disk, which one is irrelevant)
+</I>&gt;<i> 3) resume
+</I>&gt;<i> 4) ifconfig wlan0 up
+</I>&gt;<i> 
+</I>&gt;<i> This has been happening (at least) since b43 was included in the mainline
+</I>&gt;<i> kernel, on my Asus A6K laptop running an x86_64 kernel (now the latest
+</I>&gt;<i> 2.6.25 stable release or compiled from the latest released debian sid
+</I>&gt;<i> sources). The nvidia module is not responsible: I explicitely booted my
+</I>&gt;<i> laptop in single user mode without any unnecessary modules, same result. It
+</I>&gt;<i> does not happen using the windows driver with ndiswrapper (which I would
+</I>&gt;<i> prefer to avoid for other reasons), so it definitely depends on b43 or
+</I>&gt;<i> something it depends on. Unloading and reloading the b43 module and all the
+</I>&gt;<i> other modules it depends on does not change anything. Just loading the
+</I>&gt;<i> module once, hibernating and resuming means freeze-up as soon as the module
+</I>&gt;<i> is actually initialised next time, regardless of it having been unloaded and
+</I>&gt;<i> reloaded any number of times before or after the suspend-resume cycle. No
+</I>&gt;<i> oopses, nothing on system logs, just instant freeze-up. Is there some
+</I>&gt;<i> testing a user can do to help nailing this? I am not a kernel developer,
+</I>&gt;<i> even if I am a decent C programmer.
+</I>&gt;<i> 
+</I>&gt;<i> Please CC me on replies, I am not on the list.
+</I>
+I think you need the appended patch, but it only applies to linux-next.
+
+Thanks,
+Rafael
+
+---
+When a driver rejects a frame in it's -&gt;tx() callback, it must also
+stop queues, otherwise mac80211 can go into a loop here. Detect this
+situation and abort the loop after five retries, warning about the
+driver bug.
+
+Signed-off-by: Johannes Berg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">johannes at sipsolutions.net</A>&gt;
+---
+ net/mac80211/tx.c |    9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+Index: linux-next/net/mac80211/tx.c
+===================================================================
+--- linux-next.orig/net/mac80211/tx.c
++++ linux-next/net/mac80211/tx.c
+@@ -1144,7 +1144,7 @@ static int ieee80211_tx(struct net_devic
+ 	struct ieee80211_tx_data tx;
+ 	ieee80211_tx_result res_prepare;
+ 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+-	int ret, i;
++	int ret, i, retries = 0;
+ 	u16 queue;
+ 
+ 	queue = skb_get_queue_mapping(skb);
+@@ -1206,6 +1206,13 @@ retry:
+ 		 */
+ 		if (!__netif_subqueue_stopped(local-&gt;mdev, queue)) {
+ 			clear_bit(queue, local-&gt;queues_pending);
++			retries++;
++			/*
++			 * Driver bug, it's rejecting packets but
++			 * not stopping queues.
++			 */
++			if (WARN_ON_ONCE(retries &gt; 5))
++				goto drop;
+ 			goto retry;
+ 		}
+ 		store-&gt;skb = skb;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004392.html">+	drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init.patch	added to -mm tree
+</A></li>
+	<LI>Next message: <A HREF="004395.html">b43 locks the machine when resuming after suspend to disk
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4394">[ date ]</a>
+              <a href="thread.html#4394">[ thread ]</a>
+              <a href="subject.html#4394">[ subject ]</a>
+              <a href="author.html#4394">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: Fix deviation from specifications in	set_baseband_attenuation
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20deviation%20from%20specifications%20in%0A%09set_baseband_attenuation&In-Reply-To=%3C1185366383.14697.372.camel%40pmac.infradead.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001575.html">
+   <LINK REL="Next"  HREF="001577.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: Fix deviation from specifications in	set_baseband_attenuation</H1>
+    <B>David Woodhouse</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20deviation%20from%20specifications%20in%0A%09set_baseband_attenuation&In-Reply-To=%3C1185366383.14697.372.camel%40pmac.infradead.org%3E"
+       TITLE="[PATCH] bcm43xx: Fix deviation from specifications in	set_baseband_attenuation">dwmw2 at infradead.org
+       </A><BR>
+    <I>Wed Jul 25 14:26:23 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001575.html">bcm43xx_mac80211 unhappy
+</A></li>
+        <LI>Next message: <A HREF="001577.html">[PATCH] bcm43xx: Fix deviation from specifications	in	set_baseband_attenuation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1576">[ date ]</a>
+              <a href="thread.html#1576">[ thread ]</a>
+              <a href="subject.html#1576">[ subject ]</a>
+              <a href="author.html#1576">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Mon, 2007-07-09 at 22:59 +0000, Linux Kernel Mailing List wrote:
+&gt;<i> Gitweb:     <A HREF="http://git.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=77548f58070894cf5970a110981e511ffe793369">http://git.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=77548f58070894cf5970a110981e511ffe793369</A>
+</I>&gt;<i> Commit:     77548f58070894cf5970a110981e511ffe793369
+</I>&gt;<i> Parent:     aaf83d4fc4a596929306c894d341e17fbdfba758
+</I>&gt;<i> Author:     Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;<i> AuthorDate: Sat May 26 22:21:29 2007 -0500
+</I>&gt;<i> Committer:  Jeff Garzik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">jeff at garzik.org</A>&gt;
+</I>&gt;<i> CommitDate: Sun Jul 8 22:16:37 2007 -0400
+</I>&gt;<i> 
+</I>&gt;<i>     [PATCH] bcm43xx: Fix deviation from specifications in set_baseband_attenuation
+</I>&gt;<i>     
+</I>&gt;<i>     A disagreement between the specifications and the bcm43xx code has just
+</I>&gt;<i>     been discovered and is hereby fixed.
+</I>&gt;<i>     
+</I>&gt;<i>     Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;<i>     Signed-off-by: John W. Linville &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i>  drivers/net/wireless/bcm43xx/bcm43xx_phy.c |    2 +-
+</I>&gt;<i>  1 files changed, 1 insertions(+), 1 deletions(-)
+</I>&gt;<i> 
+</I>&gt;<i> diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_phy.c b/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+</I>&gt;<i> index b37f1e3..d779199 100644
+</I>&gt;<i> --- a/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+</I>&gt;<i> +++ b/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+</I>&gt;<i> @@ -1638,7 +1638,7 @@ void bcm43xx_phy_set_baseband_attenuation(struct bcm43xx_private *bcm,
+</I>&gt;<i>  		return;
+</I>&gt;<i>  	}
+</I>&gt;<i>  
+</I>&gt;<i> -	if (phy-&gt;analog &gt; 1) {
+</I>&gt;<i> +	if (phy-&gt;analog == 1) {
+</I>&gt;<i>  		value = bcm43xx_phy_read(bcm, 0x0060) &amp; ~0x003C;
+</I>&gt;<i>  		value |= (baseband_attenuation &lt;&lt; 2) &amp; 0x003C;
+</I>&gt;<i>  	} else {
+</I>&gt;<i> -
+</I>
+This broke my shinybook. I seem to get absolutely _no_ outgoing packets,
+although I can receive OK.
+
+bcm43xx: Chip ID 0x4306, rev 0x2
+bcm43xx: Number of cores: 6
+bcm43xx: Core 0: ID 0x800, rev 0x2, vendor 0x4243
+bcm43xx: Core 1: ID 0x812, rev 0x4, vendor 0x4243
+bcm43xx: Core 2: ID 0x80d, rev 0x1, vendor 0x4243
+bcm43xx: Core 3: ID 0x807, rev 0x1, vendor 0x4243
+bcm43xx: Core 4: ID 0x804, rev 0x7, vendor 0x4243
+bcm43xx: Core 5: ID 0x812, rev 0x4, vendor 0x4243
+
+bcm43xx: Detected PHY: Analog: 1, Type 2, Revision 1
+bcm43xx: Detected Radio: ID: 2205017f (Manuf: 17f Ver: 2050 Rev: 2)
+
+bcm43xx: Microcode rev 0x122, pl 0x99 (2005-01-22  22:40:08)
+
+
+-- 
+dwmw2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001575.html">bcm43xx_mac80211 unhappy
+</A></li>
+	<LI>Next message: <A HREF="001577.html">[PATCH] bcm43xx: Fix deviation from specifications	in	set_baseband_attenuation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1576">[ date ]</a>
+              <a href="thread.html#1576">[ thread ]</a>
+              <a href="subject.html#1576">[ subject ]</a>
+              <a href="author.html#1576">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

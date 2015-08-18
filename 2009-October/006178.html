@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43/BCM4312 fails with DMA errors
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43/BCM4312%20fails%20with%20DMA%20errors&In-Reply-To=%3C20091016130329.3dd0b1a9%40boulder.homenet%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006183.html">
+   <LINK REL="Next"  HREF="006179.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43/BCM4312 fails with DMA errors</H1>
+    <B>Chris Vine</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43/BCM4312%20fails%20with%20DMA%20errors&In-Reply-To=%3C20091016130329.3dd0b1a9%40boulder.homenet%3E"
+       TITLE="b43/BCM4312 fails with DMA errors">chris at cvine.freeserve.co.uk
+       </A><BR>
+    <I>Fri Oct 16 14:03:29 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006183.html">[PATCH] b43: Fix Bugzilla #14181 without introducing a new	problem
+</A></li>
+        <LI>Next message: <A HREF="006179.html">b43/BCM4312 fails with DMA errors
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6178">[ date ]</a>
+              <a href="thread.html#6178">[ thread ]</a>
+              <a href="subject.html#6178">[ subject ]</a>
+              <a href="author.html#6178">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi,
+
+I have a Levono S-12 Netbook, which has the Atom N270 processor and a
+Broadcom 14e4:4315 wireless chip with low power PHY.  lspci -vnn | grep
+14e4 gives:
+
+  02:00.0 Ethernet controller [0200]: Broadcom Corporation NetLink BCM5906M Fast Ethernet PCI Express [14e4:1713] (rev 02)
+  03:00.0 Network controller [0280]: Broadcom Corporation BCM4312 802.11b/g [14e4:4315] (rev 01)
+          Subsystem: Broadcom Corporation Unknown device [14e4:04b5]
+
+As suggested for this chip on the linux wireless b43 howto web page, I
+am using firmware extracted from broadcom-wl-4.178.10.4.tar.bz2 using
+the current b43-fwcutter in git.
+
+Although wireless works with the broadcom wl driver provided by
+Broadcom in their hybrid-portsrc-x86_32-v5.10.91.9.3.tar.gz package up
+to and including kernel 2.6.28 (but not afterwards, presumably because
+of the replacement of ieee80211 by lib80211), the b43 driver in both
+2.6.32-rc4 and current compat-wireless fails on a cold boot with dma
+errors (I use &quot;cold boot&quot; advisedly - see the working case 1 for b43
+mentioned at the end).
+
+Prior to failure, modprobe b43 &amp;&amp; dmesg | egrep &quot;ssb|b43&quot; gives:
+
+  b43-pci-bridge 0000:03:00.0: PCI INT A -&gt; GSI 17 (level, low) -&gt; IRQ 17
+  b43-pci-bridge 0000:03:00.0: setting latency timer to 64
+  ssb: Sonics Silicon Backplane found on PCI device 0000:03:00.0
+  b43-phy0: Broadcom 4312 WLAN found (core revision 15)
+  b43-phy0 debug: Found PHY: Analog 6, Type 5, Revision 1
+  b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2062, Revision 2
+  Registered led device: b43-phy0::tx
+  Registered led device: b43-phy0::rx
+  Registered led device: b43-phy0::radio
+
+So far it looks normal.  However, bringing up the wlan0 interface and
+attempting to associate will shortly afterwards trigger DMA errors, and
+any further use of the interface thereafter will fail.  Sometimes
+failure happens immediately the interface is brought up, usually I can
+get as far as successfully scanning for APs with 'iwlist scan wlan0',
+and sometimes it gets as far as negotiating association with the AP,
+but it always ends at some point with logging output such as this
+in /var/log/messages (with b43 debugging switched on):
+
+  b43-phy0: Broadcom 4312 WLAN found (core revision 15)
+  b43-phy0 debug: Found PHY: Analog 6, Type 5, Revision 1
+  b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2062, Revision 2
+  phy0: Selected rate control algorithm 'minstrel'
+  Registered led device: b43-phy0::tx
+  Registered led device: b43-phy0::rx
+  Registered led device: b43-phy0::radio
+  Broadcom 43xx driver loaded [ Features: PMLS, Firmware-ID: FW13 ]
+  b43 ssb0:0: firmware: requesting b43/ucode15.fw
+  b43 ssb0:0: firmware: requesting b43/lp0initvals15.fw
+  b43 ssb0:0: firmware: requesting b43/lp0bsinitvals15.fw
+  b43-phy0: Loading firmware version 478.104 (2008-07-01 00:50:23)
+  b43-phy0 debug: b2062: Using crystal tab entry 19200 kHz.
+  b43-phy0 debug: RC calib: Failed to switch to channel 7, error = -5
+  b43-phy0 debug: Chip initialized
+  b43-phy0 debug: 64-bit DMA initialized
+  b43-phy0 debug: QoS enabled
+  b43-phy0 debug: Wireless interface started
+  b43-phy0 debug: Adding Interface type 2
+  ADDRCONF(NETDEV_UP): wlan0: link is not ready
+  b43-phy0 ERROR: Fatal DMA error: 0x00000800, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+  b43-phy0: Controller RESET (DMA error) ...
+  b43-phy0 debug: Wireless interface stopped
+  b43-phy0 debug: DMA-64 rx_ring: Used slots 1/64, Failed frames 0/0 = 0.0%, Average tries 0.00
+  b43-phy0 debug: DMA-64 tx_ring_AC_BK: Used slots 0/256, Failed frames 0/0 = 0.0%, Average tries 0.00
+  b43-phy0 debug: DMA-64 tx_ring_AC_BE: Used slots 0/256, Failed frames 0/0 = 0.0%, Average tries 0.00
+  b43-phy0 debug: DMA-64 tx_ring_AC_VI: Used slots 0/256, Failed frames 0/0 = 0.0%, Average tries 0.00
+  b43-phy0 debug: DMA-64 tx_ring_AC_VO: Used slots 2/256, Failed frames 0/11 = 0.0%, Average tries 1.00
+  b43-phy0 debug: DMA-64 tx_ring_mcast: Used slots 0/256, Failed frames 0/0 = 0.0%, Average tries 0.00
+  b43-phy0: Loading firmware version 478.104 (2008-07-01 00:50:23)
+  b43-phy0 debug: b2062: Using crystal tab entry 19200 kHz.
+  b43-phy0 debug: Chip initialized
+  [ ... and so on ... ]
+
+The DMA error message repeats at approximately 5 second intervals (so
+filling up /var/log/messages quite nicely after a while).
+
+Two other points which may help locate the problem, when b43 WILL work:
+
+1.  If I boot up ubuntu kernel-2.6.27 with the proprietary wl driver,
+and then do a warm reboot to kernel 2.6.32-rc4, b43 works normally.
+No DMA errors are reported.  This may point to a firmware loading issue,
+but see 2 below.
+
+2.  If I choose the &quot;force PIO&quot; debugging option b43 works OK (albeit no
+doubt not very efficiently).
+
+Chris
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006183.html">[PATCH] b43: Fix Bugzilla #14181 without introducing a new	problem
+</A></li>
+	<LI>Next message: <A HREF="006179.html">b43/BCM4312 fails with DMA errors
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6178">[ date ]</a>
+              <a href="thread.html#6178">[ thread ]</a>
+              <a href="subject.html#6178">[ subject ]</a>
+              <a href="author.html#6178">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

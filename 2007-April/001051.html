@@ -1,0 +1,185 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> HP Compaq nx6325 - new users experience
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20HP%20Compaq%20nx6325%20-%20new%20users%20experience&In-Reply-To=%3C20070412234920.GA2250%40datenspionage.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001048.html">
+   <LINK REL="Next"  HREF="001053.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>HP Compaq nx6325 - new users experience</H1>
+    <B>Philipp E. Letschert</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20HP%20Compaq%20nx6325%20-%20new%20users%20experience&In-Reply-To=%3C20070412234920.GA2250%40datenspionage.de%3E"
+       TITLE="HP Compaq nx6325 - new users experience">phil at datenspionage.de
+       </A><BR>
+    <I>Fri Apr 13 01:49:20 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001048.html">HP Compaq nx6325 - new users experience
+</A></li>
+        <LI>Next message: <A HREF="001053.html">HP Compaq nx6325 - new users experience
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1051">[ date ]</a>
+              <a href="thread.html#1051">[ thread ]</a>
+              <a href="subject.html#1051">[ subject ]</a>
+              <a href="author.html#1051">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Larry Finger schrieb am Do, 12.04.2007 (13:08:31 -0500):
+&gt;<i> Philipp E. Letschert wrote:
+</I>&gt;<i> &gt;LED functionality:
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;after `ifconfig eth1 up' the LED turns on, and using the WLAN keyboard
+</I>&gt;<i> &gt;switch turns the LED on and off. But this has no impact on the driver,
+</I>&gt;<i> &gt;WLAN seems to work, even with LED turned off.
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;Using ndiswrapper, the LED turns on right after loading the module and
+</I>&gt;<i> &gt;the keyboard switch turns LED on and off and additionally
+</I>&gt;<i> &gt;enables/disables the device.
+</I>&gt;<i> 
+</I>&gt;<i> In bcm43xx, the LED will never turn on until after the interface is brought 
+</I>&gt;<i> up. That is deliberate. Are there any messages about &quot;Radio hardware status 
+</I>&gt;<i> changed&quot; in the dmesg output? My laptop with a 4311 has a switch on the 
+</I>&gt;<i> front lip, not on the keyboard, the LED changes with the switch and the 
+</I>&gt;<i> radio is disabled by the hardware. If yours behaves differently, we should 
+</I>&gt;<i> change it, but if the hardware status changes do not propagate, I'm not 
+</I>&gt;<i> sure what we can do.
+</I>&gt;<i> 
+</I>&gt;<i> &gt;With both drivers, when rebooting the laptop with LED switched on, it
+</I>&gt;<i> &gt;stays on, even when no driver is loaded and no device is available. So I
+</I>&gt;<i> &gt;manually unload the driver during shutdown, so the LED goes off before
+</I>&gt;<i> &gt;rebooting.
+</I>&gt;<i> 
+</I>&gt;<i> That is a manifestation of the same problem.
+</I>&gt;<i> 
+</I>&gt;<i> &gt;Device corruption:
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;this has been mentioned on the list before, and was also observed here:
+</I>&gt;<i> &gt;When using 2.6.20 unpatched kernel and rebooting the laptop with bcm43xx
+</I>&gt;<i> &gt;loaded and interface up, the device gets somehow corrupted.
+</I>&gt;<i> &gt;After rebooting it was impossible to get the device working again.
+</I>&gt;<i> &gt;Neither with bcm43xx nor ndiswrapper, power off didnt help either. The
+</I>&gt;<i> &gt;only solution I found was to select 'Restore Defaults'-&gt;'Save' in the
+</I>&gt;<i> &gt;laptops BIOS, and the device did work again. (The laptop BIOS version is
+</I>&gt;<i> &gt;F.06)
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;However this issue has been resolved using 2.6.21-rc6 with combined
+</I>&gt;<i> &gt;patch applied.
+</I>&gt;<i> 
+</I>&gt;<i> No PCIe device works on an unpatched 2.6.20 kernel. You need 2.6.20.4 or 
+</I>&gt;<i> later. The reason is that PCIe interrupts are not passed on, which 
+</I>&gt;<i> obviously confuses your BIOS, and jams up interrupts on the appropriate IRQ 
+</I>&gt;<i> line. I'm surprised that turning off the power didn't get it reset.
+</I>
+I finally found out what my &quot;corruption bug&quot; was about:
+
+In kernel 2.6.20.4 the LED didn't work, when pressing the switch (btw. it
+is not directly on the keyboard, but a separate switch right above, with
+an integrated LED) and there were no &quot;Radio hardware status changed&quot; messages.
+So I assumed the switch doesnt work at all. But that was wrong, I silently
+disabled the device (with the LED still on) and it stayed disabled, even when
+turning power off.
+All I should have done, was to press the switch once more (even with LED
+already on), instead of resetting the BIOS. Finding this kept me busy for
+a few hours...
+
+In patched 2.6.21-rc6 LED works fine, and the &quot;Radio hardware status
+changed&quot; messages show up. Again I was wrong in thinking the switch
+doesnt turn off the device properly. It just doesnt switch off immediately.
+After pressing and the LED is off, you still have a result from &quot;iwlist
+scan&quot; for a some seconds, before the device is finally disabled -
+bad tester I am.
+
+I try to describe the LEDs behaviour:
+ 1. Initial boot, hardware enabled, LED is off, no module loaded
+ 2. modprobe bcm43xx, ifconfig ethx up
+ 3. LED is on, Device is working
+ 4. Reboot
+ 5. Hardware enabled, LED is on, no module loaded
+ 6. modprobe bcm43xx
+ 7. LED goes off
+ 8. ifconfig ethx up
+ 9. LED goes on, device is working
+10. pressing WLAN switch
+11. LED goes off, device is not working
+12. Power off, Boot
+13. Hardware disabled, LED is off, no module loaded
+14. modprobe bcm43xx, ifconfig ethx up
+15. LED doesn't turn on, hardware still disabled, device not working
+16. pressing WLAN switch
+17. LED goes on, device is working
+
+This is all ok and I dont know if other devices are the same, but I
+could imagine a different behaviour:
+
+- loading the module initially disables the hardware, never mind if it
+  was enabled or disabled before
+
+- doing ifconfig ethx up enables hardware (and LED)
+  or
+  pressing WLAN switch enables hardware and does ifconfig ethx up
+
+- doing ifconfig ethx down disables hardware
+  or
+  pressing WLAN switch disables hardware and does ifconfig ethx down
+
+- doing a reboot disables the hardware and turns the LED off.
+
+
+&gt;<i> &gt;Rate settings:
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;setting a rate with iwconfig seems to have no effect, its always 1M
+</I>&gt;<i> &gt;(with ndiswrapper its always 54M). But this could be a result of
+</I>&gt;<i> &gt;unsupported wireless extensions?
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;Warning: Driver for device eth1 has been compiled with version 22
+</I>&gt;<i> &gt;of Wireless Extension, while this program supports up to version 20.
+</I>&gt;<i> &gt;Some things may be broken...
+</I>&gt;<i> 
+</I>&gt;<i> No - The VERSION message is just a standard one. With 2.6.21-rc6, the rate 
+</I>&gt;<i> is initialized at 24M. If it has been downgraded to 1M, it must be a 
+</I>&gt;<i> consequence of the strength of your signal. What are the signal strengths, 
+</I>&gt;<i> etc. shown by iwconfig?
+</I>
+Ah, I had no AP associated, so no signal strength and no rate changing.
+
+Thanks for helping and all the explanation!
+
+
+Regards,
+Philipp
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001048.html">HP Compaq nx6325 - new users experience
+</A></li>
+	<LI>Next message: <A HREF="001053.html">HP Compaq nx6325 - new users experience
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1051">[ date ]</a>
+              <a href="thread.html#1051">[ thread ]</a>
+              <a href="subject.html#1051">[ subject ]</a>
+              <a href="author.html#1051">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

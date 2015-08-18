@@ -1,0 +1,283 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 2/3] bcm43xx-mac80211: Fix machine check on PPC for	phy-&gt;rev == 1
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/3%5D%20bcm43xx-mac80211%3A%20Fix%20machine%20check%20on%20PPC%20for%0A%09phy-%3Erev%20%3D%3D%201&In-Reply-To=%3C462772da.WTFJ4M8EynD9kYbu%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001134.html">
+   <LINK REL="Next"  HREF="001138.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 2/3] bcm43xx-mac80211: Fix machine check on PPC for	phy-&gt;rev == 1</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/3%5D%20bcm43xx-mac80211%3A%20Fix%20machine%20check%20on%20PPC%20for%0A%09phy-%3Erev%20%3D%3D%201&In-Reply-To=%3C462772da.WTFJ4M8EynD9kYbu%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH 2/3] bcm43xx-mac80211: Fix machine check on PPC for	phy-&gt;rev == 1">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Thu Apr 19 15:47:06 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001134.html">[PATCH 1/3] bcm43xx-mac80211: Fix machine check on PPC for	phy-&gt;rev == 1
+</A></li>
+        <LI>Next message: <A HREF="001138.html">[PATCH 2/3] bcm43xx-mac80211: Fix machine check on PPC for	phy-&gt;rev == 1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1135">[ date ]</a>
+              <a href="thread.html#1135">[ thread ]</a>
+              <a href="subject.html#1135">[ subject ]</a>
+              <a href="author.html#1135">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Patch 2/3: There are recent changes to the specs that eliminate a
+number of machine check errors on PPC architecture when used with
+phy-&gt;rev == 1 chips.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+This patch is for the wireless-dev tree. A separate one will be prepared
+for the mb tree.
+
+Larry
+
+
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
+@@ -599,16 +599,16 @@ static void bcm43xx_phy_agcsetup(struct 
+ 	bcm43xx_phy_write(dev, 0x04A1,
+ 			  (bcm43xx_phy_read(dev, 0x04A1)
+ 			   &amp; 0xF0FF) | 0x0600);
+-	bcm43xx_phy_write(dev, 0x04A2,
+-			  (bcm43xx_phy_read(dev, 0x04A2)
++	bcm43xx_phy_write(dev, 0x0412,
++			  (bcm43xx_phy_read(dev, 0x0412)
+ 			   &amp; 0xF0FF) | 0x0700);
+-	bcm43xx_phy_write(dev, 0x04A0,
+-			  (bcm43xx_phy_read(dev, 0x04A0)
++	bcm43xx_phy_write(dev, 0x0410,
++			  (bcm43xx_phy_read(dev, 0x0410)
+ 			   &amp; 0xF0FF) | 0x0100);
+ 
+ 	if (phy-&gt;rev == 1) {
+-		bcm43xx_phy_write(dev, 0x04A2,
+-				  (bcm43xx_phy_read(dev, 0x04A2)
++		bcm43xx_phy_write(dev, 0x0412,
++				  (bcm43xx_phy_read(dev, 0x0412)
+ 				   &amp; 0xFFF0) | 0x0007);
+ 	}
+ 
+@@ -955,7 +955,7 @@ static void bcm43xx_phy_inita(struct bcm
+ 		bcm43xx_phy_setupa(dev);
+ 	} else {
+ 		bcm43xx_phy_setupg(dev);
+-		if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp; BCM43xx_BFL_PACTRL)
++		if (phy-&gt;gmode &amp;&amp; dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp; BCM43xx_BFL_PACTRL)
+ 			bcm43xx_phy_write(dev, 0x046E, 0x03CF);
+ 		return;
+ 	}
+@@ -1139,7 +1139,7 @@ static void bcm43xx_phy_initb5(struct bc
+ 	if (phy-&gt;radio_ver == 0x2050)
+ 		bcm43xx_phy_write(dev, 0x0038, 0x0667);
+ 
+-	if (phy-&gt;type == BCM43xx_PHYTYPE_G) {
++	if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 		if (phy-&gt;radio_ver == 0x2050) {
+ 			bcm43xx_radio_write16(dev, 0x007A,
+ 					      bcm43xx_radio_read16(dev, 0x007A)
+@@ -1560,7 +1560,7 @@ static void bcm43xx_phy_initg(struct bcm
+ 	else
+ 		bcm43xx_phy_initb6(dev);
+ 
+-	if (has_loopback_gain(phy))
++	if (phy-&gt;rev &gt;= 2 || phy-&gt;gmode)
+ 		bcm43xx_phy_inita(dev);
+ 
+ 	if (phy-&gt;rev &gt;= 2) {
+@@ -1575,7 +1575,7 @@ static void bcm43xx_phy_initg(struct bcm
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVER, 0x400);
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_PGACTL, 0xC0);
+ 	}
+-	if (phy-&gt;gmode) {
++	if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 		tmp = bcm43xx_phy_read(dev, BCM43xx_PHY_VERSION_OFDM);
+ 		tmp &amp;= BCM43xx_PHYVER_VERSION;
+ 		if (tmp == 3 || tmp == 5) {
+@@ -1588,7 +1588,7 @@ static void bcm43xx_phy_initg(struct bcm
+ 					   &amp; 0x00FF) | 0x1F00);
+ 		}
+ 	}
+-	if (phy-&gt;rev &lt;= 2 &amp;&amp; phy-&gt;gmode)
++	if ((phy-&gt;rev &lt;= 2 &amp;&amp; phy-&gt;gmode) || phy-&gt;rev &gt;= 2)
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x7E), 0x78);
+ 	if (phy-&gt;radio_rev == 8) {
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_EXTG(0x01),
+@@ -1634,7 +1634,7 @@ static void bcm43xx_phy_initg(struct bcm
+ 		else
+ 			bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x2F), 0x202);
+ 	}
+-	if (phy-&gt;gmode) {
++	if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 		bcm43xx_lo_adjust(dev);
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_LO_MASK, 0x8078);
+ 	}
+@@ -1648,8 +1648,8 @@ static void bcm43xx_phy_initg(struct bcm
+ 		 */
+ 		bcm43xx_nrssi_hw_update(dev, 0xFFFF);//FIXME?
+ 		bcm43xx_calc_nrssi_threshold(dev);
+-	} else {
+-		if (phy-&gt;gmode &amp;&amp; phy-&gt;nrssi[0] == -1000) {
++	} else if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
++		if (phy-&gt;nrssi[0] == -1000) {
+ 			assert(phy-&gt;nrssi[1] == -1000);
+ 			bcm43xx_calc_nrssi_slope(dev);
+ 		} else
+@@ -1658,7 +1658,10 @@ static void bcm43xx_phy_initg(struct bcm
+ 	if (phy-&gt;radio_rev == 8)
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_EXTG(0x05), 0x3230);
+ 	bcm43xx_phy_init_pctl(dev);
+-	if (0 /*FIXME: OFDM may not be used in the current locale*/) {
++	/* FIXME: The spec says in the following if, the 0 should be replaced
++                  'if OFDM may not be used in the current locale'
++		  but OFDM is legal everywhere */
++	if ((dev-&gt;dev-&gt;bus-&gt;chip_id == 0x4306 &amp;&amp; dev-&gt;dev-&gt;bus-&gt;chip_package == 2) || 0) {
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_CRS0,
+ 				  bcm43xx_phy_read(dev, BCM43xx_PHY_CRS0)
+ 				  &amp; 0xBFFF);
+@@ -3299,7 +3302,7 @@ bcm43xx_radio_interference_mitigation_di
+ 			ofdmtab_stackrestore(0x1A00, 0x3);
+ 		}
+ 		phy_stackrestore(0x04A2);
+-		phy_stackrestore(0x04A8);
++		phy_stackrestore(0x048A);
+ 		phy_stackrestore(0x042B);
+ 		phy_stackrestore(0x048C);
+ 		bcm43xx_hf_write(dev, bcm43xx_hf_read(dev) &amp; ~BCM43xx_HF_ACIW);
+@@ -3553,7 +3556,7 @@ u16 bcm43xx_radio_init2050(struct bcm43x
+ 
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x30), 0xFF);
+ 		bcm43xx_write16(dev, 0x3EC, 0x3F3F);
+-	} else if (phy-&gt;gmode) {
++	} else if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 		sav.phy_rfover = bcm43xx_phy_read(dev, BCM43xx_PHY_RFOVER);
+ 		sav.phy_rfoverval = bcm43xx_phy_read(dev, BCM43xx_PHY_RFOVERVAL);
+ 		sav.phy_analogover = bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVER);
+@@ -3615,14 +3618,14 @@ u16 bcm43xx_radio_init2050(struct bcm43x
+ 
+ 	if (phy-&gt;type == BCM43xx_PHYTYPE_B)
+ 		bcm43xx_radio_write16(dev, 0x78, 0x26);
+-	if (phy-&gt;gmode) {
++	if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVERVAL,
+ 				  radio2050_rfover_val(dev, BCM43xx_PHY_RFOVERVAL,
+ 						       LPD(0, 1, 1)));
+ 	}
+ 	bcm43xx_phy_write(dev, BCM43xx_PHY_PGACTL, 0xBFAF);
+ 	bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x2B), 0x1403);
+-	if (phy-&gt;gmode) {
++	if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVERVAL,
+ 				  radio2050_rfover_val(dev, BCM43xx_PHY_RFOVERVAL,
+ 						       LPD(0, 0, 1)));
+@@ -3645,21 +3648,21 @@ u16 bcm43xx_radio_init2050(struct bcm43x
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x5A), 0x0480);
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x59), 0xC810);
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x58), 0x000D);
+-		if (phy-&gt;gmode) {
++		if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 			bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVERVAL,
+ 					  radio2050_rfover_val(dev, BCM43xx_PHY_RFOVERVAL,
+ 							       LPD(1, 0, 1)));
+ 		}
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_PGACTL, 0xAFB0);
+ 		udelay(10);
+-		if (phy-&gt;gmode) {
++		if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 			bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVERVAL,
+ 					  radio2050_rfover_val(dev, BCM43xx_PHY_RFOVERVAL,
+ 							       LPD(1, 0, 1)));
+ 		}
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_PGACTL, 0xEFB0);
+ 		udelay(10);
+-		if (phy-&gt;gmode) {
++		if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 			bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVERVAL,
+ 					  radio2050_rfover_val(dev, BCM43xx_PHY_RFOVERVAL,
+ 							       LPD(1, 0, 0)));
+@@ -3668,7 +3671,7 @@ u16 bcm43xx_radio_init2050(struct bcm43x
+ 		udelay(20);
+ 		tmp1 += bcm43xx_phy_read(dev, BCM43xx_PHY_LO_LEAKAGE);
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x58), 0);
+-		if (phy-&gt;gmode) {
++		if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 			bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVERVAL,
+ 					  radio2050_rfover_val(dev, BCM43xx_PHY_RFOVERVAL,
+ 							       LPD(1, 0, 1)));
+@@ -3689,21 +3692,21 @@ u16 bcm43xx_radio_init2050(struct bcm43x
+ 			bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x5A), 0x0D80);
+ 			bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x59), 0xC810);
+ 			bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x58), 0x000D);
+-			if (phy-&gt;gmode) {
++			if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 				bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVERVAL,
+ 						  radio2050_rfover_val(dev, BCM43xx_PHY_RFOVERVAL,
+ 								       LPD(1, 0, 1)));
+ 			}
+ 			bcm43xx_phy_write(dev, BCM43xx_PHY_PGACTL, 0xAFB0);
+ 			udelay(10);
+-			if (phy-&gt;gmode) {
++			if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 				bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVERVAL,
+ 						  radio2050_rfover_val(dev, BCM43xx_PHY_RFOVERVAL,
+ 								       LPD(1, 0, 1)));
+ 			}
+ 			bcm43xx_phy_write(dev, BCM43xx_PHY_PGACTL, 0xEFB0);
+ 			udelay(10);
+-			if (phy-&gt;gmode) {
++			if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 				bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVERVAL,
+ 						  radio2050_rfover_val(dev, BCM43xx_PHY_RFOVERVAL,
+ 								       LPD(1, 0, 0)));
+@@ -3712,7 +3715,7 @@ u16 bcm43xx_radio_init2050(struct bcm43x
+ 			udelay(10);
+ 			tmp2 += bcm43xx_phy_read(dev, BCM43xx_PHY_LO_LEAKAGE);
+ 			bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x58), 0);
+-			if (phy-&gt;gmode) {
++			if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+ 				bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVERVAL,
+ 						  radio2050_rfover_val(dev, BCM43xx_PHY_RFOVERVAL,
+ 								       LPD(1, 0, 1)));
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001134.html">[PATCH 1/3] bcm43xx-mac80211: Fix machine check on PPC for	phy-&gt;rev == 1
+</A></li>
+	<LI>Next message: <A HREF="001138.html">[PATCH 2/3] bcm43xx-mac80211: Fix machine check on PPC for	phy-&gt;rev == 1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1135">[ date ]</a>
+              <a href="thread.html#1135">[ thread ]</a>
+              <a href="subject.html#1135">[ subject ]</a>
+              <a href="author.html#1135">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

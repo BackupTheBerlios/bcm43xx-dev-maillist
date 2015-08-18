@@ -1,0 +1,188 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC PATCH] bcm43xx: fix assert failures in	bcm43xx_interrupt_handler()
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%20PATCH%5D%20bcm43xx%3A%20fix%20assert%20failures%20in%0A%09bcm43xx_interrupt_handler%28%29&In-Reply-To=%3C1172812236.24533.34.camel%40dv%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   <LINK REL="Next"  HREF="000656.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC PATCH] bcm43xx: fix assert failures in	bcm43xx_interrupt_handler()</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%20PATCH%5D%20bcm43xx%3A%20fix%20assert%20failures%20in%0A%09bcm43xx_interrupt_handler%28%29&In-Reply-To=%3C1172812236.24533.34.camel%40dv%3E"
+       TITLE="[RFC PATCH] bcm43xx: fix assert failures in	bcm43xx_interrupt_handler()">proski at gnu.org
+       </A><BR>
+    <I>Fri Mar  2 06:10:36 CET 2007</I>
+    <P><UL>
+        
+        <LI>Next message: <A HREF="000656.html">[RFC PATCH] bcm43xx: fix assert failures	in	bcm43xx_interrupt_handler()
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#655">[ date ]</a>
+              <a href="thread.html#655">[ thread ]</a>
+              <a href="subject.html#655">[ subject ]</a>
+              <a href="author.html#655">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello!
+
+Sorry, another look at the assert issue in bcm43xx has taken some time.
+That's the complete kernel messages from the point where the driver is
+inserted to the first assertion failure.
+
+ACPI: PCI Interrupt 0000:02:02.0[A] -&gt; Link [LNKC] -&gt; GSI 11 (level,
+low) -&gt; IRQ 11
+bcm43xx: Chip ID 0x4306, rev 0x3
+bcm43xx: Number of cores: 5
+bcm43xx: Core 0: ID 0x800, rev 0x4, vendor 0x4243
+bcm43xx: Core 1: ID 0x812, rev 0x5, vendor 0x4243
+bcm43xx: Core 2: ID 0x80d, rev 0x2, vendor 0x4243
+bcm43xx: Core 3: ID 0x807, rev 0x2, vendor 0x4243
+bcm43xx: Core 4: ID 0x804, rev 0x9, vendor 0x4243
+bcm43xx: PHY connected
+bcm43xx: Detected PHY: Analog: 2, Type 2, Revision 2
+bcm43xx: Detected Radio: ID: 2205017f (Manuf: 17f Ver: 2050 Rev: 2)
+bcm43xx: Radio turned off
+bcm43xx: Radio turned off
+bcm43xx: PHY connected
+bcm43xx: Microcode rev 0x127, pl 0xe (2005-04-18  02:36:27)
+bcm43xx: Radio turned on
+bcm43xx: Radio enabled by hardware
+bcm43xx: Chip initialized
+bcm43xx: 30-bit DMA initialized
+bcm43xx: Keys cleared
+bcm43xx: Selected 802.11 core (phytype 2)
+bcm43xx: Radio turned off
+bcm43xx: DMA-32 0x0200 (RX) max used slots: 1/64
+bcm43xx: DMA-32 0x02A0 (TX) max used slots: 0/512
+bcm43xx: ASSERTION FAILED (bcm43xx_status(bcm) ==
+BCM43xx_STAT_INITIALIZED)
+at: /home/proski/src/linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c:1861:bcm43xx_interrupt_handler()
+
+I'm using the current mb tree plus the fixes to bring it up to date.
+It turns out that the Broadcom card shares interrupts with a large number of devices:
+
+# cat /proc/interrupts 
+           CPU0       
+  0:    1281260    XT-PIC-XT        timer
+  1:         10    XT-PIC-XT        i8042
+  2:          0    XT-PIC-XT        cascade
+  4:       4855    XT-PIC-XT        serial
+  8:          1    XT-PIC-XT        rtc
+  9:        332    XT-PIC-XT        acpi
+ 11:     271806    XT-PIC-XT        yenta, yenta, uhci_hcd:usb1,
+uhci_hcd:usb2, uhci_hcd:usb3, eth9, <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">radeon at pci</A>:0000:01:00.0, bcm43xx
+ 12:       2337    XT-PIC-XT        i8042
+ 14:      25257    XT-PIC-XT        ide0
+ 15:      37722    XT-PIC-XT        ide1
+NMI:          0 
+ERR:          0
+
+It's not necessary to remove the module to trigger the assert messages.
+All it takes it to bring the interface (eth0 in my case) up and down.
+
+Assertion failures always happen when bcm43xx_status(bcm) is
+BCM43xx_STAT_SHUTTINGDOWN.  Debugging shows that all of then are printed
+after bcm43xx_shutdown_all_wireless_cores() sets the status and all the
+way until free_irq() is called.  bcm43xx_interrupt_disable() has not
+effect.
+
+I believe it happens because bcm43xx_interrupt_handler() checks status
+before it check whether the interrupt is even destined for us.  I think
+the wired ethernet (eth9) and the video card can generate quite a lot of
+interrupts.  Indeed, moving the assertion down eliminates all assertion
+failures.
+
+It is possible that we still can get some assertion failures caused by
+the interrupts for the card after BCM43xx_STAT_SHUTTINGDOWN is set and
+before bcm43xx_interrupt_disable() is called.  It tried to reproduce it
+by bringing the interface down during flood ping.  I don't see assertion
+failures, but I don't see any reasons why they cannot happen (I hope I'm
+not seeing the obvious).
+
+bcm43xx_d80211 is not affected because it doesn't have the
+BCM43xx_STAT_SHUTTINGDOWN state.  I think the bcm43xx driver could avoid
+it too if bcm43xx_shutdown_all_wireless_cores() ensured first that it's
+not interrupted by anything that could access the card hardware.
+
+I'm surprised that bcm43xx_wireless_core_reset() has a reference to
+BCM43xx_STAT_SHUTTINGDOWN.  I just don't see how that function could be
+called in that state.
+
+Here's my patch, and I'm even signing it off in case it actually turns
+out to be good.
+
+---
+bcm43xx: fix assert failures in bcm43xx_interrupt_handler()
+
+First make sure that the interrupt is for us, then do sanity checks.
+
+Signed-off-by: Pavel Roskin &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">proski at gnu.org</A>&gt;
+---
+
+ drivers/net/wireless/bcm43xx/bcm43xx_main.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+index 057541f..21d4ecd 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -1858,9 +1858,6 @@ static irqreturn_t bcm43xx_interrupt_handler(int irq, void *dev_id)
+ 
+ 	spin_lock(&amp;bcm-&gt;irq_lock);
+ 
+-	assert(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED);
+-	assert(bcm-&gt;current_core-&gt;id == BCM43xx_COREID_80211);
+-
+ 	reason = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+ 	if (reason == 0xffffffff) {
+ 		/* irq not for us (shared irq) */
+@@ -1871,6 +1868,9 @@ static irqreturn_t bcm43xx_interrupt_handler(int irq, void *dev_id)
+ 	if (!reason)
+ 		goto out;
+ 
++	assert(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED);
++	assert(bcm-&gt;current_core-&gt;id == BCM43xx_COREID_80211);
++
+ 	bcm-&gt;dma_reason[0] = bcm43xx_read32(bcm, BCM43xx_MMIO_DMA0_REASON)
+ 			     &amp; 0x0001DC00;
+ 	bcm-&gt;dma_reason[1] = bcm43xx_read32(bcm, BCM43xx_MMIO_DMA1_REASON)
+
+
+-- 
+Regards,
+Pavel Roskin
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	<LI>Next message: <A HREF="000656.html">[RFC PATCH] bcm43xx: fix assert failures	in	bcm43xx_interrupt_handler()
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#655">[ date ]</a>
+              <a href="thread.html#655">[ thread ]</a>
+              <a href="subject.html#655">[ subject ]</a>
+              <a href="author.html#655">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

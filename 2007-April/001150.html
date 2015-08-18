@@ -1,0 +1,976 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Some txpower code rewrite experiments
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Some%20txpower%20code%20rewrite%20experiments&In-Reply-To=%3C200704231746.37281.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001149.html">
+   <LINK REL="Next"  HREF="001151.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Some txpower code rewrite experiments</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Some%20txpower%20code%20rewrite%20experiments&In-Reply-To=%3C200704231746.37281.mb%40bu3sch.de%3E"
+       TITLE="Some txpower code rewrite experiments">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Apr 23 17:46:37 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001149.html">[PATCH] ieee80211: Output frequency rather than channel	in	scan	results
+</A></li>
+        <LI>Next message: <A HREF="001151.html">Error in setting lo-&gt;tx_bias
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1150">[ date ]</a>
+              <a href="thread.html#1150">[ thread ]</a>
+              <a href="subject.html#1150">[ subject ]</a>
+              <a href="author.html#1150">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Larry found out that our problems might come from the txpower stuff.
+
+Below is an incomplete patch where I rewrote some
+txpower code. I'd like to hear some comments on it, as the specs are
+very unclear and incomplete on all that stuff.
+Also see some of the FIXMEs in there.
+
+The patch is incomplete and the device stops working with it
+applied, of course. ;)
+
+Cheers.
+
+Index: bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
+===================================================================
+--- bu3sch-wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c	2007-04-23 17:34:50.000000000 +0200
++++ bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c	2007-04-23 17:41:44.000000000 +0200
+@@ -1738,6 +1738,62 @@ static s8 bcm43xx_phy_estimate_power_out
+ 	return dbm;
+ }
+ 
++static void put_attenuation_into_ranges(struct bcm43xx_wldev *dev,
++					int *_rfatt, int *_bbatt)
++{
++	int rfatt = *_rfatt;
++	int bbatt = *_bbatt;
++
++	/* Get baseband and radio attenuation values into their permitted ranges.
++	 * Radio attenuation affects power level 4 times as much as baseband. */
++
++	/* Range constants */
++	const int rf_min = 0;
++	const int rf_max = 9;
++	const int bb_min = 0;
++	const int bb_max = 11;
++
++	while (1) {
++		if (rfatt &gt; rf_max &amp;&amp;
++		    bbatt &gt; bb_max - 4)
++			break; /* Can not get it into ranges */
++		if (rfatt &lt; rf_min &amp;&amp;
++		    bbatt &lt; bb_min + 4)
++			break; /* Can not get it into ranges */
++		if (bbatt &gt; bb_max &amp;&amp;
++		    rfatt &gt; rf_max - 1)
++			break; /* Can not get it into ranges */
++		if (bbatt &lt; bb_min &amp;&amp;
++		    rfatt &lt; rf_min + 1)
++			break; /* Can not get it into ranges */
++
++		if (bbatt &gt; bb_max) {
++			bbatt -= 4;
++			rfatt += 1;
++			continue;
++		}
++		if (bbatt &lt; bb_min) {
++			bbatt += 4;
++			rfatt -= 1;
++			continue;
++		}
++		if (rfatt &gt; rf_max) {
++			rfatt -= 1;
++			bbatt += 4;
++			continue;
++		}
++		if (rfatt &lt; rf_min) {
++			rfatt += 1;
++			bbatt -= 4;
++			continue;
++		}
++		break;
++	}
++
++	*_rfatt = limit_value(rfatt, rf_min, rf_max);
++	*_bbatt = limit_value(bbatt, bb_min, bb_max);
++}
++
+ /* <A HREF="http://bcm-specs.sipsolutions.net/RecalculateTransmissionPower">http://bcm-specs.sipsolutions.net/RecalculateTransmissionPower</A> */
+ void bcm43xx_phy_xmitpower(struct bcm43xx_wldev *dev)
+ {
+@@ -1765,8 +1821,8 @@ void bcm43xx_phy_xmitpower(struct bcm43x
+ 		s8 average;
+ 		u8 max_pwr;
+ 		s16 desired_pwr, estimated_pwr, pwr_adjust;
+-		s16 radio_att_delta, baseband_att_delta;
+-		s16 radio_attenuation, baseband_attenuation;
++		int radio_att_delta, baseband_att_delta;
++		int radio_attenuation, baseband_attenuation;
+ 		unsigned long phylock_flags;
+ 
+ 		tmp = bcm43xx_shm_read16(dev, BCM43xx_SHM_SHARED, 0x0058);
+@@ -1796,11 +1852,13 @@ void bcm43xx_phy_xmitpower(struct bcm43x
+ 
+ 		average = (v0 + v1 + v2 + v3 + 2) / 4;
+ 
++printk(&quot;Average TSSI is %d (tgtitssi==%d, curitssi=%d)\n&quot;, average, phy-&gt;tgt_idle_tssi, phy-&gt;cur_idle_tssi);
+ 		if (tmp &amp;&amp; (bcm43xx_shm_read16(dev, BCM43xx_SHM_SHARED, 0x005E) &amp; 0x8))
+ 			average -= 13;
+ 
+ 		estimated_pwr = bcm43xx_phy_estimate_power_out(dev, average);
+ 
++printk(&quot;dBm out %d\n&quot;, estimated_pwr);
+ 		max_pwr = dev-&gt;dev-&gt;bus-&gt;sprom.r1.maxpwr_bg;
+ 
+ 		if ((dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp; BCM43xx_BFL_PACTRL) &amp;&amp;
+@@ -1817,8 +1875,10 @@ void bcm43xx_phy_xmitpower(struct bcm43x
+ 		desired_pwr = limit_value((desired_pwr &lt;&lt; 2), 0, max_pwr);
+ 
+ 		pwr_adjust = desired_pwr - estimated_pwr;
+-		radio_att_delta = -(pwr_adjust + 7) &gt;&gt; 3;
+-		baseband_att_delta = -(pwr_adjust &gt;&gt; 1) - (4 * radio_att_delta);
++printk(&quot;pwr_adjust %d\n&quot;, pwr_adjust);
++		radio_att_delta = -((pwr_adjust + 7) &gt;&gt; 3);
++		baseband_att_delta = (-(pwr_adjust &gt;&gt; 1)) - (4 * radio_att_delta);
++printk(&quot;rd %d, bbd %d\n&quot;, radio_att_delta, baseband_att_delta);
+ 		if ((radio_att_delta == 0) &amp;&amp; (baseband_att_delta == 0)) {
+ 			bcm43xx_loctl_mark_cur_used(dev);
+ 			return;
+@@ -1830,27 +1890,10 @@ void bcm43xx_phy_xmitpower(struct bcm43x
+ 		radio_attenuation = phy-&gt;rfatt;
+ 		radio_attenuation += radio_att_delta;
+ 
+-		/* Get baseband and radio attenuation values into their permitted ranges.
+-		 * baseband 0-11, radio 0-9.
+-		 * Radio attenuation affects power level 4 times as much as baseband.
+-		 */
+-		if (radio_attenuation &lt; 0) {
+-			baseband_attenuation -= (4 * -radio_attenuation);
+-			radio_attenuation = 0;
+-		} else if (radio_attenuation &gt; 9) {
+-			baseband_attenuation += (4 * (radio_attenuation - 9));
+-			radio_attenuation = 9;
+-		} else {
+-			while (baseband_attenuation &lt; 0 &amp;&amp; radio_attenuation &gt; 0) {
+-				baseband_attenuation += 4;
+-				radio_attenuation--;
+-			}
+-			while (baseband_attenuation &gt; 11 &amp;&amp; radio_attenuation &lt; 9) {
+-				baseband_attenuation -= 4;
+-				radio_attenuation++;
+-			}
+-		}
+-		baseband_attenuation = limit_value(baseband_attenuation, 0, 11);
++printk(&quot;before %d, %d\n&quot;, radio_attenuation, baseband_attenuation);
++		put_attenuation_into_ranges(dev, &amp;radio_attenuation,
++					    &amp;baseband_attenuation);
++printk(&quot;after %d, %d\n&quot;, radio_attenuation, baseband_attenuation);
+ 
+ 		txpower = phy-&gt;txctl1;
+ 		if ((phy-&gt;radio_ver == 0x2050) &amp;&amp; (phy-&gt;radio_rev == 2)) {
+
+
+
+Index: bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
+===================================================================
+--- bu3sch-wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c	2007-04-23 17:35:00.000000000 +0200
++++ bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c	2007-04-23 17:35:02.000000000 +0200
+@@ -285,6 +285,178 @@ void bcm43xx_phy_write(struct bcm43xx_wl
+ 	bcm43xx_write16(dev, BCM43xx_MMIO_PHY_DATA, val);
+ }
+ 
++static void bcm43xx_radio_set_txpower_a(struct bcm43xx_wldev *dev, u16 txpower);
++
++/* Adjust the transmission power output (G-PHY) */
++static void bcm43xx_set_txpower_g(struct bcm43xx_wldev *dev,
++				  const struct bcm43xx_bbatt *bbatt,
++				  const struct bcm43xx_rfatt *rfatt,
++				  u8 tx_magn)
++{
++	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++	struct bcm43xx_txpower_lo_control *lo = phy-&gt;lo_control;
++	u16 bb, rf;
++	u16 tx_bias;
++
++	bb = bbatt-&gt;att;
++	rf = rfatt-&gt;att;
++	if (rfatt-&gt;with_padmix)
++		rf |= 0x10;
++	tx_bias = lo-&gt;tx_bias;
++
++	bcm43xx_phy_set_baseband_attenuation(dev, bb);
++	bcm43xx_shm_write16(dev, BCM43xx_SHM_SHARED, 0x64, rf); // FIXME SHM offset ok for v4 fw?
++	if (phy-&gt;radio_ver == 0x2050 &amp;&amp; phy-&gt;radio_rev == 8) {
++		bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x43), rf);
++	} else {
++		bcm43xx_radio_write16(dev, 0x43,
++				      (bcm43xx_radio_read16(dev, 0x43)
++				       &amp; 0xFFF0) | rf); //FIXME mask correct? padmixer flag?
++	}
++	if (phy-&gt;radio_ver == 0x2050) {
++		if (phy-&gt;radio_rev &lt; 6) {
++			bcm43xx_radio_write16(dev, 0x43,
++					      (bcm43xx_radio_read16(dev, 0x43)
++					       &amp; 0xFF8F) | tx_magn);//FIXME mask correct?
++		} else if (phy-&gt;radio_rev != 8) {
++			bcm43xx_radio_write16(dev, 0x52,
++					      (bcm43xx_radio_read16(dev, 0x52)
++					       &amp; 0xFF8F) | tx_magn);//FIXME mask?
++		} else
++			bcm43xx_radio_write16(dev, 0x52, tx_magn | tx_bias);
++	}
++	if (phy-&gt;radio_rev != 8) {
++		bcm43xx_radio_write16(dev, 0x52,
++				      (bcm43xx_radio_read16(dev, 0x52)
++				       &amp; 0xFFF0) | tx_bias);
++	}
++	if (phy-&gt;type == BCM43xx_PHYTYPE_G)
++		bcm43xx_lo_adjust(dev);
++}
++
++static void default_baseband_attenuation(struct bcm43xx_wldev *dev,
++					 struct bcm43xx_bbatt *bb)
++{
++	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++
++	if (phy-&gt;radio_ver == 0x2050 &amp;&amp; phy-&gt;radio_rev &lt; 6)
++		bb-&gt;att = 0;
++	else
++		bb-&gt;att = 2;
++}
++
++static void default_radio_attenuation(struct bcm43xx_wldev *dev,
++				      struct bcm43xx_rfatt *rf)
++{
++	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
++	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++
++	rf-&gt;with_padmix = 0;
++
++	if (bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM &amp;&amp;
++	    bus-&gt;board_type == SSB_BOARD_BCM4309G) {
++		if (bus-&gt;board_rev &lt; 0x43) {
++			rf-&gt;att = 2;
++			return;
++		} else if (bus-&gt;board_rev &lt; 0x51) {
++			rf-&gt;att = 3;
++			return;
++		}
++	}
++
++	if (phy-&gt;type == BCM43xx_PHYTYPE_A) {
++		rf-&gt;att = 0x60;
++		return;
++	}
++
++	switch (phy-&gt;radio_ver) {
++	case 0x2053:
++		switch (phy-&gt;radio_rev) {
++		case 1:
++			rf-&gt;att = 6;
++			return;
++		}
++		break;
++	case 0x2050:
++		switch (phy-&gt;radio_rev) {
++		case 0:
++			rf-&gt;att = 5;
++			return;
++		case 1:
++			if (phy-&gt;type == BCM43xx_PHYTYPE_G) {
++				if (bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM &amp;&amp;
++				    bus-&gt;board_type == SSB_BOARD_BCM4309G &amp;&amp;
++				    bus-&gt;board_rev &gt;= 30)
++					rf-&gt;att = 3;
++				else if (bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM &amp;&amp;
++					 bus-&gt;board_type == SSB_BOARD_BU4306)
++					rf-&gt;att = 3;
++				else
++					rf-&gt;att = 1;
++			} else {
++				if (bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM &amp;&amp;
++				    bus-&gt;board_type == SSB_BOARD_BCM4309G &amp;&amp;
++				    bus-&gt;board_rev &gt;= 30)
++					rf-&gt;att = 7;
++				else
++					rf-&gt;att = 6;
++			}
++			return;
++		case 2:
++			if (phy-&gt;type == BCM43xx_PHYTYPE_G) {
++				if (bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM &amp;&amp;
++				    bus-&gt;board_type == SSB_BOARD_BCM4309G &amp;&amp;
++				    bus-&gt;board_rev &gt;= 30)
++					rf-&gt;att = 3;
++				else if (bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM &amp;&amp;
++					 bus-&gt;board_type == SSB_BOARD_BU4306)
++					rf-&gt;att = 5;
++				else if (bus-&gt;chip_id == 0x4320)
++					rf-&gt;att = 4;
++				else
++					rf-&gt;att = 3;
++			} else
++				rf-&gt;att = 6;
++			return;
++		case 3:
++			rf-&gt;att = 5;
++			return;
++		case 4:
++		case 5:
++			rf-&gt;att = 1;
++			return;
++		case 6:
++		case 7:
++			rf-&gt;att = 5;
++			return;
++		case 8:
++			rf-&gt;att = 0xA;
++			rf-&gt;with_padmix = 1;
++			return;
++		case 9:
++		default:
++			rf-&gt;att = 5;
++			return;
++		}
++	}
++	rf-&gt;att = 5;
++}
++
++static u16 bcm43xx_default_txctl1(struct bcm43xx_wldev *dev)
++{
++	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++
++	if (phy-&gt;radio_ver != 0x2050)
++		return 0;
++	if (phy-&gt;radio_rev == 1)
++		return 3;
++	if (phy-&gt;radio_rev &lt; 6)
++		return 2;
++	if (phy-&gt;radio_rev == 8)
++		return 1;
++	return 0;
++}
++
+ /* This func is called &quot;PHY calibrate&quot; in the specs... */
+ void bcm43xx_phy_early_init(struct bcm43xx_wldev *dev)
+ {
+@@ -296,6 +468,8 @@ void bcm43xx_phy_early_init(struct bcm43
+ 	    phy-&gt;type == BCM43xx_PHYTYPE_G) {
+ 		generate_rfatt_list(dev, &amp;lo-&gt;rfatt_list);
+ 		generate_bbatt_list(dev, &amp;lo-&gt;bbatt_list);
++		default_baseband_attenuation(dev, &amp;lo-&gt;bbatt);
++		default_radio_attenuation(dev, &amp;lo-&gt;rfatt);
+ 	}
+ 	if (phy-&gt;type == BCM43xx_PHYTYPE_G &amp;&amp; phy-&gt;rev == 1) {
+ 		/* Workaround: Temporarly disable gmode through the early init
+@@ -531,10 +705,18 @@ static void bcm43xx_phy_init_pctl(struct
+ 					      (bcm43xx_radio_read16(dev, 0x0076)
+ 					       &amp; 0x00F7) | 0x0084);
+ 		} else {
+-			if (phy-&gt;radio_rev == 8)
+-				bcm43xx_radio_set_txpower_bg(dev, 0xB, 0x1F, 0);
+-			else
+-				bcm43xx_radio_set_txpower_bg(dev, 0xB, 9, 0);
++			struct bcm43xx_rfatt rfatt;
++			struct bcm43xx_bbatt bbatt;
++
++			bbatt.att = 11;
++			if (phy-&gt;radio_rev == 8) {
++				rfatt.att = 15;
++				rfatt.with_padmix = 1;
++			} else {
++				rfatt.att = 9;
++				rfatt.with_padmix = 0;
++			}
++			bcm43xx_set_txpower_g(dev, &amp;bbatt, &amp;rfatt, 0);
+ 		}
+ 		bcm43xx_dummy_transmission(dev);
+ 		phy-&gt;cur_idle_tssi = bcm43xx_phy_read(dev, BCM43xx_PHY_ITSSI);
+@@ -548,12 +730,16 @@ static void bcm43xx_phy_init_pctl(struct
+ 			}
+ 		}
+ 
++printk(&quot;ITSSI is %d\n&quot;, phy-&gt;cur_idle_tssi);
+ 		if (phy-&gt;radio_ver == 0x2050 &amp;&amp; phy-&gt;analog == 0) {
+ 			bcm43xx_radio_write16(dev, 0x0076,
+ 					      bcm43xx_radio_read16(dev, 0x0076)
+ 					       &amp; 0xFF7B);
+-		} else
+-			bcm43xx_radio_set_txpower_bg(dev, -1, -1, -1);
++		} else {
++			struct bcm43xx_txpower_lo_control *lo = phy-&gt;lo_control;
++
++			bcm43xx_set_txpower_g(dev, &amp;lo-&gt;bbatt, &amp;lo-&gt;rfatt, lo-&gt;tx_magn);
++		}
+ 	}
+ 	bcm43xx_hardware_pctl_init(dev);
+ 	bcm43xx_shm_clear_tssi(dev);
+@@ -1012,6 +1198,7 @@ static void bcm43xx_phy_inita(struct bcm
+ static void bcm43xx_phy_initb2(struct bcm43xx_wldev *dev)
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++	struct bcm43xx_txpower_lo_control *lo = phy-&gt;lo_control;
+ 	u16 offset, val;
+ 
+ 	bcm43xx_write16(dev, 0x03EC, 0x3F22);
+@@ -1056,13 +1243,14 @@ static void bcm43xx_phy_initb2(struct bc
+ 	bcm43xx_phy_write(dev, 0x002A, 0x88A3);
+ 	if (phy-&gt;radio_ver != 0x2050)
+ 		bcm43xx_phy_write(dev, 0x002A, 0x88C2);
+-	bcm43xx_radio_set_txpower_bg(dev, -1, -1, -1);
++	bcm43xx_set_txpower_g(dev, &amp;lo-&gt;bbatt, &amp;lo-&gt;rfatt, lo-&gt;tx_magn);
+ 	bcm43xx_phy_init_pctl(dev);
+ }
+ 
+ static void bcm43xx_phy_initb4(struct bcm43xx_wldev *dev)
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++	struct bcm43xx_txpower_lo_control *lo = phy-&gt;lo_control;
+ 	u16 offset, val;
+ 
+ 	bcm43xx_write16(dev, 0x03EC, 0x3F22);
+@@ -1110,7 +1298,7 @@ static void bcm43xx_phy_initb4(struct bc
+ 	bcm43xx_phy_write(dev, 0x002A, 0x88A3);
+ 	if (phy-&gt;radio_ver == 0x2050)
+ 		bcm43xx_phy_write(dev, 0x002A, 0x88C2);
+-	bcm43xx_radio_set_txpower_bg(dev, 0xFFFF, 0xFFFF, 0xFFFF);
++	bcm43xx_set_txpower_g(dev, &amp;lo-&gt;bbatt, &amp;lo-&gt;rfatt, lo-&gt;tx_magn);
+ 	if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp; BCM43xx_BFL_RSSI) {
+ 		bcm43xx_calc_nrssi_slope(dev);
+ 		bcm43xx_calc_nrssi_threshold(dev);
+@@ -1122,6 +1310,7 @@ static void bcm43xx_phy_initb5(struct bc
+ {
+ 	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++	struct bcm43xx_txpower_lo_control *lo = phy-&gt;lo_control;
+ 	u16 offset, value;
+ 	u8 old_channel;
+ 
+@@ -1217,7 +1406,7 @@ static void bcm43xx_phy_initb5(struct bc
+ 	bcm43xx_phy_write(dev, 0x0032, 0x00CA);
+ 	bcm43xx_phy_write(dev, 0x002A, 0x88A3);
+ 
+-	bcm43xx_radio_set_txpower_bg(dev, -1, -1, -1);
++	bcm43xx_set_txpower_g(dev, &amp;lo-&gt;bbatt, &amp;lo-&gt;rfatt, lo-&gt;tx_magn);
+ 
+ 	if (phy-&gt;radio_ver == 0x2050)
+ 		bcm43xx_radio_write16(dev, 0x005D, 0x000D);
+@@ -1228,6 +1417,7 @@ static void bcm43xx_phy_initb5(struct bc
+ static void bcm43xx_phy_initb6(struct bcm43xx_wldev *dev)
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++	struct bcm43xx_txpower_lo_control *lo = phy-&gt;lo_control;
+ 	u16 offset, val;
+ 	u8 old_channel;
+ 
+@@ -1328,7 +1518,7 @@ static void bcm43xx_phy_initb6(struct bc
+ 	else
+ 		bcm43xx_phy_write(dev, 0x2A, 0x8AC0);
+ 	bcm43xx_phy_write(dev, 0x0038, 0x0668);
+-	bcm43xx_radio_set_txpower_bg(dev, -1, -1, -1);
++	bcm43xx_set_txpower_g(dev, &amp;lo-&gt;bbatt, &amp;lo-&gt;rfatt, lo-&gt;tx_magn);
+ 	if (phy-&gt;radio_rev &lt;= 5) {
+ 		bcm43xx_phy_write(dev, 0x5D,
+ 				  (bcm43xx_phy_read(dev, 0x5D)
+@@ -1391,7 +1581,7 @@ static void bcm43xx_calc_loopback_gain(s
+ 	backup_phy[13] = bcm43xx_phy_read(dev, BCM43xx_PHY_BASE(0x2B));
+ 	backup_phy[14] = bcm43xx_phy_read(dev, BCM43xx_PHY_PGACTL);
+ 	backup_phy[15] = bcm43xx_phy_read(dev, BCM43xx_PHY_LO_LEAKAGE);
+-	backup_bband = phy-&gt;bbatt;
++	backup_bband = phy-&gt;lo_control-&gt;bbatt.att;
+ 	backup_radio[0] = bcm43xx_radio_read16(dev, 0x52);
+ 	backup_radio[1] = bcm43xx_radio_read16(dev, 0x43);
+ 	backup_radio[2] = bcm43xx_radio_read16(dev, 0x7A);
+@@ -1620,6 +1810,7 @@ static void bcm43xx_phy_initg(struct bcm
+ 		else
+ 			bcm43xx_radio_write16(dev, 0x0078, phy-&gt;initval);
+ 	}
++#if 1
+ 	if (phy-&gt;lo_control-&gt;tx_bias == 0xFF) {
+ 		bcm43xx_lo_g_measure(dev);
+ 	} else {
+@@ -1668,6 +1859,7 @@ static void bcm43xx_phy_initg(struct bcm
+ 		} else
+ 			bcm43xx_calc_nrssi_threshold(dev);
+ 	}
++#endif
+ 	if (phy-&gt;radio_rev == 8)
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_EXTG(0x05), 0x3230);
+ 	bcm43xx_phy_init_pctl(dev);
+@@ -1689,23 +1881,20 @@ void bcm43xx_phy_set_baseband_attenuatio
+ 					  u16 baseband_attenuation)
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+-	u16 value;
+ 
+ 	if (phy-&gt;analog == 0) {
+-		value = (bcm43xx_read16(dev, 0x03E6) &amp; 0xFFF0);
+-		value |= (baseband_attenuation &amp; 0x000F);
+-		bcm43xx_write16(dev, 0x03E6, value);
+-		return;
+-	}
+-
+-	if (phy-&gt;analog &gt; 1) {
+-		value = bcm43xx_phy_read(dev, 0x0060) &amp; ~0x003C;
+-		value |= (baseband_attenuation &lt;&lt; 2) &amp; 0x003C;
++		bcm43xx_write16(dev, BCM43xx_MMIO_PHY0,
++				(bcm43xx_read16(dev, BCM43xx_MMIO_PHY0)
++				 &amp; 0xFFF0) | baseband_attenuation);
++	} else if (phy-&gt;analog == 1) {
++		bcm43xx_phy_write(dev, BCM43xx_PHY_DACCTL,
++				  (bcm43xx_phy_read(dev, BCM43xx_PHY_DACCTL)
++				   &amp; 0xFFC3) | (baseband_attenuation &lt;&lt; 2));
+ 	} else {
+-		value = bcm43xx_phy_read(dev, 0x0060) &amp; ~0x0078;
+-		value |= (baseband_attenuation &lt;&lt; 3) &amp; 0x0078;
++		bcm43xx_phy_write(dev, BCM43xx_PHY_DACCTL,
++				  (bcm43xx_phy_read(dev, BCM43xx_PHY_DACCTL)
++				   &amp; 0xFF87) | (baseband_attenuation &lt;&lt; 3));
+ 	}
+-	bcm43xx_phy_write(dev, 0x0060, value);
+ }
+ 
+ /* <A HREF="http://bcm-specs.sipsolutions.net/EstimatePowerOut">http://bcm-specs.sipsolutions.net/EstimatePowerOut</A>
+@@ -1738,8 +1927,7 @@ static s8 bcm43xx_phy_estimate_power_out
+ 	return dbm;
+ }
+ 
+-static void put_attenuation_into_ranges(struct bcm43xx_wldev *dev,
+-					int *_rfatt, int *_bbatt)
++static void put_attenuation_into_ranges(int *_bbatt, int *_rfatt)
+ {
+ 	int rfatt = *_rfatt;
+ 	int bbatt = *_bbatt;
+@@ -1799,6 +1987,7 @@ void bcm43xx_phy_xmitpower(struct bcm43x
+ {
+ 	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++	struct bcm43xx_txpower_lo_control *lo = phy-&gt;lo_control;
+ 
+ 	if (phy-&gt;cur_idle_tssi == 0)
+ 		return;
+@@ -1816,13 +2005,13 @@ void bcm43xx_phy_xmitpower(struct bcm43x
+ 	case BCM43xx_PHYTYPE_B:
+ 	case BCM43xx_PHYTYPE_G: {
+ 		u16 tmp;
+-		u16 txpower;
+ 		s8 v0, v1, v2, v3;
+ 		s8 average;
+ 		u8 max_pwr;
+-		s16 desired_pwr, estimated_pwr, pwr_adjust;
+-		int radio_att_delta, baseband_att_delta;
+-		int radio_attenuation, baseband_attenuation;
++		int desired_pwr, estimated_pwr, pwr_adjust;
++		int rfatt_delta, bbatt_delta;
++		int rfatt, bbatt;
++		int tx_magn;
+ 		unsigned long phylock_flags;
+ 
+ 		tmp = bcm43xx_shm_read16(dev, BCM43xx_SHM_SHARED, 0x0058);
+@@ -1876,55 +2065,53 @@ printk(&quot;dBm out %d\n&quot;, estimated_pwr);
+ 
+ 		pwr_adjust = desired_pwr - estimated_pwr;
+ printk(&quot;pwr_adjust %d\n&quot;, pwr_adjust);
+-		radio_att_delta = -((pwr_adjust + 7) &gt;&gt; 3);
+-		baseband_att_delta = (-(pwr_adjust &gt;&gt; 1)) - (4 * radio_att_delta);
+-printk(&quot;rd %d, bbd %d\n&quot;, radio_att_delta, baseband_att_delta);
+-		if ((radio_att_delta == 0) &amp;&amp; (baseband_att_delta == 0)) {
++		rfatt_delta = -((pwr_adjust + 7) &gt;&gt; 3);
++		bbatt_delta = (-(pwr_adjust &gt;&gt; 1)) - (4 * rfatt_delta);
++printk(&quot;rd %d, bbd %d\n&quot;, rfatt_delta, bbatt_delta);
++		if ((rfatt_delta == 0) &amp;&amp; (bbatt_delta == 0)) {
+ 			bcm43xx_loctl_mark_cur_used(dev);
+ 			return;
+ 		}
+ 
+ 		/* Calculate the new attenuation values. */
+-		baseband_attenuation = phy-&gt;bbatt;
+-		baseband_attenuation += baseband_att_delta;
+-		radio_attenuation = phy-&gt;rfatt;
+-		radio_attenuation += radio_att_delta;
+-
+-printk(&quot;before %d, %d\n&quot;, radio_attenuation, baseband_attenuation);
+-		put_attenuation_into_ranges(dev, &amp;radio_attenuation,
+-					    &amp;baseband_attenuation);
+-printk(&quot;after %d, %d\n&quot;, radio_attenuation, baseband_attenuation);
++		bbatt = lo-&gt;bbatt.att;
++		bbatt += bbatt_delta;
++		rfatt = lo-&gt;rfatt.att;
++		rfatt += rfatt_delta;
++
++printk(&quot;before %d, %d\n&quot;, rfatt, bbatt);
++		put_attenuation_into_ranges(&amp;bbatt, &amp;rfatt);
++printk(&quot;after %d, %d\n&quot;, rfatt, bbatt);
+ 
+-		txpower = phy-&gt;txctl1;
++		tx_magn = lo-&gt;tx_magn;
+ 		if ((phy-&gt;radio_ver == 0x2050) &amp;&amp; (phy-&gt;radio_rev == 2)) {
+-			if (radio_attenuation &lt;= 1) {
+-				if (txpower == 0) {
+-					txpower = 3;
+-					radio_attenuation += 2;
+-					baseband_attenuation += 2;
++			if (rfatt &lt;= 1) {
++				if (tx_magn == 0) {
++					tx_magn = 3;
++					rfatt += 2;
++					bbatt += 2;
+ 				} else if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp; BCM43xx_BFL_PACTRL) {
+-					baseband_attenuation += 4 * (radio_attenuation - 2);
+-					radio_attenuation = 2;
++					bbatt += 4 * (rfatt - 2);
++					rfatt = 2;
+ 				}
+-			} else if (radio_attenuation &gt; 4 &amp;&amp; txpower != 0) {
+-				txpower = 0;
+-				if (baseband_attenuation &lt; 3) {
+-					radio_attenuation -= 3;
+-					baseband_attenuation += 2;
++			} else if (rfatt &gt; 4 &amp;&amp; tx_magn != 0) {
++				tx_magn = 0;
++				if (bbatt &lt; 3) {
++					rfatt -= 3;
++					bbatt += 2;
+ 				} else {
+-					radio_attenuation -= 2;
+-					baseband_attenuation -= 2;
++					rfatt -= 2;
++					bbatt -= 2;
+ 				}
+ 			}
+ 		}
+-		phy-&gt;txctl1 = txpower;
+-		baseband_attenuation = limit_value(baseband_attenuation, 0, 11);
+-		radio_attenuation = limit_value(radio_attenuation, 0, 9);
++		lo-&gt;tx_magn = tx_magn;
++		lo-&gt;rfatt.att = limit_value(rfatt, 0, 9);
++		lo-&gt;bbatt.att = limit_value(bbatt, 0, 11);
+ 
+ 		bcm43xx_phy_lock(dev, phylock_flags);
+ 		bcm43xx_radio_lock(dev);
+-		bcm43xx_radio_set_txpower_bg(dev, baseband_attenuation,
+-					     radio_attenuation, txpower);
++		bcm43xx_set_txpower_g(dev, &amp;lo-&gt;bbatt, &amp;lo-&gt;rfatt, lo-&gt;tx_magn);
+ 		bcm43xx_loctl_mark_cur_used(dev);
+ 		bcm43xx_radio_unlock(dev);
+ 		bcm43xx_phy_unlock(dev, phylock_flags);
+@@ -4076,7 +4263,7 @@ static u16 bcm43xx_get_txgain_dac(u16 tx
+ 	return ret;
+ }
+ 
+-void bcm43xx_radio_set_txpower_a(struct bcm43xx_wldev *dev, u16 txpower)
++static void bcm43xx_radio_set_txpower_a(struct bcm43xx_wldev *dev, u16 txpower)
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+ 	u16 pamp, base, dac, t;
+@@ -4107,177 +4294,6 @@ void bcm43xx_radio_set_txpower_a(struct 
+ 	//TODO: FuncPlaceholder (Adjust BB loft cancel)
+ }
+ 
+-void bcm43xx_radio_set_txpower_bg(struct bcm43xx_wldev *dev,
+-				  s16 baseband_attenuation,
+-				  s16 radio_attenuation,
+-				  s16 _tx_magn)
+-{
+-	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+-	u8 tx_bias = phy-&gt;lo_control-&gt;tx_bias;
+-	u8 tx_magn;
+-
+-	if (baseband_attenuation &lt; 0)
+-		baseband_attenuation = phy-&gt;bbatt;
+-	if (radio_attenuation &lt; 0)
+-		radio_attenuation = phy-&gt;rfatt;
+-	if (_tx_magn &lt; 0)
+-		_tx_magn = phy-&gt;lo_control-&gt;tx_magn;
+-	tx_magn = _tx_magn;
+-	phy-&gt;bbatt = baseband_attenuation;
+-	phy-&gt;rfatt = radio_attenuation;
+-
+-	/* Set Baseband Attenuation on device. */
+-	bcm43xx_phy_set_baseband_attenuation(dev, baseband_attenuation);
+-
+-	/* Set Radio Attenuation on device. */
+-	bcm43xx_shm_write16(dev, BCM43xx_SHM_SHARED,
+-			    0x0064, radio_attenuation);
+-	if (phy-&gt;radio_ver == 0x2050 &amp;&amp; phy-&gt;radio_rev == 8) {
+-		bcm43xx_phy_write(dev, 0x0043, radio_attenuation);
+-	} else {
+-		bcm43xx_radio_write16(dev, 0x0043,
+-				      (bcm43xx_radio_read16(dev, 0x0043)
+-				       &amp; 0xFFF0) | radio_attenuation);
+-	}
+-
+-	if (phy-&gt;radio_ver == 0x2050) {//FIXME: It seems like tx_magn and tx_bias are swapped in this func.
+-		if (phy-&gt;radio_rev &lt; 6) {
+-			bcm43xx_radio_write16(dev, 0x0043,
+-					      (bcm43xx_radio_read16(dev, 0x0043)
+-					       &amp; 0xFF8F) | tx_magn);
+-		} else if (phy-&gt;radio_rev != 8) {
+-			bcm43xx_radio_write16(dev, 0x0052,
+-					      (bcm43xx_radio_read16(dev, 0x0052)
+-					       &amp; 0xFF8F) | tx_magn);
+-		} else {
+-			bcm43xx_radio_write16(dev, 0x52,
+-					      (bcm43xx_radio_read16(dev, 0x52) &amp; 0xFF00) |
+-					      tx_magn | tx_bias);
+-		}
+-	}
+-	if (phy-&gt;radio_rev != 8) {
+-		bcm43xx_radio_write16(dev, 0x0052,
+-				      (bcm43xx_radio_read16(dev, 0x0052)
+-				       &amp; 0xFFF0) | tx_bias);
+-	}
+-	if (phy-&gt;type == BCM43xx_PHYTYPE_G)
+-		bcm43xx_lo_adjust(dev);
+-}
+-
+-u16 bcm43xx_default_baseband_attenuation(struct bcm43xx_wldev *dev)
+-{
+-	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+-
+-	if (phy-&gt;radio_ver == 0x2050 &amp;&amp; phy-&gt;radio_rev &lt; 6)
+-		return 0;
+-	return 2;
+-}
+-
+-u16 bcm43xx_default_radio_attenuation(struct bcm43xx_wldev *dev)
+-{
+-	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+-	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+-	u16 att = 0xFFFF;
+-
+-	if (phy-&gt;type == BCM43xx_PHYTYPE_A)
+-		return 0x60;
+-
+-	switch (phy-&gt;radio_ver) {
+-	case 0x2053:
+-		switch (phy-&gt;radio_rev) {
+-		case 1:
+-			att = 6;
+-			break;
+-		}
+-		break;
+-	case 0x2050:
+-		switch (phy-&gt;radio_rev) {
+-		case 0:
+-			att = 5;
+-			break;
+-		case 1:
+-			if (phy-&gt;type == BCM43xx_PHYTYPE_G) {
+-				if (bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM &amp;&amp;
+-				    bus-&gt;board_type == SSB_BOARD_BCM4309G &amp;&amp;
+-				    bus-&gt;board_rev &gt;= 30)
+-					att = 3;
+-				else if (bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM &amp;&amp;
+-					 bus-&gt;board_type == SSB_BOARD_BU4306)
+-					att = 3;
+-				else
+-					att = 1;
+-			} else {
+-				if (bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM &amp;&amp;
+-				    bus-&gt;board_type == SSB_BOARD_BCM4309G &amp;&amp;
+-				    bus-&gt;board_rev &gt;= 30)
+-					att = 7;
+-				else
+-					att = 6;
+-			}
+-			break;
+-		case 2:
+-			if (phy-&gt;type == BCM43xx_PHYTYPE_G) {
+-				if (bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM &amp;&amp;
+-				    bus-&gt;board_type == SSB_BOARD_BCM4309G &amp;&amp;
+-				    bus-&gt;board_rev &gt;= 30)
+-					att = 3;
+-				else if (bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM &amp;&amp;
+-					 bus-&gt;board_type == SSB_BOARD_BU4306)
+-					att = 5;
+-				else if (bus-&gt;chip_id == 0x4320)
+-					att = 4;
+-				else
+-					att = 3;
+-			} else
+-				att = 6;
+-			break;
+-		case 3:
+-			att = 5;
+-			break;
+-		case 4:
+-		case 5:
+-			att = 1;
+-			break;
+-		case 6:
+-		case 7:
+-			att = 5;
+-			break;
+-		case 8:
+-			att = 0x1A;
+-			break;
+-		case 9:
+-		default:
+-			att = 5;
+-		}
+-	}
+-	if (bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM &amp;&amp;
+-	    bus-&gt;board_type == SSB_BOARD_BCM4309G) {
+-		if (bus-&gt;board_rev &lt; 0x43)
+-			att = 2;
+-		else if (bus-&gt;board_rev &lt; 0x51)
+-			att = 3;
+-	}
+-	if (att == 0xFFFF)
+-		att = 5;
+-
+-	return att;
+-}
+-
+-u16 bcm43xx_default_txctl1(struct bcm43xx_wldev *dev)
+-{
+-	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+-
+-	if (phy-&gt;radio_ver != 0x2050)
+-		return 0;
+-	if (phy-&gt;radio_rev == 1)
+-		return 3;
+-	if (phy-&gt;radio_rev &lt; 6)
+-		return 2;
+-	if (phy-&gt;radio_rev == 8)
+-		return 1;
+-	return 0;
+-}
+-
+ void bcm43xx_radio_turn_on(struct bcm43xx_wldev *dev)
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+Index: bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx.h
+===================================================================
+--- bu3sch-wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx.h	2007-04-23 17:34:20.000000000 +0200
++++ bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx.h	2007-04-23 17:35:02.000000000 +0200
+@@ -552,20 +552,8 @@ struct bcm43xx_phy {
+ 	/* Desired TX power level (in dBm).
+ 	 * This is set by the user and adjusted in bcm43xx_phy_xmitpower(). */
+ 	u8 power_level;
+-	/* TX Power control values. */
+-	/* B/G PHY */
+-	struct {
+-		/* Current Radio Attenuation for TXpower recalculation. */
+-		u16 rfatt;
+-		/* Current Baseband Attenuation for TXpower recalculation. */
+-		u16 bbatt;
+-		/* Current TXpower control value for TXpower recalculation. */
+-		u16 txctl1;
+-	};
+-	/* A PHY */
+-	struct {
+-		u16 txpwr_offset;
+-	};
++	/* A-PHY TX Power control value. */
++	u16 txpwr_offset;
+ 
+ 	/* Current Interference Mitigation mode */
+ 	int interfmode;
+Index: bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.h
+===================================================================
+--- bu3sch-wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.h	2007-04-23 17:34:20.000000000 +0200
++++ bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.h	2007-04-23 17:35:02.000000000 +0200
+@@ -279,17 +279,6 @@ void bcm43xx_radio_turn_off(struct bcm43
+ int bcm43xx_radio_selectchannel(struct bcm43xx_wldev *dev, u8 channel,
+ 				int synthetic_pu_workaround);
+ 
+-void bcm43xx_radio_set_txpower_a(struct bcm43xx_wldev *dev, u16 txpower);
+-/* Set the txpower on device. If the values are &lt; 0, use the saved ones. */
+-void bcm43xx_radio_set_txpower_bg(struct bcm43xx_wldev *dev,
+-				  s16 baseband_attenuation,
+-				  s16 radio_attenuation,
+-				  s16 txctl1);
+-
+-u16 bcm43xx_default_baseband_attenuation(struct bcm43xx_wldev *dev);
+-u16 bcm43xx_default_radio_attenuation(struct bcm43xx_wldev *dev);
+-u16 bcm43xx_default_txctl1(struct bcm43xx_wldev *dev);
+-
+ u8 bcm43xx_radio_aci_detect(struct bcm43xx_wldev *dev, u8 channel);
+ u8 bcm43xx_radio_aci_scan(struct bcm43xx_wldev *dev);
+ 
+Index: bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.c
+===================================================================
+--- bu3sch-wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.c	2007-04-23 17:34:20.000000000 +0200
++++ bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.c	2007-04-23 17:35:02.000000000 +0200
+@@ -1083,7 +1083,7 @@ struct bcm43xx_loctl * bcm43xx_loctl_cur
+ 	struct bcm43xx_rfatt rf;
+ 
+ 	memcpy(&amp;rf, &amp;lo-&gt;rfatt, sizeof(rf));
+-	fixup_rfatt_for_txctl1(&amp;rf, phy-&gt;txctl1);
++//FIXME	fixup_rfatt_for_txctl1(&amp;rf, phy-&gt;txctl1);
+ 
+ 	return bcm43xx_get_loctl(dev, &amp;rf, &amp;lo-&gt;bbatt);
+ }
+Index: bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.h
+===================================================================
+--- bu3sch-wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.h	2007-04-23 17:34:20.000000000 +0200
++++ bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.h	2007-04-23 17:35:02.000000000 +0200
+@@ -42,6 +42,7 @@ struct bcm43xx_txpower_lo_control {
+ 	struct bcm43xx_bbatt_list bbatt_list;
+ 
+ 	/* Current RF and BB attenuation and LO control values. */
++	//FIXME probably need to move this to struct bcm43xx_phy
+ 	struct bcm43xx_rfatt rfatt;
+ 	struct bcm43xx_bbatt bbatt;
+ 
+Index: bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
+===================================================================
+--- bu3sch-wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c	2007-04-23 17:34:20.000000000 +0200
++++ bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c	2007-04-23 17:35:02.000000000 +0200
+@@ -3107,11 +3107,6 @@ static void setup_struct_phy_for_init(st
+ 	}
+ 	phy-&gt;max_lb_gain = 0;
+ 	phy-&gt;trsw_rx_gain = 0;
+-
+-	/* Set default attenuation values. */
+-	phy-&gt;bbatt = bcm43xx_default_baseband_attenuation(dev);
+-	phy-&gt;rfatt = bcm43xx_default_radio_attenuation(dev);
+-	phy-&gt;txctl1 = bcm43xx_default_txctl1(dev);
+ 	phy-&gt;txpwr_offset = 0;
+ 
+ 	/* NRSSI */
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001149.html">[PATCH] ieee80211: Output frequency rather than channel	in	scan	results
+</A></li>
+	<LI>Next message: <A HREF="001151.html">Error in setting lo-&gt;tx_bias
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1150">[ date ]</a>
+              <a href="thread.html#1150">[ thread ]</a>
+              <a href="subject.html#1150">[ subject ]</a>
+              <a href="author.html#1150">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

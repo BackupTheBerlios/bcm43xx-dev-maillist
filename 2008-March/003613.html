@@ -1,0 +1,225 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix DMA mapping leakage
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20DMA%20mapping%20leakage&In-Reply-To=%3C200803222204.45919.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003611.html">
+   <LINK REL="Next"  HREF="003614.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix DMA mapping leakage</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20DMA%20mapping%20leakage&In-Reply-To=%3C200803222204.45919.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix DMA mapping leakage">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Mar 22 22:04:45 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003611.html">More on ASUS WL-138G V2
+</A></li>
+        <LI>Next message: <A HREF="003614.html">[PATCH] b43: Remove irqs_disabled() sanity checks
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3613">[ date ]</a>
+              <a href="thread.html#3613">[ thread ]</a>
+              <a href="subject.html#3613">[ subject ]</a>
+              <a href="author.html#3613">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes a DMA mapping leakage in the case where we reject a DMA
+buffer because of its address.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+Cc: Christian Casteyde &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">casteyde.christian at free.fr</A>&gt;
+
+---
+
+John, this is a fix for 2.6.25.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2008-03-22 21:50:35.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2008-03-22 21:57:53.000000000 +0100
+@@ -512,34 +512,40 @@ static int b43_dmacontroller_tx_reset(st
+ 	return 0;
+ }
+ 
+ /* Check if a DMA mapping address is invalid. */
+ static bool b43_dma_mapping_error(struct b43_dmaring *ring,
+ 				  dma_addr_t addr,
+-				  size_t buffersize)
++				  size_t buffersize, bool dma_to_device)
+ {
+ 	if (unlikely(dma_mapping_error(addr)))
+ 		return 1;
+ 
+ 	switch (ring-&gt;type) {
+ 	case B43_DMA_30BIT:
+ 		if ((u64)addr + buffersize &gt; (1ULL &lt;&lt; 30))
+-			return 1;
++			goto address_error;
+ 		break;
+ 	case B43_DMA_32BIT:
+ 		if ((u64)addr + buffersize &gt; (1ULL &lt;&lt; 32))
+-			return 1;
++			goto address_error;
+ 		break;
+ 	case B43_DMA_64BIT:
+ 		/* Currently we can't have addresses beyond
+ 		 * 64bit in the kernel. */
+ 		break;
+ 	}
+ 
+ 	/* The address is OK. */
+ 	return 0;
++
++address_error:
++	/* We can't support this address. Unmap it again. */
++	unmap_descbuffer(ring, addr, buffersize, dma_to_device);
++
++	return 1;
+ }
+ 
+ static int setup_rx_descbuffer(struct b43_dmaring *ring,
+ 			       struct b43_dmadesc_generic *desc,
+ 			       struct b43_dmadesc_meta *meta, gfp_t gfp_flags)
+ {
+@@ -551,26 +557,26 @@ static int setup_rx_descbuffer(struct b4
+ 	B43_WARN_ON(ring-&gt;tx);
+ 
+ 	skb = __dev_alloc_skb(ring-&gt;rx_buffersize, gfp_flags);
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
+ 	dmaaddr = map_descbuffer(ring, skb-&gt;data, ring-&gt;rx_buffersize, 0);
+-	if (b43_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize)) {
++	if (b43_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize, 0)) {
+ 		/* ugh. try to realloc in zone_dma */
+ 		gfp_flags |= GFP_DMA;
+ 
+ 		dev_kfree_skb_any(skb);
+ 
+ 		skb = __dev_alloc_skb(ring-&gt;rx_buffersize, gfp_flags);
+ 		if (unlikely(!skb))
+ 			return -ENOMEM;
+ 		dmaaddr = map_descbuffer(ring, skb-&gt;data,
+ 					 ring-&gt;rx_buffersize, 0);
+ 	}
+ 
+-	if (b43_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize)) {
++	if (b43_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize, 0)) {
+ 		dev_kfree_skb_any(skb);
+ 		return -EIO;
+ 	}
+ 
+ 	meta-&gt;skb = skb;
+ 	meta-&gt;dmaaddr = dmaaddr;
+@@ -804,13 +810,14 @@ struct b43_dmaring *b43_setup_dmaring(st
+ 		/* test for ability to dma to txhdr_cache */
+ 		dma_test = dma_map_single(dev-&gt;dev-&gt;dev,
+ 					  ring-&gt;txhdr_cache,
+ 					  b43_txhdr_size(dev),
+ 					  DMA_TO_DEVICE);
+ 
+-		if (b43_dma_mapping_error(ring, dma_test, b43_txhdr_size(dev))) {
++		if (b43_dma_mapping_error(ring, dma_test,
++					  b43_txhdr_size(dev), 1)) {
+ 			/* ugh realloc */
+ 			kfree(ring-&gt;txhdr_cache);
+ 			ring-&gt;txhdr_cache = kcalloc(nr_slots,
+ 						    b43_txhdr_size(dev),
+ 						    GFP_KERNEL | GFP_DMA);
+ 			if (!ring-&gt;txhdr_cache)
+@@ -819,13 +826,13 @@ struct b43_dmaring *b43_setup_dmaring(st
+ 			dma_test = dma_map_single(dev-&gt;dev-&gt;dev,
+ 						  ring-&gt;txhdr_cache,
+ 						  b43_txhdr_size(dev),
+ 						  DMA_TO_DEVICE);
+ 
+ 			if (b43_dma_mapping_error(ring, dma_test,
+-						  b43_txhdr_size(dev)))
++						  b43_txhdr_size(dev), 1))
+ 				goto err_kfree_txhdr_cache;
+ 		}
+ 
+ 		dma_unmap_single(dev-&gt;dev-&gt;dev,
+ 				 dma_test, b43_txhdr_size(dev),
+ 				 DMA_TO_DEVICE);
+@@ -1120,13 +1127,13 @@ static int dma_tx_fragment(struct b43_dm
+ 		ring-&gt;used_slots = old_used_slots;
+ 		return err;
+ 	}
+ 
+ 	meta_hdr-&gt;dmaaddr = map_descbuffer(ring, (unsigned char *)header,
+ 					   hdrsize, 1);
+-	if (b43_dma_mapping_error(ring, meta_hdr-&gt;dmaaddr, hdrsize)) {
++	if (b43_dma_mapping_error(ring, meta_hdr-&gt;dmaaddr, hdrsize, 1)) {
+ 		ring-&gt;current_slot = old_top_slot;
+ 		ring-&gt;used_slots = old_used_slots;
+ 		return -EIO;
+ 	}
+ 	ops-&gt;fill_descriptor(ring, desc, meta_hdr-&gt;dmaaddr,
+ 			     hdrsize, 1, 0, 0);
+@@ -1139,13 +1146,13 @@ static int dma_tx_fragment(struct b43_dm
+ 	memcpy(&amp;meta-&gt;txstat.control, ctl, sizeof(*ctl));
+ 	meta-&gt;skb = skb;
+ 	meta-&gt;is_last_fragment = 1;
+ 
+ 	meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+ 	/* create a bounce buffer in zone_dma on mapping failure. */
+-	if (b43_dma_mapping_error(ring, meta-&gt;dmaaddr, skb-&gt;len)) {
++	if (b43_dma_mapping_error(ring, meta-&gt;dmaaddr, skb-&gt;len, 1)) {
+ 		bounce_skb = __dev_alloc_skb(skb-&gt;len, GFP_ATOMIC | GFP_DMA);
+ 		if (!bounce_skb) {
+ 			ring-&gt;current_slot = old_top_slot;
+ 			ring-&gt;used_slots = old_used_slots;
+ 			err = -ENOMEM;
+ 			goto out_unmap_hdr;
+@@ -1153,13 +1160,13 @@ static int dma_tx_fragment(struct b43_dm
+ 
+ 		memcpy(skb_put(bounce_skb, skb-&gt;len), skb-&gt;data, skb-&gt;len);
+ 		dev_kfree_skb_any(skb);
+ 		skb = bounce_skb;
+ 		meta-&gt;skb = skb;
+ 		meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+-		if (b43_dma_mapping_error(ring, meta-&gt;dmaaddr, skb-&gt;len)) {
++		if (b43_dma_mapping_error(ring, meta-&gt;dmaaddr, skb-&gt;len, 1)) {
+ 			ring-&gt;current_slot = old_top_slot;
+ 			ring-&gt;used_slots = old_used_slots;
+ 			err = -EIO;
+ 			goto out_free_bounce;
+ 		}
+ 	}
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003611.html">More on ASUS WL-138G V2
+</A></li>
+	<LI>Next message: <A HREF="003614.html">[PATCH] b43: Remove irqs_disabled() sanity checks
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3613">[ date ]</a>
+              <a href="thread.html#3613">[ thread ]</a>
+              <a href="subject.html#3613">[ subject ]</a>
+              <a href="author.html#3613">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb-pcmcia: Fix 32bit register access in early bus scanning
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb-pcmcia%3A%20Fix%2032bit%20register%20access%20in%20early%20bus%20scanning&In-Reply-To=%3C200911062121.28881.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006259.html">
+   <LINK REL="Next"  HREF="006261.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb-pcmcia: Fix 32bit register access in early bus scanning</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb-pcmcia%3A%20Fix%2032bit%20register%20access%20in%20early%20bus%20scanning&In-Reply-To=%3C200911062121.28881.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] ssb-pcmcia: Fix 32bit register access in early bus scanning">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Nov  6 21:21:27 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006259.html">[PATCH] b43: Rewrite TX bounce buffer handling
+</A></li>
+        <LI>Next message: <A HREF="006261.html">PCMCIA BCM4311 SPROM Failed Write
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6260">[ date ]</a>
+              <a href="thread.html#6260">[ thread ]</a>
+              <a href="subject.html#6260">[ subject ]</a>
+              <a href="author.html#6260">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From:	Martin Fuzzey &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mfuzzey at gmail.com</A>&gt;
+
+The scan function was using 32 bit access which does not
+work on 16bit CF cards.
+
+This patch corrects this by doing two 16 bit reads like
+ssb_pcmcia_read32 already does.
+
+mb -- Removed locking. That early in init there's no need for locking.
+
+Signed-off-by: Martin Fuzzey &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mfuzzey at gmail.com</A>&gt;
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+Index: wireless-testing/drivers/ssb/scan.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/scan.c	2009-10-09 19:50:16.000000000 +0200
++++ wireless-testing/drivers/ssb/scan.c	2009-11-06 19:24:13.000000000 +0100
+@@ -162,6 +162,8 @@ static u8 chipid_to_nrcores(u16 chipid)
+ static u32 scan_read32(struct ssb_bus *bus, u8 current_coreidx,
+ 		       u16 offset)
+ {
++	u32 lo, hi;
++
+ 	switch (bus-&gt;bustype) {
+ 	case SSB_BUSTYPE_SSB:
+ 		offset += current_coreidx * SSB_CORE_SIZE;
+@@ -174,7 +176,9 @@ static u32 scan_read32(struct ssb_bus *b
+ 			offset -= 0x800;
+ 		} else
+ 			ssb_pcmcia_switch_segment(bus, 0);
+-		break;
++		lo = readw(bus-&gt;mmio + offset);
++		hi = readw(bus-&gt;mmio + offset + 2);
++		return lo | (hi &lt;&lt; 16);
+ 	case SSB_BUSTYPE_SDIO:
+ 		offset += current_coreidx * SSB_CORE_SIZE;
+ 		return ssb_sdio_scan_read32(bus, offset);
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006259.html">[PATCH] b43: Rewrite TX bounce buffer handling
+</A></li>
+	<LI>Next message: <A HREF="006261.html">PCMCIA BCM4311 SPROM Failed Write
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6260">[ date ]</a>
+              <a href="thread.html#6260">[ thread ]</a>
+              <a href="subject.html#6260">[ subject ]</a>
+              <a href="author.html#6260">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

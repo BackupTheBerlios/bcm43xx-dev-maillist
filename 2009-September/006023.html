@@ -1,0 +1,114 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Do not use _irqsafe callbacks
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Do%20not%20use%20_irqsafe%20callbacks&In-Reply-To=%3C200909102022.02987.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006031.html">
+   <LINK REL="Next"  HREF="006024.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Do not use _irqsafe callbacks</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Do%20not%20use%20_irqsafe%20callbacks&In-Reply-To=%3C200909102022.02987.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Do not use _irqsafe callbacks">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Sep 10 20:22:02 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006031.html">[PATCH] b43: Add Soft-MAC SDIO device support
+</A></li>
+        <LI>Next message: <A HREF="006024.html">[PATCH] b43: Force-wake queues on init
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6023">[ date ]</a>
+              <a href="thread.html#6023">[ thread ]</a>
+              <a href="subject.html#6023">[ subject ]</a>
+              <a href="author.html#6023">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>We don't need to call the irqsafe callbacks.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+Apply on top the other patches.
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-09-05 12:31:01.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-09-10 20:14:25.000000000 +0200
+@@ -1428,9 +1428,9 @@ void b43_dma_handle_txstatus(struct b43_
+ 				ring-&gt;nr_failed_tx_packets++;
+ 			ring-&gt;nr_total_packet_tries += status-&gt;frame_count;
+ #endif /* DEBUG */
+-			ieee80211_tx_status_irqsafe(dev-&gt;wl-&gt;hw, meta-&gt;skb);
++			ieee80211_tx_status(dev-&gt;wl-&gt;hw, meta-&gt;skb);
+ 
+-			/* skb is freed by ieee80211_tx_status_irqsafe() */
++			/* skb is freed by ieee80211_tx_status() */
+ 			meta-&gt;skb = NULL;
+ 		} else {
+ 			/* No need to call free_descriptor_buffer here, as
+Index: wireless-testing/drivers/net/wireless/b43/pio.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/pio.c	2009-09-05 12:31:02.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/pio.c	2009-09-10 20:14:37.000000000 +0200
+@@ -574,7 +574,7 @@ void b43_pio_handle_txstatus(struct b43_
+ 	q-&gt;buffer_used -= total_len;
+ 	q-&gt;free_packet_slots += 1;
+ 
+-	ieee80211_tx_status_irqsafe(dev-&gt;wl-&gt;hw, pack-&gt;skb);
++	ieee80211_tx_status(dev-&gt;wl-&gt;hw, pack-&gt;skb);
+ 	pack-&gt;skb = NULL;
+ 	list_add(&amp;pack-&gt;list, &amp;q-&gt;packets_list);
+ 
+Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/xmit.c	2009-09-06 16:17:08.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/xmit.c	2009-09-10 20:13:29.000000000 +0200
+@@ -690,7 +690,7 @@ void b43_rx(struct b43_wldev *dev, struc
+ 	}
+ 
+ 	memcpy(IEEE80211_SKB_RXCB(skb), &amp;status, sizeof(status));
+-	ieee80211_rx_irqsafe(dev-&gt;wl-&gt;hw, skb);
++	ieee80211_rx(dev-&gt;wl-&gt;hw, skb);
+ 
+ 	return;
+ drop:
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006031.html">[PATCH] b43: Add Soft-MAC SDIO device support
+</A></li>
+	<LI>Next message: <A HREF="006024.html">[PATCH] b43: Force-wake queues on init
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6023">[ date ]</a>
+              <a href="thread.html#6023">[ thread ]</a>
+              <a href="subject.html#6023">[ subject ]</a>
+              <a href="author.html#6023">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

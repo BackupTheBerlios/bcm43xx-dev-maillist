@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] PHY setup in v4 specs implementation
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20PHY%20setup%20in%20v4%20specs%20implementation&In-Reply-To=%3C200704091241.32301.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000986.html">
+   <LINK REL="Next"  HREF="000998.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] PHY setup in v4 specs implementation</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20PHY%20setup%20in%20v4%20specs%20implementation&In-Reply-To=%3C200704091241.32301.mb%40bu3sch.de%3E"
+       TITLE="[RFC] PHY setup in v4 specs implementation">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Apr  9 12:41:32 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000986.html">[RFC] PHY setup in v4 specs implementation
+</A></li>
+        <LI>Next message: <A HREF="000998.html">[RFC] PHY setup in v4 specs implementation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#997">[ date ]</a>
+              <a href="thread.html#997">[ thread ]</a>
+              <a href="subject.html#997">[ subject ]</a>
+              <a href="author.html#997">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 09 April 2007 04:07, Stefano Brivio wrote:
+&gt;<i> I'm going to move all v4 workarounds needed for the A and G PHY setup into a
+</I>&gt;<i> separate file (draft inlined here), as it'll easily get to ~1000 lines, and
+</I>&gt;<i> I wouldn't really want to make a mess out of _phy.c. These workarounds
+</I>&gt;<i> are strictly needed for A PHY support (which I'm currently working on)
+</I>&gt;<i> and could yield as well better performances for G PHY. I'm developing
+</I>&gt;<i> this just for mac80211, and when I'm done with this patchset I'll drop
+</I>&gt;<i> my bcm43xx-softmac MAINTAINERS line. Please comment on that before I do. ;)
+</I>&gt;<i> 
+</I>
+Next time please insert the patch before the --  signature marker, as
+some mailclients auto-strip that on reply ;)
+
+
++static void bcm43xx_wa_initgains(struct bcm43xx_wldev *dev)
++{
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;bcm43xx_phy_write(dev, 0x001C | BCM43xx_PHYROUTE_OFDM_GPHY, 0xFFFF);
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;bcm43xx_phy_write(dev, 0x0020 | BCM43xx_PHYROUTE_OFDM_GPHY,
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;bcm43xx_phy_read(dev, 0x0020 | BCM43xx_PHYROUTE_OFDM_GPHY) &amp; 0xFF0F);
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;if (dev-&gt;phy-&gt;rev &lt;= 2)
+
+Did you actually compile this? phy is not a pointer.
+
++static void bcm43xx_wa_tr_ltov(struct bcm43xx_wldev *dev)
++{ // TR Lookup Table Original Values
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;bcm43xx_gtab_write(dev, 0x002E, 0x0298, 0xC480);
++}
+
+Put that comment in front of the function and use /* */ style.
+
++static void bcm43xx_wa_boards_g(struct bcm43xx_wldev *dev)
++{
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
++
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;if (bus-&gt;board_vendor != SSB_BOARDVENDOR_BCM ||
++&#160;&#160;&#160;&#160;&#160;&#160;&#160; &#160; &#160;bus-&gt;board_type != SSB_BOARD_BU4306 ||
++&#160;&#160;&#160;&#160;&#160;&#160;&#160; &#160; &#160;bus-&gt;board_rev != 0x17) {
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;if (phy-&gt;rev &lt; 2) {
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;bcm43xx_ofdmtab_write16(dev, 0x0014, 1, 0x0002);
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;bcm43xx_ofdmtab_write16(dev, 0x0014, 2, 0x0001);
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;} else {
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;bcm43xx_ofdmtab_write16(dev, 0x0001, 1, 0x0002);
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;bcm43xx_ofdmtab_write16(dev, 0x0001, 2, 0x0001);
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;if (bus-&gt;sprom.r1.boardflags_lo &amp; BCM43xx_BFL_EXTLNA &amp;&amp;
++&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; &#160; &#160;phy-&gt;rev &gt;= 7) {
+
+Put () around the bitwise &amp;. (I think the compiler even complains about this).
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000986.html">[RFC] PHY setup in v4 specs implementation
+</A></li>
+	<LI>Next message: <A HREF="000998.html">[RFC] PHY setup in v4 specs implementation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#997">[ date ]</a>
+              <a href="thread.html#997">[ thread ]</a>
+              <a href="subject.html#997">[ subject ]</a>
+              <a href="author.html#997">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

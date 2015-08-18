@@ -1,0 +1,162 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb-sprom: Generate help for all variations
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb-sprom%3A%20Generate%20help%20for%20all%20variations&In-Reply-To=%3C495904ae.3Rs95hJIVvgsxoGY%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005005.html">
+   <LINK REL="Next"  HREF="005007.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb-sprom: Generate help for all variations</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb-sprom%3A%20Generate%20help%20for%20all%20variations&In-Reply-To=%3C495904ae.3Rs95hJIVvgsxoGY%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] ssb-sprom: Generate help for all variations">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Mon Dec 29 18:11:10 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005005.html">[PATCH] ssb-sprom: Put SPROM data in a master table and add Rev. 8
+</A></li>
+        <LI>Next message: <A HREF="005007.html">[PATCH] ssb-sprom: Generate help for all variations
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5006">[ date ]</a>
+              <a href="thread.html#5006">[ thread ]</a>
+              <a href="subject.html#5006">[ subject ]</a>
+              <a href="author.html#5006">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Revise ssb-sprom to generate the help data for all versions of the device.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: ssb_sprom/ssb_sprom.c
+===================================================================
+--- ssb_sprom.orig/ssb_sprom.c
++++ ssb_sprom/ssb_sprom.c
+@@ -675,7 +675,8 @@ static void print_banner(int forceprint)
+ 			  &quot;Copyright (C) Michael Buesch\n&quot;
+ 			  &quot;Licensed under the GNU/GPL version 2 or later\n&quot;
+ 			  &quot;\n&quot;
+-			  &quot;DO NOT USE THIS TOOL. YOU WILL BRICK YOUR DEVICE.\n&quot;;
++			  &quot;Be exceedingly careful with this tool. Improper&quot;
++			  &quot; usage WILL BRICK YOUR DEVICE.\n&quot;;
+ 	if (forceprint)
+ 		prdata(str);
+ 	else
+@@ -684,7 +685,6 @@ static void print_banner(int forceprint)
+ 
+ static void print_usage(int argc, char *argv[])
+ {
+-	int tmp;
+ 	enum valuetype loop;
+ 	char desc[100];
+ 	char label[200];
+@@ -697,33 +697,29 @@ static void print_usage(int argc, char *
+ 
+ 	print_banner(1);
+ 	prdata(&quot;\nUsage: %s [OPTION]\n&quot;, argv[0]);
+-	prdata(&quot;  -i|--input FILE       Input file\n&quot;);
+-	prdata(&quot;  -o|--output FILE      Output file\n&quot;);
+-	prdata(&quot;  -b|--binmode          The Input data is plain binary data and Output will be binary\n&quot;);
+-	prdata(&quot;  -V|--verbose          Be verbose\n&quot;);
+-	prdata(&quot;  -f|--force            Override error checks\n&quot;);
+-	prdata(&quot;  -v|--version          Print version\n&quot;);
+-	prdata(&quot;  -h|--help             Print this help\n&quot;);
+-	if (sprom_rev == 0) {
+-		prdata(&quot;\nThe rest of this help depends on what SPROM version you are using\n\n&quot;);
+-		prdata(&quot;Please enter it now: &quot;);
+-
+-		fgets(label, 50, stdin);
+-		sscanf(label, &quot;%d&quot;, &amp;tmp);
+-		sprom_rev = tmp;
+-	}
+-	if (check_rev(sprom_rev))
+-		exit(1);
+-
+-	rev_bit = BIT(sprom_rev);
++	prdata(&quot;  -i|--input FILE           Input file\n&quot;);
++	prdata(&quot;  -o|--output FILE          Output file\n&quot;);
++	prdata(&quot;  -b|--binmode              The Input data is plain binary data and Output will be binary\n&quot;);
++	prdata(&quot;  -V|--verbose              Be verbose\n&quot;);
++	prdata(&quot;  -f|--force                Override error checks\n&quot;);
++	prdata(&quot;  -v|--version              Print version\n&quot;);
++	prdata(&quot;  -h|--help                 Print this help\n&quot;);
+ 	prdata(&quot;\nValue Parameters:\n&quot;);
+ 	prdata(&quot;\n&quot;);
+-	prdata(&quot;  -s|--rawset OFF,VAL   Set a VALue at a byte-OFFset\n&quot;);
+-	prdata(&quot;  -g|--rawget OFF       Get a value at a byte-OFFset\n&quot;);
++	prdata(&quot;  -s|--rawset OFF,VAL       Set a VALue at a byte-OFFset\n&quot;);
++	prdata(&quot;  -g|--rawget OFF           Get a value at a byte-OFFset\n&quot;);
+ 	prdata(&quot;\n&quot;);
+-	prdata(&quot;Predefined values (for displaying (GET) or modification):\n&quot;);
+ 
+-	for (loop = 0; loop &lt;= VAL_LAST; loop++) {
++	for (sprom_rev = 1; sprom_rev &lt; 9; sprom_rev++) {
++	    if (sprom_rev == 6 || sprom_rev == 7)
++		sprom_rev = 8;
++
++	    rev_bit = BIT(sprom_rev);
++	    prdata(&quot;\n================================================================\n&quot;
++	           &quot;Rev. %d: Predefined values (for displaying (GET) or modification)\n&quot;
++	           &quot;================================================================\n&quot;, sprom_rev);
++
++	    for (loop = 0; loop &lt;= VAL_LAST; loop++) {
+ 		if (locate_item_rev(rev_bit, loop, &amp;length, &amp;offset, &amp;mask,
+ 			    &amp;shift, desc, label))
+ 			continue;
+@@ -759,16 +755,19 @@ static void print_usage(int argc, char *
+ 		}
+ 		buffer[28] = '\0';
+ 		prdata(&quot;%s%s\n&quot;, buffer, label);
++	    }
+ 	}
+ 
+ 	prdata(&quot;\n&quot;);
+-	prdata(&quot;  -P|--print-all        Display all values\n&quot;);
++	prdata(&quot;  -P|--print-all            Display all values\n&quot;);
+ 	prdata(&quot;\n&quot;);
+ 	prdata(&quot; BOOL      is a boolean value. Either 0 or 1\n&quot;);
+ 	prdata(&quot; 0xF..     is a hexadecimal value\n&quot;);
+ 	prdata(&quot; MAC-ADDR  is a MAC address in the format 00:00:00:00:00:00\n&quot;);
+ 	prdata(&quot; If the value parameter is \&quot;GET\&quot;, the value will be printed;\n&quot;);
+ 	prdata(&quot; otherwise it is modified.\n&quot;);
++	prdata(&quot;\nBe exceedingly careful with this tool. Improper&quot;
++	       &quot; usage WILL BRICK YOUR DEVICE.\n&quot;);
+ }
+ 
+ #define ARG_MATCH		0
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005005.html">[PATCH] ssb-sprom: Put SPROM data in a master table and add Rev. 8
+</A></li>
+	<LI>Next message: <A HREF="005007.html">[PATCH] ssb-sprom: Generate help for all variations
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5006">[ date ]</a>
+              <a href="thread.html#5006">[ thread ]</a>
+              <a href="subject.html#5006">[ subject ]</a>
+              <a href="author.html#5006">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

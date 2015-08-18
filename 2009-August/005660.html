@@ -1,0 +1,108 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Work around mac80211 race condition
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Work%20around%20mac80211%20race%20condition&In-Reply-To=%3C4a7508e0.l3Jz6c5c8JgW9wQm%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   <LINK REL="Next"  HREF="005662.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Work around mac80211 race condition</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Work%20around%20mac80211%20race%20condition&In-Reply-To=%3C4a7508e0.l3Jz6c5c8JgW9wQm%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43legacy: Work around mac80211 race condition">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sun Aug  2 05:32:48 CEST 2009</I>
+    <P><UL>
+        
+        <LI>Next message: <A HREF="005662.html">[PATCH] b43: implement baseband init for LP-PHY &lt;= rev1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5660">[ date ]</a>
+              <a href="thread.html#5660">[ thread ]</a>
+              <a href="subject.html#5660">[ subject ]</a>
+              <a href="author.html#5660">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>As shown in <A HREF="http://thread.gmane.org/gmane.linux.kernel.wireless.general/36497,">http://thread.gmane.org/gmane.linux.kernel.wireless.general/36497,</A>
+mac80211 has a bug that allows a call to the TX routine after the queues have
+been stopped. This situation will only occur under extreme stress. Although
+b43legacy does not crash when this condition occurs, it does generate a WARN_ON
+and also logs a queue overrun message. This patch recognizes b43legacy is not
+at fault and logs a message only when the most verbose debugging mode is
+enabled. In the unlikely event that the queue is not stopped when the DMA
+queue becomes full, then a warning is issued.
+    
+This patch is based on the one used by b43.
+   
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/dma.c
++++ wireless-testing/drivers/net/wireless/b43legacy/dma.c
+@@ -1366,15 +1366,25 @@ int b43legacy_dma_tx(struct b43legacy_wl
+ 	ring = priority_to_txring(dev, skb_get_queue_mapping(skb));
+ 	spin_lock_irqsave(&amp;ring-&gt;lock, flags);
+ 	B43legacy_WARN_ON(!ring-&gt;tx);
+-	if (unlikely(free_slots(ring) &lt; SLOTS_PER_PACKET)) {
+-		b43legacywarn(dev-&gt;wl, &quot;DMA queue overflow\n&quot;);
++
++	if (unlikely(ring-&gt;stopped)) {
++		/* We get here only because of a bug in mac80211.
++		 * Because of a race, one packet may be queued after
++		 * the queue is stopped, thus we got called when we shouldn't.
++		 * For now, just refuse the transmit. */
++		if (b43legacy_debug(dev, B43legacy_DBG_DMAVERBOSE))
++			b43legacyerr(dev-&gt;wl, &quot;Packet after queue stopped\n&quot;);
++		err = -ENOSPC;
++		goto out_unlock;
++	}
++
++	if (unlikely(WARN_ON(free_slots(ring) &lt; SLOTS_PER_PACKET))) {
++		/* If we get here, we have a real error with the queue
++		 * full, but queues not stopped. */
++		b43legacyerr(dev-&gt;wl, &quot;DMA queue overflow\n&quot;);
+ 		err = -ENOSPC;
+ 		goto out_unlock;
+ 	}
+-	/* Check if the queue was stopped in mac80211,
+-	 * but we got called nevertheless.
+-	 * That would be a mac80211 bug. */
+-	B43legacy_BUG_ON(ring-&gt;stopped);
+ 
+ 	err = dma_tx_fragment(ring, skb);
+ 	if (unlikely(err == -ENOKEY)) {
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	<LI>Next message: <A HREF="005662.html">[PATCH] b43: implement baseband init for LP-PHY &lt;= rev1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5660">[ date ]</a>
+              <a href="thread.html#5660">[ thread ]</a>
+              <a href="subject.html#5660">[ subject ]</a>
+              <a href="author.html#5660">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

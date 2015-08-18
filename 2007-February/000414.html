@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Change SoftMAC to initialize to high rates
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Change%20SoftMAC%20to%20initialize%20to%20high%20rates&In-Reply-To=%3C45CB9F8C.5090507%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000413.html">
+   <LINK REL="Next"  HREF="000404.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Change SoftMAC to initialize to high rates</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Change%20SoftMAC%20to%20initialize%20to%20high%20rates&In-Reply-To=%3C45CB9F8C.5090507%40lwfinger.net%3E"
+       TITLE="Change SoftMAC to initialize to high rates">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Thu Feb  8 23:09:16 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000413.html">Change SoftMAC to initialize to high rates
+</A></li>
+        <LI>Next message: <A HREF="000404.html">Survey of bcm43xx cards
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#414">[ date ]</a>
+              <a href="thread.html#414">[ thread ]</a>
+              <a href="subject.html#414">[ subject ]</a>
+              <a href="author.html#414">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Rafael J. Wysocki wrote:
+&gt;<i> On Thursday, 8 February 2007 18:31, Larry Finger wrote:
+</I>&gt;&gt;<i> There is a bug in SoftMAC that initializes data rates for all devices to 11 Mbs. Now that many of
+</I>&gt;&gt;<i> the devices will actually run at higher rates, this patch fixes that bug.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> As not all chips will run at speeds above 11 Mbs, I will not be sending this patch upstream to
+</I>&gt;&gt;<i> Linville, but I wanted it available for the users. As you see, I'm setting a rate of 24 Mbs. If your
+</I>&gt;&gt;<i> card works at 36, please change that line.
+</I>&gt;<i> 
+</I>&gt;<i> Hm, may I suggest the appended patch instead? ;-)
+</I>&gt;<i> 
+</I>&gt;<i> Rafael
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Rafael J. Wysocki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">rjw at sisk.pl</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i>  net/ieee80211/softmac/ieee80211softmac_module.c |    9 +++++----
+</I>&gt;<i>  1 file changed, 5 insertions(+), 4 deletions(-)
+</I>&gt;<i> 
+</I>&gt;<i> Index: linux-2.6.20/net/ieee80211/softmac/ieee80211softmac_module.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- linux-2.6.20.orig/net/ieee80211/softmac/ieee80211softmac_module.c
+</I>&gt;<i> +++ linux-2.6.20/net/ieee80211/softmac/ieee80211softmac_module.c
+</I>&gt;<i> @@ -270,12 +270,13 @@ void ieee80211softmac_init_bss(struct ie
+</I>&gt;<i>  	   can manually change it if they really need to, but 11M is
+</I>&gt;<i>  	   more reliable. Note similar logic in
+</I>&gt;<i>  	   ieee80211softmac_wx_set_rate() */	 
+</I>&gt;<i> -	if (ieee-&gt;modulation &amp; IEEE80211_CCK_MODULATION) {
+</I>&gt;<i> +	if (ieee-&gt;modulation &amp; IEEE80211_OFDM_MODULATION) {
+</I>&gt;<i> +		txrates-&gt;user_rate = IEEE80211_OFDM_RATE_24MB;
+</I>&gt;<i> +	} else if (ieee-&gt;modulation &amp; IEEE80211_CCK_MODULATION) {
+</I>&gt;<i>  		txrates-&gt;user_rate = IEEE80211_CCK_RATE_11MB;
+</I>&gt;<i> -	} else if (ieee-&gt;modulation &amp; IEEE80211_OFDM_MODULATION) {
+</I>&gt;<i> -		txrates-&gt;user_rate = IEEE80211_OFDM_RATE_54MB;
+</I>&gt;<i> -	} else
+</I>&gt;<i> +	} else {
+</I>&gt;<i>  		assert(0);
+</I>&gt;<i> +	}
+</I>&gt;<i>  
+</I>&gt;<i>  	txrates-&gt;default_rate = IEEE80211_CCK_RATE_1MB;
+</I>&gt;<i>  	change |= IEEE80211SOFTMAC_TXRATECHG_DEFAULT;
+</I>
+Your patch fixes the stupid mistake I had in the first version and is fine; however, after I looked
+at the code a bit more, I decided to remove the assert(0). It is only there to make sure that the
+driver set up ieee-&gt;modulation correctly. As it is unlikely that there will be any new drivers using
+SoftMAC, that statement can go.
+
+Larry
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000413.html">Change SoftMAC to initialize to high rates
+</A></li>
+	<LI>Next message: <A HREF="000404.html">Survey of bcm43xx cards
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#414">[ date ]</a>
+              <a href="thread.html#414">[ thread ]</a>
+              <a href="subject.html#414">[ subject ]</a>
+              <a href="author.html#414">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

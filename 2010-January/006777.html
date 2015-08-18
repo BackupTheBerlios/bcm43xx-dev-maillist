@@ -1,0 +1,163 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/7] b43: N-PHY: implement RX PHY cleanup and setup
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/7%5D%20b43%3A%20N-PHY%3A%20implement%20RX%20PHY%20cleanup%20and%20setup&In-Reply-To=%3Cop.u6oefxwh9lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006774.html">
+   <LINK REL="Next"  HREF="006778.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/7] b43: N-PHY: implement RX PHY cleanup and setup</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/7%5D%20b43%3A%20N-PHY%3A%20implement%20RX%20PHY%20cleanup%20and%20setup&In-Reply-To=%3Cop.u6oefxwh9lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 1/7] b43: N-PHY: implement RX PHY cleanup and setup">zajec5 at gmail.com
+       </A><BR>
+    <I>Sun Jan 17 13:03:28 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006774.html">PHY Transmission error and radio turned off with b43legacy
+</A></li>
+        <LI>Next message: <A HREF="006778.html">[PATCH 2/7] b43: N-PHY: implement TX PHY cleanup and setup
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6777">[ date ]</a>
+              <a href="thread.html#6777">[ thread ]</a>
+              <a href="subject.html#6777">[ subject ]</a>
+              <a href="author.html#6777">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+  drivers/net/wireless/b43/phy_n.c |   82 ++++++++++++++++++++++++++++++++++++++
+  1 files changed, 82 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 4a817e3..4a1853b 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -579,6 +579,88 @@ static void b43_nphy_calc_rx_iq_comp(struct b43_wldev *dev, u8 mask)
+  	b43_nphy_rx_iq_coeffs(dev, true, &amp;new);
+  }
+
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/RxCalPhyCleanup">http://bcm-v4.sipsolutions.net/802.11/PHY/N/RxCalPhyCleanup</A> */
++static void b43_nphy_rx_cal_phy_cleanup(struct b43_wldev *dev, u8 core)
++{
++	u16 *regs = dev-&gt;phy.n-&gt;tx_rx_cal_phy_saveregs;
++
++	b43_phy_write(dev, B43_NPHY_RFSEQCA, regs[0]);
++	if (core == 0) {
++		b43_phy_write(dev, B43_NPHY_AFECTL_C1, regs[1]);
++		b43_phy_write(dev, B43_NPHY_AFECTL_OVER1, regs[2]);
++	} else {
++		b43_phy_write(dev, B43_NPHY_AFECTL_C2, regs[1]);
++		b43_phy_write(dev, B43_NPHY_AFECTL_OVER, regs[2]);
++	}
++	b43_phy_write(dev, B43_NPHY_RFCTL_INTC1, regs[3]);
++	b43_phy_write(dev, B43_NPHY_RFCTL_INTC2, regs[4]);
++	b43_phy_write(dev, B43_NPHY_RFCTL_RSSIO1, regs[5]);
++	b43_phy_write(dev, B43_NPHY_RFCTL_RSSIO2, regs[6]);
++	b43_phy_write(dev, B43_NPHY_TXF_40CO_B1S1, regs[7]);
++	b43_phy_write(dev, B43_NPHY_RFCTL_OVER, regs[8]);
++	b43_phy_write(dev, B43_NPHY_PAPD_EN0, regs[9]);
++	b43_phy_write(dev, B43_NPHY_PAPD_EN1, regs[10]);
++}
++
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/RxCalPhySetup">http://bcm-v4.sipsolutions.net/802.11/PHY/N/RxCalPhySetup</A> */
++static void b43_nphy_rx_cal_phy_setup(struct b43_wldev *dev, u8 core)
++{
++	u8 rxval, txval;
++	u16 *regs = dev-&gt;phy.n-&gt;tx_rx_cal_phy_saveregs;
++
++	regs[0] = b43_phy_read(dev, B43_NPHY_RFSEQCA);
++	if (core == 0) {
++		regs[1] = b43_phy_read(dev, B43_NPHY_AFECTL_C1);
++		regs[2] = b43_phy_read(dev, B43_NPHY_AFECTL_OVER1);
++	} else {
++		regs[1] = b43_phy_read(dev, B43_NPHY_AFECTL_C2);
++		regs[2] = b43_phy_read(dev, B43_NPHY_AFECTL_OVER);
++	}
++	regs[3] = b43_phy_read(dev, B43_NPHY_RFCTL_INTC1);
++	regs[4] = b43_phy_read(dev, B43_NPHY_RFCTL_INTC2);
++	regs[5] = b43_phy_read(dev, B43_NPHY_RFCTL_RSSIO1);
++	regs[6] = b43_phy_read(dev, B43_NPHY_RFCTL_RSSIO2);
++	regs[7] = b43_phy_read(dev, B43_NPHY_TXF_40CO_B1S1);
++	regs[8] = b43_phy_read(dev, B43_NPHY_RFCTL_OVER);
++	regs[9] = b43_phy_read(dev, B43_NPHY_PAPD_EN0);
++	regs[10] = b43_phy_read(dev, B43_NPHY_PAPD_EN1);
++
++	b43_phy_mask(dev, B43_NPHY_PAPD_EN0, ~0x0001);
++	b43_phy_mask(dev, B43_NPHY_PAPD_EN1, ~0x0001);
++
++	b43_phy_maskset(dev, B43_NPHY_RFSEQCA, (u16)~B43_NPHY_RFSEQCA_RXDIS,
++			((1 - core) &lt;&lt; B43_NPHY_RFSEQCA_RXDIS_SHIFT));
++	b43_phy_maskset(dev, B43_NPHY_RFSEQCA, ~B43_NPHY_RFSEQCA_TXEN,
++			((1 - core) &lt;&lt; B43_NPHY_RFSEQCA_TXEN_SHIFT));
++	b43_phy_maskset(dev, B43_NPHY_RFSEQCA, ~B43_NPHY_RFSEQCA_RXEN,
++			(core &lt;&lt; B43_NPHY_RFSEQCA_RXEN_SHIFT));
++	b43_phy_maskset(dev, B43_NPHY_RFSEQCA, ~B43_NPHY_RFSEQCA_TXDIS,
++			(core &lt;&lt; B43_NPHY_RFSEQCA_TXDIS_SHIFT));
++
++	if (core == 0) {
++		b43_phy_mask(dev, B43_NPHY_AFECTL_C1, ~0x0007);
++		b43_phy_set(dev, B43_NPHY_AFECTL_OVER1, 0x0007);
++	} else {
++		b43_phy_mask(dev, B43_NPHY_AFECTL_C2, ~0x0007);
++		b43_phy_set(dev, B43_NPHY_AFECTL_OVER, 0x0007);
++	}
++
++	/* TODO: Call N PHY RF Ctrl Intc Override with 2, 0, 3 as arguments */
++	/* TODO: Call N PHY RF Intc Override with 8, 0, 3, 0 as arguments */
++	/* TODO: Call N PHY RF Seq with 0 as argument */
++
++	if (core == 0) {
++		rxval = 1;
++		txval = 8;
++	} else {
++		rxval = 4;
++		txval = 2;
++	}
++
++	/* TODO: Call N PHY RF Ctrl Intc Override with 1, rxval, (core + 1) */
++	/* TODO: Call N PHY RF Ctrl Intc Override with 1, txval, (2 - core) */
++}
++
+  /* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/TxIqWar">http://bcm-v4.sipsolutions.net/802.11/PHY/N/TxIqWar</A> */
+  static void b43_nphy_tx_iq_workaround(struct b43_wldev *dev)
+  {
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006774.html">PHY Transmission error and radio turned off with b43legacy
+</A></li>
+	<LI>Next message: <A HREF="006778.html">[PATCH 2/7] b43: N-PHY: implement TX PHY cleanup and setup
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6777">[ date ]</a>
+              <a href="thread.html#6777">[ thread ]</a>
+              <a href="subject.html#6777">[ subject ]</a>
+              <a href="author.html#6777">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

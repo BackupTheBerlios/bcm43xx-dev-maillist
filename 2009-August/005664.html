@@ -1,0 +1,316 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH RESEND] b43: implement baseband init for LP-PHY &lt;= rev1
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RESEND%5D%20b43%3A%20implement%20baseband%20init%20for%20LP-PHY%20%3C%3D%20rev1&In-Reply-To=%3C200908030035.37285.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005667.html">
+   <LINK REL="Next"  HREF="005665.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH RESEND] b43: implement baseband init for LP-PHY &lt;= rev1</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RESEND%5D%20b43%3A%20implement%20baseband%20init%20for%20LP-PHY%20%3C%3D%20rev1&In-Reply-To=%3C200908030035.37285.mb%40bu3sch.de%3E"
+       TITLE="[PATCH RESEND] b43: implement baseband init for LP-PHY &lt;= rev1">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Aug  3 00:35:37 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005667.html">[PATCH RESEND] b43: implement baseband init for LP-PHY &lt;= rev1
+</A></li>
+        <LI>Next message: <A HREF="005665.html">[PATCH RESEND] b43: implement baseband init for LP-PHY &lt;= rev1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5664">[ date ]</a>
+              <a href="thread.html#5664">[ thread ]</a>
+              <a href="subject.html#5664">[ subject ]</a>
+              <a href="author.html#5664">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 03 August 2009 00:18:22 G&#225;bor Stefanik wrote:
+&gt;<i> Implement baseband init for rev.0 and rev.1 LP PHYs. Convert
+</I>&gt;<i> boardflags_hi values to defines.
+</I>&gt;<i> Implement b43_phy_copy for easier copying between registers, as needed
+</I>&gt;<i> by LP-PHY init.
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: G&#225;bor Stefanik&lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+</I>&gt;<i> Cc: Michael Buesch&lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+</I>&gt;<i> Cc: Larry Finger&lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">larry.finger at lwfinger.net</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i> Hopefully this mail will survive the trip through the arcane world of Gmail's servers...
+</I>&gt;<i> 
+</I>&gt;<i> If this very-very-very-long line (including	a	few	tab	characters) doesn't get mangled, chances are that the mail didn't get mangled. More text to make this line even longer.
+</I>&gt;<i> 
+</I>&gt;<i>   b43.h        |   11 ++++++
+</I>&gt;<i>   phy_common.c |    7 ++++
+</I>&gt;<i>   phy_lp.c     |   95 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+</I>&gt;<i>   phy_lp.h     |    8 +++-
+</I>&gt;<i>   phy_n.c      |    3 +
+</I>&gt;<i>   5 files changed, 120 insertions(+), 4 deletions(-)
+</I>&gt;<i> 
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/b43.h b/drivers/net/wireless/b43/b43.h
+</I>&gt;<i> index 4e8ad84..41ca727 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/b43.h
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/b43.h
+</I>&gt;<i> @@ -142,6 +142,17 @@
+</I>&gt;<i>   #define B43_BFL_BTCMOD			0x4000	/* BFL_BTCOEXIST is given in alternate GPIOs */
+</I>&gt;<i>   #define B43_BFL_ALTIQ			0x8000	/* alternate I/Q settings */
+</I>&gt;<i> 
+</I>&gt;<i> +/* SPROM boardflags_hi values */
+</I>&gt;<i> +#define B43_BFH_NOPA			0x0001	/* has no PA */
+</I>&gt;<i> +#define B43_BFH_RSSIINV			0x0002	/* RSSI uses positive slope (not TSSI) */
+</I>&gt;<i> +#define B43_BFH_PAREF			0x0004	/* uses the PARef LDO */
+</I>&gt;<i> +#define B43_BFH_3TSWITCH		0x0008	/* uses a triple throw switch shared
+</I>&gt;<i> +						 * with bluetooth */
+</I>&gt;<i> +#define B43_BFH_PHASESHIFT		0x0010	/* can support phase shifter */
+</I>&gt;<i> +#define B43_BFH_BUCKBOOST		0x0020	/* has buck/booster */
+</I>&gt;<i> +#define B43_BFH_FEM_BT			0x0040	/* has FEM and switch to share antenna
+</I>&gt;<i> +						 * with bluetooth */
+</I>&gt;<i> +
+</I>&gt;<i>   /* GPIO register offset, in both ChipCommon and PCI core. */
+</I>&gt;<i>   #define B43_GPIO_CONTROL		0x6c
+</I>&gt;<i> 
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/phy_common.c b/drivers/net/wireless/b43/phy_common.c
+</I>&gt;<i> index e176b6e..999e0bd 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/phy_common.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/phy_common.c
+</I>&gt;<i> @@ -240,6 +240,13 @@ void b43_phy_write(struct b43_wldev *dev, u16 reg, u16 value)
+</I>&gt;<i>   	dev-&gt;phy.ops-&gt;phy_write(dev, reg, value);
+</I>&gt;<i>   }
+</I>&gt;<i> 
+</I>&gt;<i> +void b43_phy_copy(struct b43_wldev *dev, u16 srcreg, u16 destreg)
+</I>&gt;<i> +{
+</I>&gt;<i> +	assert_mac_suspended(dev);
+</I>&gt;<i> +	dev-&gt;phy.ops-&gt;phy_write(dev, destreg,
+</I>&gt;<i> +		dev-&gt;phy.ops-&gt;phy_read(dev, srcreg));
+</I>&gt;<i> +}
+</I>
+Hm, can you reverse the srcreg/destreg order?
+All C-standard copy functions use func(dest, src).
+I think we should stick with it.
+
+&gt;<i> +
+</I>&gt;<i>   void b43_phy_mask(struct b43_wldev *dev, u16 offset, u16 mask)
+</I>&gt;<i>   {
+</I>&gt;<i>   	b43_phy_write(dev, offset,
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> index 58e319d..dbaa2e4 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> @@ -66,7 +66,100 @@ static void lpphy_table_init(struct b43_wldev *dev)
+</I>&gt;<i> 
+</I>&gt;<i>   static void lpphy_baseband_rev0_1_init(struct b43_wldev *dev)
+</I>&gt;<i>   {
+</I>&gt;<i> -	B43_WARN_ON(1);//TODO rev&lt;  2 not supported, yet.
+</I>&gt;<i> +	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+</I>&gt;<i> +	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+</I>&gt;<i> +	u16 tmp, tmp2;
+</I>&gt;<i> +
+</I>&gt;<i> +	if (dev-&gt;phy.rev == 1&amp;&amp;
+</I>                             ^
+&gt;<i> +	   (bus-&gt;sprom.boardflags_hi&amp;  B43_BFH_FEM_BT)) {
+</I>                                    ^
+whitespaces
+
+
+&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_1, 0xFFC0, 0x000A);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_1, 0x3F00, 0x0900);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_2, 0xFFC0, 0x000A);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_2, 0xC0FF, 0x0B00);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_3, 0xFFC0, 0x000A);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_3, 0xC0FF, 0x0400);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_4, 0xFFC0, 0x000A);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_4, 0xC0FF, 0x0B00);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_5, 0xFFC0, 0x000A);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_5, 0xC0FF, 0x0900);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_6, 0xFFC0, 0x000A);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_6, 0xC0FF, 0x0B00);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_7, 0xFFC0, 0x000A);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_7, 0xC0FF, 0x0900);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_8, 0xFFC0, 0x000A);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_8, 0xC0FF, 0x0B00);
+</I>&gt;<i> +	} else if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ ||
+</I>&gt;<i> +		  (bus-&gt;boardinfo.type == 0x048A) || ((dev-&gt;phy.rev == 0)&amp;&amp;
+</I>                                                                         ^
+whitespace
+
+&gt;<i> +		  (bus-&gt;sprom.boardflags_lo&amp;  B43_BFL_FEM))) {
+</I>                                           ^
+whitespace
+
+&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_1, 0xFFC0, 0x0001);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_1, 0xC0FF, 0x0400);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_2, 0xFFC0, 0x0001);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_2, 0xC0FF, 0x0500);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_3, 0xFFC0, 0x0002);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_3, 0xC0FF, 0x0800);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_4, 0xFFC0, 0x0002);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_4, 0xC0FF, 0x0A00);
+</I>&gt;<i> +	} else if (dev-&gt;phy.rev == 1 ||
+</I>&gt;<i> +		  (bus-&gt;sprom.boardflags_lo&amp;  B43_BFL_FEM)) {
+</I>                                           ^
+whitespace
+
+&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_1, 0xFFC0, 0x0004);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_1, 0xC0FF, 0x0800);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_2, 0xFFC0, 0x0004);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_2, 0xC0FF, 0x0C00);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_3, 0xFFC0, 0x0002);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_3, 0xC0FF, 0x0100);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_4, 0xFFC0, 0x0002);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_4, 0xC0FF, 0x0300);
+</I>&gt;<i> +	} else {
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_1, 0xFFC0, 0x000A);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_1, 0xC0FF, 0x0900);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_2, 0xFFC0, 0x000A);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_2, 0xC0FF, 0x0B00);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_3, 0xFFC0, 0x0006);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_3, 0xC0FF, 0x0500);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_4, 0xFFC0, 0x0006);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_TR_LOOKUP_4, 0xC0FF, 0x0700);
+</I>&gt;<i> +	}
+</I>&gt;<i> +	if (dev-&gt;phy.rev == 1) {
+</I>&gt;<i> +		b43_phy_copy(dev, B43_LPPHY_TR_LOOKUP_1, B43_LPPHY_TR_LOOKUP_5);
+</I>&gt;<i> +		b43_phy_copy(dev, B43_LPPHY_TR_LOOKUP_2, B43_LPPHY_TR_LOOKUP_6);
+</I>&gt;<i> +		b43_phy_copy(dev, B43_LPPHY_TR_LOOKUP_3, B43_LPPHY_TR_LOOKUP_7);
+</I>&gt;<i> +		b43_phy_copy(dev, B43_LPPHY_TR_LOOKUP_4, B43_LPPHY_TR_LOOKUP_8);
+</I>
+(Reverse them, if you reverse the meaning of b43_phy_copy())
+
+&gt;<i> +	}
+</I>&gt;<i> +	if (bus-&gt;sprom.boardflags_hi&amp;  B43_BFH_FEM_BT)&amp;&amp;
+</I>&gt;<i> +	   (bus-&gt;chip_id == 0x5354)&amp;&amp;
+</I>
+Lots of whitespace needed here...
+
+&gt;<i> +	   (bus-&gt;chip_package == SSB_CHIPPACK_BCM4712S)) {
+</I>&gt;<i> +		b43_phy_set(dev, B43_LPPHY_CRSGAIN_CTL, 0x0006);
+</I>&gt;<i> +		b43_phy_write(dev, B43_LPPHY_GPIO_SELECT, 0x0005);
+</I>&gt;<i> +		b43_phy_write(dev, B43_LPPHY_GPIO_OUTEN, 0xFFFF);
+</I>&gt;<i> +		b43_hf_write(dev, b43_hf_read | 0x0800ULL&lt;&lt;  32);
+</I>                                            ^^           ^  ^
+b43_hf_read is not called. You OR the function pointer.
+And whitespace at the wrong spot.
+
+&gt;<i> +	}
+</I>&gt;<i> +	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
+</I>&gt;<i> +		b43_phy_set(dev, B43_LPPHY_LP_PHY_CTL, 0x8000);
+</I>&gt;<i> +		b43_phy_set(dev, B43_LPPHY_CRSGAIN_CTL, 0x0040);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_MINPWR_LEVEL, 0x00FF, 0xA400);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_CRSGAIN_CTL, 0xF0FF, 0x0B00);
+</I>&gt;<i> +		b43_phy_maskset(dev, 0x030, 0xFFF8, 0x0007);
+</I>
+Any chance to define a name for the register?
+Even if it's just B43_LPPHY_030 or something like that.
+
+&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_DSSS_CONFIRM_CNT, 0xFFF8, 0x0003);
+</I>&gt;<i> +		b43_phy_maskset(dev, B43_LPPHY_DSSS_CONFIRM_CNT, 0xFFC7, 0x0020);
+</I>&gt;<i> +		b43_phy_mask(dev, B43_LPPHY_IDLEAFTERPKTRXTO, 0x00FF);
+</I>&gt;<i> +	} else { /* 5GHz */
+</I>&gt;<i> +		b43_phy_mask(dev, 0x448, 0x7FFF);
+</I>&gt;<i> +		b43_phy_mask(dev, B43_LPPHY_CRSGAIN_CTL, 0xFFBF);
+</I>&gt;<i> +	}
+</I>&gt;<i> +	if (dev-&gt;phy.rev == 1) {
+</I>&gt;<i> +		tmp = b43_read(dev, B43_LPPHY_CLIPCTRTHRESH);
+</I>&gt;<i> +		tmp2 = (tmp&amp;  0x03E0)&gt;&gt;  5
+</I>&gt;<i> +		tmp2 |= tmp&lt;&lt;  5;
+</I>&gt;<i> +		b43_phy_write(dev, 0x4C3, tmp2);
+</I>&gt;<i> +		tmp = b43_read(dev, B43_LPPHY_OFDMSYNCTHRESH0);
+</I>&gt;<i> +		tmp2 = (tmp&amp;  0x1F00)&gt;&gt;  8
+</I>&gt;<i> +		tmp2 |= tmp&lt;&lt;  5;
+</I>&gt;<i> +		b43_phy_write(dev, 0x4C4, tmp2);
+</I>&gt;<i> +		tmp = b43_read(dev, B43_LPPHY_VERYLOWGAINDB);
+</I>&gt;<i> +		tmp2 = tmp&amp;  0x00FF
+</I>&gt;<i> +		tmp2 |= tmp&lt;&lt;  8;
+</I>&gt;<i> +		b43_phy_write(dev, 0x4C5, tmp2);
+</I>
+Lots of whitespace problems in this code block.
+And please define the registers. Even if you just assign numeric names (like above).
+(hint: also use the B43_PHY_OFDM() macro)
+
+&gt;<i> +	}
+</I>&gt;<i>   }
+</I>&gt;<i> 
+</I>&gt;<i>   static void lpphy_baseband_rev2plus_init(struct b43_wldev *dev)
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/phy_lp.h b/drivers/net/wireless/b43/phy_lp.h
+</I>&gt;<i> index 18370b4..d0e67e4 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/phy_lp.h
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/phy_lp.h
+</I>&gt;<i> @@ -273,12 +273,16 @@
+</I>&gt;<i>   #define B43_LPPHY_AFE_DDFS_POINTER_INIT		B43_PHY_OFDM(0xB8) /* AFE DDFS pointer init */
+</I>&gt;<i>   #define B43_LPPHY_AFE_DDFS_INCR_INIT		B43_PHY_OFDM(0xB9) /* AFE DDFS incr init */
+</I>&gt;<i>   #define B43_LPPHY_MRCNOISEREDUCTION		B43_PHY_OFDM(0xBA) /* mrcNoiseReduction */
+</I>&gt;<i> -#define B43_LPPHY_TRLOOKUP3			B43_PHY_OFDM(0xBB) /* TRLookup3 */
+</I>&gt;<i> -#define B43_LPPHY_TRLOOKUP4			B43_PHY_OFDM(0xBC) /* TRLookup4 */
+</I>&gt;<i> +#define B43_LPPHY_TR_LOOKUP_3			B43_PHY_OFDM(0xBB) /* TR Lookup 3 */
+</I>&gt;<i> +#define B43_LPPHY_TR_LOOKUP_4			B43_PHY_OFDM(0xBC) /* TR Lookup 4 */
+</I>&gt;<i>   #define B43_LPPHY_RADAR_FIFO_STAT		B43_PHY_OFDM(0xBD) /* Radar FIFO Status */
+</I>&gt;<i>   #define B43_LPPHY_GPIO_OUTEN			B43_PHY_OFDM(0xBE) /* GPIO Out enable */
+</I>&gt;<i>   #define B43_LPPHY_GPIO_SELECT			B43_PHY_OFDM(0xBF) /* GPIO Select */
+</I>&gt;<i>   #define B43_LPPHY_GPIO_OUT			B43_PHY_OFDM(0xC0) /* GPIO Out */
+</I>&gt;<i> +#define B43_LPPHY_TR_LOOKUP_5			B43_PHY_OFDM(0xC7) /* TR Lookup 5 */
+</I>&gt;<i> +#define B43_LPPHY_TR_LOOKUP_6			B43_PHY_OFDM(0xC8) /* TR Lookup 6 */
+</I>&gt;<i> +#define B43_LPPHY_TR_LOOKUP_7			B43_PHY_OFDM(0xC9) /* TR Lookup 7 */
+</I>&gt;<i> +#define B43_LPPHY_TR_LOOKUP_8			B43_PHY_OFDM(0xCA) /* TR Lookup 8 */
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+</I>&gt;<i> index 8bcfda5..14ad95a 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/phy_n.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/phy_n.c
+</I>&gt;<i> @@ -137,7 +137,8 @@ static void b43_radio_init2055_post(struct b43_wldev *dev)
+</I>&gt;<i> 
+</I>&gt;<i>   	b43_radio_mask(dev, B2055_MASTER1, 0xFFF3);
+</I>&gt;<i>   	msleep(1);
+</I>&gt;<i> -	if ((sprom-&gt;revision != 4) || !(sprom-&gt;boardflags_hi&amp;  0x0002)) {
+</I>&gt;<i> +	if ((sprom-&gt;revision != 4) ||
+</I>&gt;<i> +	   !(sprom-&gt;boardflags_hi&amp;  B43_BFH_RSSIINV)) {
+</I>                                 ^
+whitespace
+
+&gt;<i>   		if ((binfo-&gt;vendor != PCI_VENDOR_ID_BROADCOM) ||
+</I>&gt;<i>   		    (binfo-&gt;type != 0x46D) ||
+</I>&gt;<i>   		    (binfo-&gt;rev&lt;  0x41)) {
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005667.html">[PATCH RESEND] b43: implement baseband init for LP-PHY &lt;= rev1
+</A></li>
+	<LI>Next message: <A HREF="005665.html">[PATCH RESEND] b43: implement baseband init for LP-PHY &lt;= rev1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5664">[ date ]</a>
+              <a href="thread.html#5664">[ thread ]</a>
+              <a href="subject.html#5664">[ subject ]</a>
+              <a href="author.html#5664">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,168 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> mac80211 local_bh_enable called with IRQs disabled (was:	b43legacy kernel warning)
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mac80211%20local_bh_enable%20called%20with%20IRQs%20disabled%20%28was%3A%0A%09b43legacy%20kernel%20warning%29&In-Reply-To=%3C30353c3d0806171441s5043e14bof78d44a3abd419b2%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004275.html">
+   <LINK REL="Next"  HREF="004279.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>mac80211 local_bh_enable called with IRQs disabled (was:	b43legacy kernel warning)</H1>
+    <B>David Ellingsworth</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mac80211%20local_bh_enable%20called%20with%20IRQs%20disabled%20%28was%3A%0A%09b43legacy%20kernel%20warning%29&In-Reply-To=%3C30353c3d0806171441s5043e14bof78d44a3abd419b2%40mail.gmail.com%3E"
+       TITLE="mac80211 local_bh_enable called with IRQs disabled (was:	b43legacy kernel warning)">david at identd.dyndns.org
+       </A><BR>
+    <I>Tue Jun 17 23:41:42 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004275.html">mac80211 local_bh_enable called with IRQs disabled (was: b43legacy	kernel warning)
+</A></li>
+        <LI>Next message: <A HREF="004279.html">mac80211 local_bh_enable called with IRQs disabled (was:	b43legacy kernel warning)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4276">[ date ]</a>
+              <a href="thread.html#4276">[ thread ]</a>
+              <a href="subject.html#4276">[ subject ]</a>
+              <a href="author.html#4276">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tue, Jun 17, 2008 at 5:20 PM, Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; wrote:
+&gt;<i> On Tuesday 17 June 2008 22:59:52 David Ellingsworth wrote:
+</I>&gt;&gt;<i> I ran into this error today from a kernel I built last night based on
+</I>&gt;&gt;<i> the latest wireless-testing branch. Correct me if I'm wrong, but it
+</I>&gt;&gt;<i> looks to be b43legacy related. I'm a bit new to kernel debugging but
+</I>&gt;&gt;<i> can try to provide additional information if instructions on how to do
+</I>&gt;&gt;<i> so are provided.
+</I>&gt;<i>
+</I>&gt;<i> No, this is a mac80211 bug
+</I>&gt;<i>
+</I>&gt;&gt;<i> --------------------------------------------------------------------------------------
+</I>&gt;&gt;<i> dmesg output:
+</I>&gt;&gt;<i> --------------------------------------------------------------------------------------
+</I>&gt;&gt;<i> WARNING: at kernel/softirq.c:141 local_bh_enable+0x1f/0x59()
+</I>&gt;&gt;<i> Modules linked in: ipt_MASQUERADE iptable_nat nf_nat nf_conntrack_ipv4
+</I>&gt;&gt;<i> nf_conntrack ip_tables x_tables radeon drm binfmt_misc ppdev lp
+</I>&gt;&gt;<i> dm_snapshot dm_mirror dm_log dm_mod b43legacy mac80211 cfg80211
+</I>&gt;&gt;<i> led_class snd_ali5451 snd_ac97_codec ac97_bus snd_pcm_oss
+</I>&gt;&gt;<i> snd_mixer_oss ati_agp ibmcam usbvideo ssb pcmcia snd_pcm snd_timer
+</I>&gt;&gt;<i> evdev videodev v4l1_compat container battery ac button firmware_class
+</I>&gt;&gt;<i> agpgart i2c_ali1535 snd video output parport_pc parport yenta_socket
+</I>&gt;&gt;<i> rsrc_nonstatic pcmcia_core psmouse serio_raw i2c_ali15x3 i2c_core
+</I>&gt;&gt;<i> soundcore snd_page_alloc pcspkr reiserfs ide_cd_mod cdrom ide_disk
+</I>&gt;&gt;<i> alim15x3 natsemi ide_pci_generic ide_core ohci_hcd usbcore thermal
+</I>&gt;&gt;<i> processor fan
+</I>&gt;&gt;<i> Pid: 1371, comm: b43legacy Not tainted 2.6.26-rc6-wl #1
+</I>&gt;&gt;<i>  [&lt;c0113be7&gt;] warn_on_slowpath+0x40/0x66
+</I>&gt;&gt;<i>  [&lt;c0111c60&gt;] check_preempt_wakeup+0xa2/0xc0
+</I>&gt;&gt;<i>  [&lt;c0120d0d&gt;] autoremove_wake_function+0xc/0x2b
+</I>&gt;&gt;<i>  [&lt;c010fc44&gt;] __wake_up_common+0x2d/0x52
+</I>&gt;&gt;<i>  [&lt;c011126e&gt;] __wake_up+0xf/0x15
+</I>&gt;&gt;<i>  [&lt;c0113f89&gt;] wake_up_klogd+0x2b/0x2d
+</I>&gt;&gt;<i>  [&lt;c01981ed&gt;] scnprintf+0x1f/0x2b
+</I>&gt;&gt;<i>  [&lt;c0117477&gt;] local_bh_enable+0x1f/0x59
+</I>&gt;<i> ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+</I>&gt;<i> This function does not like being run with IRQs disabled.
+</I>&gt;<i> WARN_ON_ONCE(irqs_disabled());
+</I>&gt;<i>
+</I>&gt;&gt;<i>  [&lt;dcf44045&gt;] __sta_info_unlink+0xa9/0x134 [mac80211]
+</I>&gt;&gt;<i>  [&lt;dcf4453f&gt;] sta_info_unlink+0x9/0xd [mac80211]
+</I>&gt;<i> ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+</I>&gt;<i> This function disables interrupts
+</I>&gt;<i>
+</I>&gt;&gt;<i>  [&lt;dcf48968&gt;] ieee80211_associated+0x9f/0x148 [mac80211]
+</I>&gt;&gt;<i>  [&lt;dcf4b463&gt;] ieee80211_sta_work+0x4cb/0x64f [mac80211]
+</I>&gt;&gt;<i>  [&lt;c0110392&gt;] update_curr+0x3d/0x52
+</I>&gt;&gt;<i>  [&lt;c01104ee&gt;] dequeue_entity+0xf/0x8d
+</I>&gt;&gt;<i>  [&lt;c0111979&gt;] dequeue_task_fair+0x13/0x27
+</I>&gt;&gt;<i>  [&lt;c010fab2&gt;] dequeue_task+0xa/0x14
+</I>&gt;&gt;<i>  [&lt;c0249b01&gt;] schedule+0x22e/0x24a
+</I>&gt;&gt;<i>  [&lt;dcf4af98&gt;] ieee80211_sta_work+0x0/0x64f [mac80211]
+</I>&gt;&gt;<i>  [&lt;c011e7a7&gt;] run_workqueue+0x63/0xca
+</I>&gt;&gt;<i>  [&lt;c011ec96&gt;] worker_thread+0x0/0xb7
+</I>&gt;&gt;<i>  [&lt;c011ed42&gt;] worker_thread+0xac/0xb7
+</I>&gt;&gt;<i>  [&lt;c0120d01&gt;] autoremove_wake_function+0x0/0x2b
+</I>&gt;&gt;<i>  [&lt;c011ec96&gt;] worker_thread+0x0/0xb7
+</I>&gt;&gt;<i>  [&lt;c0120ba6&gt;] kthread+0x36/0x5c
+</I>&gt;&gt;<i>  [&lt;c0120b70&gt;] kthread+0x0/0x5c
+</I>&gt;&gt;<i>  [&lt;c010390b&gt;] kernel_thread_helper+0x7/0x10
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> I'm not sure _why_ local_bh_enable() doesn't like getting called
+</I>&gt;<i> with interrupts disabled.
+</I>&gt;<i> The code is a bit weird:
+</I>&gt;<i>
+</I>&gt;<i> 134 void local_bh_enable(void)
+</I>&gt;<i> 135 {
+</I>&gt;<i> 136 #ifdef CONFIG_TRACE_IRQFLAGS
+</I>&gt;<i> 137         unsigned long flags;
+</I>&gt;<i> 138
+</I>&gt;<i> 139         WARN_ON_ONCE(in_irq());
+</I>&gt;<i> 140 #endif
+</I>&gt;<i> 141         WARN_ON_ONCE(irqs_disabled());
+</I>&gt;<i> 142
+</I>&gt;<i> 143 #ifdef CONFIG_TRACE_IRQFLAGS
+</I>&gt;<i> 144         local_irq_save(flags);
+</I>&gt;<i> 145 #endif
+</I>&gt;<i> 146         /*
+</I>&gt;<i> 147          * Are softirqs going to be turned on now:
+</I>&gt;<i> 148          */
+</I>&gt;<i> 149         if (softirq_count() == SOFTIRQ_OFFSET)
+</I>&gt;<i> 150                 trace_softirqs_on((unsigned long)__builtin_return_address(0));
+</I>&gt;<i> 151         /*
+</I>&gt;<i> 152          * Keep preemption disabled until we are done with
+</I>&gt;<i> 153          * softirq processing:
+</I>&gt;<i> 154          */
+</I>&gt;<i> 155         sub_preempt_count(SOFTIRQ_OFFSET - 1);
+</I>&gt;<i> 156
+</I>&gt;<i> 157         if (unlikely(!in_interrupt() &amp;&amp; local_softirq_pending()))
+</I>&gt;<i> 158                 do_softirq();
+</I>&gt;<i> 159
+</I>&gt;<i> 160         dec_preempt_count();
+</I>&gt;<i> 161 #ifdef CONFIG_TRACE_IRQFLAGS
+</I>&gt;<i> 162         local_irq_restore(flags);
+</I>&gt;<i> 163 #endif
+</I>&gt;<i> 164         preempt_check_resched();
+</I>&gt;<i> 165 }
+</I>&gt;<i> 166 EXPORT_SYMBOL(local_bh_enable);
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i> Greetings Michael.
+</I>&gt;<i>
+</I>
+Thanks for clarifying. Is this something that might be caused by a
+missing configuration option in my kernel?
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004275.html">mac80211 local_bh_enable called with IRQs disabled (was: b43legacy	kernel warning)
+</A></li>
+	<LI>Next message: <A HREF="004279.html">mac80211 local_bh_enable called with IRQs disabled (was:	b43legacy kernel warning)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4276">[ date ]</a>
+              <a href="thread.html#4276">[ thread ]</a>
+              <a href="subject.html#4276">[ subject ]</a>
+              <a href="author.html#4276">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

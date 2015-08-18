@@ -1,0 +1,128 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43: fix wldev use after free
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%3A%20fix%20wldev%20use%20after%20free&In-Reply-To=%3C20091001084924.GA4170%40darkstar%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   <LINK REL="Next"  HREF="006131.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43: fix wldev use after free</H1>
+    <B>Dave Young</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%3A%20fix%20wldev%20use%20after%20free&In-Reply-To=%3C20091001084924.GA4170%40darkstar%3E"
+       TITLE="b43: fix wldev use after free">hidave.darkstar at gmail.com
+       </A><BR>
+    <I>Thu Oct  1 10:49:24 CEST 2009</I>
+    <P><UL>
+        
+        <LI>Next message: <A HREF="006131.html">[PATCH] b43: Don't use struct wldev after detach.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6130">[ date ]</a>
+              <a href="thread.html#6130">[ thread ]</a>
+              <a href="subject.html#6130">[ subject ]</a>
+              <a href="author.html#6130">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>when rmmod b43, I got following bug message
+
+[  100.121798] BUG: unable to handle kernel paging request at 2f4066fa
+[  100.123338] IP: [&lt;f9e9dd57&gt;] b43_unregister_led+0x6/0x1c [b43]
+[  100.123338] *pde = 00000000 
+[  100.123338] Oops: 0000 [#1] SMP 
+[  100.123338] last sysfs file: /sys/devices/pci0000:00/0000:00:1c.1/0000:0c:00.0/ssb0:0/firmware/ssb0:0/loading
+[  100.123338] Modules linked in: reiserfs kvm_intel kvm snd_hda_codec_intelhdmi firewire_ohci snd_hda_codec_idt firewire_core b43(-) snd_hda_intel mac80211 snd_hda_codec crc_itu_t cfg80211 snd_hwdep ohci1394 snd_pcm dell_laptop wmi ieee1394 rfkill snd_timer snd_page_alloc
+[  100.123338] 
+[  100.123338] Pid: 1931, comm: rmmod Not tainted (2.6.31-mm1 #2) Latitude E5400                  
+[  100.123338] EIP: 0060:[&lt;f9e9dd57&gt;] EFLAGS: 00010246 CPU: 0
+[  100.123338] EIP is at b43_unregister_led+0x6/0x1c [b43]
+[  100.123338] EAX: 2f4066fa EBX: 2f4066fa ECX: 00000006 EDX: 00000246
+[  100.123338] ESI: f6a59000 EDI: f72030a8 EBP: f6373ec8 ESP: f6373ec4
+[  100.123338]  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
+[  100.123338] Process rmmod (pid: 1931, ti=f6372000 task=f66e0000 task.ti=f6372000)
+[  100.123338] Stack:
+[  100.123338]  2f406576 f6373ed4 f9e9dd7f f674cda0 f6373ee8 f9e8816e f72030a8 f9ea4b18
+[  100.123338] &lt;0&gt; f9ea4b18 f6373ef4 c04bbd57 f7297000 f6373f04 c03f2563 f7297000 f7297034
+[  100.123338] &lt;0&gt; f6373f18 c03f2609 f9ea4b18 00000000 c07742fc f6373f2c c03f1aac 00000000
+[  100.123338] Call Trace:
+[  100.123338]  [&lt;f9e9dd7f&gt;] ? b43_leds_unregister+0x12/0x36 [b43]
+[  100.123338]  [&lt;f9e8816e&gt;] ? b43_remove+0x79/0x87 [b43]
+[  100.123338]  [&lt;c04bbd57&gt;] ? ssb_device_remove+0x1d/0x29
+[  100.123338]  [&lt;c03f2563&gt;] ? __device_release_driver+0x59/0x98
+[  100.123338]  [&lt;c03f2609&gt;] ? driver_detach+0x67/0x85
+[  100.123338]  [&lt;c03f1aac&gt;] ? bus_remove_driver+0x63/0x7f
+[  100.123338]  [&lt;c03f2a04&gt;] ? driver_unregister+0x4d/0x54
+[  100.123338]  [&lt;c04bb828&gt;] ? ssb_driver_unregister+0xb/0xd
+[  100.123338]  [&lt;f9e9f876&gt;] ? b43_exit+0xd/0x19 [b43]
+[  100.123338]  [&lt;c025124b&gt;] ? sys_delete_module+0x17c/0x1e0
+[  100.123338]  [&lt;c054c654&gt;] ? do_page_fault+0x29d/0x2a5
+[  100.123338]  [&lt;c02032d6&gt;] ? restore_all_notrace+0x0/0x18
+[  100.123338]  [&lt;c054c3b7&gt;] ? do_page_fault+0x0/0x2a5
+[  100.123338]  [&lt;c020329d&gt;] ? syscall_call+0x7/0xb
+[  100.123338] Code: 0f b6 93 d8 03 00 00 e8 16 ff ff ff 0f b6 8b 39 03 00 00 89 f0 0f b6 93 38 03 00 00 e8 01 ff ff ff 5b 5e 5d c3 55 89 e5 53 89 c3 &lt;83&gt; 38 00 74 0e 8d 40 04 e8 de cc 60 c6 c7 03 00 00 00 00 5b 5d 
+[  100.123338] EIP: [&lt;f9e9dd57&gt;] b43_unregister_led+0x6/0x1c [b43] SS:ESP 0068:f6373ec4
+[  100.123338] CR2: 000000002f4066fa
+[  100.953375] ---[ end trace d100c06b1451fbd8 ]---
+
+in b43_remove, b43_one_core_detach free the wldev,
+thus following callback which reference wldev will oops.
+
+fix it by call b43_leds_unregister before b43_one_core_detach
+if it is the last one in wl-&gt;devlist
+
+
+Signed-off-by: Dave Young &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">hidave.darkstar at gmail.com</A>&gt;
+---
+drivers/net/wireless/b43/main.c |    4 +++-
+1 file changed, 3 insertions(+), 1 deletion(-)
+
+--- linux-2.6.31.orig/drivers/net/wireless/b43/main.c	2009-10-01 16:17:00.000000000 +0800
++++ linux-2.6.31/drivers/net/wireless/b43/main.c	2009-10-01 16:37:41.000000000 +0800
+@@ -4993,11 +4993,13 @@ static void b43_remove(struct ssb_device
+ 		ieee80211_unregister_hw(wl-&gt;hw);
+ 	}
+ 
++	if (list_is_last(&amp;wldev-&gt;list, &amp;wl-&gt;devlist))
++		b43_leds_unregister(wldev);
++
+ 	b43_one_core_detach(dev);
+ 
+ 	if (list_empty(&amp;wl-&gt;devlist)) {
+ 		b43_rng_exit(wl);
+-		b43_leds_unregister(wldev);
+ 		/* Last core on the chip unregistered.
+ 		 * We can destroy common struct b43_wl.
+ 		 */
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	<LI>Next message: <A HREF="006131.html">[PATCH] b43: Don't use struct wldev after detach.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6130">[ date ]</a>
+              <a href="thread.html#6130">[ thread ]</a>
+              <a href="subject.html#6130">[ subject ]</a>
+              <a href="author.html#6130">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

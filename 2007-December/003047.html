@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20net%3A%20wireless%3A%20bcm43xx%3A%20big_buffer_sem%20semaphore%20to%0A%09mutex&In-Reply-To=%3C200712142113.09119.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003046.html">
+   <LINK REL="Next"  HREF="003049.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20net%3A%20wireless%3A%20bcm43xx%3A%20big_buffer_sem%20semaphore%20to%0A%09mutex&In-Reply-To=%3C200712142113.09119.mb%40bu3sch.de%3E"
+       TITLE="[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Dec 14 21:13:08 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003046.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+        <LI>Next message: <A HREF="003049.html">[PATCH] b43legacy: Fix rfkill radio LED
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3047">[ date ]</a>
+              <a href="thread.html#3047">[ thread ]</a>
+              <a href="subject.html#3047">[ subject ]</a>
+              <a href="author.html#3047">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 14 December 2007 20:55:43 Ray Lee wrote:
+&gt;<i> Oh. My. God.
+</I>&gt;<i> 
+</I>&gt;<i> Michael. I have a degree in Physics. I placed sixth in the world
+</I>&gt;<i> finals of the ACM Collegiate programming contest in 1999, Cal Poly
+</I>&gt;<i> Team Gold. ( <A HREF="http://icpc.baylor.edu/past/icpc99/Finals/Tour/Win/Win.html">http://icpc.baylor.edu/past/icpc99/Finals/Tour/Win/Win.html</A>
+</I>&gt;<i> , I'm the guy all the way to the right. ) I ported the 2.4 kernel to a
+</I>&gt;<i> custom ppc platform, including writing drivers for various hardware on
+</I>&gt;<i> it ( <A HREF="http://patinc.com">http://patinc.com</A> ). I'm the guy who did all the software for a
+</I>&gt;<i> linux-based Voice over IP call center (
+</I>&gt;<i> <A HREF="http://broncocommunications.com/">http://broncocommunications.com/</A> ).
+</I>
+Nice. I am one of the main b43 developers and I wrote most of the code.
+I know most of the code from the top of my head.
+Besides that my weiner is bigger than yours. :P
+
+&gt;<i> To answer your question, it requests the rfkill-input module. But
+</I>&gt;<i> under the version I'm trying, rfkill-input is not automatically
+</I>&gt;<i> loaded.
+</I>
+It is not an issue. You can even rmmod rfkill-input in FULL operation.
+It will not disturb the operation, except that an LED stops working.
+Try it! (I _did_ try it).
+
+&gt;<i> I've pointed to the mailing list URL that proves that. So, I 
+</I>&gt;<i> loaded rfkill and rfkill-input by hand. Perhaps rfkill wasn't
+</I>&gt;<i> necessary, I don't know, and I don't care. But once I did that, *then
+</I>&gt;<i> and only then* did your damn b43 driver start printing out any
+</I>&gt;<i> messages to dmesg at all, which then let me download the latest
+</I>&gt;<i> firmware, and continue moving forward.
+</I>
+The b43 does print _nothing_ on modprobe. That is _correct_ behaviour.
+b43 does print the firmware message after &quot;ifconfig up&quot;.
+Might it be possible that this was coincidence and you messed
+with modprobe rfkill and ifconfig up and finally saw the message?
+
+&gt;<i> &gt; You are telling me that I don't understand patches that I sign off
+</I>&gt;<i> &gt; and I should not take this personally?
+</I>&gt;<i> &gt; That is challenging.
+</I>&gt;<i> 
+</I>&gt;<i> I'm saying the patch you signed off on has a side-effect that will fix
+</I>&gt;<i> my issue. And even if I *were* saying that, the most you should take
+</I>
+Ok. So please revert that patch and try to reproduce the breakage.
+Does that work?
+
+&gt;<i> from it is that you are human and sometimes may make mistakes, just
+</I>
+I am inhuman. We all know that.
+(That was a joke that you probably don't understand. But you can google
+for &quot;bcw vs. bcm43xx&quot; :) )
+
+Ray, I _do_ want to understand what is going on in your machine.
+I _have_ to understand it. But I currently do not understand how the
+quoted patch could fix modprobe of b43 or rfkill. I'd simply call that
+impossible.
+Impossible because the patch does change a few function called _inside_
+of the b43 module. How could that fix load of the b43 module? (Note that
+we are not changing some modprobe magic like the ID table).
+
+So could you please try to reproduce the breakage by reverting that
+patch again? Just to make really sure it is this patch fixing the issue
+and not just some coincidence.
+
+Thanks for your help.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003046.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+	<LI>Next message: <A HREF="003049.html">[PATCH] b43legacy: Fix rfkill radio LED
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3047">[ date ]</a>
+              <a href="thread.html#3047">[ thread ]</a>
+              <a href="subject.html#3047">[ subject ]</a>
+              <a href="author.html#3047">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

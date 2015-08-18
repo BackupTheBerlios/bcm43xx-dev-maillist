@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20net%3A%20wireless%3A%20bcm43xx%3A%20big_buffer_sem%20semaphore%20to%0A%09mutex&In-Reply-To=%3C200712150225.52183.rjw%40sisk.pl%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003044.html">
+   <LINK REL="Next"  HREF="003056.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex</H1>
+    <B>Rafael J. Wysocki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20net%3A%20wireless%3A%20bcm43xx%3A%20big_buffer_sem%20semaphore%20to%0A%09mutex&In-Reply-To=%3C200712150225.52183.rjw%40sisk.pl%3E"
+       TITLE="[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex">rjw at sisk.pl
+       </A><BR>
+    <I>Sat Dec 15 02:25:50 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003044.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+        <LI>Next message: <A HREF="003056.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore	to mutex
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3052">[ date ]</a>
+              <a href="thread.html#3052">[ thread ]</a>
+              <a href="subject.html#3052">[ subject ]</a>
+              <a href="author.html#3052">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday, 14 of December 2007, Michael Buesch wrote:
+&gt;<i> On Friday 14 December 2007 18:59:10 Ingo Molnar wrote:
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; * Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; wrote:
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; &gt; In my opinion this all is the work of the distributions and not the 
+</I>&gt;<i> &gt; &gt; work of the kernel developers. Distributions have to make sure that 
+</I>&gt;<i> &gt; &gt; everything works after a kernel update. [...]
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; actually, not. The the task of kernel developers is to KEEP OLD 
+</I>&gt;<i> &gt; DISTRIBUTIONS WORKING WITH NEW DRIVERS. Or the &quot;old&quot; driver stays around 
+</I>&gt;<i> &gt; until eternity, because the new one is just BROKEN.
+</I>&gt;<i> 
+</I>&gt;<i> What exactly prevents an old distribution from using new b43
+</I>&gt;<i> given that they fix their broken udev scripts first?
+</I>&gt;<i> 
+</I>&gt;<i> (I cannot fix their broken scripts from within the kernel.)
+</I>
+Well, we talked about that some time ago, didn't we?
+
+The rule is this: if one uses kernel 2.6.x from kernel.org _successfully_
+with certain distribution (whatever it is), then one is supposed to be able to
+take the kernel 2.6.(x+1), install it on that distribution and use it without
+any major configuration changes.  If this rule is not followed, people will
+stop testing kernel.org kernels and we'll all suffer from that.
+
+Now, in my not so humble opinion, switching from bcm43xx to b43 _is_ a major
+configuration change (I did it, so please don't try to discuss with my
+experience) and forcing users to do that breaks the rule above.
+
+&gt;<i> &gt; Take a look at CONFIG_COMPAT_VDSO for example - one single version of 
+</I>&gt;<i> &gt; glibc was released in a distro that depended on a kernel vDSO bug. So 
+</I>&gt;<i> &gt; we'll keep that aspect of the vDSO perhaps forever. Simple as that. 
+</I>&gt;<i> &gt; Stuff must just work. Whatever it takes. Best is if you add in new stuff 
+</I>&gt;<i> &gt; without the user noticing _ANYTHING_ but that the kernel version bumped. 
+</I>&gt;<i> &gt; If the maintainers of the other 7 million lines of kernel code can get 
+</I>&gt;<i> &gt; this right then the wireless code should be able to do it too. Ok?
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; all this &quot;distributors will have to sort out the mess&quot; talk is nonsense, 
+</I>&gt;<i> &gt; and i really hope you do not truly believe in that crap. If your 
+</I>&gt;<i> &gt; attitude is prevalent in the wireless development community then it's in 
+</I>&gt;<i> &gt; worse shape than i thought :-(
+</I>&gt;<i> 
+</I>&gt;<i> Sorry if I didn't chose my wording correctly. But I was only talking
+</I>&gt;<i> about the development of drivers. It is correct that userspace ABI has
+</I>&gt;<i> to be preserved, but that is not an issue at all to drivers.
+</I>&gt;<i> I was talking about things like installing the right firmware for
+</I>&gt;<i> the new driver. It is the job of the distributors to install the new
+</I>&gt;<i> firmware when they introduce a new driver.
+</I>
+Yes, as far as new distributions are concerned.  However, we _want_ kernel.org
+kernels to work with the old ones too.  Yes, WE DO.
+
+&gt;<i> It is the job of the distributors to test their userland scripts and
+</I>&gt;<i> configuration stuff with that driver and fix their stuff. It is _not_ my job
+</I>&gt;<i> to fix random distribution udev scripts or explaining over and over again to
+</I>&gt;<i> people how the firmware is installed.
+</I>
+Given specific software environment (it may be a home-made system compiled
+from sources or whatever), if installing a new kernel forces me to reconfigure
+it in any significant way to obtain the functionality that I previously had,
+the problem is with the kernel.  No less, no more.
+
+&gt;<i> Either distributions have to install it automatically or people simply have
+</I>&gt;<i> to read one or two lines of documentation.  That's just what I wanted to say.
+</I>
+It's not that simple.  For example, regression testing will be a major PITA
+if one needs to switch back and forth from the new driver to the old one in the
+process.
+
+&gt;<i> Of course it is _my_ job to preserve ABI. I did never want to question that.
+</I>
+Greetings,
+Rafael
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003044.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+	<LI>Next message: <A HREF="003056.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore	to mutex
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3052">[ date ]</a>
+              <a href="thread.html#3052">[ thread ]</a>
+              <a href="subject.html#3052">[ subject ]</a>
+              <a href="author.html#3052">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,288 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Optimize DMA buffers
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Optimize%20DMA%20buffers&In-Reply-To=%3C200902192345.44141.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005230.html">
+   <LINK REL="Next"  HREF="005232.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Optimize DMA buffers</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Optimize%20DMA%20buffers&In-Reply-To=%3C200902192345.44141.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Optimize DMA buffers">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Feb 19 23:45:43 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005230.html">[PATCH] b43: Fix DMA buffer size handling
+</A></li>
+        <LI>Next message: <A HREF="005232.html">[PATCH] b43: Add slot count compiletime assertion
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5231">[ date ]</a>
+              <a href="thread.html#5231">[ thread ]</a>
+              <a href="subject.html#5231">[ subject ]</a>
+              <a href="author.html#5231">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>In the old days we used one slot per frame. But when we changed that to 2,
+we didn't raise the overall slot count. Which resulted in an effective
+division of two to the number of slots.
+
+Double the number of TX slots, so we have an effective hardware queue
+of 128 frames per QoS queue.
+
+Also optimize the TX header cache handling. We don't need a cached TX header
+for slots that will never carry an actual header.
+So we reduce the memory consumption of the cache by 50%.
+
+So as a net result we end up with more or less the same memory usage before
+and after this patch (except a few tiny meta structures), but have twice
+the number of TX slots available.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+Please queue for the next round of features.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-02-19 22:30:16.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-02-19 22:49:06.000000000 +0100
+@@ -38,12 +38,18 @@
+ #include &lt;linux/delay.h&gt;
+ #include &lt;linux/skbuff.h&gt;
+ #include &lt;linux/etherdevice.h&gt;
+ #include &lt;asm/div64.h&gt;
+ 
+ 
++/* Required number of TX DMA slots per TX frame.
++ * This currently is 2, because we put the header and the ieee80211 frame
++ * into separate slots. */
++#define TX_SLOTS_PER_FRAME	2
++
++
+ /* 32bit DMA ops. */
+ static
+ struct b43_dmadesc_generic *op32_idx2desc(struct b43_dmaring *ring,
+ 					  int slot,
+ 					  struct b43_dmadesc_meta **meta)
+ {
+@@ -571,18 +577,17 @@ static int setup_rx_descbuffer(struct b4
+ 
+ 		skb = __dev_alloc_skb(ring-&gt;rx_buffersize, gfp_flags);
+ 		if (unlikely(!skb))
+ 			return -ENOMEM;
+ 		dmaaddr = map_descbuffer(ring, skb-&gt;data,
+ 					 ring-&gt;rx_buffersize, 0);
+-	}
+-
+-	if (b43_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize, 0)) {
+-		b43err(ring-&gt;dev-&gt;wl, &quot;RX DMA buffer allocation failed\n&quot;);
+-		dev_kfree_skb_any(skb);
+-		return -EIO;
++		if (b43_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize, 0)) {
++			b43err(ring-&gt;dev-&gt;wl, &quot;RX DMA buffer allocation failed\n&quot;);
++			dev_kfree_skb_any(skb);
++			return -EIO;
++		}
+ 	}
+ 
+ 	meta-&gt;skb = skb;
+ 	meta-&gt;dmaaddr = dmaaddr;
+ 	ring-&gt;ops-&gt;fill_descriptor(ring, desc, dmaaddr,
+ 				   ring-&gt;rx_buffersize, 0, 0, 0);
+@@ -834,13 +839,13 @@ struct b43_dmaring *b43_setup_dmaring(st
+ 	spin_lock_init(&amp;ring-&gt;lock);
+ #ifdef CONFIG_B43_DEBUG
+ 	ring-&gt;last_injected_overflow = jiffies;
+ #endif
+ 
+ 	if (for_tx) {
+-		ring-&gt;txhdr_cache = kcalloc(ring-&gt;nr_slots,
++		ring-&gt;txhdr_cache = kcalloc(ring-&gt;nr_slots / TX_SLOTS_PER_FRAME,
+ 					    b43_txhdr_size(dev),
+ 					    GFP_KERNEL);
+ 		if (!ring-&gt;txhdr_cache)
+ 			goto err_kfree_meta;
+ 
+ 		/* test for ability to dma to txhdr_cache */
+@@ -850,13 +855,13 @@ struct b43_dmaring *b43_setup_dmaring(st
+ 					      DMA_TO_DEVICE);
+ 
+ 		if (b43_dma_mapping_error(ring, dma_test,
+ 					  b43_txhdr_size(dev), 1)) {
+ 			/* ugh realloc */
+ 			kfree(ring-&gt;txhdr_cache);
+-			ring-&gt;txhdr_cache = kcalloc(ring-&gt;nr_slots,
++			ring-&gt;txhdr_cache = kcalloc(ring-&gt;nr_slots / TX_SLOTS_PER_FRAME,
+ 						    b43_txhdr_size(dev),
+ 						    GFP_KERNEL | GFP_DMA);
+ 			if (!ring-&gt;txhdr_cache)
+ 				goto err_kfree_meta;
+ 
+ 			dma_test = ssb_dma_map_single(dev-&gt;dev,
+@@ -1141,23 +1146,26 @@ static int dma_tx_fragment(struct b43_dm
+ 	struct b43_dmadesc_meta *meta;
+ 	struct b43_dmadesc_meta *meta_hdr;
+ 	struct sk_buff *bounce_skb;
+ 	u16 cookie;
+ 	size_t hdrsize = b43_txhdr_size(ring-&gt;dev);
+ 
+-#define SLOTS_PER_PACKET  2
++	/* Important note: If the number of used DMA slots per TX frame
++	 * is changed here, the TX_SLOTS_PER_FRAME definition at the top of
++	 * the file has to be updated, too!
++	 */
+ 
+ 	old_top_slot = ring-&gt;current_slot;
+ 	old_used_slots = ring-&gt;used_slots;
+ 
+ 	/* Get a slot for the header. */
+ 	slot = request_slot(ring);
+ 	desc = ops-&gt;idx2desc(ring, slot, &amp;meta_hdr);
+ 	memset(meta_hdr, 0, sizeof(*meta_hdr));
+ 
+-	header = &amp;(ring-&gt;txhdr_cache[slot * hdrsize]);
++	header = &amp;(ring-&gt;txhdr_cache[(slot / TX_SLOTS_PER_FRAME) * hdrsize]);
+ 	cookie = generate_cookie(ring, slot);
+ 	err = b43_generate_txhdr(ring-&gt;dev, header,
+ 				 skb-&gt;data, skb-&gt;len, info, cookie);
+ 	if (unlikely(err)) {
+ 		ring-&gt;current_slot = old_top_slot;
+ 		ring-&gt;used_slots = old_used_slots;
+@@ -1299,13 +1307,13 @@ int b43_dma_tx(struct b43_wldev *dev, st
+ 		ring = select_ring_by_priority(
+ 			dev, skb_get_queue_mapping(skb));
+ 	}
+ 
+ 	spin_lock_irqsave(&amp;ring-&gt;lock, flags);
+ 	B43_WARN_ON(!ring-&gt;tx);
+-	if (unlikely(free_slots(ring) &lt; SLOTS_PER_PACKET)) {
++	if (unlikely(free_slots(ring) &lt; TX_SLOTS_PER_FRAME)) {
+ 		b43warn(dev-&gt;wl, &quot;DMA queue overflow\n&quot;);
+ 		err = -ENOSPC;
+ 		goto out_unlock;
+ 	}
+ 	/* Check if the queue was stopped in mac80211,
+ 	 * but we got called nevertheless.
+@@ -1327,13 +1335,13 @@ int b43_dma_tx(struct b43_wldev *dev, st
+ 	}
+ 	if (unlikely(err)) {
+ 		b43err(dev-&gt;wl, &quot;DMA tx mapping failure\n&quot;);
+ 		goto out_unlock;
+ 	}
+ 	ring-&gt;nr_tx_packets++;
+-	if ((free_slots(ring) &lt; SLOTS_PER_PACKET) ||
++	if ((free_slots(ring) &lt; TX_SLOTS_PER_FRAME) ||
+ 	    should_inject_overflow(ring)) {
+ 		/* This TX ring is full. */
+ 		ieee80211_stop_queue(dev-&gt;wl-&gt;hw, skb_get_queue_mapping(skb));
+ 		ring-&gt;stopped = 1;
+ 		if (b43_debug(dev, B43_DBG_DMAVERBOSE)) {
+ 			b43dbg(dev-&gt;wl, &quot;Stopped TX ring %d\n&quot;, ring-&gt;index);
+@@ -1411,13 +1419,13 @@ void b43_dma_handle_txstatus(struct b43_
+ 		if (meta-&gt;is_last_fragment)
+ 			break;
+ 		slot = next_slot(ring, slot);
+ 	}
+ 	dev-&gt;stats.last_tx = jiffies;
+ 	if (ring-&gt;stopped) {
+-		B43_WARN_ON(free_slots(ring) &lt; SLOTS_PER_PACKET);
++		B43_WARN_ON(free_slots(ring) &lt; TX_SLOTS_PER_FRAME);
+ 		ieee80211_wake_queue(dev-&gt;wl-&gt;hw, ring-&gt;queue_prio);
+ 		ring-&gt;stopped = 0;
+ 		if (b43_debug(dev, B43_DBG_DMAVERBOSE)) {
+ 			b43dbg(dev-&gt;wl, &quot;Woke up TX ring %d\n&quot;, ring-&gt;index);
+ 		}
+ 	}
+@@ -1434,14 +1442,14 @@ void b43_dma_get_tx_stats(struct b43_wld
+ 	int i;
+ 
+ 	for (i = 0; i &lt; nr_queues; i++) {
+ 		ring = select_ring_by_priority(dev, i);
+ 
+ 		spin_lock_irqsave(&amp;ring-&gt;lock, flags);
+-		stats[i].len = ring-&gt;used_slots / SLOTS_PER_PACKET;
+-		stats[i].limit = ring-&gt;nr_slots / SLOTS_PER_PACKET;
++		stats[i].len = ring-&gt;used_slots / TX_SLOTS_PER_FRAME;
++		stats[i].limit = ring-&gt;nr_slots / TX_SLOTS_PER_FRAME;
+ 		stats[i].count = ring-&gt;nr_tx_packets;
+ 		spin_unlock_irqrestore(&amp;ring-&gt;lock, flags);
+ 	}
+ }
+ 
+ static void dma_rx(struct b43_dmaring *ring, int *slot)
+Index: wireless-testing/drivers/net/wireless/b43/dma.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.h	2009-02-19 22:32:21.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.h	2009-02-19 22:46:14.000000000 +0100
+@@ -159,13 +159,13 @@ struct b43_dmadesc_generic {
+ 
+ /* Misc DMA constants */
+ #define B43_DMA_RINGMEMSIZE		PAGE_SIZE
+ #define B43_DMA0_RX_FRAMEOFFSET		30
+ 
+ /* DMA engine tuning knobs */
+-#define B43_TXRING_SLOTS		128
++#define B43_TXRING_SLOTS		256
+ #define B43_RXRING_SLOTS		64
+ #define B43_DMA0_RX_BUFFERSIZE		IEEE80211_MAX_FRAME_LEN
+ 
+ 
+ struct sk_buff;
+ struct b43_private;
+@@ -209,13 +209,13 @@ struct b43_dmaring {
+ 	/* Lowlevel DMA ops. */
+ 	const struct b43_dma_ops *ops;
+ 	/* Kernel virtual base address of the ring memory. */
+ 	void *descbase;
+ 	/* Meta data about all descriptors. */
+ 	struct b43_dmadesc_meta *meta;
+-	/* Cache of TX headers for each slot.
++	/* Cache of TX headers for each TX frame.
+ 	 * This is to avoid an allocation on each TX.
+ 	 * This is NULL for an RX ring.
+ 	 */
+ 	u8 *txhdr_cache;
+ 	/* (Unadjusted) DMA base bus-address of the ring memory. */
+ 	dma_addr_t dmabase;
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005230.html">[PATCH] b43: Fix DMA buffer size handling
+</A></li>
+	<LI>Next message: <A HREF="005232.html">[PATCH] b43: Add slot count compiletime assertion
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5231">[ date ]</a>
+              <a href="thread.html#5231">[ thread ]</a>
+              <a href="subject.html#5231">[ subject ]</a>
+              <a href="author.html#5231">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

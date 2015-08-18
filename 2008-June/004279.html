@@ -1,0 +1,196 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> mac80211 local_bh_enable called with IRQs disabled (was:	b43legacy kernel warning)
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mac80211%20local_bh_enable%20called%20with%20IRQs%20disabled%20%28was%3A%0A%09b43legacy%20kernel%20warning%29&In-Reply-To=%3C1213783367.1312.2.camel%40johannes.berg%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004276.html">
+   <LINK REL="Next"  HREF="004280.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>mac80211 local_bh_enable called with IRQs disabled (was:	b43legacy kernel warning)</H1>
+    <B>Johannes Berg</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mac80211%20local_bh_enable%20called%20with%20IRQs%20disabled%20%28was%3A%0A%09b43legacy%20kernel%20warning%29&In-Reply-To=%3C1213783367.1312.2.camel%40johannes.berg%3E"
+       TITLE="mac80211 local_bh_enable called with IRQs disabled (was:	b43legacy kernel warning)">johannes at sipsolutions.net
+       </A><BR>
+    <I>Wed Jun 18 12:02:47 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004276.html">mac80211 local_bh_enable called with IRQs disabled (was:	b43legacy kernel warning)
+</A></li>
+        <LI>Next message: <A HREF="004280.html">mac80211 local_bh_enable called with IRQs disabled (was:	b43legacy kernel warning)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4279">[ date ]</a>
+              <a href="thread.html#4279">[ thread ]</a>
+              <a href="subject.html#4279">[ subject ]</a>
+              <a href="author.html#4279">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tue, 2008-06-17 at 23:20 +0200, Michael Buesch wrote:
+&gt;<i> On Tuesday 17 June 2008 22:59:52 David Ellingsworth wrote:
+</I>&gt;<i> &gt; I ran into this error today from a kernel I built last night based on
+</I>&gt;<i> &gt; the latest wireless-testing branch. Correct me if I'm wrong, but it
+</I>&gt;<i> &gt; looks to be b43legacy related. I'm a bit new to kernel debugging but
+</I>&gt;<i> &gt; can try to provide additional information if instructions on how to do
+</I>&gt;<i> &gt; so are provided.
+</I>&gt;<i> 
+</I>&gt;<i> No, this is a mac80211 bug
+</I>
+Can you try the patch below?
+
+johannes
+
+--- everything.orig/net/mac80211/sta_info.h	2008-06-18 10:07:24.000000000 +0200
++++ everything/net/mac80211/sta_info.h	2008-06-18 11:58:32.000000000 +0200
+@@ -164,6 +164,7 @@ struct sta_ampdu_mlme {
+  * @aid: STA's unique AID (1..2007, 0 = not assigned yet),
+  *	only used in AP (and IBSS?) mode
+  * @flags: STA flags, see &amp;enum ieee80211_sta_info_flags
++ * @flaglock: spinlock for flags accesses
+  * @ps_tx_buf: buffer of frames to transmit to this station
+  *	when it leaves power saving state
+  * @tx_filtered: buffer of frames we already tried to transmit
+@@ -186,6 +187,7 @@ struct sta_info {
+ 	struct rate_control_ref *rate_ctrl;
+ 	void *rate_ctrl_priv;
+ 	spinlock_t lock;
++	spinlock_t flaglock;
+ 	struct ieee80211_ht_info ht_info;
+ 	u64 supp_rates[IEEE80211_NUM_BANDS];
+ 	u8 addr[ETH_ALEN];
+@@ -198,7 +200,10 @@ struct sta_info {
+ 	 */
+ 	u8 pin_status;
+ 
+-	/* frequently updated information, locked with lock spinlock */
++	/*
++	 * frequently updated, locked with own spinlock (flaglock),
++	 * use the accessors defined below
++	 */
+ 	u32 flags;
+ 
+ 	/*
+@@ -293,34 +298,41 @@ static inline enum plink_state sta_plink
+ 
+ static inline void set_sta_flags(struct sta_info *sta, const u32 flags)
+ {
+-	spin_lock_bh(&amp;sta-&gt;lock);
++	unsigned long irqfl;
++
++	spin_lock_irqsave(&amp;sta-&gt;flaglock, irqfl);
+ 	sta-&gt;flags |= flags;
+-	spin_unlock_bh(&amp;sta-&gt;lock);
++	spin_unlock_irqrestore(&amp;sta-&gt;flaglock, irqfl);
+ }
+ 
+ static inline void clear_sta_flags(struct sta_info *sta, const u32 flags)
+ {
+-	spin_lock_bh(&amp;sta-&gt;lock);
++	unsigned long irqfl;
++
++	spin_lock_irqsave(&amp;sta-&gt;flaglock, irqfl);
+ 	sta-&gt;flags &amp;= ~flags;
+-	spin_unlock_bh(&amp;sta-&gt;lock);
++	spin_unlock_irqrestore(&amp;sta-&gt;flaglock, irqfl);
+ }
+ 
+ static inline void set_and_clear_sta_flags(struct sta_info *sta,
+ 					   const u32 set, const u32 clear)
+ {
+-	spin_lock_bh(&amp;sta-&gt;lock);
++	unsigned long irqfl;
++
++	spin_lock_irqsave(&amp;sta-&gt;flaglock, irqfl);
+ 	sta-&gt;flags |= set;
+ 	sta-&gt;flags &amp;= ~clear;
+-	spin_unlock_bh(&amp;sta-&gt;lock);
++	spin_unlock_irqrestore(&amp;sta-&gt;flaglock, irqfl);
+ }
+ 
+ static inline u32 test_sta_flags(struct sta_info *sta, const u32 flags)
+ {
+ 	u32 ret;
++	unsigned long irqfl;
+ 
+-	spin_lock_bh(&amp;sta-&gt;lock);
++	spin_lock_irqsave(&amp;sta-&gt;flaglock, irqfl);
+ 	ret = sta-&gt;flags &amp; flags;
+-	spin_unlock_bh(&amp;sta-&gt;lock);
++	spin_unlock_irqrestore(&amp;sta-&gt;flaglock, irqfl);
+ 
+ 	return ret;
+ }
+@@ -329,11 +341,12 @@ static inline u32 test_and_clear_sta_fla
+ 					   const u32 flags)
+ {
+ 	u32 ret;
++	unsigned long irqfl;
+ 
+-	spin_lock_bh(&amp;sta-&gt;lock);
++	spin_lock_irqsave(&amp;sta-&gt;flaglock, irqfl);
+ 	ret = sta-&gt;flags &amp; flags;
+ 	sta-&gt;flags &amp;= ~flags;
+-	spin_unlock_bh(&amp;sta-&gt;lock);
++	spin_unlock_irqrestore(&amp;sta-&gt;flaglock, irqfl);
+ 
+ 	return ret;
+ }
+@@ -341,10 +354,11 @@ static inline u32 test_and_clear_sta_fla
+ static inline u32 get_sta_flags(struct sta_info *sta)
+ {
+ 	u32 ret;
++	unsigned long irqfl;
+ 
+-	spin_lock_bh(&amp;sta-&gt;lock);
++	spin_lock_irqsave(&amp;sta-&gt;flaglock, irqfl);
+ 	ret = sta-&gt;flags;
+-	spin_unlock_bh(&amp;sta-&gt;lock);
++	spin_unlock_irqrestore(&amp;sta-&gt;flaglock, irqfl);
+ 
+ 	return ret;
+ }
+--- everything.orig/net/mac80211/sta_info.c	2008-06-18 11:56:44.000000000 +0200
++++ everything/net/mac80211/sta_info.c	2008-06-18 11:56:58.000000000 +0200
+@@ -235,6 +235,7 @@ struct sta_info *sta_info_alloc(struct i
+ 		return NULL;
+ 
+ 	spin_lock_init(&amp;sta-&gt;lock);
++	spin_lock_init(&amp;sta-&gt;flaglock);
+ 
+ 	memcpy(sta-&gt;addr, addr, ETH_ALEN);
+ 	sta-&gt;local = local;
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004276.html">mac80211 local_bh_enable called with IRQs disabled (was:	b43legacy kernel warning)
+</A></li>
+	<LI>Next message: <A HREF="004280.html">mac80211 local_bh_enable called with IRQs disabled (was:	b43legacy kernel warning)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4279">[ date ]</a>
+              <a href="thread.html#4279">[ thread ]</a>
+              <a href="subject.html#4279">[ subject ]</a>
+              <a href="author.html#4279">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

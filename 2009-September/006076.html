@@ -1,0 +1,155 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH3]Add analog switch support
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH3%5DAdd%20analog%20switch%20support&In-Reply-To=%3C1252959777.4696.29.camel%40luzifer.localnet%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006087.html">
+   <LINK REL="Next"  HREF="006077.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH3]Add analog switch support</H1>
+    <B>Thomas Ilnseher</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH3%5DAdd%20analog%20switch%20support&In-Reply-To=%3C1252959777.4696.29.camel%40luzifer.localnet%3E"
+       TITLE="[PATCH3]Add analog switch support">illth at gmx.de
+       </A><BR>
+    <I>Mon Sep 14 22:22:57 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006087.html">[PATCH3]Add analog switch support
+</A></li>
+        <LI>Next message: <A HREF="006077.html">[PATCH3]Add analog switch support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6076">[ date ]</a>
+              <a href="thread.html#6076">[ thread ]</a>
+              <a href="subject.html#6076">[ subject ]</a>
+              <a href="author.html#6076">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I can now confirm that the patch below DOES compile, and even works.
+
+Here is the dmesg output on my router:
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at OpenWrt</A>:/tmp# dmesg 
+b43-phy1: Broadcom 5354 WLAN found (core revision 13)
+b43-phy1 debug: Found PHY: Analog 6, Type 5, Revision 0
+b43-phy1 debug: Found Radio: Manuf 0x17F, Version 0x2062, Revision 1
+phy1: Selected rate control algorithm 'minstrel'
+Broadcom 43xx driver loaded [ Features: PL, Firmware-ID: FW13 ]
+b43 ssb0:3: firmware: requesting b43/ucode13.fw
+b43 ssb0:3: firmware: requesting b43/lp0initvals13.fw
+b43 ssb0:3: firmware: requesting b43/lp0bsinitvals13.fw
+b43-phy1: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy1 debug: b2062: Using crystal tab entry 19200 kHz.
+b43-phy1 debug: Chip initialized
+b43-phy1 debug: 64-bit DMA initialized
+Registered led device: b43-phy1::tx
+Registered led device: b43-phy1::rx
+b43-phy1 debug: Wireless interface started
+b43-phy1 debug: Adding Interface type 2
+wlan0: direct probe to AP XXXXXXXX (try 1)
+wlan0 direct probe responded
+wlan0: authenticate with AP XXXXXXXX (try 1)
+wlan0: authenticated
+wlan0: associate with AP XXXXXXXX (try 1)
+wlan0: RX AssocResp from XXXXXXXX (capab=0x431 status=0 aid=1)
+wlan0: associated
+b43-phy1 debug: Using hardware based encryption for keyidx: 0, mac: XXXXXXXX
+
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at OpenWrt</A>:/tmp# iwconfig 2&gt; /dev/null
+wlan0     IEEE 802.11bg  ESSID:&quot;tommy&quot;  
+          Mode:Managed  Frequency:2.412 GHz  Access Point: XX:XX:XX:XX:XX:XX   
+          Bit Rate=11 Mb/s   Tx-Power=20 dBm   
+          Retry  long limit:7   RTS thr:off   Fragment thr:off
+          Encryption key:off
+          Power Management:off
+          Link Quality=70/70  Signal level=3 dBm  
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+
+
+
+
+On Mo, 2009-09-14 at 21:56 +0200, Thomas Ilnseher wrote:
+&gt;<i> On Mo, 2009-09-14 at 21:43 +0200, G&#225;bor Stefanik wrote:
+</I>&gt;<i> &gt; Always send patches to John Linville, and CC linux-wireless.
+</I>&gt;<i> Ok, the last try ...
+</I>&gt;<i> 
+</I>&gt;<i> As I've seen G&#224;bor's patch, I noticed that my previous patch was
+</I>&gt;<i> bullshit. This patch should work:
+</I>&gt;<i> 
+</I>&gt;<i> (see: <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/Anacore">http://bcm-v4.sipsolutions.net/802.11/PHY/Anacore</A>)
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Thomas Ilnseher &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">illth at gmx.de</A>&gt;
+</I>&gt;<i> 
+</I>&gt;<i> diff -uNr b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> --- b/drivers/net/wireless/b43/phy_lp.c 2009-09-14 06:14:18.000000000
+</I>&gt;<i> +0200
+</I>&gt;<i> +++ a/drivers/net/wireless/b43/phy_lp.c 2009-09-14 21:03:15.158507573
+</I>&gt;<i> +0200
+</I>&gt;<i> @@ -2228,6 +2228,16 @@
+</I>&gt;<i>         return B43_TXPWR_RES_DONE;
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i> +void b43_lpphy_op_switch_analog(struct b43_wldev *dev, bool on)
+</I>&gt;<i> +{
+</I>&gt;<i> +       if (on) {
+</I>&gt;<i> +               b43_phy_mask(dev, B43_LPPHY_AFE_CTL_OVR, 0xfff8);
+</I>&gt;<i> +       } else {
+</I>&gt;<i> +               b43_phy_set(dev, B43_LPPHY_AFE_CTL_OVRVAL, 0x0007);
+</I>&gt;<i> +               b43_phy_set(dev, B43_LPPHY_AFE_CTL_OVR, 0x0007);
+</I>&gt;<i> +       }
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i>  const struct b43_phy_operations b43_phyops_lp = {
+</I>&gt;<i>         .allocate               = b43_lpphy_op_allocate,
+</I>&gt;<i>         .free                   = b43_lpphy_op_free,
+</I>&gt;<i> @@ -2239,7 +2249,7 @@
+</I>&gt;<i>         .radio_read             = b43_lpphy_op_radio_read,
+</I>&gt;<i>         .radio_write            = b43_lpphy_op_radio_write,
+</I>&gt;<i>         .software_rfkill        = b43_lpphy_op_software_rfkill,
+</I>&gt;<i> -       .switch_analog          = b43_phyop_switch_analog_generic,
+</I>&gt;<i> +       .switch_analog          = b43_lpphy_op_switch_analog,
+</I>&gt;<i>         .switch_channel         = b43_lpphy_op_switch_channel,
+</I>&gt;<i>         .get_default_chan       = b43_lpphy_op_get_default_chan,
+</I>&gt;<i>         .set_rx_antenna         = b43_lpphy_op_set_rx_antenna,
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006087.html">[PATCH3]Add analog switch support
+</A></li>
+	<LI>Next message: <A HREF="006077.html">[PATCH3]Add analog switch support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6076">[ date ]</a>
+              <a href="thread.html#6076">[ thread ]</a>
+              <a href="subject.html#6076">[ subject ]</a>
+              <a href="author.html#6076">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

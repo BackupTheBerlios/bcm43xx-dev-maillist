@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43-phy0 ERROR: Fatal DMA error: 0x00000400
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43-phy0%20ERROR%3A%20Fatal%20DMA%20error%3A%200x00000400&In-Reply-To=%3C4AFDD1C9.4050402%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006326.html">
+   <LINK REL="Next"  HREF="006341.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43-phy0 ERROR: Fatal DMA error: 0x00000400</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43-phy0%20ERROR%3A%20Fatal%20DMA%20error%3A%200x00000400&In-Reply-To=%3C4AFDD1C9.4050402%40lwfinger.net%3E"
+       TITLE="b43-phy0 ERROR: Fatal DMA error: 0x00000400">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Nov 13 22:38:17 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006326.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+        <LI>Next message: <A HREF="006341.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6340">[ date ]</a>
+              <a href="thread.html#6340">[ thread ]</a>
+              <a href="subject.html#6340">[ subject ]</a>
+              <a href="author.html#6340">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Based on a suggestion by Matthew Garrett, please try the patch below.
+
+Thanks,
+
+Larry
+
+=================
+
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c
++++ wireless-testing/drivers/net/wireless/b43/main.c
+@@ -43,6 +43,7 @@
+ #include &lt;linux/io.h&gt;
+ #include &lt;linux/dma-mapping.h&gt;
+ #include &lt;asm/unaligned.h&gt;
++#include &lt;linux/pm_qos_params.h&gt;
+
+ #include &quot;b43.h&quot;
+ #include &quot;main.h&quot;
+@@ -3881,6 +3882,8 @@ redo:
+ 	if (!dev || b43_status(dev) &lt; B43_STAT_STARTED)
+ 		return dev;
+
++	pm_qos_update_requirement(PM_QOS_CPU_DMA_LATENCY, &quot;b43&quot;,
++				  PM_QOS_DEFAULT_VALUE);
+ 	/* Cancel work. Unlock to avoid deadlocks. */
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 	cancel_delayed_work_sync(&amp;dev-&gt;periodic_work);
+@@ -3963,6 +3966,9 @@ static int b43_wireless_core_start(struc
+ 	/* We are ready to run. */
+ 	b43_set_status(dev, B43_STAT_STARTED);
+
++	/* Set the maximum DMA latency */
++	pm_qos_update_requirement(PM_QOS_CPU_DMA_LATENCY, &quot;b43&quot;, 200);
++
+ 	/* Start data flow (TX/RX). */
+ 	b43_mac_enable(dev);
+ 	b43_write32(dev, B43_MMIO_GEN_IRQ_MASK, dev-&gt;irq_mask);
+
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006326.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+	<LI>Next message: <A HREF="006341.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6340">[ date ]</a>
+              <a href="thread.html#6340">[ thread ]</a>
+              <a href="subject.html#6340">[ subject ]</a>
+              <a href="author.html#6340">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

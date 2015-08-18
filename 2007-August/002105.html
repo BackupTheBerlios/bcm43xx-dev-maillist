@@ -1,0 +1,422 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> B43 deassociates a lot, especially after an ARP request
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20B43%20deassociates%20a%20lot%2C%20especially%20after%20an%20ARP%20request&In-Reply-To=%3C46C60B55.4000100%40Wetwork.Net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002104.html">
+   <LINK REL="Next"  HREF="002109.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>B43 deassociates a lot, especially after an ARP request</H1>
+    <B>Ehud Gavron</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20B43%20deassociates%20a%20lot%2C%20especially%20after%20an%20ARP%20request&In-Reply-To=%3C46C60B55.4000100%40Wetwork.Net%3E"
+       TITLE="B43 deassociates a lot, especially after an ARP request">gavron at Wetwork.Net
+       </A><BR>
+    <I>Fri Aug 17 22:55:49 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002104.html">[PATCH] b32: Update Kconfig help text
+</A></li>
+        <LI>Next message: <A HREF="002109.html">B43 deassociates a lot, especially after an ARP request
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2105">[ date ]</a>
+              <a href="thread.html#2105">[ thread ]</a>
+              <a href="subject.html#2105">[ subject ]</a>
+              <a href="author.html#2105">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Synopsis:
+With &quot;everything&quot; tree and b43, loses AP association but then 
+reassociates, usually on ARP request.
+
+I realize there's a tcpdump in there and that doesn't really provide any 
+useful info... the key is the iwevent and generating traffic.
+
+Duplicating:
+1. Use a 4311
+2. Load b43 (autoloads on this kernel - Linux egdell.wetwork.net 
+2.6.23-rc3 #1 SMP Tue Aug 14 14:00:46 MST 2007 x86_64 x86_64 x86_64 
+GNU/Linux)
+3. iwevent &amp;
+4. Ping a nonexistent local address (EG if your local network is 
+192.168.1.1-254 just ping 192.168.1.X where X doesn't exist or isn't in 
+the ARP table.)
+
+Removing hardware and other factors:
+1. I removed the other Buffalo Airstation 54G so that only one would be 
+possibly in range with which to associate
+2. After taking this log, I replaced the b43 driver with the bcmwl5.sys 
+for testing purposes (yeah).  No such errors resulted.
+
+One more thing:
+In removing the W driver, I got MANY MORE association/deassociations 
+than should be necessary.  That log is included LAST. 
+
+
+Contents:
+1. This summary
+2. Following five octothorpes the first summary
+3. Following five octothorpes, the &quot;removal of the W driver, the 
+insertion of B43 driver, and way too many assoc/deassocs.&quot;
+
+Ehud
+PS Michael, if you think my tree is unclean, kindly let me know which 
+one you want me to build from scratch and I will.  Right now I'm using 
+the &quot;everything&quot; git tree.
+
+
+#####
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# lsmod | grep b43
+b43                   121516  0
+ssb                    40836  1 b43
+mac80211              165512  2 rc80211_simple,b43
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# tcpdump -i eth1 &amp;
+[2] 3357
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# tcpdump: verbose output suppressed, use -v or -vv for 
+full protocol decode
+listening on eth1, link-type EN10MB (Ethernet), capture size 96 bytes
+lsmod | grep b4313:40:26.965437 IP 4dtvpc.wetwork.net.fatpipe &gt; 
+239.255.255.250.ssdp: UDP, length 101
+13:40:26.968671 IP 4dtvpc.wetwork.net.fatpipe &gt; 239.255.255.250.ssdp: 
+UDP, length 101
+13:40:26.994962 IP 10.1.1.5.32780 &gt; dns1.login.com.domain: 40335+ PTR? 
+250.255.255.239.in-addr.arpa. (46)
+13:40:27.046379 IP dns1.login.com.domain &gt; 10.1.1.5.32780: 40335 
+NXDomain 0/1/0 (103)
+13:40:27.046657 IP 10.1.1.5.32780 &gt; dns1.login.com.domain: 55638+ PTR? 
+105.1.1.10.in-addr.arpa. (41)
+13:40:27.070857 IP dns1.login.com.domain &gt; 10.1.1.5.32780: 55638* 1/1/1 
+PTR[|domain]
+13:40:27.071169 IP 10.1.1.5.32780 &gt; dns1.login.com.domain: 13656+ PTR? 
+1.240.195.192.in-addr.arpa. (44)
+13:40:27.090836 IP dns1.login.com.domain &gt; 10.1.1.5.32780: 13656* 1/1/1 
+(102)
+13:40:27.091056 IP 10.1.1.5.32780 &gt; dns1.login.com.domain: 30069+ PTR? 
+5.1.1.10.in-addr.arpa. (39)
+13:40:27.120824 IP dns1.login.com.domain &gt; 10.1.1.5.32780: 30069 
+NXDomain* 0/1/0 (88)
+ping 10.1.1.15
+PING 10.1.1.15 (10.1.1.15) 56(84) bytes of data.
+13:40:30.966090 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:30.966252 IP 10.1.1.5.32780 &gt; dns1.login.com.domain: 28088+ PTR? 
+15.1.1.10.in-addr.arpa. (40)
+13:40:30.982932 IP dns1.login.com.domain &gt; 10.1.1.5.32780: 28088 
+NXDomain* 0/1/0 (89)
+13:40:31.061021 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:32.967744   eth1     New Access Point/Cell address:Not-Associated
+ From 10.1.1.5 icmp_seq=2 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=3 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=4 Destination Host Unreachable
+13:40:33.970465   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180103)
+13:40:33.970497   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+13:40:35.967199   eth1     New Access Point/Cell address:Not-Associated
+13:40:36.970352   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180103)
+13:40:36.970386   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+ From 10.1.1.5 icmp_seq=6 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=7 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=8 Destination Host Unreachable
+13:40:39.967917   eth1     New Access Point/Cell address:Not-Associated
+13:40:40.971636   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180103)
+13:40:40.971675   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+13:40:31.266138 arp who-has 4dtvpc.wetwork.net tell gw.wetwork.net
+13:40:31.266373 IP 10.1.1.5.32780 &gt; dns1.login.com.domain: 20811+ PTR? 
+1.1.1.10.in-addr.arpa. (39)
+13:40:31.267087 arp who-has 4dtvpc.wetwork.net tell gw.wetwork.net
+13:40:31.965991 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:31.981684 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:31.983505 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:32.965836 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:34.965529 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:35.054230 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:35.055199 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:35.965379 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:37.715857 IP wirns.wetwork.net.netbios-ns &gt; 10.1.1.255.netbios-ns: 
+NBT UDP PACKET(137): QUERY; REQUEST; BROADCAST
+13:40:37.717163 IP wirns.wetwork.net.netbios-ns &gt; 10.1.1.255.netbios-ns: 
+NBT UDP PACKET(137): QUERY; REQUEST; BROADCAST
+13:40:38.432594 IP wirns.wetwork.net.netbios-ns &gt; 10.1.1.255.netbios-ns: 
+NBT UDP PACKET(137): QUERY; REQUEST; BROADCAST
+13:40:38.433903 IP wirns.wetwork.net.netbios-ns &gt; 10.1.1.255.netbios-ns: 
+NBT UDP PACKET(137): QUERY; REQUEST; BROADCAST
+13:40:38.964921 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:39.046603 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:39.047590 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:39.149360 IP wirns.wetwork.net.netbios-ns &gt; 10.1.1.255.netbios-ns: 
+NBT UDP PACKET(137): QUERY; REQUEST; BROADCAST
+13:40:39.150549 IP wirns.wetwork.net.netbios-ns &gt; 10.1.1.255.netbios-ns: 
+NBT UDP PACKET(137): QUERY; REQUEST; BROADCAST
+13:40:39.964746 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:41.264614 IP 10.1.1.5.32780 &gt; dns1.login.com.domain: 20811+ PTR? 
+1.1.1.10.in-addr.arpa. (39)
+13:40:41.281776 IP dns1.login.com.domain &gt; 10.1.1.5.32780: 20811* 1/1/1 
+PTR[|domain]
+13:40:41.282201 IP 10.1.1.5.32781 &gt; dns1.login.com.domain: 20920+ PTR? 
+255.1.1.10.in-addr.arpa. (41)
+13:40:41.299324 IP dns1.login.com.domain &gt; 10.1.1.5.32781: 20920 
+NXDomain* 0/1/0 (90)
+13:40:41.299556 IP 10.1.1.5.32781 &gt; dns1.login.com.domain: 52696+ PTR? 
+110.1.1.10.in-addr.arpa. (41)
+13:40:41.314314 IP dns1.login.com.domain &gt; 10.1.1.5.32781: 52696* 2/1/1 
+PTR[|domain]
+ From 10.1.1.5 icmp_seq=10 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=11 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=12 Destination Host Unreachable
+13:40:42.434874 IP 87.69.5.31.cable.012.net.il.6881 &gt; 10.1.1.5.47895: P 
+3599549068:3599549592(524) ack 4171871335 win 20568 &lt;nop,nop,timestamp 
+9610754 27956772&gt;
+13:40:42.434932 IP 10.1.1.5.47895 &gt; 87.69.5.31.cable.012.net.il.6881: R 
+4171871335:4171871335(0) win 0
+13:40:42.436357 IP 10.1.1.5.32781 &gt; dns1.login.com.domain: 54645+ PTR? 
+31.5.69.87.in-addr.arpa. (41)
+13:40:42.846894 IP dns1.login.com.domain &gt; 10.1.1.5.32781: 54645 1/2/2 
+PTR[|domain]
+13:40:42.964286 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:43.040698 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:43.041728 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:43.964140 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:43.965964   eth1     New Access Point/Cell address:Not-Associated
+13:40:44.968878   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180103)
+13:40:44.968914   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+ From 10.1.1.5 icmp_seq=14 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=15 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=16 Destination Host Unreachable
+13:40:46.963703 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:47.032888 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:47.322971 IP 89.241.209.198.50155 &gt; 10.1.1.5.42974: R 
+866316561:866316561(0) win 0
+13:40:47.323245 IP 10.1.1.5.32781 &gt; dns1.login.com.domain: 8545+ PTR? 
+198.209.241.89.in-addr.arpa. (45)
+13:40:47.473705 IP dns1.login.com.domain &gt; 10.1.1.5.32781: 8545 NXDomain 
+0/1/0 (100)
+13:40:47.963578 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:48.057633 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:48.501136 IP cpe-065-188-246-088.triad.res.rr.com.26196 &gt; 
+10.1.1.5.36232: FP 977493115:977493325(210) ack 212081105 win 16491 
+&lt;nop,nop,timestamp 1928161 27992124&gt;
+13:40:48.501190 IP 10.1.1.5.36232 &gt; 
+cpe-065-188-246-088.triad.res.rr.com.26196: R 212081105:212081105(0) win 0
+13:40:48.501438 IP 10.1.1.5.32781 &gt; dns1.login.com.domain: 63981+ PTR? 
+88.246.188.65.in-addr.arpa. (44)
+13:40:48.601054 IP dns1.login.com.domain &gt; 10.1.1.5.32781: 63981 1/2/2 (186)
+13:40:48.963396 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:48.979149 arp who-has 10.1.1.15 tell 10.1.1.5
+ From 10.1.1.5 icmp_seq=18 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=19 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=20 Destination Host Unreachable
+^@13:40:50.963091 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:51.027802 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:51.028808 arp who-has 10.1.1.15 tell 10.1.1.5
+13:40:51.205973   eth1     New Access Point/Cell address:Not-Associated
+
+--- 10.1.1.15 ping statistics ---
+21 packets transmitted, 0 received, +15 errors, 100% packet loss, time 
+19996ms
+, pipe 3
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# 13:40:52.210881   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180103)
+13:40:52.210917   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+killall tcpdump
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# 13:40:55.577991   eth1     New Access Point/Cell 
+address:Not-Associated
+13:40:56.581245   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180103)
+13:40:56.581282   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+13:40:51.204330 IP 10.1.1.5.39888 &gt; mail.login.com.imaps: P 
+289257165:289257192(27) ack 3879624693 win 487 &lt;nop,nop,timestamp 
+4294905190 98929007&gt;
+
+66 packets captured
+90 packets received by filter
+0 packets dropped by kernel
+
+[2]+  Done                    tcpdump -i eth1
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]#
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# ping 10.1.1.111
+PING 10.1.1.111 (10.1.1.111) 56(84) bytes of data.
+64 bytes from 10.1.1.111: icmp_seq=1 ttl=64 time=71.3 ms
+64 bytes from 10.1.1.111: icmp_seq=2 ttl=64 time=2.30 ms
+64 bytes from 10.1.1.111: icmp_seq=3 ttl=64 time=2.78 ms
+64 bytes from 10.1.1.111: icmp_seq=4 ttl=64 time=2.30 ms
+64 bytes from 10.1.1.111: icmp_seq=5 ttl=64 time=2.45 ms
+64 bytes from 10.1.1.111: icmp_seq=6 ttl=64 time=3.95 ms
+64 bytes from 10.1.1.111: icmp_seq=7 ttl=64 time=2.23 ms
+64 bytes from 10.1.1.111: icmp_seq=8 ttl=64 time=2.23 ms
+64 bytes from 10.1.1.111: icmp_seq=9 ttl=64 time=2.25 ms
+
+--- 10.1.1.111 ping statistics ---
+9 packets transmitted, 9 received, 0% packet loss, time 7997ms
+rtt min/avg/max/mdev = 2.237/10.210/71.350/21.622 ms
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# ping 10.1.1.11
+PING 10.1.1.11 (10.1.1.11) 56(84) bytes of data.
+13:43:21.044867   eth1     New Access Point/Cell address:Not-Associated
+13:43:22.048544   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180103)
+13:43:22.048581   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+ From 10.1.1.5 icmp_seq=2 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=3 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=4 Destination Host Unreachable
+64 bytes from 10.1.1.11: icmp_seq=5 ttl=64 time=7.02 ms
+64 bytes from 10.1.1.11: icmp_seq=6 ttl=64 time=1.57 ms
+64 bytes from 10.1.1.11: icmp_seq=7 ttl=64 time=1.58 ms
+64 bytes from 10.1.1.11: icmp_seq=8 ttl=64 time=1.63 ms
+64 bytes from 10.1.1.11: icmp_seq=9 ttl=64 time=1.25 ms
+64 bytes from 10.1.1.11: icmp_seq=10 ttl=64 time=1.27 ms
+64 bytes from 10.1.1.11: icmp_seq=11 ttl=64 time=1.29 ms
+64 bytes from 10.1.1.11: icmp_seq=12 ttl=64 time=1.59 ms
+64 bytes from 10.1.1.11: icmp_seq=13 ttl=64 time=1.29 ms
+
+--- 10.1.1.11 ping statistics ---
+13 packets transmitted, 9 received, +3 errors, 30% packet loss, time 11997ms
+rtt min/avg/max/mdev = 1.250/2.059/7.020/1.760 ms, pipe 3
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# ping 10.1.1.15
+PING 10.1.1.15 (10.1.1.15) 56(84) bytes of data.
+13:43:36.908844   eth1     New Access Point/Cell address:Not-Associated
+ From 10.1.1.5 icmp_seq=2 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=3 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=4 Destination Host Unreachable
+13:43:37.912092   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180103)
+13:43:37.912128   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+13:43:39.156856   eth1     New Access Point/Cell address:Not-Associated
+13:43:40.159815   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180103)
+13:43:40.159849   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+ From 10.1.1.5 icmp_seq=6 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=7 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=8 Destination Host Unreachable
+13:43:43.156307   eth1     New Access Point/Cell address:Not-Associated
+13:43:44.159338   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180103)
+13:43:44.159373   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+ From 10.1.1.5 icmp_seq=10 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=11 Destination Host Unreachable
+ From 10.1.1.5 icmp_seq=12 Destination Host Unreachable
+
+--- 10.1.1.15 ping statistics ---
+14 packets transmitted, 0 received, +9 errors, 100% packet loss, time 
+12997ms
+, pipe 3
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# 13:43:48.155177   eth1     New Access Point/Cell 
+address:Not-Associated
+13:43:49.158529   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180103)
+13:43:49.158569   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# rmmod b43
+
+
+
+#####
+eth1      IEEE 802.11g  ESSID:&quot;wetwork&quot;  Nickname:&quot;egdell.wetwork.net&quot;
+          Mode:Managed  Frequency:2.462 GHz  Access Point: 
+00:07:40:9F:5B:52  
+          Bit Rate=54 Mb/s   Tx-Power:32 dBm  
+          RTS thr:off   Fragment thr:off
+          Encryption key:896A-0055-AE77-5E80-FD86-4E38-6B   Security 
+mode:open
+          Power Management:off
+          Link Quality:48/100  Signal level:-65 dBm  Noise level:-96 dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:10  Invalid misc:58   Missed beacon:0
+
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]#
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# ifconfig eth1 down
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# rmmod ndiswrapper
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]#
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# modprobe b43
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# 13:51:28.781799   eth1     Set Encryption 
+key:****-****-****-****-****-****-**
+13:51:28.782801   eth1     Set ESSID:&quot;wetwork&quot;
+13:51:28.787143   eth1     Set Encryption 
+key:****-****-****-****-****-****-**
+13:51:28.788080   eth1     Set ESSID:&quot;wetwork&quot;
+13:51:29.572345   eth1     Scan request completed
+13:51:29.585152   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180103)
+13:51:29.585182   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+13:51:29.594377   eth1     New Access Point/Cell address:Not-Associated
+13:51:30.598109   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180102)
+13:51:30.598156   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# ifocn13:51:35.004427   eth1     New Access Point/Cell 
+address:Not-Associated
+13:51:36.007859   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180102)
+13:51:36.007895   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+ifconfig eth1 up
+[<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# 13:51:46.005021   eth1     New Access Point/Cell 
+address:Not-Associated
+13:51:47.008485   eth1     Custom driver 
+event:ASSOCINFO(ReqIEs=0007776574776f726b010802040b160c12182432043048606c 
+RespIEs=010c82848b8c929698a4b0c8e0ecdd050010180102)
+13:51:47.008522   eth1     New Access Point/Cell address:00:07:40:9F:5B:52
+iwconfig eth1
+eth1      IEEE 802.11g  ESSID:&quot;wetwork&quot; 
+          Mode:Managed  Frequency:2.462 GHz  Access Point: 
+00:07:40:9F:5B:52  
+          Bit Rate=1 Mb/s  
+          Retry min limit:7   RTS thr:off   Fragment thr=2346 B  
+          Encryption key:896A-0055-AE77-5E80-FD86-4E38-6B
+          Link Quality=68/100  Signal level=-68 dBm  Noise level=-256 dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/x-pkcs7-signature
+Size: 3283 bytes
+Desc: S/MIME Cryptographic Signature
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070817/b5a846af/attachment.bin">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070817/b5a846af/attachment.bin</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002104.html">[PATCH] b32: Update Kconfig help text
+</A></li>
+	<LI>Next message: <A HREF="002109.html">B43 deassociates a lot, especially after an ARP request
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2105">[ date ]</a>
+              <a href="thread.html#2105">[ thread ]</a>
+              <a href="subject.html#2105">[ subject ]</a>
+              <a href="author.html#2105">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

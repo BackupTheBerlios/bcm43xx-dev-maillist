@@ -1,0 +1,264 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx-mac80211: Make hwpctl optional (disabled by default)
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx-mac80211%3A%20Make%20hwpctl%20optional%20%28disabled%20by%20default%29&In-Reply-To=%3C200708071733.11986.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001834.html">
+   <LINK REL="Next"  HREF="001835.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx-mac80211: Make hwpctl optional (disabled by default)</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx-mac80211%3A%20Make%20hwpctl%20optional%20%28disabled%20by%20default%29&In-Reply-To=%3C200708071733.11986.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] bcm43xx-mac80211: Make hwpctl optional (disabled by default)">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Aug  7 17:33:11 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001834.html">Dell Inspirson 9400 with Dell 1390 wireless card
+</A></li>
+        <LI>Next message: <A HREF="001835.html">[PATCH] bcm43xx-mac80211: Make hwpctl optional (disabled by	default)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1833">[ date ]</a>
+              <a href="thread.html#1833">[ thread ]</a>
+              <a href="subject.html#1833">[ subject ]</a>
+              <a href="author.html#1833">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This patch makes hardware power control optional through
+a module parameter, which is disabled by default.
+Hardware power control is broken, so we will drive with software
+based power control.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+--
+
+John, please apply to wireless-dev.
+With this patch we come into the region where we might consider
+going into production with bcm43xx-mac80211.
+The mac80211 rc algorithm is able to auto-scale up to 54M on
+my 4306 and the 4318(!).
+So the major TX problems seem mostly gone with this.
+
+I am going to do more small patches that optimize software
+power adjustment and so on later. But the major stuff should
+be fixed.
+
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx.h	2007-08-06 23:58:17.000000000 +0200
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx.h	2007-08-07 00:06:42.000000000 +0200
+@@ -537,6 +537,8 @@ struct bcm43xx_phy {
+ #ifdef CONFIG_BCM43XX_MAC80211_DEBUG
+ 	bool manual_txpower_control; /* Manual TX-power control enabled? */
+ #endif
++	/* Hardware Power Control enabled? */
++	bool hardware_power_control;
+ 
+ 	/* Current Interference Mitigation mode */
+ 	int interfmode;
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_lo.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_lo.c	2007-08-06 23:58:17.000000000 +0200
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_lo.c	2007-08-07 00:06:42.000000000 +0200
+@@ -589,7 +589,7 @@ static void lo_measure_setup(struct bcm4
+ 	struct bcm43xx_txpower_lo_control *lo = phy-&gt;lo_control;
+ 	u16 tmp;
+ 
+-	if (has_hardware_pctl(phy)) {
++	if (bcm43xx_has_hardware_pctl(phy)) {
+ 		sav-&gt;phy_lo_mask = bcm43xx_phy_read(dev, BCM43xx_PHY_LO_MASK);
+ 		sav-&gt;phy_extg_01 = bcm43xx_phy_read(dev, BCM43xx_PHY_EXTG(0x01));
+ 		sav-&gt;phy_dacctl_hwpctl = bcm43xx_phy_read(dev, BCM43xx_PHY_DACCTL);
+@@ -615,7 +615,7 @@ static void lo_measure_setup(struct bcm4
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x16), 0x410);
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x17), 0x820);
+ 	}
+-	if (!lo-&gt;rebuild &amp;&amp; has_hardware_pctl(phy))
++	if (!lo-&gt;rebuild &amp;&amp; bcm43xx_has_hardware_pctl(phy))
+ 		lo_read_power_vector(dev);
+ 	if (phy-&gt;rev &gt;= 2) {
+ 		sav-&gt;phy_analogover = bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVER);
+@@ -730,7 +730,7 @@ static void lo_measure_restore(struct bc
+ 		tmp = (phy-&gt;pga_gain | 0xEFA0);
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_PGACTL, tmp);
+ 	}
+-	if (has_hardware_pctl(phy)) {
++	if (bcm43xx_has_hardware_pctl(phy)) {
+ 		bcm43xx_gphy_dc_lt_init(dev);
+ 	} else {
+ 		if (lo-&gt;rebuild)
+@@ -777,7 +777,7 @@ static void lo_measure_restore(struct bc
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x3E), sav-&gt;phy_base_3E);
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_CRS0, sav-&gt;phy_crs0);
+ 	}
+-	if (has_hardware_pctl(phy)) {
++	if (bcm43xx_has_hardware_pctl(phy)) {
+ 		tmp = (sav-&gt;phy_lo_mask &amp; 0xBFFF);
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_LO_MASK, tmp);
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_EXTG(0x01), sav-&gt;phy_extg_01);
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c	2007-08-07 00:04:46.000000000 +0200
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c	2007-08-07 00:06:42.000000000 +0200
+@@ -102,6 +102,10 @@ static int modparam_mon_keep_badplcp;
+ module_param_named(mon_keep_badplcp, modparam_mon_keep_bad, int, 0444);
+ MODULE_PARM_DESC(mon_keep_badplcp, &quot;Keep frames with bad PLCP in monitor mode&quot;);
+ 
++static int modparam_hwpctl;
++module_param_named(hwpctl, modparam_hwpctl, int, 0444);
++MODULE_PARM_DESC(hwpctl, &quot;Enable hardware-side power control (default off)&quot;);
++
+ 
+ static const struct ssb_device_id bcm43xx_ssb_tbl[] = {
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, SSB_ANY_REV),
+@@ -3170,6 +3174,8 @@ static void setup_struct_phy_for_init(st
+ 	spin_lock_init(&amp;phy-&gt;lock);
+ 	phy-&gt;interfmode = BCM43xx_INTERFMODE_NONE;
+ 	phy-&gt;channel = 0xFF;
++
++	phy-&gt;hardware_power_control = !!modparam_hwpctl;
+ }
+ 
+ static void setup_struct_wldev_for_init(struct bcm43xx_wldev *dev)
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_phy.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_phy.c	2007-08-06 23:58:17.000000000 +0200
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_phy.c	2007-08-07 00:06:42.000000000 +0200
+@@ -189,6 +189,25 @@ static void generate_bbatt_list(struct b
+ 	list-&gt;max_val = 8;
+ }
+ 
++bool bcm43xx_has_hardware_pctl(struct bcm43xx_phy *phy)
++{
++	if (!phy-&gt;hardware_power_control)
++		return 0;
++	switch (phy-&gt;type) {
++	case BCM43xx_PHYTYPE_A:
++		if (phy-&gt;rev &gt;= 5)
++			return 1;
++		break;
++	case BCM43xx_PHYTYPE_G:
++		if (phy-&gt;rev &gt;= 6)
++			return 1;
++		break;
++	default:
++		assert(0);
++	}
++	return 0;
++}
++
+ static void bcm43xx_shm_clear_tssi(struct bcm43xx_wldev *dev)
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+@@ -614,31 +633,38 @@ static void hardware_pctl_init_gphy(stru
+ 	bcm43xx_gphy_dc_lt_init(dev);
+ }
+ 
+-/* HardwarePowerControl for A and G PHY.
+- * This does nothing, if the card does not have HW PCTL
+- */
++/* HardwarePowerControl init for A and G PHY */
+ static void bcm43xx_hardware_pctl_init(struct bcm43xx_wldev *dev)
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+ 
+-	if (!has_hardware_pctl(phy))
+-		return;
+-	if (phy-&gt;type == BCM43xx_PHYTYPE_A) {
+-		hardware_pctl_init_aphy(dev);
++	if (!bcm43xx_has_hardware_pctl(phy)) {
++		/* No hardware power control */
++		bcm43xx_hf_write(dev, bcm43xx_hf_read(dev) &amp;
++				 ~BCM43xx_HF_HWPCTL);
+ 		return;
+ 	}
+-	if (phy-&gt;type == BCM43xx_PHYTYPE_G) {
++	/* Init the hwpctl related hardware */
++	switch (phy-&gt;type) {
++	case BCM43xx_PHYTYPE_A:
++		hardware_pctl_init_aphy(dev);
++		break;
++	case BCM43xx_PHYTYPE_G:
+ 		hardware_pctl_init_gphy(dev);
+-		return;
++		break;
++	default:
++		assert(0);
+ 	}
+-	assert(0);
++	/* Enable hardware pctl in firmware. */
++	bcm43xx_hf_write(dev, bcm43xx_hf_read(dev) |
++			 BCM43xx_HF_HWPCTL);
+ }
+ 
+ static void bcm43xx_hardware_pctl_early_init(struct bcm43xx_wldev *dev)
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+ 
+-	if (!has_hardware_pctl(phy)) {
++	if (!bcm43xx_has_hardware_pctl(phy)) {
+ 		bcm43xx_phy_write(dev, 0x047A, 0xC111);
+ 		return;
+ 	}
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_phy.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_phy.h	2007-08-06 23:58:17.000000000 +0200
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_phy.h	2007-08-07 00:06:42.000000000 +0200
+@@ -4,6 +4,7 @@
+ #include &lt;linux/types.h&gt;
+ 
+ struct bcm43xx_wldev;
++struct bcm43xx_phy;
+ 
+ 
+ /*** PHY Registers ***/
+@@ -218,9 +219,7 @@ void bcm43xx_phy_xmitpower(struct bcm43x
+ void bcm43xx_gphy_dc_lt_init(struct bcm43xx_wldev *dev);
+ 
+ /* Returns the boolean whether the board has HardwarePowerControl */
+-#define has_hardware_pctl(phy) \
+-	(((phy)-&gt;type == BCM43xx_PHYTYPE_A &amp;&amp; (phy)-&gt;rev &gt;= 5) ||	\
+-	 ((phy)-&gt;type == BCM43xx_PHYTYPE_G &amp;&amp; (phy)-&gt;rev &gt;= 6))
++bool bcm43xx_has_hardware_pctl(struct bcm43xx_phy *phy);
+ /* Returns the boolean whether &quot;TX Magnification&quot; is enabled. */
+ #define has_tx_magnification(phy) \
+ 	(((phy)-&gt;rev &gt;= 2) &amp;&amp;			\
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001834.html">Dell Inspirson 9400 with Dell 1390 wireless card
+</A></li>
+	<LI>Next message: <A HREF="001835.html">[PATCH] bcm43xx-mac80211: Make hwpctl optional (disabled by	default)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1833">[ date ]</a>
+              <a href="thread.html#1833">[ thread ]</a>
+              <a href="subject.html#1833">[ subject ]</a>
+              <a href="author.html#1833">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

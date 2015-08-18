@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC/RFT] b43: LP-PHY: Implement channel switching for rev2+/B2063	radio
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/RFT%5D%20b43%3A%20LP-PHY%3A%20Implement%20channel%20switching%20for%20rev2%2B/B2063%0A%09radio&In-Reply-To=%3C4A8463DE.7060402%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005777.html">
+   <LINK REL="Next"  HREF="005778.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC/RFT] b43: LP-PHY: Implement channel switching for rev2+/B2063	radio</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/RFT%5D%20b43%3A%20LP-PHY%3A%20Implement%20channel%20switching%20for%20rev2%2B/B2063%0A%09radio&In-Reply-To=%3C4A8463DE.7060402%40lwfinger.net%3E"
+       TITLE="[RFC/RFT] b43: LP-PHY: Implement channel switching for rev2+/B2063	radio">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Thu Aug 13 21:05:02 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005777.html">[RFC/RFT] b43: LP-PHY: Implement channel switching for	rev2+/B2063 radio
+</A></li>
+        <LI>Next message: <A HREF="005778.html">[RFC/RFT v2] b43: LP-PHY: Implement channel switching for rev2+/B2063	radio
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5779">[ date ]</a>
+              <a href="thread.html#5779">[ thread ]</a>
+              <a href="subject.html#5779">[ subject ]</a>
+              <a href="author.html#5779">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> On Thursday 13 August 2009 20:00:47 G&#225;bor Stefanik wrote:
+</I>&gt;&gt;<i> (List re-CC-ed.)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> 2009/8/13 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;:
+</I>&gt;&gt;&gt;<i> On Thursday 13 August 2009 19:50:16 G&#225;bor Stefanik wrote:
+</I>&gt;&gt;&gt;&gt;<i> 2009/8/13 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;:
+</I>&gt;&gt;&gt;&gt;&gt;<i> On Thursday 13 August 2009 17:02:21 G&#225;bor Stefanik wrote:
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> Rev.2+/B2063 will now hopefully show some signs of life, though
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> it won't work at full performance, as calibration is still missing.
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>  static void lpphy_baseband_rev0_1_init(struct b43_wldev *dev)
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> @@ -1369,7 +1370,7 @@ static int b43_lpphy_op_init(struct b43_wldev *dev)
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>       lpphy_baseband_init(dev);
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>       lpphy_radio_init(dev);
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i>       lpphy_calibrate_rc(dev);
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> -     //TODO set channel
+</I>&gt;&gt;&gt;&gt;&gt;&gt;<i> +     b43_switch_channel(dev, dev-&gt;wl-&gt;hw-&gt;conf.channel-&gt;hw_value);
+</I>&gt;&gt;&gt;&gt;&gt;<i> Does dev-&gt;wl-&gt;hw-&gt;conf.channel-&gt;hw_value already have a sane value here?
+</I>&gt;&gt;&gt;&gt;<i> I think it should - hw-&gt;conf.channel was handed to us by mac80211.
+</I>&gt;&gt;&gt;&gt;<i> <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/LP/Init">http://bcm-v4.sipsolutions.net/802.11/PHY/LP/Init</A> says &quot;Set channel
+</I>&gt;&gt;&gt;&gt;<i> with current chanspec as argument&quot;, and hw-&gt;conf.channel is our
+</I>&gt;&gt;&gt;&gt;<i> equivalent of chanspec.
+</I>&gt;&gt;&gt;<i> hw-&gt;conf.channel was not handed to us at all. You simply pick it
+</I>&gt;&gt;&gt;<i> from mac80211's conf structure and _assume_ that it is initialized.
+</I>&gt;&gt;&gt;<i> In the other PHY implementations we use phyop_default_channel (or mandatory
+</I>&gt;&gt;&gt;<i> hardcoded channel values) in the PHY init only. I think you should do the
+</I>&gt;&gt;&gt;<i> same here. Mac80211 will make sure to select the correct channel later.
+</I>&gt;&gt;<i> OK, I will use the default channel (though that's not exactly what the
+</I>&gt;&gt;<i> spec says - Larry, is using the default channel correct?)
+</I>&gt;<i> 
+</I>&gt;<i> What on earth could be incorrect about it? It's an as arbitrary value as
+</I>&gt;<i> dev-&gt;wl-&gt;hw-&gt;conf.channel-&gt;hw_value would be.
+</I>
+I have not found anything that says what should be used. If the
+channel is valid for the selected band, it should be as good as any.
+&gt;<i> 
+</I>&gt;&gt;&gt;&gt;&gt;<i> Also please call b43_lpphy_op_switch_channel() instead of b43_switch_channel().
+</I>&gt;&gt;&gt;&gt;<i> No, that would be wrong; the generic parts of b43_switch_channel also
+</I>&gt;&gt;&gt;&gt;<i> need to be executed. See
+</I>&gt;&gt;&gt;<i> I don't see why. The generic parts are nothing that should be done at the PHY init.
+</I>&gt;&gt;<i> Well, the spec says that the generic parts need to be run, so I
+</I>&gt;&gt;<i> implemented it as such.
+</I>&gt;<i> 
+</I>&gt;<i> We do understand what the generic stuff does and it is not required at this point.
+</I>&gt;<i> 
+</I>&gt;&gt;<i> Larry, is this part of the spec correct?
+</I>&gt;<i> 
+</I>&gt;<i> I'm pretty sure it is. But that does not mean we have to implement the same
+</I>&gt;<i> bullshit broadcom does ;)
+</I>
+Amen. I have to put it on the web site just in case it is important,
+but it must be done that way _ONLY_ if found to be needed for
+operation or performance.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005777.html">[RFC/RFT] b43: LP-PHY: Implement channel switching for	rev2+/B2063 radio
+</A></li>
+	<LI>Next message: <A HREF="005778.html">[RFC/RFT v2] b43: LP-PHY: Implement channel switching for rev2+/B2063	radio
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5779">[ date ]</a>
+              <a href="thread.html#5779">[ thread ]</a>
+              <a href="subject.html#5779">[ subject ]</a>
+              <a href="author.html#5779">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

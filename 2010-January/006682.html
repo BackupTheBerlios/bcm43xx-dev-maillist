@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> LP-PHY: Some fixes, notices
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20LP-PHY%3A%20Some%20fixes%2C%20notices&In-Reply-To=%3Cb170af451001061455k1820af00h5adf044cf74df3a4%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006691.html">
+   <LINK REL="Next"  HREF="006683.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>LP-PHY: Some fixes, notices</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20LP-PHY%3A%20Some%20fixes%2C%20notices&In-Reply-To=%3Cb170af451001061455k1820af00h5adf044cf74df3a4%40mail.gmail.com%3E"
+       TITLE="LP-PHY: Some fixes, notices">zajec5 at gmail.com
+       </A><BR>
+    <I>Wed Jan  6 23:55:53 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006691.html">LP-PHY: Some fixes, notices
+</A></li>
+        <LI>Next message: <A HREF="006683.html">LP-PHY: Some fixes, notices
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6682">[ date ]</a>
+              <a href="thread.html#6682">[ thread ]</a>
+              <a href="subject.html#6682">[ subject ]</a>
+              <a href="author.html#6682">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>2010/1/6 Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;:
+&gt;<i> I've decided to made LP-PHY init code review for compatibility with specs
+</I>&gt;<i> and found some issues.
+</I>&gt;<i>
+</I>&gt;<i> We lack some code for higher PHY revisions (up from 2/3) and for some
+</I>&gt;<i> specific boards. Also I've found little mistake in specs which Larry just
+</I>&gt;<i> corrected.
+</I>&gt;<i>
+</I>&gt;<i> G&#225;bor: could you care for this parts of LP-PHY code?
+</I>&gt;<i>
+</I>&gt;<i> So far I've only checked
+</I>&gt;<i> lpphy_read_band_sprom(dev);
+</I>&gt;<i> and
+</I>&gt;<i> lpphy_baseband_init(dev);
+</I>&gt;<i>
+</I>&gt;<i> I check for all conditions and operations (registers, masks, values). So far
+</I>&gt;<i> didn't notice anything more serious than what's exposed by patch, so good
+</I>&gt;<i> work G&#225;bor :)
+</I>
+There was actually one part I wasn't able to understand yesterday (it
+was late) and it still looks weird for me today... Could you verify my
+doubts, please?
+
+Specs:
+<A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/LP/ReadBandSrom">http://bcm-v4.sipsolutions.net/802.11/PHY/LP/ReadBandSrom</A>
+
+Instead of &quot;tmp2&quot; we use &quot;ofdmpo&quot; (that's totally fine). However we do
+following read: &quot;ofdmpo = bus-&gt;sprom.ofdm2gpo;&quot; before &quot;2 -&gt; k&quot;
+condition visible in specs.
+
+So we use sprom.ofdm2gpo for both conditions and we do not care for &quot;opo&quot;.
+
+That is fine for rev. 8 as both: ofdm2gpo and opo are 0x142:
+<A HREF="http://bcm-v4.sipsolutions.net/SPROM">http://bcm-v4.sipsolutions.net/SPROM</A>
+
+However if we would meet LP-PHY on SSB with lower SPROM we wouldn't
+have ofdm2gpo and we should really use &quot;opo&quot; then.
+
+Am I right? Should we add &quot;opo&quot; reading for SPROM? Or maybe it's
+impossible to find LP-PHY on SSB with lower SPROM and we can keep
+using this work around?
+
+-- 
+Rafa&#322;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006691.html">LP-PHY: Some fixes, notices
+</A></li>
+	<LI>Next message: <A HREF="006683.html">LP-PHY: Some fixes, notices
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6682">[ date ]</a>
+              <a href="thread.html#6682">[ thread ]</a>
+              <a href="subject.html#6682">[ subject ]</a>
+              <a href="author.html#6682">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,303 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] b43: rework rfkill code
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43%3A%20rework%20rfkill%20code&In-Reply-To=%3C20081210150935.GA10927%40srcf.ucam.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004934.html">
+   <LINK REL="Next"  HREF="004932.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] b43: rework rfkill code</H1>
+    <B>Matthew Garrett</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43%3A%20rework%20rfkill%20code&In-Reply-To=%3C20081210150935.GA10927%40srcf.ucam.org%3E"
+       TITLE="[RFC] b43: rework rfkill code">mjg59 at srcf.ucam.org
+       </A><BR>
+    <I>Wed Dec 10 16:09:35 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004934.html">[PATCH] b43legacy: Fix sparse warnings
+</A></li>
+        <LI>Next message: <A HREF="004932.html">[RFC] b43: rework rfkill code
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4930">[ date ]</a>
+              <a href="thread.html#4930">[ thread ]</a>
+              <a href="subject.html#4930">[ subject ]</a>
+              <a href="author.html#4930">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I've reworked the rfkill code in b43. This ought to be more consistent 
+with the other drivers and it seems to work on the machines I've tested 
+it on here, but it'd be good to get some feedback.
+
+Firstly, I've replaced the polled input device. It's just some delayed 
+work now. It polls the hardware every second to determine whether the 
+radio has been hardware killed or not. If it has, it sets the rfkill 
+state to HARD_BLOCKED. If the radio is enabled and the previous state 
+was HARD_BLOCKED, it resets the state to UNBLOCKED. If the radio is 
+enabled and the previous state was SOFT_BLOCKED, it leaves the state as 
+is.
+
+I also removed some of the complexity from the rfkill toggle function, 
+since the rfkill core will handle the case of the user requesting a 
+change from HARD_BLOCKED without the driver needing to care.
+
+The final change is that I removed the code for changing the wireless 
+state in response to the txpower configuration in mac80211. Right now, I 
+can't see any way for this to work correctly - if the user disables the 
+radio via rfkill, mac80211 doesn't flag the radio as disabled. As a 
+result, the next time the configuration callback is called, b43 
+reenables the radio again, even though the user has explicitly disabled 
+it. I don't think any of the other drivers handle this case, so I'm not 
+really sure what the best way to handle this in future is. The current 
+situation certainly seems broken.
+
+How does this look to people?
+
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index c34c589..9231eea 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -3384,21 +3384,6 @@ static int b43_op_config(struct ieee80211_hw *hw, u32 changed)
+ 	    b43_is_mode(wl, NL80211_IFTYPE_MESH_POINT))
+ 		b43_set_beacon_int(dev, conf-&gt;beacon_int);
+ 
+-	if (!!conf-&gt;radio_enabled != phy-&gt;radio_on) {
+-		if (conf-&gt;radio_enabled) {
+-			b43_software_rfkill(dev, RFKILL_STATE_UNBLOCKED);
+-			b43info(dev-&gt;wl, &quot;Radio turned on by software\n&quot;);
+-			if (!dev-&gt;radio_hw_enable) {
+-				b43info(dev-&gt;wl, &quot;The hardware RF-kill button &quot;
+-					&quot;still turns the radio physically off. &quot;
+-					&quot;Press the button to turn it on.\n&quot;);
+-			}
+-		} else {
+-			b43_software_rfkill(dev, RFKILL_STATE_SOFT_BLOCKED);
+-			b43info(dev-&gt;wl, &quot;Radio turned off by software\n&quot;);
+-		}
+-	}
+-
+ 	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+ 	b43_interrupt_enable(dev, savedirqs);
+ 	mmiowb();
+diff --git a/drivers/net/wireless/b43/rfkill.c b/drivers/net/wireless/b43/rfkill.c
+index 7137537..4c2907f 100644
+--- a/drivers/net/wireless/b43/rfkill.c
++++ b/drivers/net/wireless/b43/rfkill.c
+@@ -28,7 +28,6 @@
+ 
+ #include &lt;linux/kmod.h&gt;
+ 
+-
+ /* Returns TRUE, if the radio is enabled in hardware. */
+ static bool b43_is_hw_radio_enabled(struct b43_wldev *dev)
+ {
+@@ -45,33 +44,43 @@ static bool b43_is_hw_radio_enabled(struct b43_wldev *dev)
+ }
+ 
+ /* The poll callback for the hardware button. */
+-static void b43_rfkill_poll(struct input_polled_dev *poll_dev)
++static void b43_rfkill_poll(struct work_struct *work)
+ {
+-	struct b43_wldev *dev = poll_dev-&gt;private;
++	struct b43_rfkill *rfk = container_of(work, struct b43_rfkill,
++					      work.work);
++	struct b43_wldev *dev = rfk-&gt;rfkill-&gt;data;
+ 	struct b43_wl *wl = dev-&gt;wl;
+ 	bool enabled;
+-	bool report_change = 0;
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+-	if (unlikely(b43_status(dev) &lt; B43_STAT_INITIALIZED)) {
+-		mutex_unlock(&amp;wl-&gt;mutex);
+-		return;
+-	}
++
++	if (unlikely(b43_status(dev) &lt; B43_STAT_INITIALIZED))
++		goto out_unlock;
++
+ 	enabled = b43_is_hw_radio_enabled(dev);
+ 	if (unlikely(enabled != dev-&gt;radio_hw_enable)) {
++		/*
++		 *  If the hardware is enabled and the state isn't
++		 *  hard blocked then we're soft blocked and shouldn't
++		 *  change the state
++		 */
++		if (enabled &amp;&amp; rfk-&gt;rfkill-&gt;state != RFKILL_STATE_HARD_BLOCKED)
++			goto out_unlock;
++
+ 		dev-&gt;radio_hw_enable = enabled;
+-		report_change = 1;
++
++		if (enabled)
++			rfkill_force_state(rfk-&gt;rfkill, RFKILL_STATE_UNBLOCKED);
++		else
++			rfkill_force_state(rfk-&gt;rfkill,
++					   RFKILL_STATE_HARD_BLOCKED);
++
+ 		b43info(wl, &quot;Radio hardware status changed to %s\n&quot;,
+ 			enabled ? &quot;ENABLED&quot; : &quot;DISABLED&quot;);
+ 	}
++out_unlock:
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+-
+-	/* send the radio switch event to the system - note both a key press
+-	 * and a release are required */
+-	if (unlikely(report_change)) {
+-		input_report_key(poll_dev-&gt;input, KEY_WLAN, 1);
+-		input_report_key(poll_dev-&gt;input, KEY_WLAN, 0);
+-	}
++	schedule_delayed_work(&amp;rfk-&gt;work, msecs_to_jiffies(1000));
+ }
+ 
+ /* Called when the RFKILL toggled in software. */
+@@ -87,26 +96,9 @@ static int b43_rfkill_soft_toggle(void *data, enum rfkill_state state)
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 	if (b43_status(dev) &lt; B43_STAT_INITIALIZED)
+ 		goto out_unlock;
++
+ 	err = 0;
+-	switch (state) {
+-	case RFKILL_STATE_UNBLOCKED:
+-		if (!dev-&gt;radio_hw_enable) {
+-			/* No luck. We can't toggle the hardware RF-kill
+-			 * button from software. */
+-			err = -EBUSY;
+-			goto out_unlock;
+-		}
+-		if (!dev-&gt;phy.radio_on)
+-			b43_software_rfkill(dev, state);
+-		break;
+-	case RFKILL_STATE_SOFT_BLOCKED:
+-		if (dev-&gt;phy.radio_on)
+-			b43_software_rfkill(dev, state);
+-		break;
+-	default:
+-		b43warn(wl, &quot;Received unexpected rfkill state %d.\n&quot;, state);
+-		break;
+-	}
++	b43_software_rfkill(dev, state);
+ out_unlock:
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+@@ -141,52 +133,17 @@ void b43_rfkill_init(struct b43_wldev *dev)
+ 	rfk-&gt;rfkill-&gt;toggle_radio = b43_rfkill_soft_toggle;
+ 	rfk-&gt;rfkill-&gt;user_claim_unsupported = 1;
+ 
+-	rfk-&gt;poll_dev = input_allocate_polled_device();
+-	if (!rfk-&gt;poll_dev) {
+-		rfkill_free(rfk-&gt;rfkill);
+-		goto err_freed_rfk;
+-	}
+-
+-	rfk-&gt;poll_dev-&gt;private = dev;
+-	rfk-&gt;poll_dev-&gt;poll = b43_rfkill_poll;
+-	rfk-&gt;poll_dev-&gt;poll_interval = 1000; /* msecs */
+-
+-	rfk-&gt;poll_dev-&gt;input-&gt;name = rfk-&gt;name;
+-	rfk-&gt;poll_dev-&gt;input-&gt;id.bustype = BUS_HOST;
+-	rfk-&gt;poll_dev-&gt;input-&gt;id.vendor = dev-&gt;dev-&gt;bus-&gt;boardinfo.vendor;
+-	rfk-&gt;poll_dev-&gt;input-&gt;evbit[0] = BIT(EV_KEY);
+-	set_bit(KEY_WLAN, rfk-&gt;poll_dev-&gt;input-&gt;keybit);
+-
+ 	err = rfkill_register(rfk-&gt;rfkill);
+-	if (err)
+-		goto err_free_polldev;
+ 
+-#ifdef CONFIG_RFKILL_INPUT_MODULE
+-	/* B43 RF-kill isn't useful without the rfkill-input subsystem.
+-	 * Try to load the module. */
+-	err = request_module(&quot;rfkill-input&quot;);
+ 	if (err)
+-		b43warn(wl, &quot;Failed to load the rfkill-input module. &quot;
+-			&quot;The built-in radio LED will not work.\n&quot;);
+-#endif /* CONFIG_RFKILL_INPUT */
+-
+-#if !defined(CONFIG_RFKILL_INPUT) &amp;&amp; !defined(CONFIG_RFKILL_INPUT_MODULE)
+-	b43warn(wl, &quot;The rfkill-input subsystem is not available. &quot;
+-		&quot;The built-in radio LED will not work.\n&quot;);
+-#endif
+-
+-	err = input_register_polled_device(rfk-&gt;poll_dev);
+-	if (err)
+-		goto err_unreg_rfk;
++		goto err_freed_rfk;
+ 
+ 	rfk-&gt;registered = 1;
+ 
++	INIT_DELAYED_WORK(&amp;rfk-&gt;work, b43_rfkill_poll);
++	schedule_delayed_work(&amp;rfk-&gt;work, msecs_to_jiffies(1000));
++
+ 	return;
+-err_unreg_rfk:
+-	rfkill_unregister(rfk-&gt;rfkill);
+-err_free_polldev:
+-	input_free_polled_device(rfk-&gt;poll_dev);
+-	rfk-&gt;poll_dev = NULL;
+ err_freed_rfk:
+ 	rfk-&gt;rfkill = NULL;
+ out_error:
+@@ -202,9 +159,8 @@ void b43_rfkill_exit(struct b43_wldev *dev)
+ 		return;
+ 	rfk-&gt;registered = 0;
+ 
+-	input_unregister_polled_device(rfk-&gt;poll_dev);
++	cancel_delayed_work_sync(&amp;rfk-&gt;work);
++
+ 	rfkill_unregister(rfk-&gt;rfkill);
+-	input_free_polled_device(rfk-&gt;poll_dev);
+-	rfk-&gt;poll_dev = NULL;
+ 	rfk-&gt;rfkill = NULL;
+ }
+diff --git a/drivers/net/wireless/b43/rfkill.h b/drivers/net/wireless/b43/rfkill.h
+index adacf93..4efdb4a 100644
+--- a/drivers/net/wireless/b43/rfkill.h
++++ b/drivers/net/wireless/b43/rfkill.h
+@@ -13,8 +13,8 @@ struct b43_wldev;
+ struct b43_rfkill {
+ 	/* The RFKILL subsystem data structure */
+ 	struct rfkill *rfkill;
+-	/* The poll device for the RFKILL input button */
+-	struct input_polled_dev *poll_dev;
++	/* The work queue for the RFKILL input button */
++	struct delayed_work work;
+ 	/* Did initialization succeed? Used for freeing. */
+ 	bool registered;
+ 	/* The unique name of this rfkill switch */
+
+
+-- 
+Matthew Garrett | <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mjg59 at srcf.ucam.org</A>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004934.html">[PATCH] b43legacy: Fix sparse warnings
+</A></li>
+	<LI>Next message: <A HREF="004932.html">[RFC] b43: rework rfkill code
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4930">[ date ]</a>
+              <a href="thread.html#4930">[ thread ]</a>
+              <a href="subject.html#4930">[ subject ]</a>
+              <a href="author.html#4930">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,274 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/6] b43: N-PHY: add RSSI functions: scale offset, select (rev	&lt; 3), restore cal
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/6%5D%20b43%3A%20N-PHY%3A%20add%20RSSI%20functions%3A%20scale%20offset%2C%20select%20%28rev%0A%09%3C%203%29%2C%20restore%20cal&In-Reply-To=%3Cop.u6b7z2yo9lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006701.html">
+   <LINK REL="Next"  HREF="006703.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/6] b43: N-PHY: add RSSI functions: scale offset, select (rev	&lt; 3), restore cal</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/6%5D%20b43%3A%20N-PHY%3A%20add%20RSSI%20functions%3A%20scale%20offset%2C%20select%20%28rev%0A%09%3C%203%29%2C%20restore%20cal&In-Reply-To=%3Cop.u6b7z2yo9lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 1/6] b43: N-PHY: add RSSI functions: scale offset, select (rev	&lt; 3), restore cal">zajec5 at gmail.com
+       </A><BR>
+    <I>Sun Jan 10 23:13:07 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006701.html">[PATCH 4/4] b43: N-PHY: some comments, function definion fix, missing	calls
+</A></li>
+        <LI>Next message: <A HREF="006703.html">[PATCH 2/6] b43: N-PHY: add RSSI functions: poll and set 2055 vcm
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6702">[ date ]</a>
+              <a href="thread.html#6702">[ thread ]</a>
+              <a href="subject.html#6702">[ subject ]</a>
+              <a href="author.html#6702">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+  drivers/net/wireless/b43/phy_n.c |  157 +++++++++++++++++++++++++++++++++++++-
+  drivers/net/wireless/b43/phy_n.h |   10 +++
+  2 files changed, 166 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index c2c2602..a44fca1 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -590,6 +590,127 @@ static void b43_nphy_bphy_init(struct b43_wldev *dev)
+  	b43_phy_write(dev, B43_PHY_N_BMODE(0x38), 0x668);
+  }
+
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/ScaleOffsetRssi">http://bcm-v4.sipsolutions.net/802.11/PHY/N/ScaleOffsetRssi</A> */
++static void b43_nphy_scale_offset_rssi(struct b43_wldev *dev, u16 scale,
++				       s8 offset, u8 core, u8 rail, u8 type)
++{
++	u16 tmp;
++	bool core1or5 = (core == 1) || (core == 5);
++	bool core2or5 = (core == 2) || (core == 5);
++
++	offset = clamp_val(offset, -32, 31);
++	tmp = ((scale &amp; 0x3F) &lt;&lt; 8) | (offset &amp; 0x3F);
++
++	if (core1or5 &amp;&amp; (rail == 0) &amp;&amp; (type == 2))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_0I_RSSI_Z, tmp);
++	if (core1or5 &amp;&amp; (rail == 1) &amp;&amp; (type == 2))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_0Q_RSSI_Z, tmp);
++	if (core2or5 &amp;&amp; (rail == 0) &amp;&amp; (type == 2))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_1I_RSSI_Z, tmp);
++	if (core2or5 &amp;&amp; (rail == 1) &amp;&amp; (type == 2))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_1Q_RSSI_Z, tmp);
++	if (core1or5 &amp;&amp; (rail == 0) &amp;&amp; (type == 0))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_0I_RSSI_X, tmp);
++	if (core1or5 &amp;&amp; (rail == 1) &amp;&amp; (type == 0))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_0Q_RSSI_X, tmp);
++	if (core2or5 &amp;&amp; (rail == 0) &amp;&amp; (type == 0))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_1I_RSSI_X, tmp);
++	if (core2or5 &amp;&amp; (rail == 1) &amp;&amp; (type == 0))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_1Q_RSSI_X, tmp);
++	if (core1or5 &amp;&amp; (rail == 0) &amp;&amp; (type == 1))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_0I_RSSI_Y, tmp);
++	if (core1or5 &amp;&amp; (rail == 1) &amp;&amp; (type == 1))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_0Q_RSSI_Y, tmp);
++	if (core2or5 &amp;&amp; (rail == 0) &amp;&amp; (type == 1))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_1I_RSSI_Y, tmp);
++	if (core2or5 &amp;&amp; (rail == 1) &amp;&amp; (type == 1))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_1Q_RSSI_Y, tmp);
++	if (core1or5 &amp;&amp; (rail == 0) &amp;&amp; (type == 6))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_0I_TBD, tmp);
++	if (core1or5 &amp;&amp; (rail == 1) &amp;&amp; (type == 6))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_0Q_TBD, tmp);
++	if (core2or5 &amp;&amp; (rail == 0) &amp;&amp; (type == 6))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_1I_TBD, tmp);
++	if (core2or5 &amp;&amp; (rail == 1) &amp;&amp; (type == 6))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_1Q_TBD, tmp);
++	if (core1or5 &amp;&amp; (rail == 0) &amp;&amp; (type == 3))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_0I_PWRDET, tmp);
++	if (core1or5 &amp;&amp; (rail == 1) &amp;&amp; (type == 3))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_0Q_PWRDET, tmp);
++	if (core2or5 &amp;&amp; (rail == 0) &amp;&amp; (type == 3))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_1I_PWRDET, tmp);
++	if (core2or5 &amp;&amp; (rail == 1) &amp;&amp; (type == 3))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_1Q_PWRDET, tmp);
++	if (core1or5 &amp;&amp; (type == 4))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_0I_TSSI, tmp);
++	if (core2or5 &amp;&amp; (type == 4))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_1I_TSSI, tmp);
++	if (core1or5 &amp;&amp; (type == 5))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_0Q_TSSI, tmp);
++	if (core2or5 &amp;&amp; (type == 5))
++		b43_phy_write(dev, B43_NPHY_RSSIMC_1Q_TSSI, tmp);
++}
++
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/RSSISel">http://bcm-v4.sipsolutions.net/802.11/PHY/N/RSSISel</A> */
++static void b43_nphy_rssi_select(struct b43_wldev *dev, u8 code, u8 type)
++{
++	u16 val;
++
++	if (dev-&gt;phy.rev &gt;= 3) {
++		/* TODO */
++	} else {
++		if (type &lt; 3)
++			val = 0;
++		else if (type == 6)
++			val = 1;
++		else if (type == 3)
++			val = 2;
++		else
++			val = 3;
++
++		val = (val &lt;&lt; 12) | (val &lt;&lt; 14);
++		b43_phy_maskset(dev, B43_NPHY_AFECTL_C1, 0x0FFF, val);
++		b43_phy_maskset(dev, B43_NPHY_AFECTL_C2, 0x0FFF, val);
++
++		if (type &lt; 3) {
++			b43_phy_maskset(dev, B43_NPHY_RFCTL_RSSIO1, 0xFFCF,
++					(type + 1) &lt;&lt; 4);
++			b43_phy_maskset(dev, B43_NPHY_RFCTL_RSSIO2, 0xFFCF,
++					(type + 1) &lt;&lt; 4);
++		}
++
++		/* TODO use some definitions */
++		if (code == 0) {
++			b43_phy_maskset(dev, B43_NPHY_AFECTL_OVER, 0xCFFF, 0);
++			if (type &lt; 3) {
++				b43_phy_maskset(dev, B43_NPHY_RFCTL_CMD,
++						0xFEC7, 0);
++				b43_phy_maskset(dev, B43_NPHY_RFCTL_OVER,
++						0xEFDC, 0);
++				b43_phy_maskset(dev, B43_NPHY_RFCTL_CMD,
++						0xFFFE, 0);
++				udelay(20);
++				b43_phy_maskset(dev, B43_NPHY_RFCTL_OVER,
++						0xFFFE, 0);
++			}
++		} else {
++			b43_phy_maskset(dev, B43_NPHY_AFECTL_OVER, 0xCFFF,
++					0x3000);
++			if (type &lt; 3) {
++				b43_phy_maskset(dev, B43_NPHY_RFCTL_CMD,
++						0xFEC7, 0x0180);
++				b43_phy_maskset(dev, B43_NPHY_RFCTL_OVER,
++						0xEFDC, (code &lt;&lt; 1 | 0x1021));
++				b43_phy_maskset(dev, B43_NPHY_RFCTL_CMD,
++						0xFFFE, 0x0001);
++				udelay(20);
++				b43_phy_maskset(dev, B43_NPHY_RFCTL_OVER,
++						0xFFFE, 0);
++			}
++		}
++	}
++}
++
+  /* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/RSSICal">http://bcm-v4.sipsolutions.net/802.11/PHY/N/RSSICal</A> */
+  static void b43_nphy_rev2_rssi_cal(struct b43_wldev *dev, u8 type)
+  {
+@@ -623,7 +744,41 @@ static void b43_nphy_rssi_cal(struct b43_wldev *dev)
+   */
+  static void b43_nphy_restore_rssi_cal(struct b43_wldev *dev)
+  {
+-	//TODO
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
++
++	u16 *rssical_radio_regs = NULL;
++	u16 *rssical_phy_regs = NULL;
++
++	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
++		if (!nphy-&gt;rssical_chanspec_2G)
++			return;
++		rssical_radio_regs = nphy-&gt;rssical_cache.rssical_radio_regs_2G;
++		rssical_phy_regs = nphy-&gt;rssical_cache.rssical_phy_regs_2G;
++	} else {
++		if (!nphy-&gt;rssical_chanspec_5G)
++			return;
++		rssical_radio_regs = nphy-&gt;rssical_cache.rssical_radio_regs_5G;
++		rssical_phy_regs = nphy-&gt;rssical_cache.rssical_phy_regs_5G;
++	}
++
++	/* TODO use some definitions */
++	b43_radio_maskset(dev, 0x602B, 0xE3, rssical_radio_regs[0]);
++	b43_radio_maskset(dev, 0x702B, 0xE3, rssical_radio_regs[1]);
++
++	b43_phy_write(dev, B43_NPHY_RSSIMC_0I_RSSI_Z, rssical_phy_regs[0]);
++	b43_phy_write(dev, B43_NPHY_RSSIMC_0Q_RSSI_Z, rssical_phy_regs[1]);
++	b43_phy_write(dev, B43_NPHY_RSSIMC_1I_RSSI_Z, rssical_phy_regs[2]);
++	b43_phy_write(dev, B43_NPHY_RSSIMC_1Q_RSSI_Z, rssical_phy_regs[3]);
++
++	b43_phy_write(dev, B43_NPHY_RSSIMC_0I_RSSI_X, rssical_phy_regs[4]);
++	b43_phy_write(dev, B43_NPHY_RSSIMC_0Q_RSSI_X, rssical_phy_regs[5]);
++	b43_phy_write(dev, B43_NPHY_RSSIMC_1I_RSSI_X, rssical_phy_regs[6]);
++	b43_phy_write(dev, B43_NPHY_RSSIMC_1Q_RSSI_X, rssical_phy_regs[7]);
++
++	b43_phy_write(dev, B43_NPHY_RSSIMC_0I_RSSI_Y, rssical_phy_regs[8]);
++	b43_phy_write(dev, B43_NPHY_RSSIMC_0Q_RSSI_Y, rssical_phy_regs[9]);
++	b43_phy_write(dev, B43_NPHY_RSSIMC_1I_RSSI_Y, rssical_phy_regs[10]);
++	b43_phy_write(dev, B43_NPHY_RSSIMC_1Q_RSSI_Y, rssical_phy_regs[11]);
+  }
+
+  /* Init N-PHY
+diff --git a/drivers/net/wireless/b43/phy_n.h b/drivers/net/wireless/b43/phy_n.h
+index 6bb9476..ca1fd11 100644
+--- a/drivers/net/wireless/b43/phy_n.h
++++ b/drivers/net/wireless/b43/phy_n.h
+@@ -924,6 +924,14 @@
+
+  struct b43_wldev;
+
++struct b43_phy_n_rssical_cache {
++	u16 rssical_radio_regs_2G[2];
++	u16 rssical_phy_regs_2G[12];
++
++	u16 rssical_radio_regs_5G[2];
++	u16 rssical_phy_regs_5G[12];
++};
++
+  struct b43_phy_n {
+  	u8 txpwrctrl;
+  	u8 cal_orig_pwr_idx[2];
+@@ -948,6 +956,8 @@ struct b43_phy_n {
+  	u8 iqcal_chanspec_5G;
+  	u8 rssical_chanspec_5G;
+
++	struct b43_phy_n_rssical_cache rssical_cache;
++
+  	bool crsminpwr_adjusted;
+  	bool noisevars_adjusted;
+
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006701.html">[PATCH 4/4] b43: N-PHY: some comments, function definion fix, missing	calls
+</A></li>
+	<LI>Next message: <A HREF="006703.html">[PATCH 2/6] b43: N-PHY: add RSSI functions: poll and set 2055 vcm
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6702">[ date ]</a>
+              <a href="thread.html#6702">[ thread ]</a>
+              <a href="subject.html#6702">[ subject ]</a>
+              <a href="author.html#6702">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

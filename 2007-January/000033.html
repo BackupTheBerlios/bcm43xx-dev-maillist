@@ -1,0 +1,196 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> What is in bcm43xx-wireless-dev.git?
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20What%20is%20in%20bcm43xx-wireless-dev.git%3F&In-Reply-To=%3C200701121506.06461.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000032.html">
+   <LINK REL="Next"  HREF="000038.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>What is in bcm43xx-wireless-dev.git?</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20What%20is%20in%20bcm43xx-wireless-dev.git%3F&In-Reply-To=%3C200701121506.06461.mb%40bu3sch.de%3E"
+       TITLE="What is in bcm43xx-wireless-dev.git?">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jan 12 15:06:06 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000032.html">bcm4306: Can't connect with WPA-EAP-TTLS
+</A></li>
+        <LI>Next message: <A HREF="000038.html">[PATCH V2] bcm43xx: Fix failure to deliver PCI-E interrupts
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#33">[ date ]</a>
+              <a href="thread.html#33">[ thread ]</a>
+              <a href="subject.html#33">[ subject ]</a>
+              <a href="author.html#33">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 12 January 2007 08:25, Pavel Roskin wrote:
+&gt;<i> Hello, Michael!
+</I>&gt;<i> 
+</I>&gt;<i> I've tried the master branch of bcm43xx-wireless-dev.git for the first
+</I>&gt;<i> time.  The results are not encouraging so far (although I'm quite new to
+</I>&gt;<i> this chipset).
+</I>&gt;<i> 
+</I>&gt;<i> drivers/ssb/driver_mips/mips.c includes asm/time.h, which is missing on
+</I>&gt;<i> x86_64.  It also refers to struct ssb_serial_ports, which is not defined
+</I>&gt;<i> anywhere.
+</I>
+Yeah, CONFIG_SSB_MIPS should depend on the MIPS CPU.
+Which kconfig option do you suggest to make a &quot;depend&quot; on?
+
+&gt;<i> drivers/ssb/driver_pci/pcicore.c refers to SSB_PCICORE_SBTOPCI1_CFG1
+</I>&gt;<i> that is not defined anywhere in the kernel.
+</I>
+Yeah, could be a typo. I'll have a look at it.
+
+&gt;<i> I could send you huge logs, but I think it's already a clear sign that
+</I>&gt;<i> you didn't compile-test the current tree with CONFIG_SSB_DRIVER_MIPS
+</I>&gt;<i> enabled.  Things are better if it is disabled.
+</I>
+It is tested. But obviously on MIPS platform.
+
+&gt;<i> In case you haven't seen those warnings:
+</I>&gt;<i> 
+</I>&gt;<i> /home/proski/src/linux-2.6/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c:843: warning: 'bcm43xx_wireless_core_mark_inactive' defined but not used
+</I>&gt;<i> /home/proski/src/linux-2.6/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c:3032: warning: 'bcm43xx_bluetooth_coext_enable' defined but not used
+</I>
+I am very well aware of these warnings, as they mark
+unimplemented features.
+
+&gt;<i> I could compile the code, and it even loaded as a module, but the kernel
+</I>&gt;<i> oopsed once I brought wlan0 up by ifconfig.
+</I>&gt;<i> 
+</I>&gt;<i> bcm43xx_d80211: Adding Interface type 2
+</I>&gt;<i> bcm43xx_d80211: Found PHY: Version 4, Type 2, Revision 8
+</I>&gt;<i> bcm43xx_d80211: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+</I>&gt;<i> bcm43xx_d80211: Loading firmware version 351.126 (2006-07-29 05:54:02)
+</I>&gt;<i> bcm43xx_d80211: Radio turned on
+</I>&gt;<i> bcm43xx_d80211: FIXME: Possibly broken code in bcm43xx_phy_initg() at /home/proski/src/linux-2.6/drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c:1650
+</I>&gt;<i> bcm43xx_d80211: Chip initialized
+</I>&gt;<i> Unable to handle kernel NULL pointer dereference at 0000000000000000 RIP: 
+</I>&gt;<i>  [&lt;ffffffff8021eee6&gt;] dma_alloc_coherent+0x52/0x23f
+</I>&gt;<i> PGD 50d1067 PUD 5201067 PMD 0 
+</I>&gt;<i> Oops: 0000 [1] SMP 
+</I>&gt;<i> CPU 1 
+</I>&gt;<i> Modules linked in: bcm43xx_d80211 ssb
+</I>&gt;<i> Pid: 2623, comm: ifconfig Not tainted 2.6.20-rc3 #5
+</I>&gt;<i> RIP: 0010:[&lt;ffffffff8021eee6&gt;]  [&lt;ffffffff8021eee6&gt;] dma_alloc_coherent+0x52/0x23f
+</I>&gt;<i> RSP: 0018:ffff810005127bd8  EFLAGS: 00010206
+</I>&gt;<i> RAX: 0000000000000000 RBX: 0000000000003500 RCX: 00000000000010d4
+</I>&gt;<i> RDX: 00000000ffffffff RSI: 0000000000001000 RDI: ffff81000196c3a8
+</I>&gt;<i> RBP: 00000000000010d0 R08: ffff81001f6d1600 R09: 0000000000000004
+</I>&gt;<i> R10: 0000000000000001 R11: ffff810001122c60 R12: 0000000000001000
+</I>&gt;<i> R13: ffff810001b96000 R14: ffff81000196c3a8 R15: 00000000ffffffff
+</I>&gt;<i> FS:  00002b411b2133b0(0000) GS:ffff810001827440(0000) knlGS:0000000000000000
+</I>&gt;<i> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+</I>&gt;<i> CR2: 0000000000000000 CR3: 0000000015fdf000 CR4: 00000000000006e0
+</I>&gt;<i> Process ifconfig (pid: 2623, threadinfo ffff810005126000, task ffff81001f58d180)
+</I>&gt;<i> Stack:  ffff81001ee6a3c0 ffff81001ee6a3e8 ffff810001b96000 0000000000003500
+</I>&gt;<i>  ffff81001ee6a3c0 0000000000000080 ffff810001b96000 0000000000000000
+</I>&gt;<i>  0000000000000000 ffffffff88019966 0000000000000005 0000000100000036
+</I>&gt;<i> Call Trace:
+</I>&gt;<i>  [&lt;ffffffff88019966&gt;] :bcm43xx_d80211:bcm43xx_setup_dmaring+0x1a7/0x460
+</I>&gt;<i>  [&lt;ffffffff88019ea3&gt;] :bcm43xx_d80211:bcm43xx_dma_init+0xc0/0x290
+</I>&gt;<i>  [&lt;ffffffff88008131&gt;] :bcm43xx_d80211:bcm43xx_wireless_core_init+0x78f/0x9f1
+</I>&gt;<i>  [&lt;ffffffff8022885e&gt;] mntput_no_expire+0x19/0x77
+</I>&gt;<i>  [&lt;ffffffff8020a3c3&gt;] do_page_fault+0x40b/0x74a
+</I>&gt;<i>  [&lt;ffffffff88009f4e&gt;] :bcm43xx_d80211:bcm43xx_add_interface+0x67/0xeb
+</I>&gt;<i>  [&lt;ffffffff804378d2&gt;] ieee80211_open+0x1c6/0x2c5
+</I>&gt;<i>  [&lt;ffffffff803fd3ec&gt;] dev_open+0x2f/0x6e
+</I>&gt;<i>  [&lt;ffffffff803fbcd5&gt;] dev_change_flags+0x5a/0x119
+</I>&gt;<i>  [&lt;ffffffff80423bab&gt;] devinet_ioctl+0x235/0x59c
+</I>&gt;<i>  [&lt;ffffffff803f4bef&gt;] sock_ioctl+0x1c8/0x1e5
+</I>&gt;<i>  [&lt;ffffffff8023b862&gt;] do_ioctl+0x21/0x6b
+</I>&gt;<i>  [&lt;ffffffff8022b614&gt;] vfs_ioctl+0x25c/0x275
+</I>&gt;<i>  [&lt;ffffffff8024559b&gt;] sys_ioctl+0x3c/0x5c
+</I>&gt;<i>  [&lt;ffffffff802548ee&gt;] system_call+0x7e/0x83
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> Code: 4c 23 38 49 39 d7 0f 46 e9 49 8d 44 24 ff 83 ca ff 49 89 c5 
+</I>&gt;<i> RIP  [&lt;ffffffff8021eee6&gt;] dma_alloc_coherent+0x52/0x23f
+</I>&gt;<i>  RSP &lt;ffff810005127bd8&gt;
+</I>&gt;<i> CR2: 0000000000000000
+</I>
+Hm, not sure why this oopses. It works on PPC (can transmit data and so on).
+
+&gt;<i> It's Fedora Core 6 x86_64 on a Dell Latitude with Core 2 Duo and an PCIe
+</I>&gt;<i> wireless card.  SMP is enabled.  From .config:
+</I>
+PCIe is a seperate issue and not really supported by bcm43xx.
+
+&gt;<i> CONFIG_BCM43XX_D80211=m
+</I>&gt;<i> CONFIG_BCM43XX_D80211_PCI=y
+</I>&gt;<i> CONFIG_BCM43XX_D80211_DEBUG=y
+</I>&gt;<i> CONFIG_BCM43XX_D80211_DMA=y
+</I>&gt;<i> CONFIG_BCM43XX_D80211_PIO=y
+</I>&gt;<i> CONFIG_BCM43XX_D80211_DMA_AND_PIO_MODE=y
+</I>&gt;<i> # CONFIG_BCM43XX_D80211_DMA_MODE is not set
+</I>&gt;<i> # CONFIG_BCM43XX_D80211_PIO_MODE is not set
+</I>&gt;<i> [skip]
+</I>&gt;<i> CONFIG_SSB=m
+</I>&gt;<i> # CONFIG_SSB_SILENT is not set
+</I>&gt;<i> # CONFIG_SSB_DEBUG is not set
+</I>&gt;<i> CONFIG_SSB_DRIVER_EXTIF=y
+</I>
+You can disable that. I think that should probably depend
+on CONFIG_SSB_DRIVER_MIPS. I'll take a look.
+
+&gt;<i> # CONFIG_SSB_DRIVER_MIPS is not set
+</I>&gt;<i> 
+</I>&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at localhost</A> proski]# lspci -v -s 0c:00.0
+</I>&gt;<i> 0c:00.0 Network controller: Broadcom Corporation BCM4310 UART (rev 01)
+</I>&gt;<i>         Subsystem: Dell Unknown device 0007
+</I>&gt;<i>         Flags: bus master, fast devsel, latency 0, IRQ 17
+</I>&gt;<i>         Memory at efdfc000 (32-bit, non-prefetchable) [size=16K]
+</I>&gt;<i>         Capabilities: [40] Power Management version 2
+</I>&gt;<i>         Capabilities: [58] Message Signalled Interrupts: 64bit- Queue=0/0 Enable-
+</I>&gt;<i>         Capabilities: [d0] Express Legacy Endpoint IRQ 0
+</I>&gt;<i>         Capabilities: [100] Advanced Error Reporting
+</I>&gt;<i>         Capabilities: [13c] Virtual Channel
+</I>&gt;<i> 
+</I>&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at localhost</A> proski]# lspci -n -s 0c:00.0
+</I>&gt;<i> 0c:00.0 0280: 14e4:4312 (rev 01)
+</I>&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at localhost</A> proski]#
+</I>&gt;<i> 
+</I>&gt;<i> P.S.  Second attempt, this time with &quot;pio=1&quot; parameter.  At least it
+</I>&gt;<i> didn't crash, but it would not work either:
+</I>
+Does it work with linville's tree (in DMA mode)?
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000032.html">bcm4306: Can't connect with WPA-EAP-TTLS
+</A></li>
+	<LI>Next message: <A HREF="000038.html">[PATCH V2] bcm43xx: Fix failure to deliver PCI-E interrupts
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#33">[ date ]</a>
+              <a href="thread.html#33">[ thread ]</a>
+              <a href="subject.html#33">[ subject ]</a>
+              <a href="author.html#33">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

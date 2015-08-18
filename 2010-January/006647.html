@@ -1,0 +1,162 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 2/2] b43: N-PHY: update reset_cca operation and add rssi_cal	calls
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/2%5D%20b43%3A%20N-PHY%3A%20update%20reset_cca%20operation%20and%20add%20rssi_cal%0A%09calls&In-Reply-To=%3Cop.u52sgse59lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006646.html">
+   <LINK REL="Next"  HREF="006649.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 2/2] b43: N-PHY: update reset_cca operation and add rssi_cal	calls</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/2%5D%20b43%3A%20N-PHY%3A%20update%20reset_cca%20operation%20and%20add%20rssi_cal%0A%09calls&In-Reply-To=%3Cop.u52sgse59lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 2/2] b43: N-PHY: update reset_cca operation and add rssi_cal	calls">zajec5 at gmail.com
+       </A><BR>
+    <I>Tue Jan  5 20:59:06 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006646.html">[PATCH 1/2] b43: N-PHY: update TODOs in init part
+</A></li>
+        <LI>Next message: <A HREF="006649.html">b43: must set qos=0 on to connect
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6647">[ date ]</a>
+              <a href="thread.html#6647">[ thread ]</a>
+              <a href="subject.html#6647">[ subject ]</a>
+              <a href="author.html#6647">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Update b43_nphy_reset_cca to match current specs and add rssi_cal calls to init code.
+
+
+
+ From 71c10442cd0b1b277f483a81db7f2e8f579b3d59 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+Date: Tue, 5 Jan 2010 20:52:43 +0100
+Subject: [PATCH 2/2] b43: N-PHY: update reset_cca operation and add rssi_cal calls
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+  drivers/net/wireless/b43/phy_n.c |   49 +++++++++++++++++++++++++++----------
+  1 files changed, 36 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 6479d6e..ceb429a 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -343,16 +343,9 @@ static void b43_nphy_workarounds(struct b43_wldev *dev)
+
+  static void b43_nphy_reset_cca(struct b43_wldev *dev)
+  {
+-	u16 bbcfg;
+-
+-	ssb_write32(dev-&gt;dev, SSB_TMSLOW,
+-		    ssb_read32(dev-&gt;dev, SSB_TMSLOW) | SSB_TMSLOW_FGC);
+-	bbcfg = b43_phy_read(dev, B43_NPHY_BBCFG);
+-	b43_phy_set(dev, B43_NPHY_BBCFG, B43_NPHY_BBCFG_RSTCCA);
+-	b43_phy_write(dev, B43_NPHY_BBCFG,
+-		      bbcfg &amp; ~B43_NPHY_BBCFG_RSTCCA);
+-	ssb_write32(dev-&gt;dev, SSB_TMSLOW,
+-		    ssb_read32(dev-&gt;dev, SSB_TMSLOW) &amp; ~SSB_TMSLOW_FGC);
++	u16 bbcfg = b43_phy_read(dev, B43_NPHY_BBCFG);
++	b43_phy_write(dev, B43_NPHY_BBCFG, bbcfg | B43_NPHY_BBCFG_RSTCCA);
++	b43_phy_write(dev, B43_NPHY_BBCFG, bbcfg &amp; ~B43_NPHY_BBCFG_RSTCCA);
+  }
+
+  enum b43_nphy_rf_sequence {
+@@ -411,8 +404,30 @@ static void b43_nphy_bphy_init(struct b43_wldev *dev)
+  	b43_phy_write(dev, B43_PHY_N_BMODE(0x38), 0x668);
+  }
+
++static void b43_nphy_rev2_rssi_cal(struct b43_wldev *dev, u8 type)
++{
++	//TODO
++}
++
++static void b43_nphy_rev3_rssi_cal(struct b43_wldev *dev)
++{
++	//TODO
++}
++
+  /* RSSI Calibration */
+-static void b43_nphy_rssi_cal(struct b43_wldev *dev, u8 type)
++static void b43_nphy_rssi_cal(struct b43_wldev *dev)
++{
++	if (dev-&gt;phy.rev &gt;= 3) {
++		b43_nphy_rev3_rssi_cal(dev);
++	} else {
++		b43_nphy_rev2_rssi_cal(dev, 2);
++		b43_nphy_rev2_rssi_cal(dev, 0);
++		b43_nphy_rev2_rssi_cal(dev, 1);
++	}
++}
++
++/* Restore RSSI Calibration */
++static void b43_nphy_restore_rssi_cal(struct b43_wldev *dev)
+  {
+  	//TODO
+  }
+@@ -536,9 +551,17 @@ int b43_phy_initn(struct b43_wldev *dev)
+
+  	do_rssi_cal = false;
+  	if (phy-&gt;rev &gt;= 3) {
+-		//TODO
++		if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)
++			do_rssi_cal = (nphy-&gt;rssical_chanspec_2G == 0);
++		else
++			do_rssi_cal = (nphy-&gt;rssical_chanspec_5G == 0);
++
++		if (do_rssi_cal)
++			b43_nphy_rssi_cal(dev);
++		else
++			b43_nphy_restore_rssi_cal(dev);
+  	} else {
+-		//TODO
++		b43_nphy_rssi_cal(dev);
+  	}
+
+  	if (!((nphy-&gt;measure_hold &amp; 0x6) != 0)) {
+-- 
+1.6.4.2
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: 0002-b43-N-PHY-update-reset_cca-operation-and-add-rssi_ca.patch
+Type: application/octet-stream
+Size: 2692 bytes
+Desc: not available
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20100105/a4779a6d/attachment.obj">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20100105/a4779a6d/attachment.obj</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006646.html">[PATCH 1/2] b43: N-PHY: update TODOs in init part
+</A></li>
+	<LI>Next message: <A HREF="006649.html">b43: must set qos=0 on to connect
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6647">[ date ]</a>
+              <a href="thread.html#6647">[ thread ]</a>
+              <a href="subject.html#6647">[ subject ]</a>
+              <a href="author.html#6647">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

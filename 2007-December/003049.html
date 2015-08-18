@@ -1,0 +1,388 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Fix rfkill radio LED
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20rfkill%20radio%20LED&In-Reply-To=%3C476305ac.iFHvMMhxQ%2B7JhQxX%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003047.html">
+   <LINK REL="Next"  HREF="003053.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Fix rfkill radio LED</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20rfkill%20radio%20LED&In-Reply-To=%3C476305ac.iFHvMMhxQ%2B7JhQxX%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43legacy: Fix rfkill radio LED">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Dec 14 23:37:32 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003047.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+        <LI>Next message: <A HREF="003053.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore	to mutex
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3049">[ date ]</a>
+              <a href="thread.html#3049">[ thread ]</a>
+              <a href="subject.html#3049">[ subject ]</a>
+              <a href="author.html#3049">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From:	Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+
+This fixes Bug #9414 for b43legacy. This patch is the equivalent of one
+submitted earlier for b43.
+
+Since addition of the rfkill callback, the LED associated with the off
+switch on the radio has not worked for several reasons:
+
+(1) Essential data in the rfkill structure were missing.
+(2) The rfkill structure was initialized after the LED initialization.
+(3) There was a minor memory leak if the radio LED structure was inited.
+
+Once the above problems were fixed, additional difficulties were noted:
+
+(4) The radio LED was in the wrong state at startup.
+(5) The radio switch had to be manipulated twice for each state change.
+(6) A circular mutex locking situation existed.
+(7) If rfkill-input is built as a module, it is not automatically loaded.
+
+This patch fixes all of the above and removes a couple of sparse warnings.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: wireless-2.6/drivers/net/wireless/b43legacy/rfkill.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/rfkill.c
++++ wireless-2.6/drivers/net/wireless/b43legacy/rfkill.c
+@@ -26,6 +26,8 @@
+ #include &quot;radio.h&quot;
+ #include &quot;b43legacy.h&quot;
+ 
++#include &lt;linux/kmod.h&gt;
++
+ 
+ /* Returns TRUE, if the radio is enabled in hardware. */
+ static bool b43legacy_is_hw_radio_enabled(struct b43legacy_wldev *dev)
+@@ -51,7 +53,10 @@ static void b43legacy_rfkill_poll(struct
+ 	bool report_change = 0;
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+-	B43legacy_WARN_ON(b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED);
++	if (unlikely(b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED)) {
++		mutex_unlock(&amp;wl-&gt;mutex);
++		return;
++	}
+ 	enabled = b43legacy_is_hw_radio_enabled(dev);
+ 	if (unlikely(enabled != dev-&gt;radio_hw_enable)) {
+ 		dev-&gt;radio_hw_enable = enabled;
+@@ -61,8 +66,12 @@ static void b43legacy_rfkill_poll(struct
+ 	}
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+-	if (unlikely(report_change))
+-		input_report_key(poll_dev-&gt;input, KEY_WLAN, enabled);
++	/* send the radio switch event to the system - note both a key press
++	 * and a release are required */
++	if (unlikely(report_change)) {
++		input_report_key(poll_dev-&gt;input, KEY_WLAN, 1);
++		input_report_key(poll_dev-&gt;input, KEY_WLAN, 0);
++	}
+ }
+ 
+ /* Called when the RFKILL toggled in software.
+@@ -71,13 +80,15 @@ static int b43legacy_rfkill_soft_toggle(
+ {
+ 	struct b43legacy_wldev *dev = data;
+ 	struct b43legacy_wl *wl = dev-&gt;wl;
+-	int err = 0;
++	int err = -EBUSY;
+ 
+ 	if (!wl-&gt;rfkill.registered)
+ 		return 0;
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+-	B43legacy_WARN_ON(b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED);
++	if (b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED)
++		goto out_unlock;
++	err = 0;
+ 	switch (state) {
+ 	case RFKILL_STATE_ON:
+ 		if (!dev-&gt;radio_hw_enable) {
+@@ -103,11 +114,11 @@ out_unlock:
+ 
+ char * b43legacy_rfkill_led_name(struct b43legacy_wldev *dev)
+ {
+-	struct b43legacy_wl *wl = dev-&gt;wl;
++	struct b43legacy_rfkill *rfk = &amp;(dev-&gt;wl-&gt;rfkill);
+ 
+-	if (!wl-&gt;rfkill.rfkill)
++	if (!rfk-&gt;registered)
+ 		return NULL;
+-	return rfkill_get_led_name(wl-&gt;rfkill.rfkill);
++	return rfkill_get_led_name(rfk-&gt;rfkill);
+ }
+ 
+ void b43legacy_rfkill_init(struct b43legacy_wldev *dev)
+@@ -116,53 +127,13 @@ void b43legacy_rfkill_init(struct b43leg
+ 	struct b43legacy_rfkill *rfk = &amp;(wl-&gt;rfkill);
+ 	int err;
+ 
+-	if (rfk-&gt;rfkill) {
+-		err = rfkill_register(rfk-&gt;rfkill);
+-		if (err) {
+-			b43legacywarn(wl, &quot;Failed to register RF-kill button\n&quot;);
+-			goto err_free_rfk;
+-		}
+-	}
+-	if (rfk-&gt;poll_dev) {
+-		err = input_register_polled_device(rfk-&gt;poll_dev);
+-		if (err) {
+-			b43legacywarn(wl, &quot;Failed to register RF-kill polldev\n&quot;);
+-			goto err_free_polldev;
+-		}
+-	}
+-
+-	return;
+-err_free_rfk:
+-	rfkill_free(rfk-&gt;rfkill);
+-	rfk-&gt;rfkill = NULL;
+-err_free_polldev:
+-	input_free_polled_device(rfk-&gt;poll_dev);
+-	rfk-&gt;poll_dev = NULL;
+-}
+-
+-void b43legacy_rfkill_exit(struct b43legacy_wldev *dev)
+-{
+-	struct b43legacy_rfkill *rfk = &amp;(dev-&gt;wl-&gt;rfkill);
+-
+-	if (rfk-&gt;poll_dev)
+-		input_unregister_polled_device(rfk-&gt;poll_dev);
+-	if (rfk-&gt;rfkill)
+-		rfkill_unregister(rfk-&gt;rfkill);
+-}
+-
+-void b43legacy_rfkill_alloc(struct b43legacy_wldev *dev)
+-{
+-	struct b43legacy_wl *wl = dev-&gt;wl;
+-	struct b43legacy_rfkill *rfk = &amp;(wl-&gt;rfkill);
++	rfk-&gt;registered = 0;
+ 
++	rfk-&gt;rfkill = rfkill_allocate(dev-&gt;dev-&gt;dev, RFKILL_TYPE_WLAN);
++	if (!rfk-&gt;rfkill)
++		goto out_error;
+ 	snprintf(rfk-&gt;name, sizeof(rfk-&gt;name),
+ 		 &quot;b43legacy-%s&quot;, wiphy_name(wl-&gt;hw-&gt;wiphy));
+-
+-	rfk-&gt;rfkill = rfkill_allocate(dev-&gt;dev-&gt;dev, RFKILL_TYPE_WLAN);
+-	if (!rfk-&gt;rfkill) {
+-		b43legacywarn(wl, &quot;Failed to allocate RF-kill button\n&quot;);
+-		return;
+-	}
+ 	rfk-&gt;rfkill-&gt;name = rfk-&gt;name;
+ 	rfk-&gt;rfkill-&gt;state = RFKILL_STATE_ON;
+ 	rfk-&gt;rfkill-&gt;data = dev;
+@@ -170,20 +141,64 @@ void b43legacy_rfkill_alloc(struct b43le
+ 	rfk-&gt;rfkill-&gt;user_claim_unsupported = 1;
+ 
+ 	rfk-&gt;poll_dev = input_allocate_polled_device();
+-	if (rfk-&gt;poll_dev) {
+-		rfk-&gt;poll_dev-&gt;private = dev;
+-		rfk-&gt;poll_dev-&gt;poll = b43legacy_rfkill_poll;
+-		rfk-&gt;poll_dev-&gt;poll_interval = 1000; /* msecs */
+-	} else
+-		b43legacywarn(wl, &quot;Failed to allocate RF-kill polldev\n&quot;);
++	if (!rfk-&gt;poll_dev)
++		goto err_free_rfk;
++	rfk-&gt;poll_dev-&gt;private = dev;
++	rfk-&gt;poll_dev-&gt;poll = b43legacy_rfkill_poll;
++	rfk-&gt;poll_dev-&gt;poll_interval = 1000; /* msecs */
++
++	rfk-&gt;poll_dev-&gt;input-&gt;name = rfk-&gt;name;
++	rfk-&gt;poll_dev-&gt;input-&gt;id.bustype = BUS_HOST;
++	rfk-&gt;poll_dev-&gt;input-&gt;id.vendor = dev-&gt;dev-&gt;bus-&gt;boardinfo.vendor;
++	rfk-&gt;poll_dev-&gt;input-&gt;evbit[0] = BIT(EV_KEY);
++	set_bit(KEY_WLAN, rfk-&gt;poll_dev-&gt;input-&gt;keybit);
++
++	err = rfkill_register(rfk-&gt;rfkill);
++	if (err)
++		goto err_free_polldev;
++
++#ifdef CONFIG_RFKILL_INPUT_MODULE
++	/* B43legacy RF-kill isn't useful without the rfkill-input subsystem.
++	 * Try to load the module. */
++	err = request_module(&quot;rfkill-input&quot;);
++	if (err)
++		b43legacywarn(wl, &quot;Failed to load the rfkill-input module. &quot;
++			&quot;The built-in radio LED will not work.\n&quot;);
++#endif /* CONFIG_RFKILL_INPUT */
++
++	err = input_register_polled_device(rfk-&gt;poll_dev);
++	if (err)
++		goto err_unreg_rfk;
++
++	rfk-&gt;registered = 1;
++
++	return;
++err_unreg_rfk:
++	rfkill_unregister(rfk-&gt;rfkill);
++err_free_polldev:
++	input_free_polled_device(rfk-&gt;poll_dev);
++	rfk-&gt;poll_dev = NULL;
++err_free_rfk:
++	rfkill_free(rfk-&gt;rfkill);
++	rfk-&gt;rfkill = NULL;
++out_error:
++	rfk-&gt;registered = 0;
++	b43legacywarn(wl, &quot;RF-kill button init failed\n&quot;);
+ }
+ 
+-void b43legacy_rfkill_free(struct b43legacy_wldev *dev)
++void b43legacy_rfkill_exit(struct b43legacy_wldev *dev)
+ {
+ 	struct b43legacy_rfkill *rfk = &amp;(dev-&gt;wl-&gt;rfkill);
+ 
++	if (!rfk-&gt;registered)
++		return;
++	rfk-&gt;registered = 0;
++
++	input_unregister_polled_device(rfk-&gt;poll_dev);
++	rfkill_unregister(rfk-&gt;rfkill);
+ 	input_free_polled_device(rfk-&gt;poll_dev);
+ 	rfk-&gt;poll_dev = NULL;
+ 	rfkill_free(rfk-&gt;rfkill);
+ 	rfk-&gt;rfkill = NULL;
+ }
++
+Index: wireless-2.6/drivers/net/wireless/b43legacy/leds.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/leds.c
++++ wireless-2.6/drivers/net/wireless/b43legacy/leds.c
+@@ -165,6 +165,9 @@ static void b43legacy_map_led(struct b43
+ 		b43legacy_register_led(dev, &amp;dev-&gt;led_radio, name,
+ 				 b43legacy_rfkill_led_name(dev),
+ 				 led_index, activelow);
++		/* Sync the RF-kill LED state with the switch state. */
++		if (dev-&gt;radio_hw_enable)
++			b43legacy_led_turn_on(dev, led_index, activelow);
+ 		break;
+ 	case B43legacy_LED_WEIRD:
+ 	case B43legacy_LED_ASSOC:
+@@ -234,4 +237,5 @@ void b43legacy_leds_exit(struct b43legac
+ 	b43legacy_unregister_led(&amp;dev-&gt;led_tx);
+ 	b43legacy_unregister_led(&amp;dev-&gt;led_rx);
+ 	b43legacy_unregister_led(&amp;dev-&gt;led_assoc);
++	b43legacy_unregister_led(&amp;dev-&gt;led_radio);
+ }
+Index: wireless-2.6/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-2.6/drivers/net/wireless/b43legacy/main.c
+@@ -1999,7 +1999,6 @@ static void b43legacy_mgmtframe_txantenn
+ static void b43legacy_chip_exit(struct b43legacy_wldev *dev)
+ {
+ 	b43legacy_radio_turn_off(dev, 1);
+-	b43legacy_leds_exit(dev);
+ 	b43legacy_gpio_cleanup(dev);
+ 	/* firmware is released later */
+ }
+@@ -2029,11 +2028,10 @@ static int b43legacy_chip_init(struct b4
+ 	err = b43legacy_gpio_init(dev);
+ 	if (err)
+ 		goto out; /* firmware is released later */
+-	b43legacy_leds_init(dev);
+ 
+ 	err = b43legacy_upload_initvals(dev);
+ 	if (err)
+-		goto err_leds_exit;
++		goto err_gpio_clean;
+ 	b43legacy_radio_turn_on(dev);
+ 
+ 	b43legacy_write16(dev, 0x03E6, 0x0000);
+@@ -2115,8 +2113,7 @@ out:
+ 
+ err_radio_off:
+ 	b43legacy_radio_turn_off(dev, 1);
+-err_leds_exit:
+-	b43legacy_leds_exit(dev);
++err_gpio_clean:
+ 	b43legacy_gpio_cleanup(dev);
+ 	goto out;
+ }
+@@ -2973,10 +2970,7 @@ static void b43legacy_wireless_core_exit
+ 	cancel_work_sync(&amp;dev-&gt;restart_work);
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 
+-	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
+-	b43legacy_rfkill_exit(dev);
+-	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+-
++	b43legacy_leds_exit(dev);
+ 	b43legacy_rng_exit(dev-&gt;wl);
+ 	b43legacy_pio_free(dev);
+ 	b43legacy_dma_free(dev);
+@@ -3142,11 +3136,11 @@ static int b43legacy_wireless_core_init(
+ 	memset(wl-&gt;mac_addr, 0, ETH_ALEN);
+ 	b43legacy_upload_card_macaddress(dev);
+ 	b43legacy_security_init(dev);
+-	b43legacy_rfkill_init(dev);
+ 	b43legacy_rng_init(wl);
+ 
+ 	b43legacy_set_status(dev, B43legacy_STAT_INITIALIZED);
+ 
++	b43legacy_leds_init(dev);
+ out:
+ 	return err;
+ 
+@@ -3235,6 +3229,10 @@ static int b43legacy_op_start(struct iee
+ 	int did_init = 0;
+ 	int err = 0;
+ 
++	/* First register RFkill.
++	 * LEDs that are registered later depend on it. */
++	b43legacy_rfkill_init(dev);
++
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 
+ 	if (b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED) {
+@@ -3264,6 +3262,8 @@ static void b43legacy_op_stop(struct iee
+ 	struct b43legacy_wl *wl = hw_to_b43legacy_wl(hw);
+ 	struct b43legacy_wldev *dev = wl-&gt;current_dev;
+ 
++	b43legacy_rfkill_exit(dev);
++
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 	if (b43legacy_status(dev) &gt;= B43legacy_STAT_STARTED)
+ 		b43legacy_wireless_core_stop(dev);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003047.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+</A></li>
+	<LI>Next message: <A HREF="003053.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore	to mutex
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3049">[ date ]</a>
+              <a href="thread.html#3049">[ thread ]</a>
+              <a href="subject.html#3049">[ subject ]</a>
+              <a href="author.html#3049">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

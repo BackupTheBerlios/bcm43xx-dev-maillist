@@ -1,0 +1,139 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 kills my kernel
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20kills%20my%20kernel&In-Reply-To=%3C4B04308C.2060307%40snafu.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006386.html">
+   <LINK REL="Next"  HREF="006388.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 kills my kernel</H1>
+    <B>Oncaphillis</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20kills%20my%20kernel&In-Reply-To=%3C4B04308C.2060307%40snafu.de%3E"
+       TITLE="b43 kills my kernel">oncaphillis at snafu.de
+       </A><BR>
+    <I>Wed Nov 18 18:36:12 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006386.html">b43 kills my kernel
+</A></li>
+        <LI>Next message: <A HREF="006388.html">b43 kills my kernel
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6387">[ date ]</a>
+              <a href="thread.html#6387">[ thread ]</a>
+              <a href="subject.html#6387">[ subject ]</a>
+              <a href="author.html#6387">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 11/18/2009 06:15 PM, Larry Finger wrote:
+&gt;<i> On 11/18/2009 08:34 AM, Oncaphillis wrote:
+</I>&gt;<i>    
+</I>&gt;&gt;<i> The first ioread16 actually succeeds, only the second one fails.
+</I>&gt;&gt;<i> My lspci -vnn tells me that the memory is:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Memory at 57100000 (64-bit, non-prefetchable) [size=16K]
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Could it be that one has to make a ioread32 here since the
+</I>&gt;&gt;<i> memory is 64-bit ? I remember very very remotely that
+</I>&gt;&gt;<i> in older days it was impossible or even forbidden to read
+</I>&gt;&gt;<i> data from addresses which are not a multiple of 2/4/8 what
+</I>&gt;&gt;<i> so ever. But that was pre-PCI.
+</I>&gt;&gt;<i>      
+</I>&gt;<i> As long as a 16-bit read is aligned on an even address, it should be OK;
+</I>&gt;<i> however, to check completely, please try this patch:
+</I>&gt;<i>
+</I>&gt;<i> Index: wireless-testing/drivers/ssb/pci.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/ssb/pci.c
+</I>&gt;<i> +++ wireless-testing/drivers/ssb/pci.c
+</I>&gt;<i> @@ -251,10 +251,16 @@ static int sprom_check_crc(const u16 *sp
+</I>&gt;<i>   static int sprom_do_read(struct ssb_bus *bus, u16 *sprom)
+</I>&gt;<i>   {
+</I>&gt;<i>   	int i;
+</I>&gt;<i> +	u32 buf;
+</I>&gt;<i>
+</I>&gt;<i> -	for (i = 0; i&lt;  bus-&gt;sprom_size; i++)
+</I>&gt;<i> -		sprom[i] = ioread16(bus-&gt;mmio + SSB_SPROM_BASE + (i * 2));
+</I>&gt;<i> -
+</I>&gt;<i> +	printk(KERN_INFO &quot;ssb: Entering %s\n&quot;, __func__);
+</I>&gt;<i> +	for (i = 0; i&lt;  bus-&gt;sprom_size; i = i + 2) {
+</I>&gt;<i> +		buf = ioread32(bus-&gt;mmio + SSB_SPROM_BASE + (i * 2));
+</I>&gt;<i> +		printk(KERN_INFO &quot;ssb: Read 0x%.8X from SPROM\n&quot;, buf);
+</I>&gt;<i> +		sprom[i] = buf&amp;  0x0000FFFF;
+</I>&gt;<i> +		sprom[i+1] = (buf&gt;&gt;  16)&amp;  0x0000FFFF;
+</I>&gt;<i> +	}
+</I>&gt;<i> +	printk(KERN_INFO &quot;ssb: Leaving %s\n&quot;, __func__);
+</I>&gt;<i>   	return 0;
+</I>&gt;<i>   }
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>    
+</I>I already tried something similar. Unfortunately I can not report in detail
+  right now since I've once again killed my kernel and my acer stands at 
+home.
+  I'll give more details in a couple of hours -- but the punch line is:
+
+  (1) if I transform the series of ioread16 into a series of ioread32 
+the loop
+      runs through giving me a CRC error afterwards.
+  (2) I tried to compensate for different endianess by doing this:
+
+      u32 *my_buff = (u32 *)spromm;
+      u32 dw;
+
+	for (i = 0; i&lt;  bus-&gt;sprom_size/2; i = i++) {
+		dw = ioread32(bus-&gt;mmio + SSB_SPROM_BASE + (i * 4));
+                 my_buff[i] = (dw&lt;&lt;  16) | (dw&gt;&gt;  16);
+	}
+
+      Is there something fishy in that approach ? I'm really not a
+      hardware hacker. Still get a CRC error.
+
+  (3) My next approach was to do a initial ioread16 on the index 0. And
+      do the given loop afterwards including an output of read double words.
+      But it seems under these conditions the ioread32 fails too, since I
+      can't reach my laptop anymore.
+
+  Sebastian
+
+
+
+
+&gt;<i> Larry
+</I>&gt;<i>
+</I>&gt;<i>    
+</I>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006386.html">b43 kills my kernel
+</A></li>
+	<LI>Next message: <A HREF="006388.html">b43 kills my kernel
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6387">[ date ]</a>
+              <a href="thread.html#6387">[ thread ]</a>
+              <a href="subject.html#6387">[ subject ]</a>
+              <a href="author.html#6387">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

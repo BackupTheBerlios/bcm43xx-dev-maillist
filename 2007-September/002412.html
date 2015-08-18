@@ -1,0 +1,114 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20machine%20check%20errors%20for%20PPC%20architecture%0A%09with%20BCM4306/2&In-Reply-To=%3C200709152147.57431.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002411.html">
+   <LINK REL="Next"  HREF="002413.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20machine%20check%20errors%20for%20PPC%20architecture%0A%09with%20BCM4306/2&In-Reply-To=%3C200709152147.57431.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Sep 15 21:47:57 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002411.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+        <LI>Next message: <A HREF="002413.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2412">[ date ]</a>
+              <a href="thread.html#2412">[ thread ]</a>
+              <a href="subject.html#2412">[ subject ]</a>
+              <a href="author.html#2412">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Saturday 15 September 2007 21:12:04 Larry Finger wrote:
+&gt;<i> Michael Buesch wrote:
+</I>&gt;<i> &gt; On Saturday 15 September 2007 20:07:22 Larry Finger wrote:
+</I>&gt;<i> &gt;&gt; Your comments may be correct; however, the fact remains that with a rev 4 BCM4306, the original code
+</I>&gt;<i> &gt;&gt; generates many, many machine checks on PPC architecture, and I get reads with all ones on i386
+</I>&gt;<i> &gt;&gt; indicating that the read is invalid. These all occur before the firmware is loaded. Making the
+</I>&gt;<i> &gt;&gt; &quot;gmode&quot; bit mimic the behavior of the phy_connected variable of bcm43xx gets rid of the problems on
+</I>&gt;<i> &gt;&gt; both platforms.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Sure. But if you workaround this like that, you could
+</I>&gt;<i> &gt; as well get completely rid of the gmode bit, as you always force it on.
+</I>&gt;<i> &gt; But I think that's not what we want. The real fix is simple. See below.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt;&gt; If you can suggest a reordering of the initialization that delays PHY setup until the &quot;magic step&quot;
+</I>&gt;<i> &gt;&gt; that eliminates this problem is done on/to the ssb backplane, I will be happy to test it. I was
+</I>&gt;<i> &gt;&gt; unable to find such a solution.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; There is no reordering needed.
+</I>&gt;<i> &gt; You just need to find out why phy-&gt;gmode was not set.
+</I>&gt;<i> &gt; I think it's set based on the have_gphy and have_bphy bits.
+</I>&gt;<i> &gt; So you need to look there why one of these is not set. That is the real
+</I>&gt;<i> &gt; cause of the issue.
+</I>&gt;<i> 
+</I>&gt;<i> In the original code, have_gphy was true, and phy-&gt;gmode was set. These variables were not the cause.
+</I>&gt;<i> 
+</I>&gt;<i> In bcm43xx, the second argument to wireless_core_reset controls the value of phy-&gt;connected at exit.
+</I>&gt;<i> This behavior is missing in the original b43legacy (and in b43). For b43, it seems to have no
+</I>&gt;<i> consequence, but for the early PHYs, phy-&gt;connected controls when certain registers can be
+</I>&gt;<i> read/written and affects the program flow through the phy and radio initialization. The lack of the
+</I>&gt;<i> ability to toggle gmode is what leads to the register errors, and this is what my change restores.
+</I>&gt;<i> The name could be changed, but that seems more intrusive than necessary.
+</I>
+No, your patch doesn't restore anything. It rips out the gmode logic.
+I just want to make sure you understand what you are actually doing there.
+the old phy-&gt;connected semantics were completely broken. Forget about them.
+The problem here is, that at some point phy-&gt;gmode is not set, where
+it should be set (or the other way around).
+So it's not about renaming or something.
+
+With your patch you remove the &quot;gmode&quot; semantics, so you could
+as well remove the whole variable and always assume it's set.
+But I don't recommend to go that way. I'd suggest you find the
+place in the code where phy-&gt;gmode is not set but it should be.
+_that_ is the place where the real bug is.
+
+Just want to make sure you understand the consequences of your patch.
+You remove a feature with that.
+If that feature is really needed in legacy; that is another question.
+It's needed if you want to drive APHY devices.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002411.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+	<LI>Next message: <A HREF="002413.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2412">[ date ]</a>
+              <a href="thread.html#2412">[ thread ]</a>
+              <a href="subject.html#2412">[ subject ]</a>
+              <a href="author.html#2412">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

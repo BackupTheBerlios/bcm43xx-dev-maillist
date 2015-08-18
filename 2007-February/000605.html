@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Capture of unsuccessful ARP exchange
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Capture%20of%20unsuccessful%20ARP%20exchange&In-Reply-To=%3C1171935085.8133.42.camel%40dv%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000604.html">
+   <LINK REL="Next"  HREF="000606.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Capture of unsuccessful ARP exchange</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Capture%20of%20unsuccessful%20ARP%20exchange&In-Reply-To=%3C1171935085.8133.42.camel%40dv%3E"
+       TITLE="Capture of unsuccessful ARP exchange">proski at gnu.org
+       </A><BR>
+    <I>Tue Feb 20 02:31:25 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000604.html">bcm43xx: Ad-Hoc (IBSS) works fine
+</A></li>
+        <LI>Next message: <A HREF="000606.html">Capture of unsuccessful ARP exchange
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#605">[ date ]</a>
+              <a href="thread.html#605">[ thread ]</a>
+              <a href="subject.html#605">[ subject ]</a>
+              <a href="author.html#605">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello!
+
+As I wrote before, bcm43xx_d80211 connects quickly to an 802.11g AP only
+if it doesn't support OFDM modes (bcm43xx_g_ratetable_size changed from
+12 to 4).  Actually, association is not a problem, but no data goes
+through for several minutes.
+
+I'm attaching a capture file of an unsuccessful APR exchange following
+the association.
+
+The AP is current MadWifi, MAC address 00:0F:B5:35:73:D8.  The STA is
+current bcm43xx_d80211 from mb branch, PCIe 4312, MAC address
+00:19:7D:21:7B:50.  The capture is done by another system running
+Wireshark 0.99.5 and current MadWifi in monitor mode.
+
+
+AP broadcasts a beacon announcing that it supports rates from 1 to
+54Mbps.  The flags indicate short preamble, spectrum management and
+short slot time.
+
+STA broadcasts an ARP request at 36Mbps.  QoS field requests normal ACK.
+
+STA receives ACK at 24Mbps.
+
+STA broadcasts another ARP request, this time at 1Mbps.  It's a non-QoS
+data frame.  However, the flags indicate that it's a frame from DS not
+to DS, unlike the previous ARP request that got that part correctly!
+
+AP rends APR reply at 5.5Mbps.  QoS field requests normal ACK, which
+never arrives.
+
+AP sends another such frame with retry bit set, followed by 6 more
+frames at 1Mbps.  QoS field requests normal ACK, which never arrives.
+
+STA broadcasts an ARP request at 36Mbps.  To-DS is set correctly.  Retry
+bit is set.  QoS field requests normal ACK.
+
+STA receives ACK at 24Mbps.
+
+STA broadcasts an ARP request at 24Mbps.  To-DS is set correctly.  Retry
+bit is set.  QoS field requests normal ACK.
+
+
+Following seems wrong to me:
+
+1) STA sends some packets with From-DS instead of To-DS.  I've seen more
+than one such packet, and they are always sent at 1Mbps.
+
+2) STA doesn't send ACK to frames specifically requesting it (if I
+understand the Wireshark interpretation correctly).
+
+-- 
+Regards,
+Pavel Roskin
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: 80211g-arp
+Type: application/octet-stream
+Size: 3305 bytes
+Desc: not available
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070219/fd23878d/attachment.obj">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070219/fd23878d/attachment.obj</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000604.html">bcm43xx: Ad-Hoc (IBSS) works fine
+</A></li>
+	<LI>Next message: <A HREF="000606.html">Capture of unsuccessful ARP exchange
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#605">[ date ]</a>
+              <a href="thread.html#605">[ thread ]</a>
+              <a href="subject.html#605">[ subject ]</a>
+              <a href="author.html#605">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

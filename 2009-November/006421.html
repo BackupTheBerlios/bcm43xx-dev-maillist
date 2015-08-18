@@ -1,0 +1,156 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 kills my kernel
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20kills%20my%20kernel&In-Reply-To=%3C4B05D8DA.6030504%40snafu.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006415.html">
+   <LINK REL="Next"  HREF="006423.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 kills my kernel</H1>
+    <B>Oncaphillis</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20kills%20my%20kernel&In-Reply-To=%3C4B05D8DA.6030504%40snafu.de%3E"
+       TITLE="b43 kills my kernel">oncaphillis at snafu.de
+       </A><BR>
+    <I>Fri Nov 20 00:46:34 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006415.html">b43 kills my kernel
+</A></li>
+        <LI>Next message: <A HREF="006423.html">b43 kills my kernel
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6421">[ date ]</a>
+              <a href="thread.html#6421">[ thread ]</a>
+              <a href="subject.html#6421">[ subject ]</a>
+              <a href="author.html#6421">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 11/19/2009 06:44 PM, Michael Buesch wrote:
+&gt;<i> On Thursday 19 November 2009 16:41:12 Michael Buesch wrote:
+</I>&gt;&gt;<i> Wait, that still can't work. I'll fix it soon...
+</I>&gt;<i>
+</I>&gt;<i> Ok, here's the updated version. Please test this:
+</I>&gt;<i> <A HREF="http://bu3sch.de/patches/wireless-testing/20091119-1842/patches/002-ssb-rewrite-sprom-fallback-mechanism.patch">http://bu3sch.de/patches/wireless-testing/20091119-1842/patches/002-ssb-rewrite-sprom-fallback-mechanism.patch</A>
+</I>&gt;<i>
+</I>
+Heureka -- seems like I'm the first linux user on the planet with a
+WLAN connection on that device. The MAC address is random which
+of course is a pain for DHCP but it seems to work. Appears a little
+bit slow though.
+
+==
+
+iwconfig
+
+wlan0     IEEE 802.11bg  ESSID:&quot;xxxxxxxxxx&quot;
+           Mode:Managed  Frequency:2.462 GHz  Access Point:
+           XX:XX:XX:XX:XX:XX
+           Bit Rate=11 Mb/s   Tx-Power=27 dBm
+           Retry  long limit:7   RTS thr:off   Fragment thr:off
+           Encryption key:off
+           Power Management:off
+           Link Quality=70/70  Signal level=7 dBm
+           Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+           Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+I've x't out the access point info
+
+==
+
+ifconfig
+
+wlan0     Link encap:Ethernet  HWaddr 92:09:86:56:1D:4E
+           inet addr:192.168.XX.XX  Bcast:192.168.XX.XX
+           Mask:255.255.255.0
+           inet6 addr: xxxx::xxxx:xxxx:xxxx:xxxx/xx Scope:Link
+           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+           RX packets:3425 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:4902 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:1000
+           RX bytes:346201 (338.0 KiB)  TX bytes:6049238 (5.7 MiB)
+
+No errors reported while I'm transfering stuff via nfs
+
+==
+
+# dmesg | grep -E '(b43|ssb)'
+
+[   10.028898] b43-pci-bridge 0000:01:00.0: PCI INT A -&gt; GSI 16 (level, 
+low) -&gt; IRQ 16
+[   10.028923] b43-pci-bridge 0000:01:00.0: setting latency timer to 64
+[   10.036200] ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x16, vendor 
+0x4243)
+[   10.036220] ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x0F, 
+vendor 0x4243)
+[   10.036237] ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x0A, vendor 0x4243)
+[   10.036253] ssb: Core 3 found: PCI-E (cc 0x820, rev 0x09, vendor 0x4243)
+[   10.044137] ssb: Found rev 1 PMU (capabilities 0x02A62F01)
+[   10.044165] ssb: Overriding SPROM image
+[   10.052199] ssb: Sonics Silicon Backplane found on PCI device 
+0000:01:00.0
+[   11.892104] b43-phy0: Broadcom 4312 WLAN found (core revision 15)
+[   11.907112] b43-phy0 debug: Found PHY: Analog 6, Type 5, Revision 1
+[   11.907140] b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2062, 
+Revision 2
+[   11.946392] Registered led device: b43-phy0::tx
+[   11.946447] Registered led device: b43-phy0::rx
+[   11.946501] Registered led device: b43-phy0::radio
+[   28.361189] b43 ssb0:0: firmware: requesting b43/ucode15.fw
+[   28.389230] b43 ssb0:0: firmware: requesting b43/lp0initvals15.fw
+[   28.404838] b43 ssb0:0: firmware: requesting b43/lp0bsinitvals15.fw
+[   28.564385] b43-phy0: Loading firmware version 478.104 (2008-07-01 
+00:50:23)
+[   28.566713] b43-phy0 debug: b2062: Using crystal tab entry 19200 kHz.
+[   29.996192] b43-phy0 debug: Chip initialized
+[   29.996623] b43-phy0 debug: 64-bit DMA initialized
+[   29.996740] b43-phy0 debug: QoS enabled
+[   30.006234] b43-phy0 debug: Wireless interface started
+[   30.006297] b43-phy0 debug: Adding Interface type 2
+
+==
+
+Thanks a 10^6. At least now I can hang out in bars while surfing the
+net.
+
+Sorry it took so long.
+
+I'll be happy if I can supply you with any information or patch more
+code into my kernel whenever I find the time.
+
+Cheers
+
+Sebastian
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006415.html">b43 kills my kernel
+</A></li>
+	<LI>Next message: <A HREF="006423.html">b43 kills my kernel
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6421">[ date ]</a>
+              <a href="thread.html#6421">[ thread ]</a>
+              <a href="subject.html#6421">[ subject ]</a>
+              <a href="author.html#6421">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

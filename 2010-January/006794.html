@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/5 V2] b43: N-PHY: add writing one element tables
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/5%20V2%5D%20b43%3A%20N-PHY%3A%20add%20writing%20one%20element%20tables&In-Reply-To=%3Cop.u6o9toms9lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006791.html">
+   <LINK REL="Next"  HREF="006795.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/5 V2] b43: N-PHY: add writing one element tables</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/5%20V2%5D%20b43%3A%20N-PHY%3A%20add%20writing%20one%20element%20tables&In-Reply-To=%3Cop.u6o9toms9lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 1/5 V2] b43: N-PHY: add writing one element tables">zajec5 at gmail.com
+       </A><BR>
+    <I>Mon Jan 18 00:21:17 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006791.html">[PATCH 4/4] b43: N-PHY: implement and add multi-dimensional table	reading
+</A></li>
+        <LI>Next message: <A HREF="006795.html">[PATCH 2/5 V2] b43: N-PHY: implement and add multi-dimensional table	writing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6794">[ date ]</a>
+              <a href="thread.html#6794">[ thread ]</a>
+              <a href="subject.html#6794">[ subject ]</a>
+              <a href="author.html#6794">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+V2: don't write instead of reading ;/ Thanks Michael
+---
+  drivers/net/wireless/b43/phy_n.c |   40 ++++++++++++-------------------------
+  1 files changed, 13 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 141d4ed..16f1f9b 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -808,8 +808,7 @@ static void b43_nphy_stop_playback(struct b43_wldev *dev)
+
+  	if (nphy-&gt;bb_mult_save &amp; 0x80000000) {
+  		tmp = nphy-&gt;bb_mult_save &amp; 0xFFFF;
+-		/* TODO: Write an N PHY Table with ID 15, length 1, offset 87,
+-			width 16 and data from tmp */
++		b43_ntab_write(dev, B43_NTAB16(15, 87), tmp);
+  		nphy-&gt;bb_mult_save = 0;
+  	}
+
+@@ -1486,13 +1485,11 @@ static void b43_nphy_update_tx_cal_ladder(struct b43_wldev *dev, u16 core)
+  	for (i = 0; i &lt; 18; i++) {
+  		scale = (ladder_lo[i].percent * tmp) / 100;
+  		entry = ((scale &amp; 0xFF) &lt;&lt; 8) | ladder_lo[i].g_env;
+-		/* TODO: Write an N PHY Table with ID 15, length 1,
+-			offset i, width 16, and data entry */
++		b43_ntab_write(dev, B43_NTAB16(15, i), entry);
+
+  		scale = (ladder_iq[i].percent * tmp) / 100;
+  		entry = ((scale &amp; 0xFF) &lt;&lt; 8) | ladder_iq[i].g_env;
+-		/* TODO: Write an N PHY Table with ID 15, length 1,
+-			offset i + 32, width 16, and data entry */
++		b43_ntab_write(dev, B43_NTAB16(15, i + 32), entry);
+  	}
+  }
+
+@@ -1590,10 +1587,8 @@ static void b43_nphy_tx_cal_phy_cleanup(struct b43_wldev *dev)
+  		b43_phy_write(dev, B43_NPHY_AFECTL_OVER1, regs[2]);
+  		b43_phy_write(dev, B43_NPHY_AFECTL_OVER, regs[3]);
+  		b43_phy_write(dev, B43_NPHY_BBCFG, regs[4]);
+-		/* TODO: Write an N PHY Table with ID 8, length 1, offset 3,
+-			width 16, and data from regs[5] */
+-		/* TODO: Write an N PHY Table with ID 8, length 1, offset 19,
+-			width 16, and data from regs[6] */
++		b43_ntab_write(dev, B43_NTAB16(8, 3), regs[5]);
++		b43_ntab_write(dev, B43_NTAB16(8, 19), regs[6]);
+  		b43_phy_write(dev, B43_NPHY_RFCTL_INTC1, regs[7]);
+  		b43_phy_write(dev, B43_NPHY_RFCTL_INTC2, regs[8]);
+  		b43_phy_write(dev, B43_NPHY_PAPD_EN0, regs[9]);
+@@ -1603,10 +1598,8 @@ static void b43_nphy_tx_cal_phy_cleanup(struct b43_wldev *dev)
+  		b43_phy_maskset(dev, B43_NPHY_AFECTL_C1, 0x0FFF, regs[0]);
+  		b43_phy_maskset(dev, B43_NPHY_AFECTL_C2, 0x0FFF, regs[1]);
+  		b43_phy_write(dev, B43_NPHY_AFECTL_OVER, regs[2]);
+-		/* TODO: Write an N PHY Table with ID 8, length 1, offset 2,
+-			width 16, and data from regs[3] */
+-		/* TODO: Write an N PHY Table with ID 8, length 1, offset 18,
+-			width 16, and data from regs[4] */
++		b43_ntab_write(dev, B43_NTAB16(8, 2), regs[3]);
++		b43_ntab_write(dev, B43_NTAB16(8, 18), regs[4]);
+  		b43_phy_write(dev, B43_NPHY_RFCTL_INTC1, regs[5]);
+  		b43_phy_write(dev, B43_NPHY_RFCTL_INTC2, regs[6]);
+  	}
+@@ -1638,15 +1631,11 @@ static void b43_nphy_tx_cal_phy_setup(struct b43_wldev *dev)
+  		/* TODO: Read an N PHY Table with ID 8, length 1, offset 3,
+  			width 16, and data pointing to tmp */
+  		regs[5] = tmp;
+-
+-		/* TODO: Write an N PHY Table with ID 8, length 1, offset 3,
+-			width 16, and data 0 */
++		b43_ntab_write(dev, B43_NTAB16(8, 3), 0);
+  		/* TODO: Read an N PHY Table with ID 8, length 1, offset 19,
+  			width 16, and data pointing to tmp */
+  		regs[6] = tmp;
+-
+-		/* TODO: Write an N PHY Table with ID 8, length 1, offset 19,
+-			width 16, and data 0 */
++		b43_ntab_write(dev, B43_NTAB16(8, 19), 0);
+  		regs[7] = b43_phy_read(dev, B43_NPHY_RFCTL_INTC1);
+  		regs[8] = b43_phy_read(dev, B43_NPHY_RFCTL_INTC2);
+
+@@ -1668,14 +1657,12 @@ static void b43_nphy_tx_cal_phy_setup(struct b43_wldev *dev)
+  			width 16, and data pointing to tmp */
+  		regs[3] = tmp;
+  		tmp |= 0x2000;
+-		/* TODO: Write an N PHY Table with ID 8, length 1, offset 2,
+-			width 16, and data pointer tmp */
++		b43_ntab_write(dev, B43_NTAB16(8, 2), tmp);
+  		/* TODO: Read an N PHY Table with ID 8, length 1, offset 18,
+  			width 16, and data pointer tmp */
+  		regs[4] = tmp;
+  		tmp |= 0x2000;
+-		/* TODO: Write an N PHY Table with ID 8, length 1, offset 18,
+-			width 16, and data pointer tmp */
++		b43_ntab_write(dev, B43_NTAB16(8, 18), tmp);
+  		regs[5] = b43_phy_read(dev, B43_NPHY_RFCTL_INTC1);
+  		regs[6] = b43_phy_read(dev, B43_NPHY_RFCTL_INTC2);
+  		if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ)
+@@ -1900,9 +1887,8 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev *dev,
+  					width 16, and data pointer buffer */
+  				diq_start = buffer[0];
+  				buffer[0] = 0;
+-				/* TODO: Write an N PHY Table with ID 15,
+-					length 1, offset 69 + core, width 16,
+-					and data of 0 */
++				b43_ntab_write(dev, B43_NTAB16(15, 69 + core),
++						0);
+  			}
+
+  			b43_phy_write(dev, B43_NPHY_IQLOCAL_CMD, cmd);
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006791.html">[PATCH 4/4] b43: N-PHY: implement and add multi-dimensional table	reading
+</A></li>
+	<LI>Next message: <A HREF="006795.html">[PATCH 2/5 V2] b43: N-PHY: implement and add multi-dimensional table	writing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6794">[ date ]</a>
+              <a href="thread.html#6794">[ thread ]</a>
+              <a href="subject.html#6794">[ subject ]</a>
+              <a href="author.html#6794">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix rfkill callback deadlock
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20rfkill%20callback%20deadlock&In-Reply-To=%3CBAY128-W1964444D925BF962CC6A2E86920%40phx.gbl%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002633.html">
+   <LINK REL="Next"  HREF="002638.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix rfkill callback deadlock</H1>
+    <B>David Ellingsworth</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20rfkill%20callback%20deadlock&In-Reply-To=%3CBAY128-W1964444D925BF962CC6A2E86920%40phx.gbl%3E"
+       TITLE="[PATCH] b43: Fix rfkill callback deadlock">identd_ at hotmail.com
+       </A><BR>
+    <I>Tue Oct 30 02:58:00 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002633.html">Kubuntu on an Acer
+</A></li>
+        <LI>Next message: <A HREF="002638.html">[PATCH] b43: Fix rfkill callback deadlock
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2637">[ date ]</a>
+              <a href="thread.html#2637">[ thread ]</a>
+              <a href="subject.html#2637">[ subject ]</a>
+              <a href="author.html#2637">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+Forgot to send to list
+
+&gt;<i> From: <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">identd_ at hotmail.com</A>
+</I>&gt;<i> To: <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>
+</I>&gt;<i> Subject: RE: [PATCH] b43: Fix rfkill callback deadlock
+</I>&gt;<i> Date: Mon, 29 Oct 2007 21:56:51 -0400
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> &gt; From: <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>
+</I>&gt;<i> &gt; To: <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">bcm43xx-dev at lists.berlios.de</A>; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">david at identd.dyndns.org</A>
+</I>&gt;<i> &gt; Subject: Re: [PATCH] b43: Fix rfkill callback deadlock
+</I>&gt;<i> &gt; Date: Mon, 29 Oct 2007 01:16:05 +0100
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; On Monday 29 October 2007 01:06:51 David Ellingsworth wrote:
+</I>&gt;<i> &gt;&gt;&gt; - mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;<i> &gt;&gt;&gt; + /* When RFKILL is registered, it will call back into this callback.
+</I>&gt;<i> &gt;&gt;&gt; + * wl-&gt;mutex will already be locked when this happens.
+</I>&gt;<i> &gt;&gt;&gt; + * So first trylock. On contention check if we are in initialization.
+</I>&gt;<i> &gt;&gt;&gt; + * Silently return if that happens to avoid a deadlock. */
+</I>&gt;<i> &gt;&gt;&gt; + if (mutex_trylock(&amp;wl-&gt;mutex) == 0) {
+</I>&gt;<i> &gt;&gt;&gt; + if (b43_status(dev) &lt; B43_STAT_INITIALIZED)
+</I>&gt;<i> &gt;&gt;&gt; + return 0;
+</I>&gt;<i> &gt;&gt;&gt; + mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;<i> &gt;&gt;&gt; + }
+</I>&gt;<i> &gt;&gt;&gt; if (b43_status(dev) &lt; B43_STAT_INITIALIZED)
+</I>&gt;<i> &gt;&gt;&gt; goto out_unlock;
+</I>&gt;<i> &gt;&gt; Why not replace everything above up to and including the '- mutex_lock(&amp;wl-&gt;mutex); with:
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; if(b43_status(dev) &lt; B43_STAT_INITIALIZED)
+</I>&gt;<i> &gt;&gt; return 0;
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; because the status should be queried under lock, of course.
+</I>&gt;<i> 
+</I>&gt;<i> If that is the case, then a proper fix would be to use two locks to protect access to the status. One for allowing read access when no one is writing, and another for allowing exclusive write access. In such a configuration you could allow multiple readers while having only one writer. The above fix is not proper since the lock obtained by another section of code could be released before or during the status check.
+</I>&gt;<i> 
+</I>&gt;<i> Regards,
+</I>&gt;<i> 
+</I>&gt;<i> David Ellingsworth
+</I>&gt;<i> _________________________________________________________________
+</I>&gt;<i> Peek-a-boo FREE Tricks &amp; Treats for You!
+</I>&gt;<i> <A HREF="http://www.reallivemoms.com?ocid=TXT_TAGHM&amp;loc=us">http://www.reallivemoms.com?ocid=TXT_TAGHM&amp;loc=us</A>
+</I>
+_________________________________________________________________
+Windows Live Hotmail and Microsoft Office Outlook &#8211; together at last. &#160;Get it now.
+<A HREF="http://office.microsoft.com/en-us/outlook/HA102225181033.aspx?pid=CL100626971033">http://office.microsoft.com/en-us/outlook/HA102225181033.aspx?pid=CL100626971033</A>
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20071029/f843da81/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20071029/f843da81/attachment.html</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002633.html">Kubuntu on an Acer
+</A></li>
+	<LI>Next message: <A HREF="002638.html">[PATCH] b43: Fix rfkill callback deadlock
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2637">[ date ]</a>
+              <a href="thread.html#2637">[ thread ]</a>
+              <a href="subject.html#2637">[ subject ]</a>
+              <a href="author.html#2637">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

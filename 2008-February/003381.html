@@ -1,0 +1,162 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add driver load messages
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20driver%20load%20messages&In-Reply-To=%3C200802090018.35592.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003379.html">
+   <LINK REL="Next"  HREF="003385.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add driver load messages</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20driver%20load%20messages&In-Reply-To=%3C200802090018.35592.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add driver load messages">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Feb  9 00:18:35 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003379.html">Problems with BCM4306
+</A></li>
+        <LI>Next message: <A HREF="003385.html">[PATCH] b43: Add driver load messages
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3381">[ date ]</a>
+              <a href="thread.html#3381">[ thread ]</a>
+              <a href="subject.html#3381">[ subject ]</a>
+              <a href="author.html#3381">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds printk messages with basic information about the driver being loaded.
+This information includes a summary of the compiled-in features, which
+simplifies bug-reporting and debugging a lot.
+Also a firmware ID is printed. This is a unique identifier blob for a specific
+version of the firmware. This ID is attached to a specific version of the firmware
+blob in b43-fwcutter (see fwcutter git).
+This helps users to select the right firmware for their device.
+This also makes it possible to use automated scripts to fetch and extract the right
+firmware for the driver. (the script will grep the .ko for the &quot;Firmware-ID: xxx&quot; string.
+While the driver might still support other versions of the firmware for backward
+compatibility, this will always print out the officially supported version, which
+people _should_ use.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, as this has a negative chance of introducing regressions, I'd like
+to have it in 2.6.25, even if it's not strictly a bugfix.
+Stefano, we should port this to legacy. See fwcutter git for the ID I assigned
+to the legacy firmware blob.
+
+Index: wireless-2.6/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/b43.h	2008-02-08 23:28:23.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/b43.h	2008-02-09 00:05:57.000000000 +0100
+@@ -11,12 +11,18 @@
+ #include &quot;debugfs.h&quot;
+ #include &quot;leds.h&quot;
+ #include &quot;rfkill.h&quot;
+ #include &quot;lo.h&quot;
+ #include &quot;phy.h&quot;
+ 
++
++/* The unique identifier of the firmware that's officially supported by
++ * this driver version. */
++#define B43_SUPPORTED_FIRMWARE_ID	&quot;FW13&quot;
++
++
+ #ifdef CONFIG_B43_DEBUG
+ # define B43_DEBUG	1
+ #else
+ # define B43_DEBUG	0
+ #endif
+ 
+Index: wireless-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/main.c	2008-02-08 23:28:23.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/main.c	2008-02-09 00:17:12.000000000 +0100
+@@ -4190,23 +4190,51 @@ static struct ssb_driver b43_ssb_driver 
+ 	.probe		= b43_probe,
+ 	.remove		= b43_remove,
+ 	.suspend	= b43_suspend,
+ 	.resume		= b43_resume,
+ };
+ 
++static void b43_print_driverinfo(void)
++{
++	const char *feat_pci = &quot;&quot;, *feat_pcmcia = &quot;&quot;, *feat_nphy = &quot;&quot;,
++		   *feat_leds = &quot;&quot;, *feat_rfkill = &quot;&quot;;
++
++#ifdef CONFIG_B43_PCI_AUTOSELECT
++	feat_pci = &quot;P&quot;;
++#endif
++#ifdef CONFIG_B43_PCMCIA
++	feat_pcmcia = &quot;M&quot;;
++#endif
++#ifdef CONFIG_B43_NPHY
++	feat_nphy = &quot;N&quot;;
++#endif
++#ifdef CONFIG_B43_LEDS
++	feat_leds = &quot;L&quot;;
++#endif
++#ifdef CONFIG_B43_RFKILL
++	feat_rfkill = &quot;R&quot;;
++#endif
++	printk(KERN_INFO &quot;Broadcom 43xx driver loaded &quot;
++	       &quot;[ Features: %s%s%s%s%s, Firmware-ID: &quot;
++	       B43_SUPPORTED_FIRMWARE_ID &quot; ]\n&quot;,
++	       feat_pci, feat_pcmcia, feat_nphy,
++	       feat_leds, feat_rfkill);
++}
++
+ static int __init b43_init(void)
+ {
+ 	int err;
+ 
+ 	b43_debugfs_init();
+ 	err = b43_pcmcia_init();
+ 	if (err)
+ 		goto err_dfs_exit;
+ 	err = ssb_driver_register(&amp;b43_ssb_driver);
+ 	if (err)
+ 		goto err_pcmcia_exit;
++	b43_print_driverinfo();
+ 
+ 	return err;
+ 
+ err_pcmcia_exit:
+ 	b43_pcmcia_exit();
+ err_dfs_exit:
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003379.html">Problems with BCM4306
+</A></li>
+	<LI>Next message: <A HREF="003385.html">[PATCH] b43: Add driver load messages
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3381">[ date ]</a>
+              <a href="thread.html#3381">[ thread ]</a>
+              <a href="subject.html#3381">[ subject ]</a>
+              <a href="author.html#3381">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

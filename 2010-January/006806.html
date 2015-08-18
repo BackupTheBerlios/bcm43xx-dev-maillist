@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] How to store HT (40MHz) support
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20How%20to%20store%20HT%20%2840MHz%29%20support&In-Reply-To=%3Cop.u6s09akf9lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006808.html">
+   <LINK REL="Next"  HREF="006807.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] How to store HT (40MHz) support</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20How%20to%20store%20HT%20%2840MHz%29%20support&In-Reply-To=%3Cop.u6s09akf9lhzdc%40linux-g0th.site%3E"
+       TITLE="[RFC] How to store HT (40MHz) support">zajec5 at gmail.com
+       </A><BR>
+    <I>Wed Jan 20 01:06:37 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006808.html">[PATCH 5/5 V2] b43: N-PHY: silence warnings, add missing call
+</A></li>
+        <LI>Next message: <A HREF="006807.html">[RFC] How to store HT (40MHz) support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6806">[ date ]</a>
+              <a href="thread.html#6806">[ thread ]</a>
+              <a href="subject.html#6806">[ subject ]</a>
+              <a href="author.html#6806">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>In N-PHY code we have to make some decisions based on fact if band is 40MHz.
+
+AFAIU when registering device, driver reports to mac80211 HT capability and this is not implemented yet. For that we will need to modify:
+static struct ieee80211_supported_band b43_band_5GHz_nphy = { ... }
+
+Then mac80211 can request switching to 40MHz usage using ieee80211_ops.config (which we handle in b43_op_config).
+
+Is that correct? If so, is attached patch fine for storing 40MHz usage? We don't report HT support to mac80211 so it should not request 40MHz usage for now.
+
+
+
+
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index 9c5c7c9..641c7de 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -3571,6 +3571,9 @@ static int b43_op_config(struct ieee80211_hw *hw, u32 changed)
+  	dev = wl-&gt;current_dev;
+  	phy = &amp;dev-&gt;phy;
+
++	if (phy-&gt;supports_40mhz)
++		phy-&gt;use_40mhz = conf_is_ht(conf);
++
+  	b43_mac_suspend(dev);
+
+  	if (changed &amp; IEEE80211_CONF_CHANGE_RETRY_LIMITS)
+diff --git a/drivers/net/wireless/b43/phy_common.h b/drivers/net/wireless/b43/phy_common.h
+index 9edd4e8..62c7028 100644
+--- a/drivers/net/wireless/b43/phy_common.h
++++ b/drivers/net/wireless/b43/phy_common.h
+@@ -212,6 +212,10 @@ struct b43_phy {
+  	bool supports_2ghz;
+  	bool supports_5ghz;
+
++	/* Band width support and usage */
++	bool supports_40mhz;
++	bool use_40mhz;
++
+  	/* GMODE bit enabled? */
+  	bool gmode;
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index e77f1f2..ed8f372 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -1787,7 +1787,7 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev *dev,
+
+  	b43_phy_write(dev, B43_NPHY_IQLOCAL_CMDGCTL, 0x8AA9);
+
+-	if (1 /* FIXME: the band width is 20 MHz */)
++	if (!dev-&gt;phy.use_40mhz)
+  		freq = 2500;
+  	else
+  		freq = 5000;
+
+
+
+
+-- 
+Rafa&#322;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006808.html">[PATCH 5/5 V2] b43: N-PHY: silence warnings, add missing call
+</A></li>
+	<LI>Next message: <A HREF="006807.html">[RFC] How to store HT (40MHz) support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6806">[ date ]</a>
+              <a href="thread.html#6806">[ thread ]</a>
+              <a href="subject.html#6806">[ subject ]</a>
+              <a href="author.html#6806">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

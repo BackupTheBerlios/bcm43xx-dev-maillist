@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] mac80211: fix software decryption with b43legacy
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20mac80211%3A%20fix%20software%20decryption%20with%20b43legacy&In-Reply-To=%3C1187611793.6090.102.camel%40johannes.berg%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002135.html">
+   <LINK REL="Next"  HREF="002138.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] mac80211: fix software decryption with b43legacy</H1>
+    <B>Johannes Berg</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20mac80211%3A%20fix%20software%20decryption%20with%20b43legacy&In-Reply-To=%3C1187611793.6090.102.camel%40johannes.berg%3E"
+       TITLE="[RFC] mac80211: fix software decryption with b43legacy">johannes at sipsolutions.net
+       </A><BR>
+    <I>Mon Aug 20 14:09:53 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002135.html">[RFC] mac80211: fix software decryption with b43legacy
+</A></li>
+        <LI>Next message: <A HREF="002138.html">[RFC] mac80211: fix software decryption with b43legacy
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2137">[ date ]</a>
+              <a href="thread.html#2137">[ thread ]</a>
+              <a href="subject.html#2137">[ subject ]</a>
+              <a href="author.html#2137">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sat, 2007-08-18 at 15:13 -0500, Larry Finger wrote:
+
+&gt;<i> The rest of the call trace is available if needed. The crash occurred when ieee80211_key_free was
+</I>&gt;<i> trying to unlock the mutex key_idx. I added printk's to dump the pointer to sdata at the point where 
+</I>&gt;<i> that mutex is initialized and where the key is freed. The mutex that errs was inited.
+</I>
+Ho humm, yes, I'm dumb, patch below but I'll fold it into my key patch.
+Sorry about that, classic use-after-free condition here.
+
+johannes
+
+--- wireless-dev.orig/net/mac80211/key.c	2007-08-20 14:07:43.165963896 +0200
++++ wireless-dev/net/mac80211/key.c	2007-08-20 14:08:04.265963896 +0200
+@@ -255,12 +255,16 @@ static void __ieee80211_key_free(struct 
+ 
+ void ieee80211_key_free(struct ieee80211_key *key)
+ {
++	struct ieee80211_sub_if_data *sdata;
++
+ 	if (!key)
+ 		return;
+ 
+-	mutex_lock(&amp;key-&gt;sdata-&gt;key_mtx);
++	sdata = key-&gt;sdata;
++
++	mutex_lock(&amp;sdata-&gt;key_mtx);
+ 	__ieee80211_key_free(key);
+-	mutex_unlock(&amp;key-&gt;sdata-&gt;key_mtx);
++	mutex_unlock(&amp;sdata-&gt;key_mtx);
+ }
+ 
+ void ieee80211_set_default_key(struct ieee80211_sub_if_data *sdata, int idx)
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002135.html">[RFC] mac80211: fix software decryption with b43legacy
+</A></li>
+	<LI>Next message: <A HREF="002138.html">[RFC] mac80211: fix software decryption with b43legacy
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2137">[ date ]</a>
+              <a href="thread.html#2137">[ thread ]</a>
+              <a href="subject.html#2137">[ subject ]</a>
+              <a href="author.html#2137">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: fix shared IRQ race condition
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20fix%20shared%20IRQ%20race%20condition&In-Reply-To=%3C200711071831.10562.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002681.html">
+   <LINK REL="Next"  HREF="002682.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: fix shared IRQ race condition</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20fix%20shared%20IRQ%20race%20condition&In-Reply-To=%3C200711071831.10562.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: fix shared IRQ race condition">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Nov  7 18:31:10 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002681.html">[PATCH] b43: fix shared IRQ race condition
+</A></li>
+        <LI>Next message: <A HREF="002682.html">BCM94311MCG
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2683">[ date ]</a>
+              <a href="thread.html#2683">[ thread ]</a>
+              <a href="subject.html#2683">[ subject ]</a>
+              <a href="author.html#2683">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Wednesday 07 November 2007 18:16:11 Stefano Brivio wrote:
+&gt;<i> Fix an IRQ race condition in b43. If we call b43_stop_wireless_core(), it
+</I>&gt;<i> will set the status of the device to INITIALIZED and the IRQ handler won't
+</I>&gt;<i> care any longer about IRQs, thus the kernel will disable the IRQ if it's
+</I>&gt;<i> shared (unless we boot it with the 'irqpoll' option). So we must disable
+</I>&gt;<i> IRQs before changing the device status.
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+</I>&gt;<i> 
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i> --- wireless-2.6/drivers/net/wireless/b43/main.c.orig	2007-11-07 17:55:30.553591943 +0100
+</I>&gt;<i> +++ wireless-2.6/drivers/net/wireless/b43/main.c	2007-11-07 17:59:23.356020048 +0100
+</I>&gt;<i> @@ -2979,6 +2979,16 @@
+</I>&gt;<i>  
+</I>&gt;<i>  	if (b43_status(dev) &lt; B43_STAT_STARTED)
+</I>&gt;<i>  		return;
+</I>&gt;<i> +
+</I>&gt;<i> +	/* Disable and sync interrupts. We must do this before than
+</I>&gt;<i> +	 * setting the status to INITIALIZED, as the interrupt handler
+</I>&gt;<i> +	 * won't care about IRQs then. */
+</I>&gt;<i> +	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+</I>&gt;<i> +	dev-&gt;irq_savedstate = b43_interrupt_disable(dev, B43_IRQ_ALL);
+</I>&gt;<i> +	b43_read32(dev, B43_MMIO_GEN_IRQ_MASK);	/* flush */
+</I>&gt;<i> +	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+</I>&gt;<i> +	b43_synchronize_irq(dev);
+</I>&gt;<i> +
+</I>&gt;<i>  	b43_set_status(dev, B43_STAT_INITIALIZED);
+</I>&gt;<i>  
+</I>&gt;<i>  	mutex_unlock(&amp;wl-&gt;mutex);
+</I>&gt;<i> @@ -2989,13 +2999,6 @@
+</I>&gt;<i>  
+</I>&gt;<i>  	ieee80211_stop_queues(wl-&gt;hw);	//FIXME this could cause a deadlock, as mac80211 seems buggy.
+</I>&gt;<i>  
+</I>&gt;<i> -	/* Disable and sync interrupts. */
+</I>&gt;<i> -	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+</I>&gt;<i> -	dev-&gt;irq_savedstate = b43_interrupt_disable(dev, B43_IRQ_ALL);
+</I>&gt;<i> -	b43_read32(dev, B43_MMIO_GEN_IRQ_MASK);	/* flush */
+</I>&gt;<i> -	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+</I>&gt;<i> -	b43_synchronize_irq(dev);
+</I>&gt;<i> -
+</I>&gt;<i>  	b43_mac_suspend(dev);
+</I>&gt;<i>  	free_irq(dev-&gt;dev-&gt;irq, dev);
+</I>&gt;<i>  	b43dbg(wl, &quot;Wireless interface stopped\n&quot;);
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+Acked-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002681.html">[PATCH] b43: fix shared IRQ race condition
+</A></li>
+	<LI>Next message: <A HREF="002682.html">BCM94311MCG
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2683">[ date ]</a>
+              <a href="thread.html#2683">[ thread ]</a>
+              <a href="subject.html#2683">[ subject ]</a>
+              <a href="author.html#2683">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

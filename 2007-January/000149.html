@@ -1,0 +1,123 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Can someone please try...
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Can%20someone%20please%20try...&In-Reply-To=%3C1169532880.8258.2.camel%40dv%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000148.html">
+   <LINK REL="Next"  HREF="000150.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Can someone please try...</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Can%20someone%20please%20try...&In-Reply-To=%3C1169532880.8258.2.camel%40dv%3E"
+       TITLE="Can someone please try...">proski at gnu.org
+       </A><BR>
+    <I>Tue Jan 23 07:14:40 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000148.html">Can someone please try...
+</A></li>
+        <LI>Next message: <A HREF="000150.html">Can someone please try...
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#149">[ date ]</a>
+              <a href="thread.html#149">[ thread ]</a>
+              <a href="subject.html#149">[ subject ]</a>
+              <a href="author.html#149">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Mon, 2007-01-22 at 22:00 +0100, Michael Buesch wrote: 
+&gt;<i> &gt; No more random crashes.  There is still a crash if I rmmod the driver
+</I>&gt;<i> &gt; while wlan0 is up, but it's a separate issue, and it's easy to avoid
+</I>&gt;<i> &gt; (unlike the interface going down).  I hope to look at it soon.
+</I>&gt;<i> 
+</I>&gt;<i> Did you apply that d80211 rmmod crash fix that Michael Wu posted
+</I>&gt;<i> recently. I bet it will fix your issue.
+</I>
+I have tried the patch, and it doesn't fix the problem.  It's a separate
+problem.  It happens when bcm43xx_interrupt_handler() is called on a
+device that has already been removed.  It looks like
+bcm43xx_wireless_core_stop() should be called from
+bcm43xx_one_core_detach().
+
+Unfortunately, I cannot come to a satisfactory solution yet.  If I call
+bcm43xx_wireless_core_stop() with the mutex held, the driver won't
+unload if the interface is down.  If I don't hold the mutex, it would
+happen when the interface is up.
+
+By the way, I think it's a bad idea to unlock any mutexes or other locks
+set outside the function.  The caller assumes that the lock is held
+until it (the caller) unlocks it.  Unlocking locks from other functions
+breaks this convention. 
+
+&gt;<i> &gt; I think the assert() should be replaced with a FIXME, which would not
+</I>&gt;<i> &gt; annoy end users so much.
+</I>&gt;<i> 
+</I>&gt;<i> Well, no. It's kind of: Michael, go ahead and fix that crap!
+</I>&gt;<i> So I'd like to keep it to get me to fix it. :D
+</I>
+I, for one, prefer to keep my to-do items in my to-do list, but I don't
+want to distract you with petty arguments from fixing the real problem.
+
+&gt;<i> &gt; And while at that, it would be great to 
+</I>&gt;<i> &gt; replace phy-&gt;lo_gain with four fields with descriptive names.
+</I>&gt;<i> &gt; phy-&gt;lo_gain is never used as an array.  Alternatively, you could make
+</I>&gt;<i> &gt; it a structure within bcm43xx_phy.
+</I>&gt;<i> 
+</I>&gt;<i> Yeah, one step after the other. ;)
+</I>&gt;<i> We didn't know the meanings of the values until recently. Of course
+</I>&gt;<i> I am going to rename them.
+</I>
+Great!
+
+&gt;<i> &gt; The problems with a MadWifi based AP turn out to be related to 802.11g.
+</I>&gt;<i> &gt; If the AP is configured for 802.11b only, everything is working.  If
+</I>&gt;<i> &gt; 802.11g is enabled, strange things are happening.  Judging by what's on
+</I>&gt;<i> &gt; the air, it looks like the driver loses the data frames is receives.
+</I>&gt;<i> &gt; wpa_supplicant connects instantly, but ARP and ping packets from AP to
+</I>&gt;<i> &gt; STA are lost.  The frames are even acknowledged, but not seen on the
+</I>&gt;<i> &gt; station side.  It takes from one to ten minutes util ping suddenly
+</I>&gt;<i> &gt; starts working.
+</I>&gt;<i> 
+</I>&gt;<i> Hm, is this 4318? It is known to loose lots of packets.
+</I>
+No, it's 4312.
+
+-- 
+Regards,
+Pavel Roskin
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000148.html">Can someone please try...
+</A></li>
+	<LI>Next message: <A HREF="000150.html">Can someone please try...
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#149">[ date ]</a>
+              <a href="thread.html#149">[ thread ]</a>
+              <a href="subject.html#149">[ subject ]</a>
+              <a href="author.html#149">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

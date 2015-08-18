@@ -1,0 +1,529 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43_suspend problem
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43_suspend%20problem&In-Reply-To=%3C200801200220.29640.rjw%40sisk.pl%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003255.html">
+   <LINK REL="Next"  HREF="003258.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43_suspend problem</H1>
+    <B>Rafael J. Wysocki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43_suspend%20problem&In-Reply-To=%3C200801200220.29640.rjw%40sisk.pl%3E"
+       TITLE="b43_suspend problem">rjw at sisk.pl
+       </A><BR>
+    <I>Sun Jan 20 02:20:28 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003255.html">[PATCH] b43: Add more N-PHY init code
+</A></li>
+        <LI>Next message: <A HREF="003258.html">b43_suspend problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3257">[ date ]</a>
+              <a href="thread.html#3257">[ thread ]</a>
+              <a href="subject.html#3257">[ subject ]</a>
+              <a href="author.html#3257">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday, 13 of January 2008, Alan Stern wrote:
+&gt;<i> On Sun, 13 Jan 2008, Michael Buesch wrote:
+</I>&gt;<i> 
+</I>&gt;<i> &gt; &gt; Besides, if you're going to register the device right back again during 
+</I>&gt;<i> &gt; &gt; the subsequent resume, then why go to the trouble of unregistering it 
+</I>&gt;<i> &gt; &gt; during suspend?  Why not just leave it registered the whole time and 
+</I>&gt;<i> &gt; &gt; avoid all the complication (and excess meaningless uevents)?
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Well, because not doing it complicates code :)
+</I>&gt;<i> &gt; Currently suspend/resume calls the same code as init/exit.
+</I>&gt;<i> &gt; The b43 init/exit code is really complicated, compared to other
+</I>&gt;<i> &gt; drivers, due to dozens of hardware versions. So I just avoided
+</I>&gt;<i> &gt; having yet other codepaths for suspend/resume. But I will add
+</I>&gt;<i> &gt; a flag to the device structure that's used to avoid unregistering stuff.
+</I>&gt;<i> 
+</I>&gt;<i> Instead of adding an extra flag you should refactor the code.  Have a
+</I>&gt;<i> common &quot;enable&quot; subroutine that can be called for both init and resume,
+</I>&gt;<i> and a common &quot;disable&quot; subroutine that can be called for both exit and
+</I>&gt;<i> suspend.  Then the method routines themselves will contain only the
+</I>&gt;<i> portions unique to their particular functions, making them shorter and
+</I>&gt;<i> simpler.
+</I>
+Well, it doesn't seem to be that easy.
+
+I tried to fix the issue myself and finally obtained the appended, apparently
+working, patch (against 2.6.24-rc8-mm1).  Well, it should have been a series
+of patches against multiple subsystems, but I thought it would be instructive
+to put everything needed into one bigger patch for starters.
+
+Greetings,
+Rafael
+
+---
+ drivers/base/power/main.c       |    1 
+ drivers/base/power/power.h      |    1 
+ drivers/char/hw_random/core.c   |   10 ++++-----
+ drivers/char/misc.c             |   13 ++++++++----
+ drivers/leds/led-class.c        |   13 ++++++++----
+ drivers/net/wireless/b43/leds.c |   17 +++++++++------
+ drivers/net/wireless/b43/leds.h |   14 +++++++++++--
+ drivers/net/wireless/b43/main.c |   43 +++++++++++++++++++++++++++++-----------
+ include/linux/device.h          |    6 +++++
+ include/linux/hw_random.h       |   10 ++++++++-
+ include/linux/leds.h            |   10 ++++++++-
+ include/linux/miscdevice.h      |   10 ++++++++-
+ 12 files changed, 111 insertions(+), 37 deletions(-)
+
+Index: linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/main.c
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/net/wireless/b43/main.c
++++ linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/main.c
+@@ -2470,10 +2470,15 @@ static int b43_rng_read(struct hwrng *rn
+ 	return (sizeof(u16));
+ }
+ 
+-static void b43_rng_exit(struct b43_wl *wl)
++static void __b43_rng_exit(struct b43_wl *wl, bool suspended)
+ {
+ 	if (wl-&gt;rng_initialized)
+-		hwrng_unregister(&amp;wl-&gt;rng);
++		__hwrng_unregister(&amp;wl-&gt;rng, suspended);
++}
++
++static void b43_rng_exit(struct b43_wl *wl)
++{
++	__b43_rng_exit(wl, false);
+ }
+ 
+ static int b43_rng_init(struct b43_wl *wl)
+@@ -3289,7 +3294,7 @@ static void b43_set_retry_limits(struct 
+ 
+ /* Shutdown a wireless core */
+ /* Locking: wl-&gt;mutex */
+-static void b43_wireless_core_exit(struct b43_wldev *dev)
++static void __b43_wireless_core_exit(struct b43_wldev *dev, bool no_suspend)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 
+@@ -3298,8 +3303,10 @@ static void b43_wireless_core_exit(struc
+ 		return;
+ 	b43_set_status(dev, B43_STAT_UNINIT);
+ 
+-	b43_leds_exit(dev);
+-	b43_rng_exit(dev-&gt;wl);
++	if (no_suspend) {
++		b43_leds_exit(dev);
++		b43_rng_exit(dev-&gt;wl);
++	}
+ 	b43_pio_free(dev);
+ 	b43_dma_free(dev);
+ 	b43_chip_exit(dev);
+@@ -3313,8 +3320,13 @@ static void b43_wireless_core_exit(struc
+ 	ssb_bus_may_powerdown(dev-&gt;dev-&gt;bus);
+ }
+ 
++static void b43_wireless_core_exit(struct b43_wldev *dev)
++{
++	__b43_wireless_core_exit(dev, true);
++}
++
+ /* Initialize a wireless core */
+-static int b43_wireless_core_init(struct b43_wldev *dev)
++static int __b43_wireless_core_init(struct b43_wldev *dev, bool no_suspend)
+ {
+ 	struct b43_wl *wl = dev-&gt;wl;
+ 	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+@@ -3420,11 +3432,13 @@ static int b43_wireless_core_init(struct
+ 	memset(wl-&gt;mac_addr, 0, ETH_ALEN);
+ 	b43_upload_card_macaddress(dev);
+ 	b43_security_init(dev);
+-	b43_rng_init(wl);
++	if (no_suspend)
++		b43_rng_init(wl);
+ 
+ 	b43_set_status(dev, B43_STAT_INITIALIZED);
+ 
+-	b43_leds_init(dev);
++	if (no_suspend)
++		b43_leds_init(dev);
+ out:
+ 	return err;
+ 
+@@ -3442,6 +3456,11 @@ out:
+ 	return err;
+ }
+ 
++static int b43_wireless_core_init(struct b43_wldev *dev)
++{
++	return __b43_wireless_core_init(dev, true);
++}
++
+ static int b43_op_add_interface(struct ieee80211_hw *hw,
+ 				struct ieee80211_if_init_conf *conf)
+ {
+@@ -4028,7 +4047,7 @@ static int b43_suspend(struct ssb_device
+ 	if (wldev-&gt;suspend_init_status &gt;= B43_STAT_STARTED)
+ 		b43_wireless_core_stop(wldev);
+ 	if (wldev-&gt;suspend_init_status &gt;= B43_STAT_INITIALIZED)
+-		b43_wireless_core_exit(wldev);
++		__b43_wireless_core_exit(wldev, false);
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+ 	b43dbg(wl, &quot;Device suspended.\n&quot;);
+@@ -4046,7 +4065,7 @@ static int b43_resume(struct ssb_device 
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 	if (wldev-&gt;suspend_init_status &gt;= B43_STAT_INITIALIZED) {
+-		err = b43_wireless_core_init(wldev);
++		err = __b43_wireless_core_init(wldev, false);
+ 		if (err) {
+ 			b43err(wl, &quot;Resume failed at core init\n&quot;);
+ 			goto out;
+@@ -4055,7 +4074,9 @@ static int b43_resume(struct ssb_device 
+ 	if (wldev-&gt;suspend_init_status &gt;= B43_STAT_STARTED) {
+ 		err = b43_wireless_core_start(wldev);
+ 		if (err) {
+-			b43_wireless_core_exit(wldev);
++			b43_leds_resume_exit(wldev);
++			__b43_rng_exit(wldev-&gt;wl, true);
++			__b43_wireless_core_exit(wldev, false);
+ 			b43err(wl, &quot;Resume failed at core start\n&quot;);
+ 			goto out;
+ 		}
+Index: linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/leds.h
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/net/wireless/b43/leds.h
++++ linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/leds.h
+@@ -43,8 +43,15 @@ enum b43_led_behaviour {
+ };
+ 
+ void b43_leds_init(struct b43_wldev *dev);
+-void b43_leds_exit(struct b43_wldev *dev);
+-
++void __b43_leds_exit(struct b43_wldev *dev, bool suspended);
++static inline void b43_leds_exit(struct b43_wldev *dev)
++{
++	__b43_leds_exit(dev, false);
++}
++static inline void b43_leds_resume_exit(struct b43_wldev *dev)
++{
++	__b43_leds_exit(dev, true);
++}
+ 
+ #else /* CONFIG_B43_LEDS */
+ /* LED support disabled */
+@@ -59,6 +66,9 @@ static inline void b43_leds_init(struct 
+ static inline void b43_leds_exit(struct b43_wldev *dev)
+ {
+ }
++static inline void b43_leds_resume_exit(struct b43_wldev *dev)
++{
++}
+ #endif /* CONFIG_B43_LEDS */
+ 
+ #endif /* B43_LEDS_H_ */
+Index: linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/leds.c
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/net/wireless/b43/leds.c
++++ linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/leds.c
+@@ -112,11 +112,14 @@ static int b43_register_led(struct b43_w
+ 	return 0;
+ }
+ 
+-static void b43_unregister_led(struct b43_led *led)
++static void b43_unregister_led(struct b43_led *led, bool suspended)
+ {
+ 	if (!led-&gt;dev)
+ 		return;
+-	led_classdev_unregister(&amp;led-&gt;led_dev);
++	if (suspended)
++		led_classdev_unregister_suspended(&amp;led-&gt;led_dev);
++	else
++		led_classdev_unregister(&amp;led-&gt;led_dev);
+ 	b43_led_turn_off(led-&gt;dev, led-&gt;index, led-&gt;activelow);
+ 	led-&gt;dev = NULL;
+ }
+@@ -230,10 +233,10 @@ void b43_leds_init(struct b43_wldev *dev
+ 	}
+ }
+ 
+-void b43_leds_exit(struct b43_wldev *dev)
++void __b43_leds_exit(struct b43_wldev *dev, bool suspended)
+ {
+-	b43_unregister_led(&amp;dev-&gt;led_tx);
+-	b43_unregister_led(&amp;dev-&gt;led_rx);
+-	b43_unregister_led(&amp;dev-&gt;led_assoc);
+-	b43_unregister_led(&amp;dev-&gt;led_radio);
++	b43_unregister_led(&amp;dev-&gt;led_tx, suspended);
++	b43_unregister_led(&amp;dev-&gt;led_rx, suspended);
++	b43_unregister_led(&amp;dev-&gt;led_assoc, suspended);
++	b43_unregister_led(&amp;dev-&gt;led_radio, suspended);
+ }
+Index: linux-2.6.24-rc8-mm1/drivers/leds/led-class.c
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/leds/led-class.c
++++ linux-2.6.24-rc8-mm1/drivers/leds/led-class.c
+@@ -137,12 +137,14 @@ err_out:
+ EXPORT_SYMBOL_GPL(led_classdev_register);
+ 
+ /**
+- * led_classdev_unregister - unregisters a object of led_properties class.
++ * __led_classdev_unregister - unregisters a object of led_properties class.
+  * @led_cdev: the led device to unregister
++ * @suspended: indicates whether system-wide suspend or resume is in progress
+  *
+  * Unregisters a previously registered via led_classdev_register object.
+  */
+-void led_classdev_unregister(struct led_classdev *led_cdev)
++void __led_classdev_unregister(struct led_classdev *led_cdev,
++				      bool suspended)
+ {
+ 	device_remove_file(led_cdev-&gt;dev, &amp;dev_attr_brightness);
+ #ifdef CONFIG_LEDS_TRIGGERS
+@@ -153,13 +155,16 @@ void led_classdev_unregister(struct led_
+ 	up_write(&amp;led_cdev-&gt;trigger_lock);
+ #endif
+ 
+-	device_unregister(led_cdev-&gt;dev);
++	if (suspended)
++		device_pm_schedule_removal(led_cdev-&gt;dev);
++	else
++		device_unregister(led_cdev-&gt;dev);
+ 
+ 	down_write(&amp;leds_list_lock);
+ 	list_del(&amp;led_cdev-&gt;node);
+ 	up_write(&amp;leds_list_lock);
+ }
+-EXPORT_SYMBOL_GPL(led_classdev_unregister);
++EXPORT_SYMBOL_GPL(__led_classdev_unregister);
+ 
+ static int __init leds_init(void)
+ {
+Index: linux-2.6.24-rc8-mm1/include/linux/leds.h
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/include/linux/leds.h
++++ linux-2.6.24-rc8-mm1/include/linux/leds.h
+@@ -59,7 +59,15 @@ struct led_classdev {
+ 
+ extern int led_classdev_register(struct device *parent,
+ 				 struct led_classdev *led_cdev);
+-extern void led_classdev_unregister(struct led_classdev *led_cdev);
++extern void __led_classdev_unregister(struct led_classdev *led_cdev, bool sus);
++static inline void led_classdev_unregister(struct led_classdev *lcd)
++{
++	__led_classdev_unregister(lcd, false);
++}
++static inline void led_classdev_unregister_suspended(struct led_classdev *lcd)
++{
++	__led_classdev_unregister(lcd, true);
++}
+ extern void led_classdev_suspend(struct led_classdev *led_cdev);
+ extern void led_classdev_resume(struct led_classdev *led_cdev);
+ 
+Index: linux-2.6.24-rc8-mm1/drivers/base/power/main.c
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/base/power/main.c
++++ linux-2.6.24-rc8-mm1/drivers/base/power/main.c
+@@ -129,6 +129,7 @@ void device_pm_schedule_removal(struct d
+ 	list_move_tail(&amp;dev-&gt;power.entry, &amp;dpm_destroy);
+ 	mutex_unlock(&amp;dpm_list_mtx);
+ }
++EXPORT_SYMBOL_GPL(device_pm_schedule_removal);
+ 
+ /**
+  *	pm_sleep_lock - mutual exclusion for registration and suspend
+Index: linux-2.6.24-rc8-mm1/include/linux/device.h
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/include/linux/device.h
++++ linux-2.6.24-rc8-mm1/include/linux/device.h
+@@ -532,11 +532,17 @@ extern struct device *device_create(stru
+ extern void device_destroy(struct class *cls, dev_t devt);
+ #ifdef CONFIG_PM_SLEEP
+ extern void destroy_suspended_device(struct class *cls, dev_t devt);
++extern void device_pm_schedule_removal(struct device *);
+ #else /* !CONFIG_PM_SLEEP */
+ static inline void destroy_suspended_device(struct class *cls, dev_t devt)
+ {
+ 	device_destroy(cls, devt);
+ }
++
++static inline void device_pm_schedule_removal(struct device *dev)
++{
++	device_unregister(dev);
++}
+ #endif /* !CONFIG_PM_SLEEP */
+ 
+ /*
+Index: linux-2.6.24-rc8-mm1/drivers/base/power/power.h
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/base/power/power.h
++++ linux-2.6.24-rc8-mm1/drivers/base/power/power.h
+@@ -13,7 +13,6 @@ static inline struct device *to_device(s
+ 
+ extern void device_pm_add(struct device *);
+ extern void device_pm_remove(struct device *);
+-extern void device_pm_schedule_removal(struct device *);
+ extern int pm_sleep_lock(void);
+ extern void pm_sleep_unlock(void);
+ 
+Index: linux-2.6.24-rc8-mm1/drivers/char/misc.c
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/char/misc.c
++++ linux-2.6.24-rc8-mm1/drivers/char/misc.c
+@@ -232,8 +232,9 @@ int misc_register(struct miscdevice * mi
+ }
+ 
+ /**
+- *	misc_deregister - unregister a miscellaneous device
++ *	__misc_deregister - unregister a miscellaneous device
+  *	@misc: device to unregister
++ *	@suspended: to be set if the function is used during suspend/resume
+  *
+  *	Unregister a miscellaneous device that was previously
+  *	successfully registered with misc_register(). Success
+@@ -241,7 +242,7 @@ int misc_register(struct miscdevice * mi
+  *	indicates an error.
+  */
+ 
+-int misc_deregister(struct miscdevice * misc)
++int __misc_deregister(struct miscdevice *misc, bool suspended)
+ {
+ 	int i = misc-&gt;minor;
+ 
+@@ -250,7 +251,11 @@ int misc_deregister(struct miscdevice * 
+ 
+ 	mutex_lock(&amp;misc_mtx);
+ 	list_del(&amp;misc-&gt;list);
+-	device_destroy(misc_class, MKDEV(MISC_MAJOR, misc-&gt;minor));
++	if (suspended)
++		destroy_suspended_device(misc_class,
++					MKDEV(MISC_MAJOR, misc-&gt;minor));
++	else
++		device_destroy(misc_class, MKDEV(MISC_MAJOR, misc-&gt;minor));
+ 	if (i &lt; DYNAMIC_MINORS &amp;&amp; i&gt;0) {
+ 		misc_minors[i&gt;&gt;3] &amp;= ~(1 &lt;&lt; (misc-&gt;minor &amp; 7));
+ 	}
+@@ -259,7 +264,7 @@ int misc_deregister(struct miscdevice * 
+ }
+ 
+ EXPORT_SYMBOL(misc_register);
+-EXPORT_SYMBOL(misc_deregister);
++EXPORT_SYMBOL(__misc_deregister);
+ 
+ static int __init misc_init(void)
+ {
+Index: linux-2.6.24-rc8-mm1/include/linux/miscdevice.h
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/include/linux/miscdevice.h
++++ linux-2.6.24-rc8-mm1/include/linux/miscdevice.h
+@@ -43,7 +43,15 @@ struct miscdevice  {
+ };
+ 
+ extern int misc_register(struct miscdevice * misc);
+-extern int misc_deregister(struct miscdevice * misc);
++extern int __misc_deregister(struct miscdevice *misc, bool suspended);
++static inline int misc_deregister(struct miscdevice *misc)
++{
++	return __misc_deregister(misc, false);
++}
++static inline int misc_deregister_suspended(struct miscdevice *misc)
++{
++	return __misc_deregister(misc, true);
++}
+ 
+ #define MODULE_ALIAS_MISCDEV(minor)				\
+ 	MODULE_ALIAS(&quot;char-major-&quot; __stringify(MISC_MAJOR)	\
+Index: linux-2.6.24-rc8-mm1/drivers/char/hw_random/core.c
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/char/hw_random/core.c
++++ linux-2.6.24-rc8-mm1/drivers/char/hw_random/core.c
+@@ -234,11 +234,11 @@ static DEVICE_ATTR(rng_available, S_IRUG
+ 		   NULL);
+ 
+ 
+-static void unregister_miscdev(void)
++static void unregister_miscdev(bool suspended)
+ {
+ 	device_remove_file(rng_miscdev.this_device, &amp;dev_attr_rng_available);
+ 	device_remove_file(rng_miscdev.this_device, &amp;dev_attr_rng_current);
+-	misc_deregister(&amp;rng_miscdev);
++	__misc_deregister(&amp;rng_miscdev, suspended);
+ }
+ 
+ static int register_miscdev(void)
+@@ -313,7 +313,7 @@ out:
+ }
+ EXPORT_SYMBOL_GPL(hwrng_register);
+ 
+-void hwrng_unregister(struct hwrng *rng)
++void __hwrng_unregister(struct hwrng *rng, bool suspended)
+ {
+ 	int err;
+ 
+@@ -332,11 +332,11 @@ void hwrng_unregister(struct hwrng *rng)
+ 		}
+ 	}
+ 	if (list_empty(&amp;rng_list))
+-		unregister_miscdev();
++		unregister_miscdev(suspended);
+ 
+ 	mutex_unlock(&amp;rng_mutex);
+ }
+-EXPORT_SYMBOL_GPL(hwrng_unregister);
++EXPORT_SYMBOL_GPL(__hwrng_unregister);
+ 
+ 
+ MODULE_DESCRIPTION(&quot;H/W Random Number Generator (RNG) driver&quot;);
+Index: linux-2.6.24-rc8-mm1/include/linux/hw_random.h
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/include/linux/hw_random.h
++++ linux-2.6.24-rc8-mm1/include/linux/hw_random.h
+@@ -44,7 +44,15 @@ struct hwrng {
+ /** Register a new Hardware Random Number Generator driver. */
+ extern int hwrng_register(struct hwrng *rng);
+ /** Unregister a Hardware Random Number Generator driver. */
+-extern void hwrng_unregister(struct hwrng *rng);
++extern void __hwrng_unregister(struct hwrng *rng, bool suspended);
++static inline void hwrng_unregister(struct hwrng *rng)
++{
++	__hwrng_unregister(rng, false);
++}
++static inline void hwrng_unregister_suspended(struct hwrng *rng)
++{
++	__hwrng_unregister(rng, true);
++}
+ 
+ #endif /* __KERNEL__ */
+ #endif /* LINUX_HWRANDOM_H_ */
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003255.html">[PATCH] b43: Add more N-PHY init code
+</A></li>
+	<LI>Next message: <A HREF="003258.html">b43_suspend problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3257">[ date ]</a>
+              <a href="thread.html#3257">[ thread ]</a>
+              <a href="subject.html#3257">[ subject ]</a>
+              <a href="author.html#3257">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

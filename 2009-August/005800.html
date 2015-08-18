@@ -1,0 +1,127 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Make LP-PHY testable
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Make%20LP-PHY%20testable&In-Reply-To=%3C4A855E96.3090202%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005798.html">
+   <LINK REL="Next"  HREF="005804.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Make LP-PHY testable</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Make%20LP-PHY%20testable&In-Reply-To=%3C4A855E96.3090202%40gmail.com%3E"
+       TITLE="[PATCH] b43: Make LP-PHY testable">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Fri Aug 14 14:54:46 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005798.html">[PATCH v3 this time really] b43: Add LP-PHY firmware loading support
+</A></li>
+        <LI>Next message: <A HREF="005804.html">[PATCH] b43: Add LP-PHY firmware loading support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5800">[ date ]</a>
+              <a href="thread.html#5800">[ thread ]</a>
+              <a href="subject.html#5800">[ subject ]</a>
+              <a href="author.html#5800">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>-Enable rate memory init for LP-PHY (same as G and N-PHY).
+-Mark rev.2 LP-PHYs with the B2063 radio as supported.
+-Allow using the 5GHz band on LP-PHYs.
+
+Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/main.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index 3ca3e93..5559b22 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -2674,6 +2674,7 @@ static void b43_rate_memory_init(struct b43_wldev *dev)
+ 	case B43_PHYTYPE_A:
+ 	case B43_PHYTYPE_G:
+ 	case B43_PHYTYPE_N:
++	case B43_PHYTYPE_LP:
+ 		b43_rate_memory_write(dev, B43_OFDM_RATE_6MB, 1);
+ 		b43_rate_memory_write(dev, B43_OFDM_RATE_12MB, 1);
+ 		b43_rate_memory_write(dev, B43_OFDM_RATE_18MB, 1);
+@@ -3888,7 +3889,7 @@ static int b43_phy_versioning(struct b43_wldev *dev)
+ #endif
+ #ifdef CONFIG_B43_PHY_LP
+ 	case B43_PHYTYPE_LP:
+-		if (phy_rev &gt; 1)
++		if (phy_rev &gt; 2)
+ 			unsupported = 1;
+ 		break;
+ #endif
+@@ -3945,7 +3946,7 @@ static int b43_phy_versioning(struct b43_wldev *dev)
+ 			unsupported = 1;
+ 		break;
+ 	case B43_PHYTYPE_LP:
+-		if (radio_ver != 0x2062)
++		if (radio_ver != 0x2062 &amp;&amp; radio_ver != 0x2063)
+ 			unsupported = 1;
+ 		break;
+ 	default:
+@@ -4588,9 +4589,10 @@ static int b43_wireless_core_attach(struct b43_wldev *dev)
+ 		case B43_PHYTYPE_A:
+ 			have_5ghz_phy = 1;
+ 			break;
++		case B43_PHYTYPE_LP: //FIXME not always!
++			have_5ghz_phy = 1;
+ 		case B43_PHYTYPE_G:
+ 		case B43_PHYTYPE_N:
+-		case B43_PHYTYPE_LP:
+ 			have_2ghz_phy = 1;
+ 			break;
+ 		default:
+@@ -4605,7 +4607,8 @@ static int b43_wireless_core_attach(struct b43_wldev *dev)
+ 	}
+ 	if (1 /* disable A-PHY */) {
+ 		/* FIXME: For now we disable the A-PHY on multi-PHY devices. */
+-		if (dev-&gt;phy.type != B43_PHYTYPE_N) {
++		if (dev-&gt;phy.type != B43_PHYTYPE_N &amp;&amp;
++		    dev-&gt;phy.type != B43_PHYTYPE_LP) {
+ 			have_2ghz_phy = 1;
+ 			have_5ghz_phy = 0;
+ 		}
+-- 
+1.6.2.4
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005798.html">[PATCH v3 this time really] b43: Add LP-PHY firmware loading support
+</A></li>
+	<LI>Next message: <A HREF="005804.html">[PATCH] b43: Add LP-PHY firmware loading support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5800">[ date ]</a>
+              <a href="thread.html#5800">[ thread ]</a>
+              <a href="subject.html#5800">[ subject ]</a>
+              <a href="author.html#5800">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,181 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Refresh RX poison on buffer recycling
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Refresh%20RX%20poison%20on%20buffer%20recycling&In-Reply-To=%3CC0D59D9C-FC8A-4C79-B777-AF2F166D9711%40ing.unibs.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005352.html">
+   <LINK REL="Next"  HREF="005362.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Refresh RX poison on buffer recycling</H1>
+    <B>Francesco Gringoli</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Refresh%20RX%20poison%20on%20buffer%20recycling&In-Reply-To=%3CC0D59D9C-FC8A-4C79-B777-AF2F166D9711%40ing.unibs.it%3E"
+       TITLE="[PATCH] b43: Refresh RX poison on buffer recycling">francesco.gringoli at ing.unibs.it
+       </A><BR>
+    <I>Mon Mar 30 23:35:34 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005352.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+        <LI>Next message: <A HREF="005362.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5361">[ date ]</a>
+              <a href="thread.html#5361">[ thread ]</a>
+              <a href="subject.html#5361">[ subject ]</a>
+              <a href="author.html#5361">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+On Mar 28, 2009, at 12:41 AM, Michael Buesch wrote:
+
+&gt;<i> The RX buffer poison needs to be refreshed, if we recycle an RX  
+</I>&gt;<i> buffer,
+</I>&gt;<i> because it might be (partially) overwritten by some DMA operations.
+</I>&gt;<i>
+</I>&gt;<i> Cc: <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stable at kernel.org</A>
+</I>&gt;<i> Cc: Francesco Gringoli &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">francesco.gringoli at ing.unibs.it</A>&gt;
+</I>&gt;<i> Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+</I>&gt;<i>
+</I>&gt;<i> ---
+</I>&gt;<i>
+</I>&gt;<i> Francesco, please stresstest this on top of the other patch that  
+</I>&gt;<i> adds poisoning.
+</I>Hi Michael,
+
+great work! No more crashes with the two patches. I will continue  
+stress testing anyway but it seems stable.
+
+I have one more question: the hardware seems to allow frames that are  
+longer than 2352 bytes. If we monitor the firmware during receiving we  
+get up to 0x1005 bytes long frames. When such frames arrives, the  
+kernel drops them as the &quot;The data did not fit into one descriptor  
+buffer and is split over multiple buffers.&quot; I tried to increase  
+B43_DMA0_RX_BUFFERSIZE up to 0x1006 but I get problems with dma and  
+the driver keeps restarting the hardware forever. What is wrong with  
+increasing this value above IEEE80211_MAX_FRAME_LEN?
+
+Many thanks,
+Cheers
+-FG
+
+
+&gt;<i>
+</I>&gt;<i> John, please queue as bugfix.
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/dma.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-03-27  
+</I>&gt;<i> 23:15:36.000000000 +0100
+</I>&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-03-27  
+</I>&gt;<i> 23:30:17.000000000 +0100
+</I>&gt;<i> @@ -1503,20 +1503,16 @@ static void dma_rx(struct b43_dmaring *r
+</I>&gt;<i> 			len = le16_to_cpu(rxhdr-&gt;frame_len);
+</I>&gt;<i> 		} while (len == 0 &amp;&amp; i++ &lt; 5);
+</I>&gt;<i> 		if (unlikely(len == 0)) {
+</I>&gt;<i> -			/* recycle the descriptor buffer. */
+</I>&gt;<i> -			sync_descbuffer_for_device(ring, meta-&gt;dmaaddr,
+</I>&gt;<i> -						   ring-&gt;rx_buffersize);
+</I>&gt;<i> -			goto drop;
+</I>&gt;<i> +			dmaaddr = meta-&gt;dmaaddr;
+</I>&gt;<i> +			goto drop_recycle_buffer;
+</I>&gt;<i> 		}
+</I>&gt;<i> 	}
+</I>&gt;<i> 	if (unlikely(b43_rx_buffer_is_poisoned(ring, skb))) {
+</I>&gt;<i> 		/* Something went wrong with the DMA.
+</I>&gt;<i> 		 * The device did not touch the buffer and did not overwrite the  
+</I>&gt;<i> poison. */
+</I>&gt;<i> 		b43dbg(ring-&gt;dev-&gt;wl, &quot;DMA RX: Dropping poisoned buffer.\n&quot;);
+</I>&gt;<i> -		/* recycle the descriptor buffer. */
+</I>&gt;<i> -		sync_descbuffer_for_device(ring, meta-&gt;dmaaddr,
+</I>&gt;<i> -					   ring-&gt;rx_buffersize);
+</I>&gt;<i> -		goto drop;
+</I>&gt;<i> +		dmaaddr = meta-&gt;dmaaddr;
+</I>&gt;<i> +		goto drop_recycle_buffer;
+</I>&gt;<i> 	}
+</I>&gt;<i> 	if (unlikely(len &gt; ring-&gt;rx_buffersize)) {
+</I>&gt;<i> 		/* The data did not fit into one descriptor buffer
+</I>&gt;<i> @@ -1530,6 +1526,7 @@ static void dma_rx(struct b43_dmaring *r
+</I>&gt;<i> 		while (1) {
+</I>&gt;<i> 			desc = ops-&gt;idx2desc(ring, *slot, &amp;meta);
+</I>&gt;<i> 			/* recycle the descriptor buffer. */
+</I>&gt;<i> +			b43_poison_rx_buffer(ring, meta-&gt;skb);
+</I>&gt;<i> 			sync_descbuffer_for_device(ring, meta-&gt;dmaaddr,
+</I>&gt;<i> 						   ring-&gt;rx_buffersize);
+</I>&gt;<i> 			*slot = next_slot(ring, *slot);
+</I>&gt;<i> @@ -1548,8 +1545,7 @@ static void dma_rx(struct b43_dmaring *r
+</I>&gt;<i> 	err = setup_rx_descbuffer(ring, desc, meta, GFP_ATOMIC);
+</I>&gt;<i> 	if (unlikely(err)) {
+</I>&gt;<i> 		b43dbg(ring-&gt;dev-&gt;wl, &quot;DMA RX: setup_rx_descbuffer() failed\n&quot;);
+</I>&gt;<i> -		sync_descbuffer_for_device(ring, dmaaddr, ring-&gt;rx_buffersize);
+</I>&gt;<i> -		goto drop;
+</I>&gt;<i> +		goto drop_recycle_buffer;
+</I>&gt;<i> 	}
+</I>&gt;<i>
+</I>&gt;<i> 	unmap_descbuffer(ring, dmaaddr, ring-&gt;rx_buffersize, 0);
+</I>&gt;<i> @@ -1559,6 +1555,11 @@ static void dma_rx(struct b43_dmaring *r
+</I>&gt;<i> 	b43_rx(ring-&gt;dev, skb, rxhdr);
+</I>&gt;<i> drop:
+</I>&gt;<i> 	return;
+</I>&gt;<i> +
+</I>&gt;<i> +drop_recycle_buffer:
+</I>&gt;<i> +	/* Poison and recycle the RX buffer. */
+</I>&gt;<i> +	b43_poison_rx_buffer(ring, skb);
+</I>&gt;<i> +	sync_descbuffer_for_device(ring, dmaaddr, ring-&gt;rx_buffersize);
+</I>&gt;<i> }
+</I>&gt;<i>
+</I>&gt;<i> void b43_dma_rx(struct b43_dmaring *ring)
+</I>&gt;<i>
+</I>&gt;<i> -- 
+</I>&gt;<i> Greetings, Michael.
+</I>
+-------
+
+Francesco Gringoli, PhD - Assistant Professor
+Dept. of Electrical Engineering for Automation
+University of Brescia
+via Branze, 38
+25123 Brescia
+ITALY
+
+Ph:  ++39.030.3715843
+FAX: ++39.030.380014
+WWW: <A HREF="http://www.ing.unibs.it/~gringoli">http://www.ing.unibs.it/~gringoli</A>
+
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005352.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+	<LI>Next message: <A HREF="005362.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5361">[ date ]</a>
+              <a href="thread.html#5361">[ thread ]</a>
+              <a href="subject.html#5361">[ subject ]</a>
+              <a href="author.html#5361">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

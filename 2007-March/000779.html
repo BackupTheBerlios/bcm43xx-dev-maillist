@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: Fix code for confusion between PHY revision and	PHY version
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20code%20for%20confusion%20between%20PHY%20revision%20and%0A%09PHY%20version&In-Reply-To=%3C45fc1725.yUj4D2LtC57tEQYF%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000797.html">
+   <LINK REL="Next"  HREF="000781.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: Fix code for confusion between PHY revision and	PHY version</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20code%20for%20confusion%20between%20PHY%20revision%20and%0A%09PHY%20version&In-Reply-To=%3C45fc1725.yUj4D2LtC57tEQYF%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] bcm43xx: Fix code for confusion between PHY revision and	PHY version">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Mar 17 17:28:21 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000797.html">nx6310 - Radio turned off
+</A></li>
+        <LI>Next message: <A HREF="000781.html">New combined patch for 2.6.20.2 
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#779">[ date ]</a>
+              <a href="thread.html#779">[ thread ]</a>
+              <a href="subject.html#779">[ subject ]</a>
+              <a href="author.html#779">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>There are several places where the PHY version and revision were interchanged.
+These are changed in the specifications on 2/13/07 and now use &quot;analog&quot; instead
+instead of &quot;version&quot; to help reduce confusion.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+I had thought this patch was submitted earlier, but apparently I failed
+to send it. This material is needed for wireless-2.6, &quot;upstream&quot;
+and &quot;upstream-fixes&quot;.
+
+Thanks,
+
+Larry
+
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
+@@ -458,7 +458,7 @@ static void bcm43xx_calc_nrssi_offset(st
+ 		bcm43xx_phy_write(bcm, 0x005A, 0x0480);
+ 		bcm43xx_phy_write(bcm, 0x0059, 0x0810);
+ 		bcm43xx_phy_write(bcm, 0x0058, 0x000D);
+-		if (phy-&gt;rev == 0) {
++		if (phy-&gt;analog == 0) {
+ 			bcm43xx_phy_write(bcm, 0x0003, 0x0122);
+ 		} else {
+ 			bcm43xx_phy_write(bcm, 0x000A,
+@@ -570,9 +570,9 @@ void bcm43xx_calc_nrssi_slope(struct bcm
+ 		nrssi0 = (s16)bcm43xx_phy_read(bcm, 0x0027);
+ 		bcm43xx_radio_write16(bcm, 0x007A,
+ 				      bcm43xx_radio_read16(bcm, 0x007A) &amp; 0x007F);
+-		if (phy-&gt;rev &gt;= 2) {
++		if (phy-&gt;analog &gt;= 2) {
+ 			bcm43xx_write16(bcm, 0x03E6, 0x0040);
+-		} else if (phy-&gt;rev == 0) {
++		} else if (phy-&gt;analog == 0) {
+ 			bcm43xx_write16(bcm, 0x03E6, 0x0122);
+ 		} else {
+ 			bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT,
+@@ -596,7 +596,7 @@ void bcm43xx_calc_nrssi_slope(struct bcm
+ 		bcm43xx_phy_write(bcm, 0x0015, backup[5]);
+ 		bcm43xx_phy_write(bcm, 0x002A, backup[6]);
+ 		bcm43xx_synth_pu_workaround(bcm, radio-&gt;channel);
+-		if (phy-&gt;rev != 0)
++		if (phy-&gt;analog != 0)
+ 			bcm43xx_write16(bcm, 0x03F4, backup[13]);
+ 
+ 		bcm43xx_phy_write(bcm, 0x0020, backup[7]);
+@@ -692,7 +692,7 @@ void bcm43xx_calc_nrssi_slope(struct bcm
+ 
+ 		bcm43xx_radio_write16(bcm, 0x007A,
+ 				      bcm43xx_radio_read16(bcm, 0x007A) &amp; 0x007F);
+-		if (phy-&gt;rev &gt;= 2) {
++		if (phy-&gt;analog &gt;= 2) {
+ 			bcm43xx_phy_write(bcm, 0x0003,
+ 					  (bcm43xx_phy_read(bcm, 0x0003)
+ 					   &amp; 0xFF9F) | 0x0040);
+
+---
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000797.html">nx6310 - Radio turned off
+</A></li>
+	<LI>Next message: <A HREF="000781.html">New combined patch for 2.6.20.2 
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#779">[ date ]</a>
+              <a href="thread.html#779">[ thread ]</a>
+              <a href="subject.html#779">[ subject ]</a>
+              <a href="author.html#779">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

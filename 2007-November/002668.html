@@ -1,0 +1,354 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC 5 of 6] b43legacy: Convert to use of the new SPROM structure
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%205%20of%206%5D%20b43legacy%3A%20Convert%20to%20use%20of%20the%20new%20SPROM%20structure&In-Reply-To=%3C4730bd75.jwiBAv3atOVcVl2f%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002667.html">
+   <LINK REL="Next"  HREF="002669.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC 5 of 6] b43legacy: Convert to use of the new SPROM structure</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%205%20of%206%5D%20b43legacy%3A%20Convert%20to%20use%20of%20the%20new%20SPROM%20structure&In-Reply-To=%3C4730bd75.jwiBAv3atOVcVl2f%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[RFC 5 of 6] b43legacy: Convert to use of the new SPROM structure">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Tue Nov  6 20:16:05 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002667.html">[RFC 4 of 6] b43: Convert to use of the new SPROM structure
+</A></li>
+        <LI>Next message: <A HREF="002669.html">[RFC 6 of 6] ssb: Remove the old, now unused, data structure
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2668">[ date ]</a>
+              <a href="thread.html#2668">[ thread ]</a>
+              <a href="subject.html#2668">[ subject ]</a>
+              <a href="author.html#2668">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Patch 5 of 6.
+
+The b43legacy driver is modified to use the new SPROM structure.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: wireless-2.6/drivers/net/wireless/b43legacy/leds.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/leds.c
++++ wireless-2.6/drivers/net/wireless/b43legacy/leds.c
+@@ -189,10 +189,10 @@ void b43legacy_leds_init(struct b43legac
+ 	enum b43legacy_led_behaviour behaviour;
+ 	bool activelow;
+ 
+-	sprom[0] = bus-&gt;sprom.r1.gpio0;
+-	sprom[1] = bus-&gt;sprom.r1.gpio1;
+-	sprom[2] = bus-&gt;sprom.r1.gpio2;
+-	sprom[3] = bus-&gt;sprom.r1.gpio3;
++	sprom[0] = bus-&gt;sprom.data.gpio0;
++	sprom[1] = bus-&gt;sprom.data.gpio1;
++	sprom[2] = bus-&gt;sprom.data.gpio2;
++	sprom[3] = bus-&gt;sprom.data.gpio3;
+ 
+ 	for (i = 0; i &lt; 4; i++) {
+ 		if (sprom[i] == 0xFF) {
+Index: wireless-2.6/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-2.6/drivers/net/wireless/b43legacy/main.c
+@@ -1753,7 +1753,7 @@ static int b43legacy_gpio_init(struct b4
+ 		mask |= 0x0060;
+ 		set |= 0x0060;
+ 	}
+-	if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp; B43legacy_BFL_PACTRL) {
++	if (dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo &amp; B43legacy_BFL_PACTRL) {
+ 		b43legacy_write16(dev, B43legacy_MMIO_GPIO_MASK,
+ 				  b43legacy_read16(dev,
+ 				  B43legacy_MMIO_GPIO_MASK)
+@@ -2130,7 +2130,7 @@ static void b43legacy_periodic_every120s
+ static void b43legacy_periodic_every60sec(struct b43legacy_wldev *dev)
+ {
+ 	b43legacy_phy_lo_mark_all_unused(dev);
+-	if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp; B43legacy_BFL_RSSI) {
++	if (dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo &amp; B43legacy_BFL_RSSI) {
+ 		b43legacy_mac_suspend(dev);
+ 		b43legacy_calc_nrssi_slope(dev);
+ 		b43legacy_mac_enable(dev);
+@@ -3055,7 +3055,7 @@ static int b43legacy_wireless_core_init(
+ 		hf |= B43legacy_HF_SYMW;
+ 		if (phy-&gt;rev == 1)
+ 			hf |= B43legacy_HF_GDCW;
+-		if (sprom-&gt;r1.boardflags_lo &amp; B43legacy_BFL_PACTRL)
++		if (sprom-&gt;data.boardflags_lo &amp; B43legacy_BFL_PACTRL)
+ 			hf |= B43legacy_HF_OFDMPABOOST;
+ 	} else if (phy-&gt;type == B43legacy_PHYTYPE_B) {
+ 		hf |= B43legacy_HF_SYMW;
+@@ -3534,12 +3534,12 @@ static void b43legacy_sprom_fixup(struct
+ 	if (bus-&gt;boardinfo.vendor == PCI_VENDOR_ID_APPLE &amp;&amp;
+ 	    bus-&gt;boardinfo.type == 0x4E &amp;&amp;
+ 	    bus-&gt;boardinfo.rev &gt; 0x40)
+-		bus-&gt;sprom.r1.boardflags_lo |= B43legacy_BFL_PACTRL;
++		bus-&gt;sprom.data.boardflags_lo |= B43legacy_BFL_PACTRL;
+ 
+ 	/* Convert Antennagain values to Q5.2 */
+-	if (bus-&gt;sprom.r1.antenna_gain_bg == 0xFF)
+-		bus-&gt;sprom.r1.antenna_gain_bg = 2; /* if unset, use 2 dBm */
+-	bus-&gt;sprom.r1.antenna_gain_bg &lt;&lt;= 2;
++	if (bus-&gt;sprom.data.antenna_gain_bg == 0xFF)
++		bus-&gt;sprom.data.antenna_gain_bg = 2; /* if unset, use 2 dBm */
++	bus-&gt;sprom.data.antenna_gain_bg &lt;&lt;= 2;
+ }
+ 
+ static void b43legacy_wireless_exit(struct ssb_device *dev,
+@@ -3574,10 +3574,10 @@ static int b43legacy_wireless_init(struc
+ 	hw-&gt;max_noise = -110;
+ 	hw-&gt;queues = 1; /* FIXME: hardware has more queues */
+ 	SET_IEEE80211_DEV(hw, dev-&gt;dev);
+-	if (is_valid_ether_addr(sprom-&gt;r1.et1mac))
+-		SET_IEEE80211_PERM_ADDR(hw, sprom-&gt;r1.et1mac);
++	if (is_valid_ether_addr(sprom-&gt;data.et1mac))
++		SET_IEEE80211_PERM_ADDR(hw, sprom-&gt;data.et1mac);
+ 	else
+-		SET_IEEE80211_PERM_ADDR(hw, sprom-&gt;r1.il0mac);
++		SET_IEEE80211_PERM_ADDR(hw, sprom-&gt;data.il0mac);
+ 
+ 	/* Get and initialize struct b43legacy_wl */
+ 	wl = hw_to_b43legacy_wl(hw);
+Index: wireless-2.6/drivers/net/wireless/b43legacy/phy.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/phy.c
++++ wireless-2.6/drivers/net/wireless/b43legacy/phy.c
+@@ -441,7 +441,7 @@ static void b43legacy_phy_inita(struct b
+ 	might_sleep();
+ 
+ 	b43legacy_phy_setupg(dev);
+-	if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp; B43legacy_BFL_PACTRL)
++	if (dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo &amp; B43legacy_BFL_PACTRL)
+ 		b43legacy_phy_write(dev, 0x046E, 0x03CF);
+ }
+ 
+@@ -543,7 +543,7 @@ static void b43legacy_phy_initb4(struct 
+ 	if (phy-&gt;radio_ver == 0x2050)
+ 		b43legacy_phy_write(dev, 0x002A, 0x88C2);
+ 	b43legacy_radio_set_txpower_bg(dev, 0xFFFF, 0xFFFF, 0xFFFF);
+-	if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp; B43legacy_BFL_RSSI) {
++	if (dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo &amp; B43legacy_BFL_RSSI) {
+ 		b43legacy_calc_nrssi_slope(dev);
+ 		b43legacy_calc_nrssi_threshold(dev);
+ 	}
+@@ -699,7 +699,7 @@ static void b43legacy_phy_initb6(struct 
+ 		b43legacy_radio_write16(dev, 0x005A, 0x0088);
+ 		b43legacy_radio_write16(dev, 0x005B, 0x006B);
+ 		b43legacy_radio_write16(dev, 0x005C, 0x000F);
+-		if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp; 0x8000) {
++		if (dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo &amp; 0x8000) {
+ 			b43legacy_radio_write16(dev, 0x005D, 0x00FA);
+ 			b43legacy_radio_write16(dev, 0x005E, 0x00D8);
+ 		} else {
+@@ -797,7 +797,7 @@ static void b43legacy_phy_initb6(struct 
+ 		b43legacy_phy_write(dev, 0x0062, 0x0007);
+ 		b43legacy_radio_init2050(dev);
+ 		b43legacy_phy_lo_g_measure(dev);
+-		if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp;
++		if (dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo &amp;
+ 		    B43legacy_BFL_RSSI) {
+ 			b43legacy_calc_nrssi_slope(dev);
+ 			b43legacy_calc_nrssi_threshold(dev);
+@@ -921,7 +921,7 @@ static void b43legacy_calc_loopback_gain
+ 			    b43legacy_phy_read(dev, 0x0811) | 0x0100);
+ 	b43legacy_phy_write(dev, 0x0812,
+ 			    b43legacy_phy_read(dev, 0x0812) &amp; 0xCFFF);
+-	if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp; B43legacy_BFL_EXTLNA) {
++	if (dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo &amp; B43legacy_BFL_EXTLNA) {
+ 		if (phy-&gt;rev &gt;= 7) {
+ 			b43legacy_phy_write(dev, 0x0811,
+ 					    b43legacy_phy_read(dev, 0x0811)
+@@ -1072,7 +1072,7 @@ static void b43legacy_phy_initg(struct b
+ 			b43legacy_phy_write(dev, 0x0036,
+ 					    (b43legacy_phy_read(dev, 0x0036)
+ 					     &amp; 0x0FFF) | (phy-&gt;txctl2 &lt;&lt; 12));
+-		if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp;
++		if (dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo &amp;
+ 		    B43legacy_BFL_PACTRL)
+ 			b43legacy_phy_write(dev, 0x002E, 0x8075);
+ 		else
+@@ -1087,7 +1087,7 @@ static void b43legacy_phy_initg(struct b
+ 		b43legacy_phy_write(dev, 0x080F, 0x8078);
+ 	}
+ 
+-	if (!(dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp; B43legacy_BFL_RSSI)) {
++	if (!(dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo &amp; B43legacy_BFL_RSSI)) {
+ 		/* The specs state to update the NRSSI LT with
+ 		 * the value 0x7FFFFFFF here. I think that is some weird
+ 		 * compiler optimization in the original driver.
+@@ -1838,9 +1838,9 @@ void b43legacy_phy_xmitpower(struct b43l
+ 
+ 	estimated_pwr = b43legacy_phy_estimate_power_out(dev, average);
+ 
+-	max_pwr = dev-&gt;dev-&gt;bus-&gt;sprom.r1.maxpwr_bg;
++	max_pwr = dev-&gt;dev-&gt;bus-&gt;sprom.data.maxpwr_bg;
+ 
+-	if ((dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo
++	if ((dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo
+ 	     &amp; B43legacy_BFL_PACTRL) &amp;&amp;
+ 	    (phy-&gt;type == B43legacy_PHYTYPE_G))
+ 		max_pwr -= 0x3;
+@@ -1848,7 +1848,7 @@ void b43legacy_phy_xmitpower(struct b43l
+ 		b43legacywarn(dev-&gt;wl, &quot;Invalid max-TX-power value in SPROM.&quot;
+ 			&quot;\n&quot;);
+ 		max_pwr = 74; /* fake it */
+-		dev-&gt;dev-&gt;bus-&gt;sprom.r1.maxpwr_bg = max_pwr;
++		dev-&gt;dev-&gt;bus-&gt;sprom.data.maxpwr_bg = max_pwr;
+ 	}
+ 
+ 	/* Use regulatory information to get the maximum power.
+@@ -1858,7 +1858,8 @@ void b43legacy_phy_xmitpower(struct b43l
+ 	 * and 1.5 dBm (a safety factor??). The result is in Q5.2 format
+ 	 * which accounts for the factor of 4 */
+ #define REG_MAX_PWR 20
+-	max_pwr = min(REG_MAX_PWR * 4 - dev-&gt;dev-&gt;bus-&gt;sprom.r1.antenna_gain_bg
++	max_pwr = min(REG_MAX_PWR * 4
++		      - dev-&gt;dev-&gt;bus-&gt;sprom.data.antenna_gain_bg
+ 		      - 0x6, max_pwr);
+ 
+ 	/* find the desired power in Q5.2 - power_level is in dBm
+@@ -1918,7 +1919,7 @@ void b43legacy_phy_xmitpower(struct b43l
+ 				txpower = 3;
+ 				radio_attenuation += 2;
+ 				baseband_attenuation += 2;
+-			} else if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo
++			} else if (dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo
+ 				   &amp; B43legacy_BFL_PACTRL) {
+ 				baseband_attenuation += 4 *
+ 						     (radio_attenuation - 2);
+@@ -2000,9 +2001,9 @@ int b43legacy_phy_init_tssi2dbm_table(st
+ 
+ 	B43legacy_WARN_ON(!(phy-&gt;type == B43legacy_PHYTYPE_B ||
+ 			  phy-&gt;type == B43legacy_PHYTYPE_G));
+-	pab0 = (s16)(dev-&gt;dev-&gt;bus-&gt;sprom.r1.pa0b0);
+-	pab1 = (s16)(dev-&gt;dev-&gt;bus-&gt;sprom.r1.pa0b1);
+-	pab2 = (s16)(dev-&gt;dev-&gt;bus-&gt;sprom.r1.pa0b2);
++	pab0 = (s16)(dev-&gt;dev-&gt;bus-&gt;sprom.data.pa0b0);
++	pab1 = (s16)(dev-&gt;dev-&gt;bus-&gt;sprom.data.pa0b1);
++	pab2 = (s16)(dev-&gt;dev-&gt;bus-&gt;sprom.data.pa0b2);
+ 
+ 	if ((dev-&gt;dev-&gt;bus-&gt;chip_id == 0x4301) &amp;&amp; (phy-&gt;radio_ver != 0x2050)) {
+ 		phy-&gt;idle_tssi = 0x34;
+@@ -2013,9 +2014,10 @@ int b43legacy_phy_init_tssi2dbm_table(st
+ 	if (pab0 != 0 &amp;&amp; pab1 != 0 &amp;&amp; pab2 != 0 &amp;&amp;
+ 	    pab0 != -1 &amp;&amp; pab1 != -1 &amp;&amp; pab2 != -1) {
+ 		/* The pabX values are set in SPROM. Use them. */
+-		if ((s8)dev-&gt;dev-&gt;bus-&gt;sprom.r1.itssi_bg != 0 &amp;&amp;
+-		    (s8)dev-&gt;dev-&gt;bus-&gt;sprom.r1.itssi_bg != -1)
+-			phy-&gt;idle_tssi = (s8)(dev-&gt;dev-&gt;bus-&gt;sprom.r1.itssi_bg);
++		if ((s8)dev-&gt;dev-&gt;bus-&gt;sprom.data.itssi_bg != 0 &amp;&amp;
++		    (s8)dev-&gt;dev-&gt;bus-&gt;sprom.data.itssi_bg != -1)
++			phy-&gt;idle_tssi = (s8)(dev-&gt;dev-&gt;bus-&gt;sprom.data.
++					  itssi_bg);
+ 		else
+ 			phy-&gt;idle_tssi = 62;
+ 		dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
+Index: wireless-2.6/drivers/net/wireless/b43legacy/radio.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/radio.c
++++ wireless-2.6/drivers/net/wireless/b43legacy/radio.c
+@@ -827,7 +827,7 @@ void b43legacy_calc_nrssi_threshold(stru
+ 	case B43legacy_PHYTYPE_B: {
+ 		if (phy-&gt;radio_ver != 0x2050)
+ 			return;
+-		if (!(dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp;
++		if (!(dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo &amp;
+ 		    B43legacy_BFL_RSSI))
+ 			return;
+ 
+@@ -857,7 +857,7 @@ void b43legacy_calc_nrssi_threshold(stru
+ 	}
+ 	case B43legacy_PHYTYPE_G:
+ 		if (!phy-&gt;gmode ||
+-		    !(dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp;
++		    !(dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo &amp;
+ 		    B43legacy_BFL_RSSI)) {
+ 			tmp16 = b43legacy_nrssi_hw_read(dev, 0x20);
+ 			if (tmp16 &gt;= 0x20)
+@@ -1406,7 +1406,7 @@ static u16 b43legacy_get_812_value(struc
+ 	if (!phy-&gt;gmode)
+ 		return 0;
+ 	if (!has_loopback_gain(phy)) {
+-		if (phy-&gt;rev &lt; 7 || !(dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo
++		if (phy-&gt;rev &lt; 7 || !(dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo
+ 		    &amp; B43legacy_BFL_EXTLNA)) {
+ 			switch (lpd) {
+ 			case LPD(0, 1, 1):
+@@ -1459,7 +1459,7 @@ static u16 b43legacy_get_812_value(struc
+ 		}
+ 
+ 		loop_or = (loop &lt;&lt; 8) | extern_lna_control;
+-		if (phy-&gt;rev &gt;= 7 &amp;&amp; dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo
++		if (phy-&gt;rev &gt;= 7 &amp;&amp; dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo
+ 		    &amp; B43legacy_BFL_EXTLNA) {
+ 			if (extern_lna_control)
+ 				loop_or |= 0x8000;
+@@ -1550,7 +1550,7 @@ u16 b43legacy_radio_init2050(struct b43l
+ 					    b43legacy_get_812_value(dev,
+ 					    LPD(0, 1, 1)));
+ 			if (phy-&gt;rev &lt; 7 ||
+-			    !(dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo
++			    !(dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo
+ 			    &amp; B43legacy_BFL_EXTLNA))
+ 				b43legacy_phy_write(dev, 0x0811, 0x01B3);
+ 			else
+@@ -1786,7 +1786,7 @@ int b43legacy_radio_selectchannel(struct
+ 			  channel2freq_bg(channel));
+ 
+ 	if (channel == 14) {
+-		if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.country_code == 5)   /* JAPAN) */
++		if (dev-&gt;dev-&gt;bus-&gt;sprom.data.country_code == 5)   /* JAPAN) */
+ 			b43legacy_shm_write32(dev, B43legacy_SHM_SHARED,
+ 					      B43legacy_UCODEFLAGS_OFFSET,
+ 					      b43legacy_shm_read32(dev,
+Index: wireless-2.6/drivers/net/wireless/b43legacy/xmit.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/xmit.c
++++ wireless-2.6/drivers/net/wireless/b43legacy/xmit.c
+@@ -378,7 +378,7 @@ static s8 b43legacy_rssi_postprocess(str
+ 			else
+ 				tmp -= 3;
+ 		} else {
+-			if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo
++			if (dev-&gt;dev-&gt;bus-&gt;sprom.data.boardflags_lo
+ 			    &amp; B43legacy_BFL_RSSI) {
+ 				if (in_rssi &gt; 63)
+ 					in_rssi = 63;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002667.html">[RFC 4 of 6] b43: Convert to use of the new SPROM structure
+</A></li>
+	<LI>Next message: <A HREF="002669.html">[RFC 6 of 6] ssb: Remove the old, now unused, data structure
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2668">[ date ]</a>
+              <a href="thread.html#2668">[ thread ]</a>
+              <a href="subject.html#2668">[ subject ]</a>
+              <a href="author.html#2668">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

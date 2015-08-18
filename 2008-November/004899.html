@@ -1,0 +1,178 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BCM4312 Fails when xdm is started
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4312%20Fails%20when%20xdm%20is%20started&In-Reply-To=%3C200811231350.00207.yuval%40avramzon.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004898.html">
+   <LINK REL="Next"  HREF="004900.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BCM4312 Fails when xdm is started</H1>
+    <B>Yuval Hager</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4312%20Fails%20when%20xdm%20is%20started&In-Reply-To=%3C200811231350.00207.yuval%40avramzon.net%3E"
+       TITLE="BCM4312 Fails when xdm is started">yuval at avramzon.net
+       </A><BR>
+    <I>Sun Nov 23 12:49:55 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004898.html">BCM4312 Fails when xdm is started
+</A></li>
+        <LI>Next message: <A HREF="004900.html">BCM4312 Fails when xdm is started
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4899">[ date ]</a>
+              <a href="thread.html#4899">[ thread ]</a>
+              <a href="subject.html#4899">[ subject ]</a>
+              <a href="author.html#4899">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>&gt;<i> It doesn't hurt to turn on all debugging options. Often you get some hint
+</I>&gt;<i> by doing so.
+</I>
+I booted with 'root=/dev/sda3 debug memory_corruption_check=1 devres.log=1 debug_objects debugpat 
+acpi.debug_layer=0x00410002 acpi.debug_level=0xffffffff acpi=off noapic nolapic irqpoll pci=noacpi' and issued 'xset dpms force 
+standby'. After touching the mouse the system locked for about a minute, and the wireless stopped working. 
+Here's the log portion, I hope it provides a hint of some sort:
+
+[  182.891400] ****** b43: B43_MMIO_MACCTL 0x840A0503
+[  182.891409] ****** b43: SSB_TMSLOW 0x20150000
+[  258.299027] irq 10: nobody cared (try booting with the &quot;irqpoll&quot; option)
+[  258.299038] Pid: 0, comm: swapper Not tainted 2.6.28-rc5 #15
+[  258.299043] Call Trace:
+[  258.299062]  [&lt;c0148d9a&gt;] __report_bad_irq+0x24/0x69
+[  258.299071]  [&lt;c0148da1&gt;] __report_bad_irq+0x2b/0x69
+[  258.299080]  [&lt;c0148ec8&gt;] note_interrupt+0xe9/0x12d
+[  258.299090]  [&lt;c014976d&gt;] handle_level_irq+0x87/0xba
+[  258.299101]  [&lt;c010564e&gt;] do_IRQ+0x89/0x9f
+[  258.299109]  [&lt;c0103ea8&gt;] common_interrupt+0x28/0x30
+[  258.299119]  [&lt;c0125406&gt;] do_softirq+0x37/0x4d
+[  258.299127]  [&lt;c0125301&gt;] __do_softirq+0x62/0x130
+[  258.299135]  [&lt;c0125406&gt;] do_softirq+0x37/0x4d
+[  258.299142]  [&lt;c0105653&gt;] do_IRQ+0x8e/0x9f
+[  258.299150]  [&lt;c0103ea8&gt;] common_interrupt+0x28/0x30
+[  258.299161]  [&lt;c0108682&gt;] default_idle+0x2f/0x4c
+[  258.299168]  [&lt;c0101a20&gt;] cpu_idle+0x63/0x77
+[  258.299173] handlers:
+[  258.299176] [&lt;f7906455&gt;] (b43_interrupt_handler+0x0/0x1b7 [b43])
+[  258.299212] Disabling IRQ #10
+[  258.315148] b43-phy0: Radio hardware status changed to DISABLED
+[  258.315160] b43-phy0: ******** B43_B43_MMIO_RADIO_HWENABLED_HI 0xFFFFFFFF
+[  258.342341] kobject: 'rfkill0' (f43b7d78): kobject_uevent_env
+[  258.342367] kobject: 'rfkill0' (f43b7d78): fill_kobj_path: path = '/class/rfkill/rfkill0'
+[  258.342418] kobject: 'ssb0:0' (f40dfcd8): fill_kobj_path: path = '/devices/pci0000:00/0000:00:02.0/0000:02:00.0/ssb0:0'
+[  258.391951] 
+[  258.391956] =================================
+[  258.391964] [ INFO: inconsistent lock state ]
+[  258.391971] 2.6.28-rc5 #15
+[  258.391975] ---------------------------------
+[  258.391980] inconsistent {in-hardirq-W} -&gt; {hardirq-on-W} usage.
+[  258.391987] X/3965 [HC0[0]:SC1[1]:HE1:SE0] takes:
+[  258.391993]  (&amp;irq_desc_lock_class){++..}, at: [&lt;c0148c60&gt;] try_one_irq+0x15/0xe8
+[  258.392016] {in-hardirq-W} state was registered at:
+[  258.392021]   [&lt;c013bc07&gt;] __lock_acquire+0x490/0x6bc
+[  258.392034]   [&lt;c013be8d&gt;] lock_acquire+0x5a/0x74
+[  258.392043]   [&lt;c01496f8&gt;] handle_level_irq+0x12/0xba
+[  258.392053]   [&lt;c03c4842&gt;] _spin_lock+0x1c/0x45
+[  258.392066]   [&lt;c01496f8&gt;] handle_level_irq+0x12/0xba
+[  258.392076]   [&lt;c01496f8&gt;] handle_level_irq+0x12/0xba
+[  258.392085]   [&lt;c010564e&gt;] do_IRQ+0x89/0x9f
+[  258.392096]   [&lt;c0103ea8&gt;] common_interrupt+0x28/0x30
+[  258.392105]   [&lt;c03c4cc2&gt;] _spin_unlock_irqrestore+0x37/0x39
+[  258.392115]   [&lt;c01487e6&gt;] __setup_irq+0x17a/0x1f3
+[  258.392124]   [&lt;c05ce79d&gt;] start_kernel+0x285/0x2f1
+[  258.392140]   [&lt;ffffffff&gt;] 0xffffffff
+[  258.392159] irq event stamp: 1844456
+[  258.392164] hardirqs last  enabled at (1844456): [&lt;c03c4b6f&gt;] _spin_unlock_irq+0x20/0x23
+[  258.392175] hardirqs last disabled at (1844455): [&lt;c03c4ac3&gt;] _spin_lock_irq+0xa/0x4b
+[  258.392186] softirqs last  enabled at (1844310): [&lt;c0125406&gt;] do_softirq+0x37/0x4d
+[  258.392198] softirqs last disabled at (1844447): [&lt;c0125406&gt;] do_softirq+0x37/0x4d
+[  258.392208] 
+[  258.392209] other info that might help us debug this:
+[  258.392215] no locks held by X/3965.
+[  258.392219] 
+[  258.392220] stack backtrace:
+[  258.392226] Pid: 3965, comm: X Not tainted 2.6.28-rc5 #15
+[  258.392231] Call Trace:
+[  258.392241]  [&lt;c0139175&gt;] print_usage_bug+0x13d/0x146
+[  258.392249]  [&lt;c013a2ff&gt;] mark_lock+0x4b1/0x7c7
+[  258.392257]  [&lt;c013bc7e&gt;] __lock_acquire+0x507/0x6bc
+[  258.392266]  [&lt;c013be8d&gt;] lock_acquire+0x5a/0x74
+[  258.392275]  [&lt;c0148c60&gt;] try_one_irq+0x15/0xe8
+[  258.392283]  [&lt;c03c4842&gt;] _spin_lock+0x1c/0x45
+[  258.392291]  [&lt;c0148c60&gt;] try_one_irq+0x15/0xe8
+[  258.392300]  [&lt;c0148c60&gt;] try_one_irq+0x15/0xe8
+[  258.392308]  [&lt;c03c4b6f&gt;] _spin_unlock_irq+0x20/0x23
+[  258.392317]  [&lt;c0148d33&gt;] poll_spurious_irqs+0x0/0x43
+[  258.392326]  [&lt;c0148d55&gt;] poll_spurious_irqs+0x22/0x43
+[  258.392338]  [&lt;c012874a&gt;] run_timer_softirq+0x101/0x156
+[  258.392346]  [&lt;c0125321&gt;] __do_softirq+0x82/0x130
+[  258.392354]  [&lt;c0125406&gt;] do_softirq+0x37/0x4d
+[  258.392362]  [&lt;c0105653&gt;] do_IRQ+0x8e/0x9f
+[  258.392370]  [&lt;c0103ea8&gt;] common_interrupt+0x28/0x30
+[  260.311944] wlan0: No ProbeResp from current AP 00:22:3f:18:89:5e - assume out of range
+[  304.082520] ------------[ cut here ]------------
+[  304.082531] WARNING: at drivers/net/wireless/b43/phy_common.c:135 b43_radio_lock+0x29/0x7c [b43]()
+[  304.082538] Modules linked in: rfkill_input b43 ssb led_class input_polldev via drm rtc hci_usb snd_h
+da_intel snd_pcm snd_timer snd_page_alloc snd_hwdep snd soundcore ehci_hcd uhci_hcd usbcore sg via_agp a
+gpgart
+[  304.082593] Pid: 5913, comm: b43 Not tainted 2.6.28-rc5 #15
+[  304.082599] Call Trace:
+[  304.082618]  [&lt;c012171f&gt;] warn_on_slowpath+0x40/0x59
+[  304.082643]  [&lt;f7901c94&gt;] b43_shm_read16+0x20/0x42 [b43]
+[  304.082666]  [&lt;f7b9e4dc&gt;] ssb_pci_read32+0x12/0x3b [ssb]
+[  304.082686]  [&lt;f7906ded&gt;] b43_radio_lock+0x29/0x7c [b43]
+[  304.082706]  [&lt;f790b030&gt;] b43_gphy_op_adjust_txpower+0x112/0x139 [b43]
+[  304.082727]  [&lt;f7906ba0&gt;] b43_phy_txpower_adjust_work+0x32/0x3b [b43]
+[  304.082740]  [&lt;c012de6d&gt;] run_workqueue+0xbf/0x192
+[  304.082748]  [&lt;c012de2f&gt;] run_workqueue+0x81/0x192
+[  304.082767]  [&lt;f7906b6e&gt;] b43_phy_txpower_adjust_work+0x0/0x3b [b43]
+[  304.082778]  [&lt;c012e72a&gt;] worker_thread+0x0/0xbd
+[  304.082786]  [&lt;c012e7dd&gt;] worker_thread+0xb3/0xbd
+[  304.082796]  [&lt;c0130bcc&gt;] autoremove_wake_function+0x0/0x2d
+[  304.082803]  [&lt;c0130b10&gt;] kthread+0x38/0x60
+[  304.082810]  [&lt;c0130ad8&gt;] kthread+0x0/0x60
+[  304.082820]  [&lt;c01041c7&gt;] kernel_thread_helper+0x7/0x10
+[  304.082826] ---[ end trace 6ecefdf7cfe131b0 ]---
+[  304.082832] ****** b43: B43_MMIO_MACCTL 0xFFFFFFFF
+[  304.082837] ****** b43: SSB_TMSLOW 0xFFFFFFFF
+
+--yuval
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 197 bytes
+Desc: This is a digitally signed message part.
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20081123/79343d4c/attachment.pgp">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20081123/79343d4c/attachment.pgp</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004898.html">BCM4312 Fails when xdm is started
+</A></li>
+	<LI>Next message: <A HREF="004900.html">BCM4312 Fails when xdm is started
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4899">[ date ]</a>
+              <a href="thread.html#4899">[ thread ]</a>
+              <a href="subject.html#4899">[ subject ]</a>
+              <a href="author.html#4899">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

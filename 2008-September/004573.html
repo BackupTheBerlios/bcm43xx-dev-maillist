@@ -1,0 +1,179 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix QoS defaults
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20QoS%20defaults&In-Reply-To=%3C200809061621.48449.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004596.html">
+   <LINK REL="Next"  HREF="004613.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix QoS defaults</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20QoS%20defaults&In-Reply-To=%3C200809061621.48449.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix QoS defaults">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Sep  6 16:21:47 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004596.html">Speed enhancement for BCM4306/2
+</A></li>
+        <LI>Next message: <A HREF="004613.html">[PATCH] b43: Fix QoS defaults
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4573">[ date ]</a>
+              <a href="thread.html#4573">[ thread ]</a>
+              <a href="subject.html#4573">[ subject ]</a>
+              <a href="author.html#4573">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes the initialization of the default QoS parameters.
+This got broken by 0b57664cf2393bc1eff594ff7e5ff26533843fe6
+
+Reported-by: Lorenzo Nava
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, please queue for the next merge window, as I'm not interested
+in finding explanations for applying this to 2.6.27 (2.6.27 already has
+this bug)
+
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-09-06 15:09:16.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-09-06 15:45:09.000000000 +0200
+@@ -3056,37 +3056,40 @@ static void b43_qos_params_upload(struct
+ 					shm_offset + (i * 2),
+ 					params[i]);
+ 		}
+ 	}
+ }
+ 
++/* Mapping of mac80211 queue numbers to b43 QoS SHM offsets. */
++static const u16 b43_qos_shm_offsets[] = {
++	/* [mac80211-queue-nr] = SHM_OFFSET, */
++	[0] = B43_QOS_VOICE,
++	[1] = B43_QOS_VIDEO,
++	[2] = B43_QOS_BESTEFFORT,
++	[3] = B43_QOS_BACKGROUND,
++};
++
+ /* Update the QOS parameters in hardware. */
+ static void b43_qos_update(struct b43_wldev *dev)
+ {
+ 	struct b43_wl *wl = dev-&gt;wl;
+ 	struct b43_qos_params *params;
+ 	unsigned long flags;
+ 	unsigned int i;
+ 
+-	/* Mapping of mac80211 queues to b43 SHM offsets. */
+-	static const u16 qos_shm_offsets[] = {
+-		[0] = B43_QOS_VOICE,
+-		[1] = B43_QOS_VIDEO,
+-		[2] = B43_QOS_BESTEFFORT,
+-		[3] = B43_QOS_BACKGROUND,
+-	};
+-	BUILD_BUG_ON(ARRAY_SIZE(qos_shm_offsets) != ARRAY_SIZE(wl-&gt;qos_params));
++	BUILD_BUG_ON(ARRAY_SIZE(b43_qos_shm_offsets) !=
++		     ARRAY_SIZE(wl-&gt;qos_params));
+ 
+ 	b43_mac_suspend(dev);
+ 	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+ 
+ 	for (i = 0; i &lt; ARRAY_SIZE(wl-&gt;qos_params); i++) {
+ 		params = &amp;(wl-&gt;qos_params[i]);
+ 		if (params-&gt;need_hw_update) {
+ 			b43_qos_params_upload(dev, &amp;(params-&gt;p),
+-					      qos_shm_offsets[i]);
++					      b43_qos_shm_offsets[i]);
+ 			params-&gt;need_hw_update = 0;
+ 		}
+ 	}
+ 
+ 	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 	b43_mac_enable(dev);
+@@ -3094,17 +3097,48 @@ static void b43_qos_update(struct b43_wl
+ 
+ static void b43_qos_clear(struct b43_wl *wl)
+ {
+ 	struct b43_qos_params *params;
+ 	unsigned int i;
+ 
++	/* Initialize QoS parameters to sane defaults. */
++
++	BUILD_BUG_ON(ARRAY_SIZE(b43_qos_shm_offsets) !=
++		     ARRAY_SIZE(wl-&gt;qos_params));
++
+ 	for (i = 0; i &lt; ARRAY_SIZE(wl-&gt;qos_params); i++) {
+ 		params = &amp;(wl-&gt;qos_params[i]);
+ 
+-		memset(&amp;(params-&gt;p), 0, sizeof(params-&gt;p));
+-		params-&gt;p.aifs = -1;
++		switch (b43_qos_shm_offsets[i]) {
++		case B43_QOS_VOICE:
++			params-&gt;p.txop = 0;
++			params-&gt;p.aifs = 2;
++			params-&gt;p.cw_min = 0x0001;
++			params-&gt;p.cw_max = 0x0001;
++			break;
++		case B43_QOS_VIDEO:
++			params-&gt;p.txop = 0;
++			params-&gt;p.aifs = 2;
++			params-&gt;p.cw_min = 0x0001;
++			params-&gt;p.cw_max = 0x0001;
++			break;
++		case B43_QOS_BESTEFFORT:
++			params-&gt;p.txop = 0;
++			params-&gt;p.aifs = 3;
++			params-&gt;p.cw_min = 0x0001;
++			params-&gt;p.cw_max = 0x03FF;
++			break;
++		case B43_QOS_BACKGROUND:
++			params-&gt;p.txop = 0;
++			params-&gt;p.aifs = 7;
++			params-&gt;p.cw_min = 0x0001;
++			params-&gt;p.cw_max = 0x03FF;
++			break;
++		default:
++			B43_WARN_ON(1);
++		}
+ 		params-&gt;need_hw_update = 1;
+ 	}
+ }
+ 
+ /* Initialize the core's QOS capabilities */
+ static void b43_qos_init(struct b43_wldev *dev)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004596.html">Speed enhancement for BCM4306/2
+</A></li>
+	<LI>Next message: <A HREF="004613.html">[PATCH] b43: Fix QoS defaults
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4573">[ date ]</a>
+              <a href="thread.html#4573">[ thread ]</a>
+              <a href="subject.html#4573">[ subject ]</a>
+              <a href="author.html#4573">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

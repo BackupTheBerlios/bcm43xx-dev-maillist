@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 open-firmware new snapshot
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20open-firmware%20new%20snapshot&In-Reply-To=%3CA30D3F04-424C-48C2-8EB6-3838CE50CCD6%40ing.unibs.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004271.html">
+   <LINK REL="Next"  HREF="004282.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 open-firmware new snapshot</H1>
+    <B>Francesco Gringoli</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20open-firmware%20new%20snapshot&In-Reply-To=%3CA30D3F04-424C-48C2-8EB6-3838CE50CCD6%40ing.unibs.it%3E"
+       TITLE="b43 open-firmware new snapshot">francesco.gringoli at ing.unibs.it
+       </A><BR>
+    <I>Wed Jun 18 18:02:33 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004271.html">b43 open-firmware new snapshot
+</A></li>
+        <LI>Next message: <A HREF="004282.html">b43 open-firmware new snapshot
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4281">[ date ]</a>
+              <a href="thread.html#4281">[ thread ]</a>
+              <a href="subject.html#4281">[ subject ]</a>
+              <a href="author.html#4281">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>&gt;&gt;<i> This firmware does _only_ work on wireless core revisions 5, 6, 7,  
+</I>&gt;&gt;<i> 8 or 10.
+</I>&gt;<i>
+</I>&gt;<i> There are reports of it working on rev.9 cores. Is that possible?
+</I>&gt;<i> (Resend of previous mail to the list.)
+</I>Hi there,
+
+I get this
+Jun 18 16:43:51 b43 kernel: [   21.152097] ssb: Core 0 found:  
+ChipCommon (cc 0x800, rev 0x0D, vendor 0x4243)
+Jun 18 16:43:51 b43 kernel: [   21.152113] ssb: Core 1 found: IEEE  
+802.11 (cc 0x812, rev 0x09, vendor 0x4243)
+Jun 18 16:43:51 b43 kernel: [   21.152122] ssb: Core 2 found: PCI (cc  
+0x804, rev 0x0C, vendor 0x4243)
+Jun 18 16:43:51 b43 kernel: [   21.152132] ssb: Core 3 found: PCMCIA  
+(cc 0x80D, rev 0x07, vendor 0x4243)
+
+it should be a rev.9 core. Well, I got it running in monitor mode, I  
+clear saw tcpdump doing its work. But I think Michael is right, just  
+after a while it crashed: before doing that syslog filled up with
+
+[ 1213.209871] ------------[ cut here ]------------
+[ 1213.209878] WARNING: at drivers/net/wireless/b43/xmit.c:49 b43_rx 
++0x1a5/0x630 [b43]()
+[ 1213.209880] Modules linked in: b43 rfkill_input arc4 ecb  
+crypto_blkcipher rfkill mac80211 cfg80211 input_polldev af_packet  
+radeon drm speedstep_lib cpufreq_stats cpufreq_ondemand freq_table  
+cpufreq_powersave cpufreq_userspace cpufreq_conservative container sbs  
+sbshc loop serio_raw psmouse pcspkr usbhid hid ssb battery asus_laptop  
+led_class ac button sis_agp agpgart evdev xfs ide_disk ide_cd_mod  
+cdrom ata_generic pata_sis libata dock floppy skge ehci_hcd ohci_hcd  
+usbcore sis5513 ide_core thermal processor fan fuse [last unloaded: b43]
+[ 1213.209926] Pid: 0, comm: swapper Tainted: G        W 2.6.26-rc6-wl  
+#1
+[ 1213.209931]  [&lt;c011a46f&gt;] warn_on_slowpath+0x5f/0x90
+[ 1213.209947]  [&lt;c01138c2&gt;] enqueue_task+0x12/0x30
+[ 1213.209955]  [&lt;c0113934&gt;] activate_task+0x24/0x40
+[ 1213.209963]  [&lt;c0113b4e&gt;] __wake_up_common+0x3e/0x70
+[ 1213.209973]  [&lt;c025c5c1&gt;] sock_def_readable+0x41/0x50
+[ 1213.209980]  [&lt;c025b831&gt;] sock_queue_rcv_skb+0xa1/0xe0
+[ 1213.209986]  [&lt;c029f090&gt;] udp_queue_rcv_skb+0xb0/0x280
+[ 1213.209997]  [&lt;e09b892c&gt;] ssb_pci_read32+0x1c/0x60 [ssb]
+[ 1213.210010]  [&lt;c0163972&gt;] __slab_alloc+0xa2/0x410
+[ 1213.210016]  [&lt;e0b02990&gt;] __ieee80211_rx_handle_packet+0x5e0/0x7b0  
+[mac80211]
+[ 1213.210038]  [&lt;e0b2b7e5&gt;] b43_rx+0x1a5/0x630 [b43]
+[ 1213.210050]  [&lt;e0b20000&gt;] b43_chip_init+0xa10/0xa20 [b43]
+[ 1213.210059]  [&lt;e0b30165&gt;] op32_fill_descriptor+0x45/0xe0 [b43]
+[ 1213.210077]  [&lt;e0b2fd6e&gt;] b43_dma_rx+0x16e/0x400 [b43]
+[ 1213.210097]  [&lt;e0b21f58&gt;] b43_interrupt_tasklet+0x378/0x910 [b43]
+[ 1213.210106]  [&lt;c01138c2&gt;] enqueue_task+0x12/0x30
+[ 1213.210111]  [&lt;c0113934&gt;] activate_task+0x24/0x40
+[ 1213.210126]  [&lt;c011edc4&gt;] tasklet_action+0x34/0x70
+[ 1213.210131]  [&lt;c011ec72&gt;] __do_softirq+0x42/0x90
+[ 1213.210136]  [&lt;c011ece7&gt;] do_softirq+0x27/0x30
+[ 1213.210139]  [&lt;c011efe5&gt;] irq_exit+0x45/0x60
+[ 1213.210142]  [&lt;c0105a59&gt;] do_IRQ+0x39/0x70
+[ 1213.210151]  [&lt;c0103e23&gt;] common_interrupt+0x23/0x30
+[ 1213.210162]  [&lt;e0813d0f&gt;] acpi_idle_enter_simple+0x16e/0x1db  
+[processor]
+[ 1213.210177]  [&lt;e08139b6&gt;] acpi_idle_enter_bm+0xb7/0x2a2 [processor]
+[ 1213.210187]  [&lt;c0254258&gt;] cpuidle_idle_call+0x68/0xa0
+[ 1213.210193]  [&lt;c02541f0&gt;] cpuidle_idle_call+0x0/0xa0
+[ 1213.210197]  [&lt;c01026a4&gt;] cpu_idle+0x24/0x70
+[ 1213.210206]  =======================
+[ 1213.210209] ---[ end trace 4d6796847711ea43 ]---
+
+repeated hundreds of time. I'm using wireless-testing (git-pulled this  
+morning) e latest firmware image. I succeeded to find three cards and  
+they all are rev.9!
+
+Regards,
+FG
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004271.html">b43 open-firmware new snapshot
+</A></li>
+	<LI>Next message: <A HREF="004282.html">b43 open-firmware new snapshot
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4281">[ date ]</a>
+              <a href="thread.html#4281">[ thread ]</a>
+              <a href="subject.html#4281">[ subject ]</a>
+              <a href="author.html#4281">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,282 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC 1/7]B43N: Update the initn process following the new specs.
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%201/7%5DB43N%3A%20Update%20the%20initn%20process%20following%20the%20new%20specs.&In-Reply-To=%3C1197ff4c0901132315q67862e86xd0d4ec4a829fc8f5%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005035.html">
+   <LINK REL="Next"  HREF="005033.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC 1/7]B43N: Update the initn process following the new specs.</H1>
+    <B>YanBo</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%201/7%5DB43N%3A%20Update%20the%20initn%20process%20following%20the%20new%20specs.&In-Reply-To=%3C1197ff4c0901132315q67862e86xd0d4ec4a829fc8f5%40mail.gmail.com%3E"
+       TITLE="[RFC 1/7]B43N: Update the initn process following the new specs.">dreamfly281 at gmail.com
+       </A><BR>
+    <I>Wed Jan 14 08:15:37 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005035.html">Dual-licensing potential?
+</A></li>
+        <LI>Next message: <A HREF="005033.html">[RFC 1/7]B43N: Update the initn process following the new specs.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5022">[ date ]</a>
+              <a href="thread.html#5022">[ thread ]</a>
+              <a href="subject.html#5022">[ subject ]</a>
+              <a href="author.html#5022">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 8bcfda5..0f7a9a6 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -28,7 +28,7 @@
+ #include &quot;b43.h&quot;
+ #include &quot;phy_n.h&quot;
+ #include &quot;tables_nphy.h&quot;
+-
++#include &quot;main.h&quot;
+
+ void b43_nphy_set_rxantenna(struct b43_wldev *dev, int antenna)
+ {//TODO
+@@ -97,7 +97,7 @@ static int nphy_channel_switch(struct b43_wldev
+*dev, unsigned int channel)
+ 		return -ESRCH;
+
+ 	//FIXME enable/disable band select upper20 in RXCTL
+-	if (0 /*FIXME 5Ghz*/)
++	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ)
+ 		b43_radio_maskset(dev, B2055_MASTER1, 0xFF8F, 0x20);
+ 	else
+ 		b43_radio_maskset(dev, B2055_MASTER1, 0xFF8F, 0x50);
+@@ -107,7 +107,7 @@ static int nphy_channel_switch(struct b43_wldev
+*dev, unsigned int channel)
+ 	b43_radio_write16(dev, B2055_VCO_CAL10, 45);
+ 	b43_radio_write16(dev, B2055_VCO_CAL10, 65);
+ 	udelay(300);
+-	if (0 /*FIXME 5Ghz*/)
++	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ)
+ 		b43_phy_set(dev, B43_NPHY_BANDCTL, B43_NPHY_BANDCTL_5GHZ);
+ 	else
+ 		b43_phy_mask(dev, B43_NPHY_BANDCTL, ~B43_NPHY_BANDCTL_5GHZ);
+@@ -117,6 +117,7 @@ static int nphy_channel_switch(struct b43_wldev
+*dev, unsigned int channel)
+ 	return 0;
+ }
+
++
+ static void b43_radio_init2055_pre(struct b43_wldev *dev)
+ {
+ 	b43_phy_mask(dev, B43_NPHY_RFCTL_CMD,
+@@ -234,6 +235,8 @@ static void b43_nphy_tables_init(struct b43_wldev *dev)
+ 	ntab_upload(dev, B43_NTAB_C1_IQLT, b43_ntab_iqlt1);
+ 	ntab_upload(dev, B43_NTAB_C0_LOFEEDTH, b43_ntab_loftlt0);
+ 	ntab_upload(dev, B43_NTAB_C1_LOFEEDTH, b43_ntab_loftlt1);
++
++	/* TODO for rev &gt;= 3 */
+ }
+
+ static void b43_nphy_workarounds(struct b43_wldev *dev)
+@@ -392,13 +395,17 @@ ok:
+ 		     ~(B43_NPHY_RFSEQMODE_CAOVER | B43_NPHY_RFSEQMODE_TROVER));
+ }
+
++static void b43_nphy_mimo_config(struct b43_wldev *dev)
++{
++
++}
+ static void b43_nphy_bphy_init(struct b43_wldev *dev)
+ {
+ 	unsigned int i;
+ 	u16 val;
+
+ 	val = 0x1E1F;
+-	for (i = 0; i &lt; 14; i++) {
++	for (i = 0; i &lt; 16; i++) {
+ 		b43_phy_write(dev, B43_PHY_N_BMODE(0x88 + i), val);
+ 		val -= 0x202;
+ 	}
+@@ -410,6 +417,7 @@ static void b43_nphy_bphy_init(struct b43_wldev *dev)
+ 	b43_phy_write(dev, B43_PHY_N_BMODE(0x38), 0x668);
+ }
+
++
+ /* RSSI Calibration */
+ static void b43_nphy_rssi_cal(struct b43_wldev *dev, u8 type)
+ {
+@@ -421,11 +429,16 @@ int b43_phy_initn(struct b43_wldev *dev)
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 	u16 tmp;
+
+-	//TODO: Spectral management
+ 	b43_nphy_tables_init(dev);
+
+-	/* Clear all overrides */
+-	b43_phy_write(dev, B43_NPHY_RFCTL_OVER, 0);
++	if (phy-&gt;rev &gt;= 3) {
++		b43_phy_write(dev, B43_NPHY_TXF_40CO_B1S1, 0);
++		b43_phy_write(dev, B43_NPHY_RFCTL_OVER, 0);
++		b43_phy_write(dev, B43_NPHY_TXF_40CO_B1S0, 0);
++		b43_phy_write(dev, B43_NPHY_TXF_40CO_B32S1, 0);
++	} else
++		b43_phy_write(dev, B43_NPHY_RFCTL_OVER, 0);
++
+ 	b43_phy_write(dev, B43_NPHY_RFCTL_INTC1, 0);
+ 	b43_phy_write(dev, B43_NPHY_RFCTL_INTC2, 0);
+ 	b43_phy_write(dev, B43_NPHY_RFCTL_INTC3, 0);
+@@ -433,6 +446,9 @@ int b43_phy_initn(struct b43_wldev *dev)
+ 	b43_phy_mask(dev, B43_NPHY_RFSEQMODE,
+ 		     ~(B43_NPHY_RFSEQMODE_CAOVER |
+ 		       B43_NPHY_RFSEQMODE_TROVER));
++
++	if (phy-&gt;rev &gt;= 3)
++		b43_phy_write(dev, B43_PHY_N(0x8F), 0);
+ 	b43_phy_write(dev, B43_NPHY_AFECTL_OVER, 0);
+
+ 	tmp = (phy-&gt;rev &lt; 2) ? 64 : 59;
+@@ -443,49 +459,75 @@ int b43_phy_initn(struct b43_wldev *dev)
+ 	b43_phy_write(dev, B43_NPHY_AFESEQ_TX2RX_PUD_20M, 0x20);
+ 	b43_phy_write(dev, B43_NPHY_AFESEQ_TX2RX_PUD_40M, 0x20);
+
++	/* Fixme for Apple board? */
+ 	b43_phy_write(dev, B43_NPHY_TXREALFD, 184);
+-	b43_phy_write(dev, B43_NPHY_MIMO_CRSTXEXT, 200);
+-	b43_phy_write(dev, B43_NPHY_PLOAD_CSENSE_EXTLEN, 80);
+-	b43_phy_write(dev, B43_NPHY_C2_BCLIPBKOFF, 511);
+
+-	//TODO MIMO-Config
++	b43_phy_write(dev, B43_NPHY_MIMO_CRSTXEXT, 0xC8);
++	b43_phy_write(dev, B43_NPHY_PLOAD_CSENSE_EXTLEN, 0x50);
++	b43_phy_write(dev, B43_NPHY_TXRIFS_FRDEL, 0x30);
++
++	/* Set to mix/auto mode */
++	b43_phy_set(dev, B43_NPHY_MIMOCFG, B43_NPHY_MIMOCFG_AUTO);
++	b43_phy_mask(dev, B43_NPHY_MIMOCFG, ~B43_NPHY_MIMOCFG_GF);
++
+ 	//TODO Update TX/RX chain
+
+ 	if (phy-&gt;rev &lt; 2) {
+ 		b43_phy_write(dev, B43_NPHY_DUP40_GFBL, 0xAA8);
+ 		b43_phy_write(dev, B43_NPHY_DUP40_BL, 0x9A4);
+ 	}
++
+ 	b43_nphy_workarounds(dev);
+ 	b43_nphy_reset_cca(dev);
+
+ 	ssb_write32(dev-&gt;dev, SSB_TMSLOW,
+ 		    ssb_read32(dev-&gt;dev, SSB_TMSLOW) | B43_TMSLOW_MACPHYCLKEN);
+-	b43_nphy_force_rf_sequence(dev, B43_RFSEQ_RX2TX);
+-	b43_nphy_force_rf_sequence(dev, B43_RFSEQ_RESET2RX);
+-
+-	b43_phy_read(dev, B43_NPHY_CLASSCTL); /* dummy read */
+-	//TODO read core1/2 clip1 thres regs
+-
+-	if (1 /* FIXME Band is 2.4GHz */)
++	do {
++		u16 rfctl1, rfctl2;
++
++		/* turn off PA override */
++		rfctl1 = b43_phy_read(dev, B43_NPHY_RFCTL_INTC1);
++		rfctl2 = b43_phy_read(dev, B43_NPHY_RFCTL_INTC2);
++	       	tmp = (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)?
++			0x120 : 0x180;
++		/* Fixme b43_phy_set or b43_phy_write? */
++		b43_phy_set(dev, B43_NPHY_RFCTL_INTC1, tmp);
++		b43_phy_set(dev, B43_NPHY_RFCTL_INTC2, tmp);
++		
++		b43_nphy_force_rf_sequence(dev, B43_RFSEQ_RX2TX);
++		b43_nphy_force_rf_sequence(dev, B43_RFSEQ_RESET2RX);
++
++		/* turn on PA override */
++		b43_phy_write(dev, B43_NPHY_RFCTL_INTC1, rfctl1);
++		b43_phy_write(dev, B43_NPHY_RFCTL_INTC2, rfctl2);
++	} while (0);
++
++	if ( b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ )
+ 		b43_nphy_bphy_init(dev);
+-	//TODO disable TX power control
+-	//TODO Fix the TX power settings
+-	//TODO Init periodic calibration with reason 3
++
++	/* turning off power control */
++	b43_nphy_tx_power_type_set(dev, 0);
++	b43_nphy_tx_power_fix(dev);
++	/* TODO measure idle TSSI (tx power control)  */
++	/* TODO set up tx power control  */
++	/* TODO write the below table to the 32-bit table 26 and 27 at offset 192  */
++	b43_nphy_periodic_calibration_init(dev, B43_PHY_INIT);
+ 	b43_nphy_rssi_cal(dev, 2);
+ 	b43_nphy_rssi_cal(dev, 0);
+ 	b43_nphy_rssi_cal(dev, 1);
+-	//TODO get TX gain
++	b43_nphy_tx_gain_get(dev);
+ 	//TODO init superswitch
+-	//TODO calibrate LO
+-	//TODO idle TSSI TX pctl
+-	//TODO TX power control power setup
+-	//TODO table writes
+-	//TODO TX power control coefficients
+-	//TODO enable TX power control
+-	//TODO control antenna selection
+-	//TODO init radar detection
+-	//TODO reset channel if changed
+-
++	/* 36. FIXME (already do periodic calibration) */
++	/*   37. set up TX power control coefficients */
++	/*   38. set TX power control type to the configured type */
++	/* 39. If antenna selection type is 2x3 or 2x4 */
++	/*          1. update antenna configuration  */
++	/*   40. init radar detection */
++	b43_phy_write(dev, B43_NPHY_TXMACIF_HOLDOFF, 0x15);
++	b43_phy_write(dev, B43_NPHY_TXMACDELAY, 0x320);
++	
++	/*     43. set TX LPF bandwidth */
++	/*     44. spur workaround  */
+ 	b43err(dev-&gt;wl, &quot;IEEE 802.11n devices are not supported, yet.\n&quot;);
+ 	return 0;
+ }
+@@ -508,8 +550,8 @@ static void b43_nphy_op_prepare_structs(struct
+b43_wldev *dev)
+ 	struct b43_phy_n *nphy = phy-&gt;n;
+
+ 	memset(nphy, 0, sizeof(*nphy));
+-
+-	//TODO init struct b43_phy_n
++	if (phy-&gt;rev == 3 || phy-&gt;rev == 4)
++		nphy-&gt;havoid = 1;
+ }
+
+ static void b43_nphy_op_free(struct b43_wldev *dev)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005035.html">Dual-licensing potential?
+</A></li>
+	<LI>Next message: <A HREF="005033.html">[RFC 1/7]B43N: Update the initn process following the new specs.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5022">[ date ]</a>
+              <a href="thread.html#5022">[ thread ]</a>
+              <a href="subject.html#5022">[ subject ]</a>
+              <a href="author.html#5022">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

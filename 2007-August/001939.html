@@ -1,0 +1,144 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.23-rc1-wireless-dev%20bcm43xx_mac80211%20associates%2C%20but%20Ethernet%0A%09appears%20broken&In-Reply-To=%3C46BC5413.3080604%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001938.html">
+   <LINK REL="Next"  HREF="001940.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken</H1>
+    <B>Jory A. Pratt</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.23-rc1-wireless-dev%20bcm43xx_mac80211%20associates%2C%20but%20Ethernet%0A%09appears%20broken&In-Reply-To=%3C46BC5413.3080604%40gmail.com%3E"
+       TITLE="2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken">geekypenguin at gmail.com
+       </A><BR>
+    <I>Fri Aug 10 14:03:31 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001938.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken
+</A></li>
+        <LI>Next message: <A HREF="001940.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, 	but Ethernet appears broken
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1939">[ date ]</a>
+              <a href="thread.html#1939">[ thread ]</a>
+              <a href="subject.html#1939">[ subject ]</a>
+              <a href="author.html#1939">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> On Friday 10 August 2007 04:27:33 Ehud Gavron wrote:
+</I>&gt;<i>   
+</I>&gt;&gt;<i> I have spent eight hours on this today and I can't find a way to do a 
+</I>&gt;&gt;<i> subset of the patches. I haven't quite given up, but I'm reaching a 
+</I>&gt;&gt;<i> point where I could use some insight.  I didn't copy the list... but 
+</I>&gt;&gt;<i> feel free to if you think it of public value.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> The only things that don't make obvious sense (TO ME) are
+</I>&gt;&gt;<i> 1. all the changes to bcm43xx_interrupt_handler   &lt;---- I don't 
+</I>&gt;&gt;<i> understand what it NEEDS to be or why it WAS one way and IS another
+</I>&gt;&gt;<i> 2. @@ -2314,7 +2310,6 @@ static void bcm43xx_periodic_tasks_setup
+</I>&gt;&gt;<i>  {
+</I>&gt;&gt;<i>      struct delayed_work *work = &amp;dev-&gt;periodic_work;
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -    assert(bcm43xx_status(dev) == 
+</I>&gt;&gt;<i> BCM43xx_STAT_INITIALIZED);                &lt;------------ this is a 
+</I>&gt;&gt;<i> removal with no insertion to replace it
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> It's an assertion. That doesn't generate code.
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>&gt;&gt;<i> 3. -    if (likely(bcm43xx_status(dev) == BCM43xx_STAT_INITIALIZED)) {
+</I>&gt;&gt;<i> +    if (likely(bcm43xx_status(dev) &gt;= BCM43xx_STAT_STARTED)) 
+</I>&gt;&gt;<i> {              &lt;---------------------- shouldn't this be &lt; 
+</I>&gt;&gt;<i> BCM43xx_STAT_STARTED ???
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> (That's in bcm43xx_get_tx_stats() right?)
+</I>&gt;<i> No, we are checking for &quot;Are we at least started here?&quot;.
+</I>&gt;<i> So we need &gt;=STARTED. ==STARTED would do it, too, but that's
+</I>&gt;<i> the same with the current code. &lt;STARTED would clearly be wrong.
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>&gt;&gt;<i> I have other questions, but the code is blurring in front of my eyes.
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> Yeah, well. I think it does for everybody. ;)
+</I>&gt;<i>
+</I>&gt;<i> I'm pretty sure that it's a bug in the toolchain (gcc or binutils
+</I>&gt;<i> or maybe something else) that's triggered by this patch.
+</I>&gt;<i> So the toolchain generating bad code and corrupting the data.
+</I>&gt;<i> The weird thing, however, is that you said you were able to associate,
+</I>&gt;<i> but not able to send that packet (it was a ping, or something like that?).
+</I>&gt;<i> &gt;From the driver point of view it doesn't matter if we TX/RX an
+</I>&gt;<i> association packet or some other packet. The codepaths are _exactly_
+</I>&gt;<i> the same.
+</I>&gt;<i>
+</I>&gt;<i> That is all _very_ strange. I never had such a weird bug
+</I>&gt;<i> in my whole life.
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>&gt;&gt;<i> Michael, I know you are busy. Could you please re-look at your patch, 
+</I>&gt;&gt;<i> and note the cases where you change
+</I>&gt;&gt;<i> bcm43xx_status(dev) == BCM43xx_STAT_INITIALIZED
+</I>&gt;&gt;<i> I think in the other cases you change them to
+</I>&gt;&gt;<i> bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED
+</I>&gt;&gt;<i> which makes sense to me... so I can't understand #3 above.
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> The patch looks absolutely correct to me, except the tiny tiny
+</I>&gt;<i> part in the core-starting, where I already sent a patch to
+</I>&gt;<i> you (you said it wouldn't help).
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>&gt;&gt;<i> Any input would be appreciated. 
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>&gt;&gt;<i> PS No, I don't know this code.  No I've never written a Linux driver.  
+</I>&gt;&gt;<i> I'm a newbie.  I just happen to have a laptop that doesn't like the new 
+</I>&gt;&gt;<i> code and likes the old code for bcm43xx-mac80211.  I'm not the only 
+</I>&gt;&gt;<i> one.
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> Huh? Someone else able to reproduce it??
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>Yes I am able to reproduce it. I have done upgraded and downgraded my 
+enitre toolchain. exact same problem is present on my system when I try 
+my 4306 and 4318.
+-Jory
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001938.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken
+</A></li>
+	<LI>Next message: <A HREF="001940.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, 	but Ethernet appears broken
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1939">[ date ]</a>
+              <a href="thread.html#1939">[ thread ]</a>
+              <a href="subject.html#1939">[ subject ]</a>
+              <a href="author.html#1939">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

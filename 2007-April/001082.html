@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> some questions about bcm43xx-mac80211
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20some%20questions%20about%20bcm43xx-mac80211&In-Reply-To=%3C8e6f94720704141329mce8d62ekb6fa32e60cd51d4d%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001074.html">
+   <LINK REL="Next"  HREF="001083.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>some questions about bcm43xx-mac80211</H1>
+    <B>Will Dyson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20some%20questions%20about%20bcm43xx-mac80211&In-Reply-To=%3C8e6f94720704141329mce8d62ekb6fa32e60cd51d4d%40mail.gmail.com%3E"
+       TITLE="some questions about bcm43xx-mac80211">will.dyson at gmail.com
+       </A><BR>
+    <I>Sat Apr 14 22:29:47 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001074.html">some questions about bcm43xx-mac80211
+</A></li>
+        <LI>Next message: <A HREF="001083.html">some questions about bcm43xx-mac80211
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1082">[ date ]</a>
+              <a href="thread.html#1082">[ thread ]</a>
+              <a href="subject.html#1082">[ subject ]</a>
+              <a href="author.html#1082">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 4/14/07, Andrew J. Barr &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">andrew.james.barr at gmail.com</A>&gt; wrote:
+
+&gt;<i> Also if someone could explain the device naming logic to me--I have a
+</I>&gt;<i> 'eth2' that doesn't do anything and a wlan0_rename device that seems to
+</I>&gt;<i> be the wireless device--I'd appreciate it too. With the mainline bcm43xx
+</I>&gt;<i> my wireless radio was 'eth2' and there was no 'wlan0_rename'.
+</I>
+The device renaming logic is not in the driver at all, but rather is
+part of udev.
+
+In Debian, there is a udev rule file
+(etc/udev/persistent-net-generator.rules) which generates mappings
+between device MAC addresses and network device names. It stores the
+mappings in /etc/udev/rules.d/z25_persistent-net.rules.
+
+When you first loaded the in-kernel bcm43xx driver, a persistent rule
+was generated for your card's MAC address. When you then go and load
+the bcm43xx_mac80211 driver, udev gets confused because the new driver
+creates 2 interfaces with the same MAC address (wmaster0 and wlan0).
+Wmaster0 happens to be created first, so udev matches this with the
+interface name created previously and renames wmaster0 to eth0 (or
+whatever the name was with the in-kernel driver). Then the real
+interface shows up, and udev finds that the name is already taken, so
+it renames wlan0 to wlan0_rename (and does not create a new persistent
+rule).
+
+The fix is to edit /etc/udev/rules.d/z25_persistent-net.rules, and add
+ADDRS{type}=&quot;1&quot; to the rule for your card (be sure to keep the parts
+of the rule comma-separated). This will prevent it from matching the
+wmaster0 interface, and cause your card to have the same name with
+both drivers.
+
+Alternatively, if you prefer to have the drivers get different
+interface names, you can change the existing rule for your card so
+that it only matches when the old driver is used. To do this, change
+DRIVERS==&quot;?*&quot; to DRIVERS==&quot;bcm43xx&quot;. Udev will then create a new rule
+for the new driver.
+
+Either way, the change will take effect when the driver is reloaded.
+
+This will bite almost everyone who switches drivers. Do we have a FAQ
+I can add this to?
+
+-- 
+Will Dyson
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001074.html">some questions about bcm43xx-mac80211
+</A></li>
+	<LI>Next message: <A HREF="001083.html">some questions about bcm43xx-mac80211
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1082">[ date ]</a>
+              <a href="thread.html#1082">[ thread ]</a>
+              <a href="subject.html#1082">[ subject ]</a>
+              <a href="author.html#1082">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

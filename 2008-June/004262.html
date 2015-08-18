@@ -1,0 +1,162 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH stable] b43: Fix noise calculation WARN_ON
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20stable%5D%20b43%3A%20Fix%20noise%20calculation%20WARN_ON&In-Reply-To=%3C200806142300.15391.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004265.html">
+   <LINK REL="Next"  HREF="004264.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH stable] b43: Fix noise calculation WARN_ON</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20stable%5D%20b43%3A%20Fix%20noise%20calculation%20WARN_ON&In-Reply-To=%3C200806142300.15391.mb%40bu3sch.de%3E"
+       TITLE="[PATCH stable] b43: Fix noise calculation WARN_ON">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Jun 14 23:00:14 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004265.html">[PATCH stable] b43: Fix possible NULL pointer dereference in	DMA code
+</A></li>
+        <LI>Next message: <A HREF="004264.html">[PATCH stable] b43: Fix noise calculation WARN_ON
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4262">[ date ]</a>
+              <a href="thread.html#4262">[ thread ]</a>
+              <a href="subject.html#4262">[ subject ]</a>
+              <a href="author.html#4262">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This removes a WARN_ON that is responsible for the following koops:
+<A HREF="http://www.kerneloops.org/searchweek.php?search=b43_generate_noise_sample">http://www.kerneloops.org/searchweek.php?search=b43_generate_noise_sample</A>
+
+The comment in the patch describes why it's safe to simply remove
+the check.
+
+This patch is upstream in John Linville's wireless-testing.git tree
+as commit 86ef1ae07289c9f0aa1aa310d43653e513e6f124
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+
+Index: linux-2.6.25.6/drivers/net/wireless/b43/b43.h
+===================================================================
+--- linux-2.6.25.6.orig/drivers/net/wireless/b43/b43.h	2008-06-14 22:43:28.000000000 +0200
++++ linux-2.6.25.6/drivers/net/wireless/b43/b43.h	2008-06-14 22:47:02.000000000 +0200
+@@ -593,13 +593,12 @@ struct b43_dma {
+ 	struct b43_dmaring *rx_ring0;
+ 	struct b43_dmaring *rx_ring3;	/* only available on core.rev &lt; 5 */
+ };
+ 
+ /* Context information for a noise calculation (Link Quality). */
+ struct b43_noise_calculation {
+-	u8 channel_at_start;
+ 	bool calculation_running;
+ 	u8 nr_samples;
+ 	s8 samples[8][4];
+ };
+ 
+ struct b43_stats {
+Index: linux-2.6.25.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- linux-2.6.25.6.orig/drivers/net/wireless/b43/main.c	2008-06-14 22:44:16.000000000 +0200
++++ linux-2.6.25.6/drivers/net/wireless/b43/main.c	2008-06-14 22:47:02.000000000 +0200
+@@ -1024,22 +1024,20 @@ static void b43_jssi_write(struct b43_wl
+ 
+ static void b43_generate_noise_sample(struct b43_wldev *dev)
+ {
+ 	b43_jssi_write(dev, 0x7F7F7F7F);
+ 	b43_write32(dev, B43_MMIO_MACCMD,
+ 		    b43_read32(dev, B43_MMIO_MACCMD) | B43_MACCMD_BGNOISE);
+-	B43_WARN_ON(dev-&gt;noisecalc.channel_at_start != dev-&gt;phy.channel);
+ }
+ 
+ static void b43_calculate_link_quality(struct b43_wldev *dev)
+ {
+ 	/* Top half of Link Quality calculation. */
+ 
+ 	if (dev-&gt;noisecalc.calculation_running)
+ 		return;
+-	dev-&gt;noisecalc.channel_at_start = dev-&gt;phy.channel;
+ 	dev-&gt;noisecalc.calculation_running = 1;
+ 	dev-&gt;noisecalc.nr_samples = 0;
+ 
+ 	b43_generate_noise_sample(dev);
+ }
+ 
+@@ -1050,15 +1048,22 @@ static void handle_irq_noise(struct b43_
+ 	u8 noise[4];
+ 	u8 i, j;
+ 	s32 average;
+ 
+ 	/* Bottom half of Link Quality calculation. */
+ 
++	/* Possible race condition: It might be possible that the user
++	 * changed to a different channel in the meantime since we
++	 * started the calculation. We ignore that fact, since it's
++	 * not really that much of a problem. The background noise is
++	 * an estimation only anyway. Slightly wrong results will get damped
++	 * by the averaging of the 8 sample rounds. Additionally the
++	 * value is shortlived. So it will be replaced by the next noise
++	 * calculation round soon. */
++
+ 	B43_WARN_ON(!dev-&gt;noisecalc.calculation_running);
+-	if (dev-&gt;noisecalc.channel_at_start != phy-&gt;channel)
+-		goto drop_calculation;
+ 	*((__le32 *)noise) = cpu_to_le32(b43_jssi_read(dev));
+ 	if (noise[0] == 0x7F || noise[1] == 0x7F ||
+ 	    noise[2] == 0x7F || noise[3] == 0x7F)
+ 		goto generate_new;
+ 
+ 	/* Get the noise samples. */
+@@ -1093,17 +1098,16 @@ static void handle_irq_noise(struct b43_
+ 		if (tmp == 8)
+ 			average -= 72;
+ 		else
+ 			average -= 48;
+ 
+ 		dev-&gt;stats.link_noise = average;
+-	      drop_calculation:
+ 		dev-&gt;noisecalc.calculation_running = 0;
+ 		return;
+ 	}
+-      generate_new:
++generate_new:
+ 	b43_generate_noise_sample(dev);
+ }
+ 
+ static void handle_irq_tbtt_indication(struct b43_wldev *dev)
+ {
+ 	if (b43_is_mode(dev-&gt;wl, IEEE80211_IF_TYPE_AP)) {
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004265.html">[PATCH stable] b43: Fix possible NULL pointer dereference in	DMA code
+</A></li>
+	<LI>Next message: <A HREF="004264.html">[PATCH stable] b43: Fix noise calculation WARN_ON
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4262">[ date ]</a>
+              <a href="thread.html#4262">[ thread ]</a>
+              <a href="subject.html#4262">[ subject ]</a>
+              <a href="author.html#4262">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

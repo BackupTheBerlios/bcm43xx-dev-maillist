@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Speed enhancement for BCM4306/2
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Speed%20enhancement%20for%20BCM4306/2&In-Reply-To=%3C48C31646.2020205%40wetwork.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004594.html">
+   <LINK REL="Next"  HREF="004597.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Speed enhancement for BCM4306/2</H1>
+    <B>gavron at wetwork.net</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Speed%20enhancement%20for%20BCM4306/2&In-Reply-To=%3C48C31646.2020205%40wetwork.net%3E"
+       TITLE="Speed enhancement for BCM4306/2">gavron at wetwork.net
+       </A><BR>
+    <I>Sun Sep  7 01:46:14 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004594.html">Speed enhancement for BCM4306/2
+</A></li>
+        <LI>Next message: <A HREF="004597.html">Speed enhancement for BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4595">[ date ]</a>
+              <a href="thread.html#4595">[ thread ]</a>
+              <a href="subject.html#4595">[ subject ]</a>
+              <a href="author.html#4595">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+
+Larry Finger wrote:
+&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">gavron at wetwork.net</A> wrote:
+</I>&gt;&gt;<i> I haven't tried a build yet, but please let me know if I'm on the 
+</I>&gt;&gt;<i> right track.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> E
+</I>&gt;&gt;<i> # diff -uN /tmp/phy.c drivers/net/wireless/b43legacy/phy.c
+</I>&gt;&gt;<i> --- /tmp/phy.c    2008-09-06 15:13:33.000000000 -0700
+</I>&gt;&gt;<i> +++ drivers/net/wireless/b43legacy/phy.c    2008-09-06 
+</I>&gt;&gt;<i> 15:54:03.000000000 -0700
+</I>&gt;&gt;<i> @@ -1010,7 +1010,7 @@
+</I>&gt;&gt;<i>         b43legacy_phy_initb5(dev);
+</I>&gt;&gt;<i>     else
+</I>&gt;&gt;<i>         b43legacy_phy_initb6(dev);
+</I>&gt;&gt;<i> -    if (phy-&gt;rev &gt;= 2 || phy-&gt;gmode)
+</I>&gt;&gt;<i> +    if (phy-&gt;rev &gt;= 2 &amp;&amp; phy-&gt;gmode)
+</I>&gt;&gt;<i>         b43legacy_phy_inita(dev);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>     if (phy-&gt;rev &gt;= 2) {
+</I>&gt;&gt;<i> @@ -1021,21 +1021,26 @@
+</I>&gt;&gt;<i>         b43legacy_phy_write(dev, 0x0811, 0x0000);
+</I>&gt;&gt;<i>         b43legacy_phy_write(dev, 0x0015, 0x00C0);
+</I>&gt;&gt;<i>     }
+</I>&gt;&gt;<i> -    if (phy-&gt;rev &gt; 5) {
+</I>&gt;&gt;<i> +    if (phy-&gt;rev &gt;= 3) {
+</I>&gt;<i>
+</I>&gt;<i> AFAIK, this change is an error in the specs. I have since changed it. 
+</I>&gt;<i> Sorry I didn't catch it earlier.
+</I>&gt;<i>
+</I>&gt;<i> Otherwise, this patch seems to be correct. All you need now are the 
+</I>&gt;<i> fixes for b43legacy_phy_initb5() and b43legacy_phy_initb6().
+</I>&gt;<i>
+</I>&gt;<i> Larry
+</I>
+Ok, I've re-looked at the specs and made the appropriate corrections.  
+I've also gone through all of the PHY specs and found one other 
+correction.  It's enclosed below for review.
+
+Where do I go to find the stuff for ...initb5() and ...initb6()?
+
+Thanks
+
+E
+# diff -uN /tmp/phy.c drivers/net/wireless/b43legacy/phy.c
+--- /tmp/phy.c    2008-09-06 15:13:33.000000000 -0700
++++ drivers/net/wireless/b43legacy/phy.c    2008-09-06 
+16:42:40.000000000 -0700
+@@ -1010,7 +1010,7 @@
+         b43legacy_phy_initb5(dev);
+     else
+         b43legacy_phy_initb6(dev);
+-    if (phy-&gt;rev &gt;= 2 || phy-&gt;gmode)
++    if (phy-&gt;rev &gt;= 2 &amp;&amp; phy-&gt;gmode)
+         b43legacy_phy_inita(dev);
+ 
+     if (phy-&gt;rev &gt;= 2) {
+@@ -1025,17 +1025,22 @@
+         b43legacy_phy_write(dev, 0x0811, 0x0400);
+         b43legacy_phy_write(dev, 0x0015, 0x00C0);
+     }
+-    if (phy-&gt;rev &gt;= 2 || phy-&gt;gmode) {
++    if (phy-&gt;gmode) {
+         tmp = b43legacy_phy_read(dev, 0x0400) &amp; 0xFF;
+-        if (tmp == 3 || tmp == 5) {
++        if (tmp == 3) {
++            b43legacy_phy_write(dev, 0x04C2, 0x1816);
++            b43legacy_phy_write(dev, 0x04C3, 0x8606);
++        }
++        if (tmp == 4 || tmp == 5) {
+             b43legacy_phy_write(dev, 0x04C2, 0x1816);
+             b43legacy_phy_write(dev, 0x04C3, 0x8006);
+-            if (tmp == 5)
+-                b43legacy_phy_write(dev, 0x04CC,
+-                            (b43legacy_phy_read(dev,
+-                             0x04CC) &amp; 0x00FF) |
+-                             0x1F00);
++            b43legacy_phy_write(dev, 0x04CC,
++                        (b43legacy_phy_read(dev,
++                        0x04CC) &amp; 0x00FF) |
++                        0x1F00);
+         }
++    }
++    if (phy--&gt;rev &gt;= 2)
+         b43legacy_phy_write(dev, 0x047E, 0x0078);
+     }
+     if (phy-&gt;radio_rev == 8) {
+@@ -1092,7 +1097,7 @@
+          */
+         b43legacy_nrssi_hw_update(dev, 0xFFFF);
+         b43legacy_calc_nrssi_threshold(dev);
+-    } else if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
++    } else if (phy-&gt;gmode) {
+         if (phy-&gt;nrssi[0] == -1000) {
+             B43legacy_WARN_ON(phy-&gt;nrssi[1] != -1000);
+             b43legacy_calc_nrssi_slope(dev);
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004594.html">Speed enhancement for BCM4306/2
+</A></li>
+	<LI>Next message: <A HREF="004597.html">Speed enhancement for BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4595">[ date ]</a>
+              <a href="thread.html#4595">[ thread ]</a>
+              <a href="subject.html#4595">[ subject ]</a>
+              <a href="author.html#4595">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

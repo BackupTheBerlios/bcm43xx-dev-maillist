@@ -1,0 +1,140 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC PATCH] bcm43xx: fix assert failures	in	bcm43xx_interrupt_handler()
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%20PATCH%5D%20bcm43xx%3A%20fix%20assert%20failures%0A%09in%09bcm43xx_interrupt_handler%28%29&In-Reply-To=%3C45E7B937.4010700%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000655.html">
+   <LINK REL="Next"  HREF="000657.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC PATCH] bcm43xx: fix assert failures	in	bcm43xx_interrupt_handler()</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%20PATCH%5D%20bcm43xx%3A%20fix%20assert%20failures%0A%09in%09bcm43xx_interrupt_handler%28%29&In-Reply-To=%3C45E7B937.4010700%40lwfinger.net%3E"
+       TITLE="[RFC PATCH] bcm43xx: fix assert failures	in	bcm43xx_interrupt_handler()">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Fri Mar  2 06:42:15 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000655.html">[RFC PATCH] bcm43xx: fix assert failures in	bcm43xx_interrupt_handler()
+</A></li>
+        <LI>Next message: <A HREF="000657.html">Assertion failed in ieee80211softmac_wx_get_rate
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#656">[ date ]</a>
+              <a href="thread.html#656">[ thread ]</a>
+              <a href="subject.html#656">[ subject ]</a>
+              <a href="author.html#656">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Pavel Roskin wrote:
+&gt;<i> Hello!
+</I>&gt;<i> 
+</I>&gt;<i> Sorry, another look at the assert issue in bcm43xx has taken some time.
+</I>&gt;<i> That's the complete kernel messages from the point where the driver is
+</I>&gt;<i> inserted to the first assertion failure.
+</I>--snip--
+&gt;<i> bcm43xx: DMA-32 0x0200 (RX) max used slots: 1/64
+</I>&gt;<i> bcm43xx: DMA-32 0x02A0 (TX) max used slots: 0/512
+</I>&gt;<i> bcm43xx: ASSERTION FAILED (bcm43xx_status(bcm) ==
+</I>&gt;<i> BCM43xx_STAT_INITIALIZED)
+</I>&gt;<i> at: /home/proski/src/linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c:1861:bcm43xx_interrupt_handler()
+</I>&gt;<i> 
+</I>&gt;<i> I'm using the current mb tree plus the fixes to bring it up to date.
+</I>&gt;<i> It turns out that the Broadcom card shares interrupts with a large number of devices:
+</I>&gt;<i> 
+</I>&gt;<i> # cat /proc/interrupts 
+</I>&gt;<i>            CPU0       
+</I>&gt;<i>   0:    1281260    XT-PIC-XT        timer
+</I>&gt;<i>   1:         10    XT-PIC-XT        i8042
+</I>&gt;<i>   2:          0    XT-PIC-XT        cascade
+</I>&gt;<i>   4:       4855    XT-PIC-XT        serial
+</I>&gt;<i>   8:          1    XT-PIC-XT        rtc
+</I>&gt;<i>   9:        332    XT-PIC-XT        acpi
+</I>&gt;<i>  11:     271806    XT-PIC-XT        yenta, yenta, uhci_hcd:usb1,
+</I>&gt;<i> uhci_hcd:usb2, uhci_hcd:usb3, eth9, <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">radeon at pci</A>:0000:01:00.0, bcm43xx
+</I>&gt;<i>  12:       2337    XT-PIC-XT        i8042
+</I>&gt;<i>  14:      25257    XT-PIC-XT        ide0
+</I>&gt;<i>  15:      37722    XT-PIC-XT        ide1
+</I>&gt;<i> NMI:          0 
+</I>&gt;<i> ERR:          0
+</I>
+I think your analysis is correct. The reason I don't see these assertions is that my bcm43xx is
+alone on IRQ 19, and no other device comes through this path. I don't remember the details on my old
+computer, but I never saw these assertions. Probably, the interrupt was shared, but by less active
+devices.
+
+&gt;<i> It's not necessary to remove the module to trigger the assert messages.
+</I>&gt;<i> All it takes it to bring the interface (eth0 in my case) up and down.
+</I>&gt;<i> 
+</I>&gt;<i> Assertion failures always happen when bcm43xx_status(bcm) is
+</I>&gt;<i> BCM43xx_STAT_SHUTTINGDOWN.  Debugging shows that all of then are printed
+</I>&gt;<i> after bcm43xx_shutdown_all_wireless_cores() sets the status and all the
+</I>&gt;<i> way until free_irq() is called.  bcm43xx_interrupt_disable() has not
+</I>&gt;<i> effect.
+</I>&gt;<i> 
+</I>&gt;<i> I believe it happens because bcm43xx_interrupt_handler() checks status
+</I>&gt;<i> before it check whether the interrupt is even destined for us.  I think
+</I>&gt;<i> the wired ethernet (eth9) and the video card can generate quite a lot of
+</I>&gt;<i> interrupts.  Indeed, moving the assertion down eliminates all assertion
+</I>&gt;<i> failures.
+</I>&gt;<i> 
+</I>&gt;<i> It is possible that we still can get some assertion failures caused by
+</I>&gt;<i> the interrupts for the card after BCM43xx_STAT_SHUTTINGDOWN is set and
+</I>&gt;<i> before bcm43xx_interrupt_disable() is called.  It tried to reproduce it
+</I>&gt;<i> by bringing the interface down during flood ping.  I don't see assertion
+</I>&gt;<i> failures, but I don't see any reasons why they cannot happen (I hope I'm
+</I>&gt;<i> not seeing the obvious).
+</I>
+My observation is that they do not occur, but I have not done a thorough analysis.
+
+&gt;<i> bcm43xx_d80211 is not affected because it doesn't have the
+</I>&gt;<i> BCM43xx_STAT_SHUTTINGDOWN state.  I think the bcm43xx driver could avoid
+</I>&gt;<i> it too if bcm43xx_shutdown_all_wireless_cores() ensured first that it's
+</I>&gt;<i> not interrupted by anything that could access the card hardware.
+</I>&gt;<i> 
+</I>&gt;<i> I'm surprised that bcm43xx_wireless_core_reset() has a reference to
+</I>&gt;<i> BCM43xx_STAT_SHUTTINGDOWN.  I just don't see how that function could be
+</I>&gt;<i> called in that state.
+</I>&gt;<i> 
+</I>&gt;<i> Here's my patch, and I'm even signing it off in case it actually turns
+</I>&gt;<i> out to be good.
+</I>
+I'm testing it now and will send it upstream unless someone objects.
+
+Thanks for the effort in chasing this down.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000655.html">[RFC PATCH] bcm43xx: fix assert failures in	bcm43xx_interrupt_handler()
+</A></li>
+	<LI>Next message: <A HREF="000657.html">Assertion failed in ieee80211softmac_wx_get_rate
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#656">[ date ]</a>
+              <a href="thread.html#656">[ thread ]</a>
+              <a href="subject.html#656">[ subject ]</a>
+              <a href="author.html#656">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

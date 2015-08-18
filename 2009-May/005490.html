@@ -1,0 +1,342 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/2 V2] b43legacy: Remove unnecessary MMIO in interrupt hotpath
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/2%20V2%5D%20b43legacy%3A%20Remove%20unnecessary%20MMIO%20in%20interrupt%20hotpath&In-Reply-To=%3C4A0DD2F8.2070804%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005497.html">
+   <LINK REL="Next"  HREF="005492.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/2 V2] b43legacy: Remove unnecessary MMIO in interrupt hotpath</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/2%20V2%5D%20b43legacy%3A%20Remove%20unnecessary%20MMIO%20in%20interrupt%20hotpath&In-Reply-To=%3C4A0DD2F8.2070804%40lwfinger.net%3E"
+       TITLE="[PATCH 1/2 V2] b43legacy: Remove unnecessary MMIO in interrupt hotpath">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri May 15 22:39:20 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005497.html">[BCM43] driver development for 14e4:4315
+</A></li>
+        <LI>Next message: <A HREF="005492.html">[PATCH 1/2 V2] b43legacy: Remove unnecessary MMIO in interrupt	hotpath
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5490">[ date ]</a>
+              <a href="thread.html#5490">[ thread ]</a>
+              <a href="subject.html#5490">[ subject ]</a>
+              <a href="author.html#5490">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+
+This removes unnecessary MMIO accesses in the interrupt hotpath. The
+patch by Michael Buesch for b43 has been ported to b43legacy.
+
+Signed-off-by: Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+Tested-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+This is 2.6.31 material. I am submitting this for Stefano because
+this patch touches a section of the code that had to be changed
+to fix a locking problem.
+
+I hope this patch does not cause any problems. My normal method
+is not available while I'm away from home.
+
+V2 does not try to eliminate any &quot;unused&quot; DMA rings. If any should be
+eliminated, that will be in a separate patch.
+
+Larry
+---
+
+ b43legacy.h |    4 +--
+ main.c      |   78 ++++++++++++++++--------------------------------------------
+ pio.c       |    2 -
+ 3 files changed, 25 insertions(+), 59 deletions(-)
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/b43legacy.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/b43legacy.h
++++ wireless-testing/drivers/net/wireless/b43legacy/b43legacy.h
+@@ -694,8 +694,8 @@ struct b43legacy_wldev {
+ 	/* Reason code of the last interrupt. */
+ 	u32 irq_reason;
+ 	u32 dma_reason[6];
+-	/* saved irq enable/disable state bitfield. */
+-	u32 irq_savedstate;
++	/* The currently active generic-interrupt mask. */
++	u32 irq_mask;
+ 	/* Link Quality calculation context. */
+ 	struct b43legacy_noise_calculation noisecalc;
+ 	/* if &gt; 0 MAC is suspended. if == 0 MAC is enabled. */
+Index: wireless-testing/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-testing/drivers/net/wireless/b43legacy/main.c
+@@ -583,35 +583,6 @@ static void b43legacy_short_slot_timing_
+ 	b43legacy_set_slot_time(dev, 20);
+ }
+
+-/* Enable a Generic IRQ. &quot;mask&quot; is the mask of which IRQs to enable.
+- * Returns the _previously_ enabled IRQ mask.
+- */
+-static inline u32 b43legacy_interrupt_enable(struct b43legacy_wldev *dev,
+-					     u32 mask)
+-{
+-	u32 old_mask;
+-
+-	old_mask = b43legacy_read32(dev, B43legacy_MMIO_GEN_IRQ_MASK);
+-	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, old_mask |
+-			  mask);
+-
+-	return old_mask;
+-}
+-
+-/* Disable a Generic IRQ. &quot;mask&quot; is the mask of which IRQs to disable.
+- * Returns the _previously_ enabled IRQ mask.
+- */
+-static inline u32 b43legacy_interrupt_disable(struct b43legacy_wldev *dev,
+-					      u32 mask)
+-{
+-	u32 old_mask;
+-
+-	old_mask = b43legacy_read32(dev, B43legacy_MMIO_GEN_IRQ_MASK);
+-	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, old_mask &amp; ~mask);
+-
+-	return old_mask;
+-}
+-
+ /* Synchronize IRQ top- and bottom-half.
+  * IRQs must be masked before calling this.
+  * This must not be called with the irq_lock held.
+@@ -1200,7 +1171,7 @@ static void handle_irq_beacon(struct b43
+ 	/* This is the bottom half of the asynchronous beacon update. */
+
+ 	/* Ignore interrupt in the future. */
+-	dev-&gt;irq_savedstate &amp;= ~B43legacy_IRQ_BEACON;
++	dev-&gt;irq_mask &amp;= ~B43legacy_IRQ_BEACON;
+
+ 	cmd = b43legacy_read32(dev, B43legacy_MMIO_MACCMD);
+ 	beacon0_valid = (cmd &amp; B43legacy_MACCMD_BEACON0_VALID);
+@@ -1209,7 +1180,7 @@ static void handle_irq_beacon(struct b43
+ 	/* Schedule interrupt manually, if busy. */
+ 	if (beacon0_valid &amp;&amp; beacon1_valid) {
+ 		b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_REASON, B43legacy_IRQ_BEACON);
+-		dev-&gt;irq_savedstate |= B43legacy_IRQ_BEACON;
++		dev-&gt;irq_mask |= B43legacy_IRQ_BEACON;
+ 		return;
+ 	}
+
+@@ -1247,12 +1218,11 @@ static void b43legacy_beacon_update_trig
+ 	dev = wl-&gt;current_dev;
+ 	if (likely(dev &amp;&amp; (b43legacy_status(dev) &gt;= B43legacy_STAT_INITIALIZED))) {
+ 		spin_lock_irq(&amp;wl-&gt;irq_lock);
+-		/* update beacon right away or defer to irq */
+-		dev-&gt;irq_savedstate = b43legacy_read32(dev, B43legacy_MMIO_GEN_IRQ_MASK);
++		/* Update beacon right away or defer to IRQ. */
+ 		handle_irq_beacon(dev);
+ 		/* The handler might have updated the IRQ mask. */
+ 		b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK,
+-			    dev-&gt;irq_savedstate);
++				  dev-&gt;irq_mask);
+ 		mmiowb();
+ 		spin_unlock_irq(&amp;wl-&gt;irq_lock);
+ 	}
+@@ -1398,7 +1368,7 @@ static void b43legacy_interrupt_tasklet(
+ 	if (reason &amp; B43legacy_IRQ_TX_OK)
+ 		handle_irq_transmit_status(dev);
+
+-	b43legacy_interrupt_enable(dev, dev-&gt;irq_savedstate);
++	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, dev-&gt;irq_mask);
+ 	mmiowb();
+ 	spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+ }
+@@ -1450,18 +1420,18 @@ static irqreturn_t b43legacy_interrupt_h
+ 	struct b43legacy_wldev *dev = dev_id;
+ 	u32 reason;
+
+-	if (!dev)
+-		return IRQ_NONE;
++	B43legacy_WARN_ON(!dev);
+
+ 	spin_lock(&amp;dev-&gt;wl-&gt;irq_lock);
+
+-	if (b43legacy_status(dev) &lt; B43legacy_STAT_STARTED)
++	if (unlikely(b43legacy_status(dev) &lt; B43legacy_STAT_STARTED))
++		/* This can only happen on shared IRQ lines. */
+ 		goto out;
+ 	reason = b43legacy_read32(dev, B43legacy_MMIO_GEN_IRQ_REASON);
+ 	if (reason == 0xffffffff) /* shared IRQ */
+ 		goto out;
+ 	ret = IRQ_HANDLED;
+-	reason &amp;= b43legacy_read32(dev, B43legacy_MMIO_GEN_IRQ_MASK);
++	reason &amp;= dev-&gt;irq_mask;
+ 	if (!reason)
+ 		goto out;
+
+@@ -1485,10 +1455,9 @@ static irqreturn_t b43legacy_interrupt_h
+ 					      &amp; 0x0000DC00;
+
+ 	b43legacy_interrupt_ack(dev, reason);
+-	/* disable all IRQs. They are enabled again in the bottom half. */
+-	dev-&gt;irq_savedstate = b43legacy_interrupt_disable(dev,
+-							  B43legacy_IRQ_ALL);
+-	/* save the reason code and call our bottom half. */
++	/* Disable all IRQs. They are enabled again in the bottom half. */
++	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, 0);
++	/* Save the reason code and call our bottom half. */
+ 	dev-&gt;irq_reason = reason;
+ 	tasklet_schedule(&amp;dev-&gt;isr_tasklet);
+ out:
+@@ -1948,7 +1917,8 @@ void b43legacy_mac_enable(struct b43lega
+
+ 		/* Re-enable IRQs. */
+ 		spin_lock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+-		b43legacy_interrupt_enable(dev, dev-&gt;irq_savedstate);
++		b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK,
++				  dev-&gt;irq_mask);
+ 		spin_unlock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+ 	}
+ }
+@@ -1967,10 +1937,9 @@ void b43legacy_mac_suspend(struct b43leg
+ 		/* Mask IRQs before suspending MAC. Otherwise
+ 		 * the MAC stays busy and won't suspend. */
+ 		spin_lock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+-		tmp = b43legacy_interrupt_disable(dev, B43legacy_IRQ_ALL);
++		b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, 0);
+ 		spin_unlock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+ 		b43legacy_synchronize_irq(dev);
+-		dev-&gt;irq_savedstate = tmp;
+
+ 		b43legacy_power_saving_ctl_bits(dev, -1, 1);
+ 		b43legacy_write32(dev, B43legacy_MMIO_MACCTL,
+@@ -2659,7 +2628,6 @@ static int b43legacy_op_dev_config(struc
+ 	int antenna_tx;
+ 	int antenna_rx;
+ 	int err = 0;
+-	u32 savedirqs;
+
+ 	antenna_tx = B43legacy_ANTENNA_DEFAULT;
+ 	antenna_rx = B43legacy_ANTENNA_DEFAULT;
+@@ -2699,7 +2667,7 @@ static int b43legacy_op_dev_config(struc
+ 		spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 		goto out_unlock_mutex;
+ 	}
+-	savedirqs = b43legacy_interrupt_disable(dev, B43legacy_IRQ_ALL);
++	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, 0);
+ 	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 	b43legacy_synchronize_irq(dev);
+
+@@ -2738,7 +2706,7 @@ static int b43legacy_op_dev_config(struc
+ 	}
+
+ 	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-	b43legacy_interrupt_enable(dev, savedirqs);
++	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, dev-&gt;irq_mask);
+ 	mmiowb();
+ 	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ out_unlock_mutex:
+@@ -2801,7 +2769,6 @@ static void b43legacy_op_bss_info_change
+ 	struct b43legacy_wldev *dev;
+ 	struct b43legacy_phy *phy;
+ 	unsigned long flags;
+-	u32 savedirqs;
+
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 	B43legacy_WARN_ON(wl-&gt;vif != vif);
+@@ -2817,7 +2784,7 @@ static void b43legacy_op_bss_info_change
+ 		spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 		goto out_unlock_mutex;
+ 	}
+-	savedirqs = b43legacy_interrupt_disable(dev, B43legacy_IRQ_ALL);
++	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, 0);
+
+ 	if (changed &amp; BSS_CHANGED_BSSID) {
+ 		spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+@@ -2862,7 +2829,7 @@ static void b43legacy_op_bss_info_change
+ 	b43legacy_mac_enable(dev);
+
+ 	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-	b43legacy_interrupt_enable(dev, savedirqs);
++	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, dev-&gt;irq_mask);
+ 	/* XXX: why? */
+ 	mmiowb();
+ 	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+@@ -2922,8 +2889,7 @@ static void b43legacy_wireless_core_stop
+ 	 * setting the status to INITIALIZED, as the interrupt handler
+ 	 * won't care about IRQs then. */
+ 	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-	dev-&gt;irq_savedstate = b43legacy_interrupt_disable(dev,
+-							  B43legacy_IRQ_ALL);
++	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, 0);
+ 	b43legacy_read32(dev, B43legacy_MMIO_GEN_IRQ_MASK); /* flush */
+ 	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 	b43legacy_synchronize_irq(dev);
+@@ -2963,7 +2929,7 @@ static int b43legacy_wireless_core_start
+
+ 	/* Start data flow (TX/RX) */
+ 	b43legacy_mac_enable(dev);
+-	b43legacy_interrupt_enable(dev, dev-&gt;irq_savedstate);
++	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, dev-&gt;irq_mask);
+
+ 	/* Start maintenance work */
+ 	b43legacy_periodic_tasks_setup(dev);
+@@ -3126,7 +3092,7 @@ static void setup_struct_wldev_for_init(
+ 	/* IRQ related flags */
+ 	dev-&gt;irq_reason = 0;
+ 	memset(dev-&gt;dma_reason, 0, sizeof(dev-&gt;dma_reason));
+-	dev-&gt;irq_savedstate = B43legacy_IRQ_MASKTEMPLATE;
++	dev-&gt;irq_mask = B43legacy_IRQ_MASKTEMPLATE;
+
+ 	dev-&gt;mac_suspended = 1;
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/pio.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/pio.c
++++ wireless-testing/drivers/net/wireless/b43legacy/pio.c
+@@ -443,7 +443,7 @@ int b43legacy_pio_init(struct b43legacy_
+ 	pio-&gt;queue3 = queue;
+
+ 	if (dev-&gt;dev-&gt;id.revision &lt; 3)
+-		dev-&gt;irq_savedstate |= B43legacy_IRQ_PIO_WORKAROUND;
++		dev-&gt;irq_mask |= B43legacy_IRQ_PIO_WORKAROUND;
+
+ 	b43legacydbg(dev-&gt;wl, &quot;PIO initialized\n&quot;);
+ 	err = 0;
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005497.html">[BCM43] driver development for 14e4:4315
+</A></li>
+	<LI>Next message: <A HREF="005492.html">[PATCH 1/2 V2] b43legacy: Remove unnecessary MMIO in interrupt	hotpath
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5490">[ date ]</a>
+              <a href="thread.html#5490">[ thread ]</a>
+              <a href="subject.html#5490">[ subject ]</a>
+              <a href="author.html#5490">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

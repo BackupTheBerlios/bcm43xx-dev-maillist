@@ -1,0 +1,167 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: remove ethtool
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20remove%20ethtool&In-Reply-To=%3C45ea1a34.Lf4EKmMy%2BKAmSkH0%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000667.html">
+   <LINK REL="Next"  HREF="000670.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: remove ethtool</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20remove%20ethtool&In-Reply-To=%3C45ea1a34.Lf4EKmMy%2BKAmSkH0%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] bcm43xx: remove ethtool">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sun Mar  4 02:00:36 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000667.html">bcm4311: Offering of help
+</A></li>
+        <LI>Next message: <A HREF="000670.html">[PATCH] bcm43xx: remove ethtool
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#669">[ date ]</a>
+              <a href="thread.html#669">[ thread ]</a>
+              <a href="subject.html#669">[ subject ]</a>
+              <a href="author.html#669">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Ethtool is useless for bcm43xx - remove it.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/Makefile
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/Makefile
++++ wireless-2.6/drivers/net/wireless/bcm43xx/Makefile
+@@ -7,6 +7,6 @@ bcm43xx-obj-$(CONFIG_BCM43XX_PIO) += bcm
+ bcm43xx-objs := bcm43xx_main.o bcm43xx_ilt.o \
+ 		bcm43xx_radio.o bcm43xx_phy.o \
+ 		bcm43xx_power.o bcm43xx_wx.o \
+-		bcm43xx_leds.o bcm43xx_ethtool.o \
++		bcm43xx_leds.o  \
+ 		bcm43xx_xmit.o bcm43xx_sysfs.o \
+ 		$(bcm43xx-obj-y)
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_ethtool.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_ethtool.c
++++ /dev/null
+@@ -1,50 +0,0 @@
+-/*
+-
+-  Broadcom BCM43xx wireless driver
+-
+-  ethtool support
+-
+-  Copyright (c) 2006 Jason Lunz &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">lunz at falooley.org</A>&gt;
+-
+-  Some code in this file is derived from the 8139too.c driver
+-  Copyright (C) 2002 Jeff Garzik
+-
+-  This program is free software; you can redistribute it and/or modify
+-  it under the terms of the GNU General Public License as published by
+-  the Free Software Foundation; either version 2 of the License, or
+-  (at your option) any later version.
+-
+-  This program is distributed in the hope that it will be useful,
+-  but WITHOUT ANY WARRANTY; without even the implied warranty of
+-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-  GNU General Public License for more details.
+-
+-  You should have received a copy of the GNU General Public License
+-  along with this program; see the file COPYING.  If not, write to
+-  the Free Software Foundation, Inc., 51 Franklin Steet, Fifth Floor,
+-  Boston, MA 02110-1301, USA.
+-
+-*/
+-
+-#include &quot;bcm43xx.h&quot;
+-#include &quot;bcm43xx_ethtool.h&quot;
+-
+-#include &lt;linux/netdevice.h&gt;
+-#include &lt;linux/pci.h&gt;
+-#include &lt;linux/string.h&gt;
+-#include &lt;linux/utsrelease.h&gt;
+-
+-
+-static void bcm43xx_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+-{
+-	struct bcm43xx_private *bcm = bcm43xx_priv(dev);
+-
+-	strncpy(info-&gt;driver, KBUILD_MODNAME, sizeof(info-&gt;driver));
+-	strncpy(info-&gt;version, UTS_RELEASE, sizeof(info-&gt;version));
+-	strncpy(info-&gt;bus_info, pci_name(bcm-&gt;pci_dev), ETHTOOL_BUSINFO_LEN);
+-}
+-
+-const struct ethtool_ops bcm43xx_ethtool_ops = {
+-	.get_drvinfo = bcm43xx_get_drvinfo,
+-	.get_link = ethtool_op_get_link,
+-};
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_ethtool.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_ethtool.h
++++ /dev/null
+@@ -1,8 +0,0 @@
+-#ifndef BCM43xx_ETHTOOL_H_
+-#define BCM43xx_ETHTOOL_H_
+-
+-#include &lt;linux/ethtool.h&gt;
+-
+-extern const struct ethtool_ops bcm43xx_ethtool_ops;
+-
+-#endif /* BCM43xx_ETHTOOL_H_ */
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -50,7 +50,6 @@
+ #include &quot;bcm43xx_pio.h&quot;
+ #include &quot;bcm43xx_power.h&quot;
+ #include &quot;bcm43xx_wx.h&quot;
+-#include &quot;bcm43xx_ethtool.h&quot;
+ #include &quot;bcm43xx_xmit.h&quot;
+ #include &quot;bcm43xx_sysfs.h&quot;
+ 
+@@ -4155,7 +4154,6 @@ static int __devinit bcm43xx_init_one(st
+ #endif
+ 	net_dev-&gt;wireless_handlers = &amp;bcm43xx_wx_handlers_def;
+ 	net_dev-&gt;irq = pdev-&gt;irq;
+-	SET_ETHTOOL_OPS(net_dev, &amp;bcm43xx_ethtool_ops);
+ 
+ 	/* initialize the bcm43xx_private struct */
+ 	bcm = bcm43xx_priv(net_dev);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000667.html">bcm4311: Offering of help
+</A></li>
+	<LI>Next message: <A HREF="000670.html">[PATCH] bcm43xx: remove ethtool
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#669">[ date ]</a>
+              <a href="thread.html#669">[ thread ]</a>
+              <a href="subject.html#669">[ subject ]</a>
+              <a href="author.html#669">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

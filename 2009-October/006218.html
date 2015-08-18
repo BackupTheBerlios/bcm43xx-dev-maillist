@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> ssb problem on ar71xx ubiquiti routerstation
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20ssb%20problem%20on%20ar71xx%20ubiquiti%20routerstation&In-Reply-To=%3C4ADDEC80.8050001%40schmitt-united.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006221.html">
+   <LINK REL="Next"  HREF="006220.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>ssb problem on ar71xx ubiquiti routerstation</H1>
+    <B>Daniel Schmitt</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20ssb%20problem%20on%20ar71xx%20ubiquiti%20routerstation&In-Reply-To=%3C4ADDEC80.8050001%40schmitt-united.de%3E"
+       TITLE="ssb problem on ar71xx ubiquiti routerstation">daniel at schmitt-united.de
+       </A><BR>
+    <I>Tue Oct 20 18:59:44 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006221.html">Poor hostapd work with newer driver
+</A></li>
+        <LI>Next message: <A HREF="006220.html">ssb problem on ar71xx ubiquiti routerstation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6218">[ date ]</a>
+              <a href="thread.html#6218">[ thread ]</a>
+              <a href="subject.html#6218">[ subject ]</a>
+              <a href="author.html#6218">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello Group,
+
+I don't know why it is so hard for hardware vendors to implement pci bus ...
+A few weeks ago I tried IXP425 platform, now Atheros with ar7161 on Ubiquiti
+Routerstation, pci bus isn't working, too.
+
+I'm trying current OpenWrt trunk version for this platform.
+Already tried kernel versions 2.6.28, 2.6.30 and 2.6.31.
+on every platform the same error if i &quot;insmod ssb&quot;:
+
+PCI: Enabling device 0000:00:11.0 (0000 -&gt; 0002)
+PCI: Setting latency timer of device 0000:00:11.0 to 64
+PCI error 1 at PCI addr 0x10001000
+Data bus error, epc == 80164df4, ra == 830026a0
+Oops[#1]:
+Cpu 0
+$ 0   : 00000000 00000073 0000c0de 00000000
+$ 4   : b0001002 830eff80 00000000 839cb038
+$ 8   : 00000000 800643f0 802d0000 802e0000
+$12   : 802d0000 00100100 802d3868 765f6972
+$16   : 830eff82 00000001 839cb000 839cb000
+$20   : 839d3b90 00408dbc 004953c4 00000002
+$24   : 00000018 00000000
+$28   : 839d2000 839d3b38 7f8bcb80 830026a0
+Hi    : 00000000
+Lo    : 00000000
+epc   : 80164df4 ioread16+0x8/0x10
+     Tainted: P
+ra    : 830026a0 ssb_attr_sprom_show+0x44c/0x480 [ssb]
+Status: 1000fc03    KERNEL EXL IE
+Cause : 9080001c
+PrId  : 00019374 (MIPS 24Kc)
+Modules linked in: ssb(+) ohci_hcd ath_pci ath_hal(P) nf_nat_tftp
+nf_conntrack_tftp nf_nat_irc nf_conntrack_irc nf_nat_ftp nf_conntrack_ftp
+ipt_MASQUERADE iptable_nat nf_nat xt_NOTRACK iptable_raw xt_state
+nf_conntrack_ipv4 nf_defrag_ipv4 nf_conntrack ehci_hcd pppoe pppox ipt_REJECT
+xt_TCPMSS ipt_LOG xt_multiport xt_mac xt_limit iptable_mangle iptable_filter
+ip_tables xt_tcpudp x_tables ppp_async ppp_generic slhc usbcore crc_ccitt
+michael_mic arc4 aes_generic deflate ecb cbc cryptomgr crypto_hash
+crypto_blkcipher aead crypto_algapi button_hotplug gpio_buttons input_polldev
+input_core leds_gpio
+Process insmod (pid: 662, threadinfo=839d2000, task=839f8d68, tls=00000000)
+Stack : 839d3b58 83007d90 00000000 839cb000 fffffff4 839cb000 830eff80 83002b9c
+         839cb2dc 83003cac 00000000 00000001 00000000 839cb000 839cb2dc 839d3b90
+         83002b4c 83000f6c 00000000 0000000d 00000001 83007de4 00000000 00000000
+         00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+         00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+         ...
+Call Trace:
+[&lt;80164df4&gt;] ioread16+0x8/0x10
+[&lt;830026a0&gt;] ssb_attr_sprom_show+0x44c/0x480 [ssb]
+
+
+Code: 304200ff  38840002  94820000 &lt;03e00008&gt; 3042ffff  38840002  94820000
+03e00008  3042ffff
+
+I already tried to insert printk before and after ioread16 to have a delay. But
+it already crashes at the first ioread16 in sprom_do_read.
+I then tried ioread8 and ioread32 instead of ioread16 (which did not work in
+IXP425).
+But I cannot resolve it.
+
+Gabor says that the pci controller of Atheros SoC has a hardware bug and nobody
+knows exactly about it:
+&quot;The PCI Host Controller in the AR71xx SoCs has a hardware bug. At least everyone
+says this, but (apart from the Atheros' engineers) nobody knows what is this bug
+exactly.&quot;
+
+Is it right, that the only way to get 4 minipci cards working is a x86 PC with a
+big huge ATX power supply and a big case? I know of ALIX but I want something
+small and cheap for driving bcm4306 cards ... :(
+
+Thanks for any help,
+Daniel
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006221.html">Poor hostapd work with newer driver
+</A></li>
+	<LI>Next message: <A HREF="006220.html">ssb problem on ar71xx ubiquiti routerstation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6218">[ date ]</a>
+              <a href="thread.html#6218">[ thread ]</a>
+              <a href="subject.html#6218">[ subject ]</a>
+              <a href="author.html#6218">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

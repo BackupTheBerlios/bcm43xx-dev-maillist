@@ -1,0 +1,221 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Tons of interrupts on driver load
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C4811F6DC.4050601%40coderworld.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003957.html">
+   <LINK REL="Next"  HREF="003959.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Tons of interrupts on driver load</H1>
+    <B>Richard Jonsson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C4811F6DC.4050601%40coderworld.net%3E"
+       TITLE="Tons of interrupts on driver load">richie at coderworld.net
+       </A><BR>
+    <I>Fri Apr 25 17:21:00 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003957.html">Tons of interrupts on driver load
+</A></li>
+        <LI>Next message: <A HREF="003959.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3958">[ date ]</a>
+              <a href="thread.html#3958">[ thread ]</a>
+              <a href="subject.html#3958">[ subject ]</a>
+              <a href="author.html#3958">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Larry Finger skrev:
+&gt;<i> Richard Jonsson wrote:
+</I>&gt;&gt;<i> Pavel Roskin skrev:
+</I>&gt;&gt;&gt;<i> On Thu, 2008-04-24 at 21:48 +0200, Richard Jonsson wrote:
+</I>&gt;&gt;&gt;&gt;<i> Hello,
+</I>&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i> First some background:
+</I>&gt;&gt;&gt;&gt;<i> I am currently running latest mainline from git. This kernel suffers 
+</I>&gt;&gt;&gt;&gt;<i> from a scheduler?
+</I>&gt;&gt;&gt;<i> I think this question is more suited for LKML.
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;<i> I'm sorry for being a bit vague. I'm just trying to describe the
+</I>&gt;&gt;<i> circumstances surrounding the issue. I and others have reported the
+</I>&gt;&gt;<i> scheduler oddity to LKML and it's being dealt with.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> My question to this list could be condensed to:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Is it normal that over 25000 interrupts are generated when loading 
+</I>&gt;&gt;<i> b43, or is the driver or something else broken?
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> I believe you guys are the best suited to answer this question.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i> While trying to find what these hickups come from I ran watch 
+</I>&gt;&gt;&gt;&gt;<i> --interval .1 &quot;cat /proc/interrupts&quot;. I can see there that the b43 
+</I>&gt;&gt;&gt;&gt;<i> disappears, gets unloaded probably, and then reappears.
+</I>&gt;&gt;&gt;<i> You should probably show the exact contents of /proc/interrupts and
+</I>&gt;&gt;&gt;<i> provide some details about the systems (architecture, CPU speed,
+</I>&gt;&gt;&gt;<i> contents of /proc/sched_debug, lspci output, dmesg output).
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i> When b43 reappears in the interrupt listing, that line generates 
+</I>&gt;&gt;&gt;&gt;<i> some 25000 irq's within a fraction of a second. Is this a bug 
+</I>&gt;&gt;&gt;&gt;<i> somewhere or by design?
+</I>&gt;&gt;&gt;<i> It's possible that the interrupt count is not shown when the driver
+</I>&gt;&gt;&gt;<i> &quot;disappears&quot;, but is not reset to 0.  Once the interrupt has a handler,
+</I>&gt;&gt;&gt;<i> the original count is shown.
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> This is on a HP DV2140eu laptop, 1GB ram, amd turion64 TL52 x2 
+</I>&gt;&gt;<i> (1600MHz), kubuntu 8.04
+</I>&gt;&gt;<i> broadcom flavor: 4311
+</I>&gt;&gt;<i> $ uname -a
+</I>&gt;&gt;<i> Linux laptop 2.6.25 #38 SMP Thu Apr 24 16:45:44 CEST 2008 x86_64 
+</I>&gt;&gt;<i> GNU/Linux
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> I was trying to make a testcase, but can't find how to disable 
+</I>&gt;&gt;<i> networkmanager, nor how to control if from a terminal. Just 
+</I>&gt;&gt;<i> inactivating knetworkmanager and &quot;rmmod b43&quot; results in a segfault.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Anyway networkmanager seems to reload the driver periodically for some 
+</I>&gt;&gt;<i> reason. Probably because it's stupid and unaware that the radio is 
+</I>&gt;&gt;<i> disabled by hardware button.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> b43 is loaded, not associated since wired networking is used.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> $ date &amp;&amp; cat /proc/interrupts |grep &quot;19:&quot;
+</I>&gt;&gt;<i> fre apr 25 15:12:50 CEST 2008
+</I>&gt;&gt;<i>   19:        813     210843   IO-APIC-fasteoi   b43
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> a few moments later:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> $ date &amp;&amp; cat /proc/interrupts |grep &quot;19:&quot;
+</I>&gt;&gt;<i> fre apr 25 15:13:15 CEST 2008
+</I>&gt;&gt;<i>   19:        813     210843   IO-APIC-fasteoi   b43
+</I>&gt;&gt;<i> $ date &amp;&amp; cat /proc/interrupts |grep &quot;19:&quot;
+</I>&gt;&gt;<i> fre apr 25 15:13:16 CEST 2008
+</I>&gt;&gt;<i>   19:        813     210851   IO-APIC-fasteoi   b43
+</I>&gt;&gt;<i> $ date &amp;&amp; cat /proc/interrupts |grep &quot;19:&quot;
+</I>&gt;&gt;<i> fre apr 25 15:13:17 CEST 2008
+</I>&gt;&gt;<i>   19:        813     210854   IO-APIC-fasteoi     &lt;-- b43 reloaded by nm
+</I>&gt;<i> 
+</I>&gt;<i> I'm a little confused. Why do you think that b43 was reloaded? Is there 
+</I>
+I took it for granted since it disappears from the interrupt listing.
+
+&gt;<i> a corresponding output in dmesg. Oh, I forgot - Ubuntu doesn't enable 
+</I>&gt;<i> the ssb or b43 debug output!
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>
+I use a custom kernel, but I think I turned off b43/ssb debugging some 
+time ago. Anyway dmesg is drowning in this:
+
+[ 7389.533848] b43-phy0 warning: You must go to 
+<A HREF="http://linuxwireless.org/en/users/Drivers/b43#devicefirmware">http://linuxwireless.org/en/users/Drivers/b43#devicefirmware</A> and 
+download the latest firmware (version 4).
+[ 7390.282233] PM: Adding info for No Bus:hw_random
+[ 7390.993977] PM: Removing info for No Bus:hw_random
+[ 7391.193935] b43-phy0: Loading firmware version 351.126 (2006-07-29 
+05:54:02)
+[ 7391.193947] b43-phy0 warning: You are using an old firmware image. 
+Support for old firmware will be removed in July 2008.
+[ 7391.193953] b43-phy0 warning: You must go to 
+<A HREF="http://linuxwireless.org/en/users/Drivers/b43#devicefirmware">http://linuxwireless.org/en/users/Drivers/b43#devicefirmware</A> and 
+download the latest firmware (version 4).
+[ 7392.151174] PM: Adding info for No Bus:hw_random
+[ 7518.285906] PM: Removing info for No Bus:hw_random
+[ 7518.485886] b43-phy0: Loading firmware version 351.126 (2006-07-29 
+05:54:02)
+[ 7518.485898] b43-phy0 warning: You are using an old firmware image. 
+Support for old firmware will be removed in July 2008.
+[ 7518.485904] b43-phy0 warning: You must go to 
+<A HREF="http://linuxwireless.org/en/users/Drivers/b43#devicefirmware">http://linuxwireless.org/en/users/Drivers/b43#devicefirmware</A> and 
+download the latest firmware (version 4).
+[ 7519.254126] PM: Adding info for No Bus:hw_random
+[ 7519.254195] printk: 2250 messages suppressed.
+[ 7519.254200] b43-phy0 ERROR: PHY transmission error
+[ 7519.254255] b43-phy0 ERROR: PHY transmission error
+[ 7519.254266] b43-phy0 ERROR: PHY transmission error
+[ 7519.254275] b43-phy0 ERROR: PHY transmission error
+[ 7519.254285] b43-phy0 ERROR: PHY transmission error
+[ 7519.254295] b43-phy0 ERROR: PHY transmission error
+[ 7519.254304] b43-phy0 ERROR: PHY transmission error
+[ 7519.254313] b43-phy0 ERROR: PHY transmission error
+[ 7519.254323] b43-phy0 ERROR: PHY transmission error
+[ 7519.254332] b43-phy0 ERROR: PHY transmission error
+[ 7519.294071] b43-phy0: Radio hardware status changed to DISABLED
+[ 7519.294131] PM: Removing info for No Bus:hw_random
+[ 7519.493955] b43-phy0: Loading firmware version 351.126 (2006-07-29 
+05:54:02)
+[ 7519.493968] b43-phy0 warning: You are using an old firmware image. 
+Support for old firmware will be removed in July 2008.
+[ 7519.493973] b43-phy0 warning: You must go to 
+<A HREF="http://linuxwireless.org/en/users/Drivers/b43#devicefirmware">http://linuxwireless.org/en/users/Drivers/b43#devicefirmware</A> and 
+download the latest firmware (version 4).
+[ 7520.230371] PM: Adding info for No Bus:hw_random
+[ 7520.974090] PM: Removing info for No Bus:hw_random
+[ 7521.174058] b43-phy0: Loading firmware version 351.126 (2006-07-29 
+05:54:02)
+[ 7521.174069] b43-phy0 warning: You are using an old firmware image. 
+Support for old firmware will be removed in July 2008.
+[ 7521.174074] b43-phy0 warning: You must go to 
+<A HREF="http://linuxwireless.org/en/users/Drivers/b43#devicefirmware">http://linuxwireless.org/en/users/Drivers/b43#devicefirmware</A> and 
+download the latest firmware (version 4).
+[ 7522.058469] PM: Adding info for No Bus:hw_random
+[ 7648.318039] PM: Removing info for No Bus:hw_random
+[ 7648.518013] b43-phy0: Loading firmware version 351.126 (2006-07-29 
+05:54:02)
+[ 7648.518025] b43-phy0 warning: You are using an old firmware image. 
+Support for old firmware will be removed in July 2008.
+[ 7648.518030] b43-phy0 warning: You must go to 
+<A HREF="http://linuxwireless.org/en/users/Drivers/b43#devicefirmware">http://linuxwireless.org/en/users/Drivers/b43#devicefirmware</A> and 
+download the latest firmware (version 4).
+[ 7649.266421] PM: Adding info for No Bus:hw_random
+[ 7649.306162] printk: 2287 messages suppressed.
+[ 7649.306170] b43-phy0 ERROR: PHY transmission error
+[ 7649.410123] b43-phy0: Radio hardware status changed to DISABLED
+[ 7650.006181] PM: Removing info for No Bus:hw_random
+[ 7650.206122] b43-phy0: Loading firmware version 351.126 (2006-07-29 
+05:54:02)
+[ 7650.206133] b43-phy0 warning: You are using an old firmware image. 
+Support for old firmware will be removed in July 2008.
+[ 7650.206138] b43-phy0 warning: You must go to 
+<A HREF="http://linuxwireless.org/en/users/Drivers/b43#devicefirmware">http://linuxwireless.org/en/users/Drivers/b43#devicefirmware</A> and 
+download the latest firmware (version 4).
+[ 7651.110535] PM: Adding info for No Bus:hw_random
+[ 7651.122202] b43-phy0: Radio hardware status changed to DISABLED
+
+And with regard to that last line I'm NOT hammering the radio switch ;)
+
+regards, Richard
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003957.html">Tons of interrupts on driver load
+</A></li>
+	<LI>Next message: <A HREF="003959.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3958">[ date ]</a>
+              <a href="thread.html#3958">[ thread ]</a>
+              <a href="subject.html#3958">[ subject ]</a>
+              <a href="author.html#3958">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

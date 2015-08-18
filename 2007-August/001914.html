@@ -1,0 +1,165 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Port of bcm43xx from softmac to mac80211 is available for testing
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Port%20of%20bcm43xx%20from%20softmac%20to%20mac80211%20is%20available%20for%20testing&In-Reply-To=%3C200708091606.03151.richie%40coderworld.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001895.html">
+   <LINK REL="Next"  HREF="001780.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Port of bcm43xx from softmac to mac80211 is available for testing</H1>
+    <B>Richard Jonsson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Port%20of%20bcm43xx%20from%20softmac%20to%20mac80211%20is%20available%20for%20testing&In-Reply-To=%3C200708091606.03151.richie%40coderworld.net%3E"
+       TITLE="Port of bcm43xx from softmac to mac80211 is available for testing">richie at coderworld.net
+       </A><BR>
+    <I>Thu Aug  9 16:06:03 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001895.html">Port of bcm43xx from softmac to mac80211 is available for testing
+</A></li>
+        <LI>Next message: <A HREF="001780.html">[PATCH] bcm43xx-mac80211: Rescale link quality output
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1914">[ date ]</a>
+              <a href="thread.html#1914">[ thread ]</a>
+              <a href="subject.html#1914">[ subject ]</a>
+              <a href="author.html#1914">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Wednesday 08 August 2007 22:49:17 you wrote:
+&gt;<i> Richard Jonsson wrote:
+</I>&gt;<i> &gt; On Monday 06 August 2007 03:21:11 you wrote:
+</I>&gt;<i> &gt;&gt; Richard Jonsson wrote:
+</I>&gt;<i> &gt;&gt;&gt; Isn't Desired TX power supposed to adapt so that higher bitrates are
+</I>&gt;<i> &gt;&gt;&gt; possible, with Bit Rate going lower if that is not enough to keep a
+</I>&gt;<i> &gt;&gt;&gt; good connection?
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; Richard,
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; Please grab a new copy of the port_to_mac80211 patch, and try the patch
+</I>&gt;<i> &gt;&gt; below. It boosts the desired power by up to 5 dBm as signal - noise
+</I>&gt;<i> &gt;&gt; decreases from 20 to 0.
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; Larry
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; Hard to say if there is a difference. I've noticed that signal quality
+</I>&gt;<i> &gt; changes between reboots. When I first tried this patch I couldn't get
+</I>&gt;<i> &gt; above 36M even at the AP, so I loaded the version without the patch. Same
+</I>&gt;<i> &gt; thing. So I rebooted and then all rates worked, even 11M. Even for the
+</I>&gt;<i> &gt; driver version that didn't work a few days ago.
+</I>&gt;<i>
+</I>&gt;<i> That is scary! That may mean that something is not being reset. The real
+</I>&gt;<i> question is whether warm reboots are intrinsically different than cold
+</I>&gt;<i> (power-off) reboots.
+</I>
+I've power cycled between reboots, unsure if I would get the same results on a 
+soft reset.
+&gt;<i>
+</I>&gt;<i> &gt; New/updated observations:
+</I>&gt;<i> &gt; Rate scaling seems to work, but if it gets down to 1M it will not rise
+</I>&gt;<i> &gt; again unless I force it to a higher bitrate and run iperf for a few
+</I>&gt;<i> &gt; seconds before setting it to auto. This is even when signal is -5dBm and
+</I>&gt;<i> &gt; noise is -80dBm. I get a feeling it's a bit to sensitive as it will drop
+</I>&gt;<i> &gt; quickly at a few meters away. At this distance forced 54M still works
+</I>&gt;<i> &gt; well.
+</I>&gt;<i> &gt; Maybe this is due to small dips (0.5sec) in traffic flow?!
+</I>&gt;<i>
+</I>&gt;<i> I'm surprised that you get signal values as high as -5 dBm. My maximum is
+</I>&gt;<i> about -35. I'm usually in the -40 range, even at 2 m from the AP.
+</I>&gt;<i>
+</I>That -5dBm signal is best case when AP's antenna is a few cm from the 
+computers lid. In this position it often reads between -15 - -20dBm. If I 
+move just a cm further away it drops to -30dBm which gradually decreases with 
+distance.
+
+&gt;<i> &gt; With the patch applied power is reported as 27dB in debugfs. With
+</I>&gt;<i> &gt; debug_xmitpower dmesg reports desired power to be 16.5 and actual 16.25.
+</I>&gt;<i> &gt; This is max when I manually set power through debugfs. After a while it's
+</I>&gt;<i> &gt; down to 10dB, even though only 1M works where I sit.
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; Range seems to be higher for B-rates. Maybe this is just how things are,
+</I>&gt;<i> &gt; I lack experience.
+</I>&gt;<i>
+</I>&gt;<i> The CCCK (B) encoding is much different than OFDM (G) transmissions. I
+</I>&gt;<i> would not be surprised to learn that its range were longer.
+</I>&gt;<i>
+</I>&gt;<i> The power setting that comes from mac80211 is 27 dBm, which is completely
+</I>&gt;<i> bogus for what is supposed to be the FCC table. The regulatory limit is 20
+</I>&gt;<i> dBm EIRP (a fancy acronym that means take the antenna into account). I've
+</I>&gt;<i> sent a fix for comment, but as is the usual case for mac80211, it will take
+</I>&gt;<i> several days or weeks to get a response. The maximum power that a bcm43xx
+</I>&gt;<i> device can use is encoded in the sprom. For most of them that quantity is
+</I>&gt;<i> 18.5 dBm, corresponding to the regulatory limit of 20 minus a safety factor
+</I>&gt;<i> of 1.5. I think that is there to prevent setting the power too high and
+</I>&gt;<i> flunking the certification tests. The output that goes to the radio is thus
+</I>&gt;<i> 18.5 less the gain of the antenna, which is also in the sprom with a usual
+</I>&gt;<i> value of 2 dBm. That is why you see the code setting a Desired power of
+</I>&gt;<i> 16.5 dBm.
+</I>
+I see! I expected it to go to 18dBm.
+&gt;<i>
+</I>&gt;<i> Initially, I thought that the performance of my BCM4311 fell off as the
+</I>&gt;<i> power increased; however, that no longer happens. As a result, we can push
+</I>&gt;<i> full power at all times and there seems to be no need to use the kind of
+</I>&gt;<i> algorithm that you were testing. Don't tell the FCC, but we could relax
+</I>
+IMHO there should eventually be some power scaling, as I understand wlan takes 
+a fair amount of power. Ideally there should be different modes (powersave, 
+performance) preferrably as an API common to all networking, at least 
+wireless. Getting offtopic, just a thought.
+
+&gt;<i> that upper power limit as we will never try to get the device certified,
+</I>&gt;<i> but then we would use extra power, and run the risk of burning out the
+</I>&gt;<i> radio. If you decide to do that, please tell me the power setting at which
+</I>&gt;<i> it fried!
+</I>
+Heh, I might have tried if it was a usb stick ;) Since it's usable and since I 
+got 54M/36M rate under no/high load in winxp under the same circumstances I 
+believe power output is sufficient.
+&gt;<i>
+</I>&gt;<i> With the patches that were pushed into wireless-dev a few minutes ago, I
+</I>&gt;<i> suggest that you try bcm43xx-mac80211. It is getting at least as good, if
+</I>&gt;<i> not better, performance than the BCM4301 or the softmac port to mac80211
+</I>&gt;<i> drivers do. We would also appreciate as much testing as possible as it will
+</I>&gt;<i> help getting it merged into mainstream. That driver will require V4
+</I>&gt;<i> firmware.
+</I>&gt;<i>
+</I>&gt;<i> Thanks for your report,
+</I>&gt;<i>
+</I>&gt;<i> Larry
+</I>
+Sure, I'll do that. Where do I get a current source? By git?
+(I forgot to add the mailinglist in the original mail, sorry)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001895.html">Port of bcm43xx from softmac to mac80211 is available for testing
+</A></li>
+	<LI>Next message: <A HREF="001780.html">[PATCH] bcm43xx-mac80211: Rescale link quality output
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1914">[ date ]</a>
+              <a href="thread.html#1914">[ thread ]</a>
+              <a href="subject.html#1914">[ subject ]</a>
+              <a href="author.html#1914">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

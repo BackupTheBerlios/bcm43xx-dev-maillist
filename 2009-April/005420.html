@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> quetion on beacon irq and multibss
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20quetion%20on%20beacon%20irq%20and%20multibss&In-Reply-To=%3C200904101041.56381.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005419.html">
+   <LINK REL="Next"  HREF="005398.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>quetion on beacon irq and multibss</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20quetion%20on%20beacon%20irq%20and%20multibss&In-Reply-To=%3C200904101041.56381.mb%40bu3sch.de%3E"
+       TITLE="quetion on beacon irq and multibss">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Apr 10 10:41:56 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005419.html">quetion on beacon irq and multibss
+</A></li>
+        <LI>Next message: <A HREF="005398.html">2.6.30-rc1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5420">[ date ]</a>
+              <a href="thread.html#5420">[ thread ]</a>
+              <a href="subject.html#5420">[ subject ]</a>
+              <a href="author.html#5420">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 10 April 2009 02:14:59 Francesco Gringoli wrote:
+&gt;<i> Ok but what`about MBSS? Is it already implemented in b43? I found some  
+</I>&gt;<i> old patches from Johannes but they required fw hacking, I can't find  
+</I>&gt;<i> traces of them inside the current kernel. So I would assume MBSS is  
+</I>&gt;<i> not yet implemented.
+</I>
+No. Very latest firmware kind of implements this (It can do 2 BSS).
+If you're going to implement it, you should probably look at how they did it.
+(Basically beacons are pushed via DMA to hardware).
+
+&gt;<i> &gt; If openfw does not raise the interrupt, PS most likely is broken and  
+</I>&gt;<i> &gt; the
+</I>&gt;<i> &gt; firmware cannot work on AP with PS stations associated.
+</I>&gt;<i> Uhmmmm, interesting. I completely missed this. I must say I'm not  
+</I>&gt;<i> familiar with PS.
+</I>
+The beacon interrupt is basically always triggered when the firmware is ready
+to receive a new beacon. It's a locking mechanism to prevent concurrent accesses
+to the template ram. If an update is not required, the driver will disable the
+interrupt. But if the driver needs to update the beacon (for example due to
+TIM changes), the driver unmasks the interrupt and updates the beacon on interrupt.
+
+So I think the beacon IRQ handling in the firmware is trivial. I could remember
+incorrectly, but I think it just raises it every time it's done handling one beacon.
+
+Note that there is some weirdness built in, though. For example if both beacon-valid
+flags are set that's a special condition and it does _not_ mean both beacons are valid.
+Look at the driver. There are some comments.
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005419.html">quetion on beacon irq and multibss
+</A></li>
+	<LI>Next message: <A HREF="005398.html">2.6.30-rc1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5420">[ date ]</a>
+              <a href="thread.html#5420">[ thread ]</a>
+              <a href="subject.html#5420">[ subject ]</a>
+              <a href="author.html#5420">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,222 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 4/5 V2] b43: N-PHY: implement and add multi-dimensional table	reading
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%204/5%20V2%5D%20b43%3A%20N-PHY%3A%20implement%20and%20add%20multi-dimensional%20table%0A%09reading&In-Reply-To=%3Cop.u6o9t9t19lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006796.html">
+   <LINK REL="Next"  HREF="006798.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 4/5 V2] b43: N-PHY: implement and add multi-dimensional table	reading</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%204/5%20V2%5D%20b43%3A%20N-PHY%3A%20implement%20and%20add%20multi-dimensional%20table%0A%09reading&In-Reply-To=%3Cop.u6o9t9t19lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 4/5 V2] b43: N-PHY: implement and add multi-dimensional table	reading">zajec5 at gmail.com
+       </A><BR>
+    <I>Mon Jan 18 00:21:35 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006796.html">[PATCH 3/5 V2] b43: N-PHY: implement and add reading one element	tables
+</A></li>
+        <LI>Next message: <A HREF="006798.html">[PATCH 5/5 V2] b43: N-PHY: silence warnings, add missing call
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6797">[ date ]</a>
+              <a href="thread.html#6797">[ thread ]</a>
+              <a href="subject.html#6797">[ subject ]</a>
+              <a href="author.html#6797">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+V2: updated to apply without offset
+---
+  drivers/net/wireless/b43/phy_n.c       |   30 ++++++++++-----------------
+  drivers/net/wireless/b43/tables_nphy.c |   35 ++++++++++++++++++++++++++++++++
+  drivers/net/wireless/b43/tables_nphy.h |    2 +
+  3 files changed, 48 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 6398656..2356d84 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -829,8 +829,7 @@ static void b43_nphy_tx_pwr_ctrl_coef_setup(struct b43_wldev *dev)
+  	if (nphy-&gt;hang_avoid)
+  		b43_nphy_stay_in_carrier_search(dev, true);
+
+-	/* TODO: Read an N PHY Table with ID 15, length 7, offset 80,
+-		width 16, and data pointer buffer */
++	b43_ntab_read_bulk(dev, B43_NTAB16(15, 80), 7, buffer);
+
+  	for (i = 0; i &lt; 2; i++) {
+  		tmp = ((buffer[i * 2] &amp; 0x3FF) &lt;&lt; 10) |
+@@ -1507,8 +1506,7 @@ static struct nphy_txgains b43_nphy_get_tx_gains(struct b43_wldev *dev)
+
+  		if (nphy-&gt;hang_avoid)
+  			b43_nphy_stay_in_carrier_search(dev, true);
+-		/* TODO: Read an N PHY Table with ID 7, length 2,
+-			offset 0x110, width 16, and curr_gain */
++		b43_ntab_read_bulk(dev, B43_NTAB16(7, 0x110), 2, curr_gain);
+  		if (nphy-&gt;hang_avoid)
+  			b43_nphy_stay_in_carrier_search(dev, false);
+
+@@ -1768,8 +1766,7 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev *dev,
+  		nphy-&gt;hang_avoid = 0;
+  	}
+
+-	/* TODO: Read an N PHY Table with ID 7, length 2, offset 0x110,
+-		width 16, and data pointer save */
++	b43_ntab_read_bulk(dev, B43_NTAB16(7, 0x110), 2, save);
+
+  	for (i = 0; i &lt; 2; i++) {
+  		b43_nphy_iq_cal_gain_params(dev, i, target, &amp;params[i]);
+@@ -1890,9 +1887,8 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev *dev,
+  				udelay(10);
+  			}
+
+-			/* TODO: Read an N PHY Table with ID 15,
+-				length table_length, offset 96, width 16,
+-				and data pointer buffer */
++			b43_ntab_read_bulk(dev, B43_NTAB16(15, 96), length,
++						buffer);
+  			b43_ntab_write_bulk(dev, B43_NTAB16(15, 64), length,
+  						buffer);
+
+@@ -1907,8 +1903,7 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev *dev,
+
+  		if (!mphase || nphy-&gt;mphase_cal_phase_id == last) {
+  			b43_ntab_write_bulk(dev, B43_NTAB16(15, 96), 4, buffer);
+-			/* TODO: Read an N PHY Table with ID 15, length 4,
+-				offset 80, width 16, and data pointer buffer */
++			b43_ntab_read_bulk(dev, B43_NTAB16(15, 80), 4, buffer);
+  			if (dev-&gt;phy.rev &lt; 3) {
+  				buffer[0] = 0;
+  				buffer[1] = 0;
+@@ -1926,9 +1921,8 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev *dev,
+  			length = 11;
+  			if (dev-&gt;phy.rev &lt; 3)
+  				length -= 2;
+-			/* TODO: Read an N PHY Table with ID 15, length length,
+-				offset 96, width 16, and data pointer
+-				nphy-&gt;txiqlocal_bestc */
++			b43_ntab_read_bulk(dev, B43_NTAB16(15, 96), length,
++						nphy-&gt;txiqlocal_bestc);
+  			nphy-&gt;txiqlocal_coeffsvalid = true;
+  			/* TODO: Set nphy-&gt;txiqlocal_chanspec to
+  				the current channel */
+@@ -1936,9 +1930,8 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev *dev,
+  			length = 11;
+  			if (dev-&gt;phy.rev &lt; 3)
+  				length -= 2;
+-			/* TODO: Read an N PHY Table with ID 5, length length,
+-				offset 96, width 16, and data pointer
+-				nphy-&gt;mphase_txcal_bestcoeffs */
++			b43_ntab_read_bulk(dev, B43_NTAB16(15, 96), length,
++						nphy-&gt;mphase_txcal_bestcoeffs);
+  		}
+
+  		b43_nphy_stop_playback(dev);
+@@ -1990,8 +1983,7 @@ static int b43_nphy_rev2_cal_rx_iq(struct b43_wldev *dev,
+
+  	if (dev-&gt;phy.rev &lt; 2)
+  		;/* TODO: Call N PHY Reapply TX Cal Coeffs */
+-	/* TODO: Read an N PHY Table with ID 7, length 2, offset 0x110,
+-		width 16, and data gain_save */
++	b43_ntab_read_bulk(dev, B43_NTAB16(7, 0x110), 2, gain_save);
+  	for (i = 0; i &lt; 2; i++) {
+  		b43_nphy_iq_cal_gain_params(dev, i, target, &amp;cal_params[i]);
+  		cal_gain[i] = cal_params[i].cal_gain;
+diff --git a/drivers/net/wireless/b43/tables_nphy.c b/drivers/net/wireless/b43/tables_nphy.c
+index b8aed45..b8c9fc6 100644
+--- a/drivers/net/wireless/b43/tables_nphy.c
++++ b/drivers/net/wireless/b43/tables_nphy.c
+@@ -2950,6 +2950,41 @@ u32 b43_ntab_read(struct b43_wldev *dev, u32 offset)
+  	return value;
+  }
+
++void b43_ntab_read_bulk(struct b43_wldev *dev, u32 offset,
++			 unsigned int nr_elements, void *_data)
++{
++	u32 type;
++	u8 *data = _data;
++	unsigned int i;
++
++	type = offset &amp; B43_NTAB_TYPEMASK;
++	offset &amp;= ~B43_NTAB_TYPEMASK;
++	B43_WARN_ON(offset &gt; 0xFFFF);
++
++	b43_phy_write(dev, B43_NPHY_TABLE_ADDR, offset);
++
++	for (i = 0; i &lt; nr_elements; i++) {
++		switch (type) {
++		case B43_NTAB_8BIT:
++			*data = b43_phy_read(dev, B43_NPHY_TABLE_DATALO) &amp; 0xFF;
++			data++;
++			break;
++		case B43_NTAB_16BIT:
++			*((u16 *)data) = b43_phy_read(dev, B43_NPHY_TABLE_DATALO);
++			data += 2;
++			break;
++		case B43_NTAB_32BIT:
++			*((u32 *)data) = b43_phy_read(dev, B43_NPHY_TABLE_DATAHI);
++			*((u32 *)data) &lt;&lt;= 16;
++			*((u32 *)data) |= b43_phy_read(dev, B43_NPHY_TABLE_DATALO);
++			data += 4;
++			break;
++		default:
++			B43_WARN_ON(1);
++		}
++	}
++}
++
+  void b43_ntab_write(struct b43_wldev *dev, u32 offset, u32 value)
+  {
+  	u32 type;
+diff --git a/drivers/net/wireless/b43/tables_nphy.h b/drivers/net/wireless/b43/tables_nphy.h
+index 64e990a..6bbef89 100644
+--- a/drivers/net/wireless/b43/tables_nphy.h
++++ b/drivers/net/wireless/b43/tables_nphy.h
+@@ -143,6 +143,8 @@ b43_nphy_get_chantabent(struct b43_wldev *dev, u8 channel);
+  #define B43_NTAB_TX_IQLO_CAL_CMDS_FULLCAL_REV3		12
+
+  u32 b43_ntab_read(struct b43_wldev *dev, u32 offset);
++void b43_ntab_read_bulk(struct b43_wldev *dev, u32 offset,
++			 unsigned int nr_elements, void *_data);
+  void b43_ntab_write(struct b43_wldev *dev, u32 offset, u32 value);
+  void b43_ntab_write_bulk(struct b43_wldev *dev, u32 offset,
+  			  unsigned int nr_elements, const void *_data);
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006796.html">[PATCH 3/5 V2] b43: N-PHY: implement and add reading one element	tables
+</A></li>
+	<LI>Next message: <A HREF="006798.html">[PATCH 5/5 V2] b43: N-PHY: silence warnings, add missing call
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6797">[ date ]</a>
+              <a href="thread.html#6797">[ thread ]</a>
+              <a href="subject.html#6797">[ subject ]</a>
+              <a href="author.html#6797">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Port of bcm43xx from softmac to mac80211 is available for testing
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Port%20of%20bcm43xx%20from%20softmac%20to%20mac80211%20is%20available%20for%20testing&In-Reply-To=%3C46B63D05.8040709%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001787.html">
+   <LINK REL="Next"  HREF="001789.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Port of bcm43xx from softmac to mac80211 is available for testing</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Port%20of%20bcm43xx%20from%20softmac%20to%20mac80211%20is%20available%20for%20testing&In-Reply-To=%3C46B63D05.8040709%40lwfinger.net%3E"
+       TITLE="Port of bcm43xx from softmac to mac80211 is available for testing">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Sun Aug  5 23:11:33 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001787.html">Port of bcm43xx from softmac to mac80211 is available for testing
+</A></li>
+        <LI>Next message: <A HREF="001789.html">Port of bcm43xx from softmac to mac80211 is available for testing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1788">[ date ]</a>
+              <a href="thread.html#1788">[ thread ]</a>
+              <a href="subject.html#1788">[ subject ]</a>
+              <a href="author.html#1788">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Richard Jonsson wrote:
+&gt;<i> 
+</I>&gt;<i> I have tried these patches on 2.6.23-rc2 and find perceived performance to be 
+</I>&gt;<i> about the same as for the bcm4301 mac80211 driver. I use this script to 
+</I>&gt;<i> stresstest the connection:
+</I>&gt;<i> 
+</I>&gt;<i> iperf -c 192.168.0.1 -t 3600 &gt; /dev/null &amp;
+</I>&gt;<i> watch --interval .1 &quot;dmesg|grep phy[0-9]|tail -n1 \
+</I>&gt;<i> &amp;&amp; ifconfig eth1 \
+</I>&gt;<i> &amp;&amp; iwconfig eth1 2&gt;&amp;1&quot;
+</I>&gt;<i> 
+</I>&gt;<i> iwconfig:
+</I>&gt;<i> eth1      IEEE 802.11g  ESSID:&quot;NETGEAR&quot;
+</I>&gt;<i>           Mode:Managed  Frequency:2.442 GHz  Access Point: 00:0F:B5:3D:4B:E2
+</I>&gt;<i>           Bit Rate=2 Mb/s
+</I>&gt;<i>           Retry min limit:7   RTS thr:off   Fragment thr=2346 B
+</I>&gt;<i>           Encryption key:off
+</I>&gt;<i>           Link Quality=65/100  Signal level=-60 dBm  Noise level=-70 dBm
+</I>&gt;<i>           Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+</I>&gt;<i>           Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+</I>&gt;<i> 
+</I>&gt;<i> dmesg|grep &quot;TX power&quot;
+</I>&gt;<i> [  755.816434] bcm43xx-phy0 debug: Current TX power output: 10.25 dBm, Desired 
+</I>&gt;<i> TX power output: 10.0 dBm
+</I>&gt;<i> [  763.339286] bcm43xx-phy0 debug: Current TX power output: 9.0 dBm, Desired 
+</I>&gt;<i> TX power output: 10.0 dBm
+</I>&gt;<i> [  770.840137] bcm43xx-phy0 debug: Current TX power output: 10.50 dBm, Desired 
+</I>&gt;<i> TX power output: 10.0 dBm
+</I>&gt;<i> [  778.343126] bcm43xx-phy0 debug: Current TX power output: 9.0 dBm, Desired 
+</I>&gt;<i> TX power output: 10.0 dBm
+</I>&gt;<i> [  785.842109] bcm43xx-phy0 debug: Current TX power output: 10.50 dBm, Desired 
+</I>&gt;<i> TX power output: 10.0 dBm
+</I>&gt;<i> [  793.347213] bcm43xx-phy0 debug: Current TX power output: 10.25 dBm, Desired 
+</I>&gt;<i> TX power output: 10.0 dBm
+</I>&gt;<i> 
+</I>&gt;<i> Isn't Desired TX power supposed to adapt so that higher bitrates are possible, 
+</I>&gt;<i> with Bit Rate going lower if that is not enough to keep a good connection?
+</I>
+It should, but this feature is not yet implemented. I have some test code to do this, but it is not 
+ready. When it is, I'll send you a trial patch. Check if your system has a file names 
+/sys/kernel/debug/bcm43xx/phyX/power_level. If it does, you can write new values for the Desired 
+power into it. Values up to 18 are allowed.
+
+&gt;<i> When next to AP I get 54Mbps when connection is idle or has low utilisation, 
+</I>&gt;<i> but when running iperf the Bit rate instantly changes to 1Mbps. While running 
+</I>&gt;<i> iperf it jumps between 1, 2, 5.5 and 11Mbps. When manually setting it to 54M 
+</I>&gt;<i> it will work with good thoughput. I think it fails at 11M and starts over 
+</I>&gt;<i> from 1 again.
+</I>&gt;<i> 
+</I>&gt;<i> Performance next to AP	 (iperf -c 192.168.0.1):
+</I>&gt;<i> 1M	721K
+</I>&gt;<i> 2M	1.64M
+</I>&gt;<i> 5.5M	3.72M
+</I>&gt;<i> 6M	5.66M
+</I>&gt;<i> 9M	7.62M
+</I>&gt;<i> 11M	---
+</I>&gt;<i> 12M	9.28M
+</I>&gt;<i> 18M	11.9M
+</I>&gt;<i> 24M	14.0M
+</I>&gt;<i> 36M	17.2M
+</I>&gt;<i> 48M	18.5M
+</I>&gt;<i> 54M	18.4M
+</I>&gt;<i> auto	451K
+</I>&gt;<i> 
+</I>&gt;<i> When 10 meters away from AP anything higher than 5.5 is unusable, often 5.5M 
+</I>&gt;<i> too.
+</I>&gt;<i> 
+</I>&gt;<i> 11M mode is unusable at all distances, 12M works fine. This probably breaks 
+</I>&gt;<i> rate scaling for me.
+</I>
+Yes, it certainly would. My 4311 shows a little dip at 11 Mbs, but not as big as yours. Is your AP 
+using b/g mode, or just g mode? What is the make and model of the AP?
+
+&gt;<i> &quot;rmmod bcm43xx&quot; when kde is running hangs rmmod and prevents a clean shutdown. 
+</I>&gt;<i> I tried to find which program causes this while using bcm4301 driver, but so 
+</I>&gt;<i> far no luck. System shuts down fine if I don't try to rmmod first. rmmod 
+</I>&gt;<i> works fine from runlevel 3 aside from this message when inserting module 
+</I>&gt;<i> again:
+</I>&gt;<i> &quot;net eth1: device_rename: sysfs_create_symlink failed (-17)&quot;
+</I>
+On my system, I routinely unload the module using 'modprobe -r bcm43xx'. Sometimes, it happens 20 or 
+30 times between reboots. These are always at runlevel 5. Only once or twice has it not completed. 
+Are you using NetworkManager or using the traditional ifup/ifdown methods?
+&gt;<i> 
+</I>&gt;<i> Nitpicking:
+</I>&gt;<i> When changing bitrate manually it will not show up with iwconfig before any 
+</I>&gt;<i> traffic has occured.
+</I>
+This is a mac80211 problem. My original version of the patch that implemented the &quot;set rate&quot; 
+function loaded the new rate so that it would show up immediately, but that part was nixed. Complain 
+on <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">wireless-dev at vger.kernel.org.</A>
+
+&gt;<i> Sometimes iwconfig link quality shows values in the whole 0-255 range.
+</I>
+Do the Signal and Noise levels show -256 dBm at the same time? If so, mac80211 has not received any 
+data.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001787.html">Port of bcm43xx from softmac to mac80211 is available for testing
+</A></li>
+	<LI>Next message: <A HREF="001789.html">Port of bcm43xx from softmac to mac80211 is available for testing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1788">[ date ]</a>
+              <a href="thread.html#1788">[ thread ]</a>
+              <a href="subject.html#1788">[ subject ]</a>
+              <a href="author.html#1788">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

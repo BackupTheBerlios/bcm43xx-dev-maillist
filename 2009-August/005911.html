@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH v2] b43: LP-PHY: Fix and simplify Qdiv roundup
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20v2%5D%20b43%3A%20LP-PHY%3A%20Fix%20and%20simplify%20Qdiv%20roundup&In-Reply-To=%3C1251312686-32067-1-git-send-email-netrolller.3d%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005909.html">
+   <LINK REL="Next"  HREF="005913.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH v2] b43: LP-PHY: Fix and simplify Qdiv roundup</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20v2%5D%20b43%3A%20LP-PHY%3A%20Fix%20and%20simplify%20Qdiv%20roundup&In-Reply-To=%3C1251312686-32067-1-git-send-email-netrolller.3d%40gmail.com%3E"
+       TITLE="[PATCH v2] b43: LP-PHY: Fix and simplify Qdiv roundup">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Wed Aug 26 20:51:24 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005909.html">[PATCH] b43: LP-PHY: Fix and simplify Qdiv roundup
+</A></li>
+        <LI>Next message: <A HREF="005913.html">[PATCH] b43: Fix and update LP-PHY code
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5911">[ date ]</a>
+              <a href="thread.html#5911">[ thread ]</a>
+              <a href="subject.html#5911">[ subject ]</a>
+              <a href="author.html#5911">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The Qdiv roundup routine is essentially a fixed-point
+division algorithm, using only integer math.
+However, the version in the specs had a major error
+that has been recently fixed (a missing quotient++).
+
+Replace Qdiv roundup with a rewritten, simplified version.
+
+Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+---
+v2: Remove divide/modulo operations from the inner loop.
+
+ drivers/net/wireless/b43/phy_lp.c |   19 ++++++++-----------
+ 1 files changed, 8 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+index 7e70c07..5306f2c 100644
+--- a/drivers/net/wireless/b43/phy_lp.c
++++ b/drivers/net/wireless/b43/phy_lp.c
+@@ -1032,9 +1032,10 @@ static int lpphy_loopback(struct b43_wldev *dev)
+ 	return index;
+ }
+ 
++/* Fixed-point division algorithm using only integer math. */
+ static u32 lpphy_qdiv_roundup(u32 dividend, u32 divisor, u8 precision)
+ {
+-	u32 quotient, remainder, rbit, roundup, tmp;
++	u32 quotient, remainder;
+ 
+ 	if (divisor == 0)
+ 		return 0;
+@@ -1042,20 +1043,16 @@ static u32 lpphy_qdiv_roundup(u32 dividend, u32 divisor, u8 precision)
+ 	quotient = dividend / divisor;
+ 	remainder = dividend % divisor;
+ 
+-	rbit = divisor &amp; 0x1;
+-	roundup = (divisor &gt;&gt; 1) + rbit;
+-
+-	while (precision != 0) {
+-		tmp = remainder - roundup;
++	while (precision &gt; 0) {
+ 		quotient &lt;&lt;= 1;
+-		if (remainder &gt;= roundup)
+-			remainder = (tmp &lt;&lt; 1) + rbit;
+-		else
+-			remainder &lt;&lt;= 1;
++		if (remainder &lt;&lt; 1 &gt;= divisor) {
++			quotient++;
++			remainder = (remainder &lt;&lt; 1) - divisor;
++		}
+ 		precision--;
+ 	}
+ 
+-	if (remainder &gt;= roundup)
++	if (remainder &lt;&lt; 1 &gt;= divisor)
+ 		quotient++;
+ 
+ 	return quotient;
+-- 
+1.5.6
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005909.html">[PATCH] b43: LP-PHY: Fix and simplify Qdiv roundup
+</A></li>
+	<LI>Next message: <A HREF="005913.html">[PATCH] b43: Fix and update LP-PHY code
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5911">[ date ]</a>
+              <a href="thread.html#5911">[ thread ]</a>
+              <a href="subject.html#5911">[ subject ]</a>
+              <a href="author.html#5911">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

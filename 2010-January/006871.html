@@ -1,0 +1,164 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 2/5] b43: N-PHY: add RSSI selection for newer PHYs
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/5%5D%20b43%3A%20N-PHY%3A%20add%20RSSI%20selection%20for%20newer%20PHYs&In-Reply-To=%3C1264879087-14326-2-git-send-email-zajec5%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006870.html">
+   <LINK REL="Next"  HREF="006872.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 2/5] b43: N-PHY: add RSSI selection for newer PHYs</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/5%5D%20b43%3A%20N-PHY%3A%20add%20RSSI%20selection%20for%20newer%20PHYs&In-Reply-To=%3C1264879087-14326-2-git-send-email-zajec5%40gmail.com%3E"
+       TITLE="[PATCH 2/5] b43: N-PHY: add RSSI selection for newer PHYs">zajec5 at gmail.com
+       </A><BR>
+    <I>Sat Jan 30 20:18:04 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006870.html">[PATCH 1/5] b43: N-PHY: split RSSI selection into two	per-PHY-revision functions
+</A></li>
+        <LI>Next message: <A HREF="006872.html">[PATCH 3/5] b43: N-PHY: fix Cal TX IQ LO for newer PHYs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6871">[ date ]</a>
+              <a href="thread.html#6871">[ thread ]</a>
+              <a href="subject.html#6871">[ subject ]</a>
+              <a href="author.html#6871">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_n.c |   84 +++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 83 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index c6a4dde..690aaad 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -1367,7 +1367,89 @@ static void b43_nphy_rev2_rssi_select(struct b43_wldev *dev, u8 code, u8 type)
+ 
+ static void b43_nphy_rev3_rssi_select(struct b43_wldev *dev, u8 code, u8 type)
+ {
+-	/* TODO */
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
++	u8 i;
++	u16 reg, val;
++
++	if (code == 0) {
++		b43_phy_mask(dev, B43_NPHY_AFECTL_OVER1, 0xFDFF);
++		b43_phy_mask(dev, B43_NPHY_AFECTL_OVER, 0xFDFF);
++		b43_phy_mask(dev, B43_NPHY_AFECTL_C1, 0xFCFF);
++		b43_phy_mask(dev, B43_NPHY_AFECTL_C2, 0xFCFF);
++		b43_phy_mask(dev, B43_NPHY_TXF_40CO_B1S0, 0xFFDF);
++		b43_phy_mask(dev, B43_NPHY_TXF_40CO_B32S1, 0xFFDF);
++		b43_phy_mask(dev, B43_NPHY_RFCTL_LUT_TRSW_UP1, 0xFFC3);
++		b43_phy_mask(dev, B43_NPHY_RFCTL_LUT_TRSW_UP2, 0xFFC3);
++	} else {
++		for (i = 0; i &lt; 2; i++) {
++			if ((code == 1 &amp;&amp; i == 1) || (code == 2 &amp;&amp; !i))
++				continue;
++
++			reg = (i == 0) ?
++				B43_NPHY_AFECTL_OVER1 : B43_NPHY_AFECTL_OVER;
++			b43_phy_maskset(dev, reg, 0xFDFF, 0x0200);
++
++			if (type &lt; 3) {
++				reg = (i == 0) ?
++					B43_NPHY_AFECTL_C1 :
++					B43_NPHY_AFECTL_C2;
++				b43_phy_maskset(dev, reg, 0xFCFF, 0);
++
++				reg = (i == 0) ?
++					B43_NPHY_RFCTL_LUT_TRSW_UP1 :
++					B43_NPHY_RFCTL_LUT_TRSW_UP2;
++				b43_phy_maskset(dev, reg, 0xFFC3, 0);
++
++				if (type == 0)
++					val = (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ) ? 4 : 8;
++				else if (type == 1)
++					val = 16;
++				else
++					val = 32;
++				b43_phy_set(dev, reg, val);
++
++				reg = (i == 0) ?
++					B43_NPHY_TXF_40CO_B1S0 :
++					B43_NPHY_TXF_40CO_B32S1;
++				b43_phy_set(dev, reg, 0x0020);
++			} else {
++				if (type == 6)
++					val = 0x0100;
++				else if (type == 3)
++					val = 0x0200;
++				else
++					val = 0x0300;
++
++				reg = (i == 0) ?
++					B43_NPHY_AFECTL_C1 :
++					B43_NPHY_AFECTL_C2;
++
++				b43_phy_maskset(dev, reg, 0xFCFF, val);
++				b43_phy_maskset(dev, reg, 0xF3FF, val &lt;&lt; 2);
++
++				if (type != 3 &amp;&amp; type != 6) {
++					enum ieee80211_band band =
++						b43_current_band(dev-&gt;wl);
++
++					if ((nphy-&gt;ipa2g_on &amp;&amp;
++						band == IEEE80211_BAND_2GHZ) ||
++						(nphy-&gt;ipa5g_on &amp;&amp;
++						band == IEEE80211_BAND_5GHZ))
++						val = (band == IEEE80211_BAND_5GHZ) ? 0xC : 0xE;
++					else
++						val = 0x11;
++					reg = (i == 0) ? 0x2000 : 0x3000;
++					reg |= B2055_PADDRV;
++					b43_radio_write16(dev, reg, val);
++
++					reg = (i == 0) ?
++						B43_NPHY_AFECTL_OVER1 :
++						B43_NPHY_AFECTL_OVER;
++					b43_phy_set(dev, reg, 0x0200);
++				}
++			}
++		}
++	}
+ }
+ 
+ /* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/RSSISel">http://bcm-v4.sipsolutions.net/802.11/PHY/N/RSSISel</A> */
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006870.html">[PATCH 1/5] b43: N-PHY: split RSSI selection into two	per-PHY-revision functions
+</A></li>
+	<LI>Next message: <A HREF="006872.html">[PATCH 3/5] b43: N-PHY: fix Cal TX IQ LO for newer PHYs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6871">[ date ]</a>
+              <a href="thread.html#6871">[ thread ]</a>
+              <a href="subject.html#6871">[ subject ]</a>
+              <a href="author.html#6871">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

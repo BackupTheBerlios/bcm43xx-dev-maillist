@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> turning off probe responses in bcm43xx
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20turning%20off%20probe%20responses%20in%20bcm43xx&In-Reply-To=%3C1186985793.27916.3.camel%40johannes.berg%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001991.html">
+   <LINK REL="Next"  HREF="001990.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>turning off probe responses in bcm43xx</H1>
+    <B>Johannes Berg</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20turning%20off%20probe%20responses%20in%20bcm43xx&In-Reply-To=%3C1186985793.27916.3.camel%40johannes.berg%3E"
+       TITLE="turning off probe responses in bcm43xx">johannes at sipsolutions.net
+       </A><BR>
+    <I>Mon Aug 13 08:16:33 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001991.html">Curious output from sprom contents
+</A></li>
+        <LI>Next message: <A HREF="001990.html">turning off probe responses in bcm43xx
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1988">[ date ]</a>
+              <a href="thread.html#1988">[ thread ]</a>
+              <a href="subject.html#1988">[ subject ]</a>
+              <a href="author.html#1988">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hey,
+
+After a bit of digging I figured out how it is possible to turn off
+probe responses: the SHM contains BCM43xx_SHM_SH_PRMAXTIME which is, in
+microseconds, the time after which probe requests are no longer answered
+by the firmware. That is initialized to zero at card startup like the
+whole memory and zero means infinite, but setting it to one microsecond
+causes the firmware to stop responding to probe requests because they
+all just time out---it doesn't have a chance to respond in one
+microsecond because it's not fast enough.
+
+Of course we aren't transmitting probe responses right now either due to
+the PHY errors, but first having the firmware generate PHY errors and
+then ignoring them doesn't seem such a hot idea.
+
+With my driver patched to write 1 to BCM43xx_SHM_SH_PRMAXTIME during
+core initialisation I no longer get PHY errors when running in master
+mode.
+
+johannes
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 190 bytes
+Desc: This is a digitally signed message part
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070813/395972c7/attachment.pgp">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070813/395972c7/attachment.pgp</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001991.html">Curious output from sprom contents
+</A></li>
+	<LI>Next message: <A HREF="001990.html">turning off probe responses in bcm43xx
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1988">[ date ]</a>
+              <a href="thread.html#1988">[ thread ]</a>
+              <a href="subject.html#1988">[ subject ]</a>
+              <a href="author.html#1988">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

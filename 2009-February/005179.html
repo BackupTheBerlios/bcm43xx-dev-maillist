@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> opensource firmware now accept version 410 frames
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20opensource%20firmware%20now%20accept%20version%20410%20frames&In-Reply-To=%3C49866730.40809%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005178.html">
+   <LINK REL="Next"  HREF="005180.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>opensource firmware now accept version 410 frames</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20opensource%20firmware%20now%20accept%20version%20410%20frames&In-Reply-To=%3C49866730.40809%40lwfinger.net%3E"
+       TITLE="opensource firmware now accept version 410 frames">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Mon Feb  2 04:23:28 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005178.html">opensource firmware now accept version 410 frames
+</A></li>
+        <LI>Next message: <A HREF="005180.html">opensource firmware now accept version 410 frames
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5179">[ date ]</a>
+              <a href="thread.html#5179">[ thread ]</a>
+              <a href="subject.html#5179">[ subject ]</a>
+              <a href="author.html#5179">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I was able to crash the 5.0 firmware again today after a 7 hour run
+This time I had the following patch applied:
+
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c
++++ wireless-testing/drivers/net/wireless/b43/dma.c
+@@ -40,6 +40,7 @@
+ #include &lt;linux/etherdevice.h&gt;
+ #include &lt;asm/div64.h&gt;
+
++static int b43_freeze = 0;
+
+ /* 32bit DMA ops. */
+ static
+@@ -1292,6 +1293,8 @@ int b43_dma_tx(struct b43_wldev *dev, st
+ 	unsigned long flags;
+ 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+
++	if (b43_freeze)
++		return -ENOMEM;
+ 	hdr = (struct ieee80211_hdr *)skb-&gt;data;
+ 	if (info-&gt;flags &amp; IEEE80211_TX_CTL_SEND_AFTER_DTIM) {
+ 		/* The multicast ring will be sent after the DTIM */
+@@ -1372,7 +1375,11 @@ void b43_dma_handle_txstatus(struct b43_
+ 	while (1) {
+ 		B43_WARN_ON(!(slot &gt;= 0 &amp;&amp; slot &lt; ring-&gt;nr_slots));
+ 		desc = ops-&gt;idx2desc(ring, slot, &amp;meta);
+-
++		if (meta-&gt;skb == 0x6b6b6b6b) {
++			printk(KERN_INFO &quot;b43: Double call of b43_dma_handle_&quot;
++			       &quot;txstatus for cookie 0x%X\n&quot;, status-&gt;cookie);
++			meta-&gt;skb = NULL;
++		}
+ 		if (meta-&gt;skb)
+ 			unmap_descbuffer(ring, meta-&gt;dmaaddr, meta-&gt;skb-&gt;len,
+ 					 1);
+@@ -1383,7 +1390,13 @@ void b43_dma_handle_txstatus(struct b43_
+ 		if (meta-&gt;is_last_fragment) {
+ 			struct ieee80211_tx_info *info;
+
+-			BUG_ON(!meta-&gt;skb);
++			if (!meta-&gt;skb) {
++				printk(KERN_INFO &quot;b43: Cookie is 0x%X for bad skb\n&quot;,
+status-&gt;cookie);
++				printk(KERN_INFO &quot;b43: DMA Output is frozen\n&quot;);
++				b43_freeze = 1;
++				B43_WARN_ON(1);
++				return;
++			}
+
+ 			info = IEEE80211_SKB_CB(meta-&gt;skb);
+
+@@ -1402,7 +1415,7 @@ void b43_dma_handle_txstatus(struct b43_
+ 			ieee80211_tx_status_irqsafe(dev-&gt;wl-&gt;hw, meta-&gt;skb);
+
+ 			/* skb is freed by ieee80211_tx_status_irqsafe() */
+-			meta-&gt;skb = NULL;
++			meta-&gt;skb = 0x6b6b6b6b;
+ 		} else {
+ 			/* No need to call free_descriptor_buffer here, as
+ 			 * this is only the txhdr, which is not allocated.
+
+Besides freezing TX when an error occurs, I also &quot;poisoned&quot; meta-&gt;skb rather than making
+it NULL after the call to ieee80211_tx_status_irqsafe(). I could then detect a double call
+with the same cookie, which is exactly what happened.
+
+I will now have time to code a dump of shared memory when the error occurs, but we do know
+what the mistake is.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005178.html">opensource firmware now accept version 410 frames
+</A></li>
+	<LI>Next message: <A HREF="005180.html">opensource firmware now accept version 410 frames
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5179">[ date ]</a>
+              <a href="thread.html#5179">[ thread ]</a>
+              <a href="subject.html#5179">[ subject ]</a>
+              <a href="author.html#5179">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

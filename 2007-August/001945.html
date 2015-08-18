@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.23-rc1-wireless-dev%20bcm43xx_mac80211%20associates%2C%0A%09but%20Ethernet%20appears%20broken&In-Reply-To=%3C200708101714.30099.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001944.html">
+   <LINK REL="Next"  HREF="001946.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.23-rc1-wireless-dev%20bcm43xx_mac80211%20associates%2C%0A%09but%20Ethernet%20appears%20broken&In-Reply-To=%3C200708101714.30099.mb%40bu3sch.de%3E"
+       TITLE="2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Aug 10 17:14:29 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001944.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken
+</A></li>
+        <LI>Next message: <A HREF="001946.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1945">[ date ]</a>
+              <a href="thread.html#1945">[ thread ]</a>
+              <a href="subject.html#1945">[ subject ]</a>
+              <a href="author.html#1945">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 10 August 2007 17:02:15 Larry Finger wrote:
+&gt;<i> Jory A. Pratt wrote:
+</I>&gt;<i> &gt; Larry Finger wrote:
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; What encryption method are you using?
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; Larry
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt; I use wep encryption on a WRT54G V3 with dd-wrt. I will work on it later 
+</I>&gt;<i> &gt; tonight and see what I can come up with.
+</I>&gt;<i> 
+</I>&gt;<i> Your answer confirms my latest result in which I have been able to reproduce the problem here.
+</I>&gt;<i> 
+</I>&gt;<i> I bisected the wireless-dev kernel to an arbitrary point before the change in status handling 
+</I>&gt;<i> (commit 85a83d26). That version could connect successfully using WEP and WPA encryption. I then 
+</I>&gt;<i> added the status-handling patch and tried again. This kernel could still do WPA encryption and it 
+</I>&gt;<i> could authenticate and associate with the WEP-using AP, but it could not get an IP number using DHCP.
+</I>&gt;<i> 
+</I>&gt;<i> I then did a diff between the dmesg output for the driver that works (dmesg.good) and the one that 
+</I>&gt;<i> does not (dmesg.bad). There are the usual number of differences due to slight timing difference, 
+</I>&gt;<i> etc, but the following difference stands out:
+</I>&gt;<i> 
+</I>&gt;<i> --- dmesg.good  2007-08-10 09:40:23.000000000 -0500
+</I>&gt;<i> +++ dmesg.bad   2007-08-10 09:41:23.000000000 -0500
+</I>&gt;<i> ..snip..
+</I>&gt;<i> @@ -569,7 +569,6 @@
+</I>&gt;<i>   bcm43xx_mac80211: 32-bit DMA initialized
+</I>&gt;<i>   bcm43xx_mac80211: Wireless interface started
+</I>&gt;<i>   NET: Registered protocol family 17
+</I>&gt;<i> -bcm43xx_mac80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+</I>&gt;<i>   eth1: Initial auth_alg=0
+</I>&gt;<i>   eth1: authenticate with AP 00:1a:70:46:ba:b1
+</I>&gt;<i>   eth1: RX authentication from 00:1a:70:46:ba:b1 (alg=0 transaction=2 status=0)
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> The good version is using hardware encryption, and the bad one is not. I have no idea why, but it 
+</I>&gt;<i> seems to be the critical difference. I'm ready to test any trial patch.
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+Ok, I see the bug in set_key.
+
+	if (bcm43xx_status(dev) != BCM43xx_STAT_INITIALIZED) {
+		err = -ENODEV;
+		goto out_unlock;
+	}
+
+We didn't have a chance to spot the bug in the patch that introduced
+it, because it did not touch this function.
+This should be changed to
+
+	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_INITIALIZED) {
+		err = -ENODEV;
+		goto out_unlock;
+	}
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001944.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken
+</A></li>
+	<LI>Next message: <A HREF="001946.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1945">[ date ]</a>
+              <a href="thread.html#1945">[ thread ]</a>
+              <a href="subject.html#1945">[ subject ]</a>
+              <a href="author.html#1945">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

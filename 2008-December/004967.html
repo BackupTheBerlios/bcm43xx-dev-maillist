@@ -1,0 +1,202 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fixup set_key handling
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fixup%20set_key%20handling&In-Reply-To=%3C200812192130.52399.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004966.html">
+   <LINK REL="Next"  HREF="004968.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fixup set_key handling</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fixup%20set_key%20handling&In-Reply-To=%3C200812192130.52399.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fixup set_key handling">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Dec 19 21:30:52 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004966.html">[PATCH] b43: Add key memory dumping
+</A></li>
+        <LI>Next message: <A HREF="004968.html">[PATCH] b43: Use 64bit atomic register access for TSF
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4967">[ date ]</a>
+              <a href="thread.html#4967">[ thread ]</a>
+              <a href="subject.html#4967">[ subject ]</a>
+              <a href="author.html#4967">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes the key handling for mac80211's new key-&gt;flags.
+It also adds TX locking to the set_key handler and adds a comment why this is required.
+This doesn't fix any known bugs.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+For 2.6.29
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-12-19 19:42:21.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-12-19 21:17:44.000000000 +0100
+@@ -934,27 +934,26 @@ static int b43_key_write(struct b43_wlde
+ 		return -EINVAL;
+ 	for (i = 0; i &lt; dev-&gt;max_nr_keys; i++) {
+ 		/* Check that we don't already have this key. */
+ 		B43_WARN_ON(dev-&gt;key[i].keyconf == keyconf);
+ 	}
+ 	if (index &lt; 0) {
+-		/* Either pairwise key or address is 00:00:00:00:00:00
+-		 * for transmit-only keys. Search the index. */
++		/* Pairwise key. Get an empty slot for the key. */
+ 		if (b43_new_kidx_api(dev))
+ 			sta_keys_start = 4;
+ 		else
+ 			sta_keys_start = 8;
+ 		for (i = sta_keys_start; i &lt; dev-&gt;max_nr_keys; i++) {
+ 			if (!dev-&gt;key[i].keyconf) {
+ 				/* found empty */
+ 				index = i;
+ 				break;
+ 			}
+ 		}
+ 		if (index &lt; 0) {
+-			b43err(dev-&gt;wl, &quot;Out of hardware key memory\n&quot;);
++			b43warn(dev-&gt;wl, &quot;Out of hardware key memory\n&quot;);
+ 			return -ENOSPC;
+ 		}
+ 	} else
+ 		B43_WARN_ON(index &gt; 3);
+ 
+ 	do_key_write(dev, index, algorithm, key, key_len, mac_addr);
+@@ -3522,23 +3521,30 @@ out_unlock_mutex:
+ static int b43_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+ 			   const u8 *local_addr, const u8 *addr,
+ 			   struct ieee80211_key_conf *key)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev;
+-	unsigned long flags;
+ 	u8 algorithm;
+ 	u8 index;
+ 	int err;
+ 	DECLARE_MAC_BUF(mac);
+ 
+ 	if (modparam_nohwcrypt)
+ 		return -ENOSPC; /* User disabled HW-crypto */
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
++	spin_lock_irq(&amp;wl-&gt;irq_lock);
++	write_lock(&amp;wl-&gt;tx_lock);
++	/* Why do we need all this locking here?
++	 * mutex     -&gt; Every config operation must take it.
++	 * irq_lock  -&gt; We modify the dev-&gt;key array, which is accessed
++	 *              in the IRQ handlers.
++	 * tx_lock   -&gt; We modify the dev-&gt;key array, which is accessed
++	 *              in the TX handler.
++	 */
+ 
+ 	dev = wl-&gt;current_dev;
+ 	err = -ENODEV;
+ 	if (!dev || b43_status(dev) &lt; B43_STAT_INITIALIZED)
+ 		goto out_unlock;
+ 
+@@ -3549,13 +3555,13 @@ static int b43_op_set_key(struct ieee802
+ 		goto out_unlock;
+ 	}
+ 
+ 	err = -EINVAL;
+ 	switch (key-&gt;alg) {
+ 	case ALG_WEP:
+-		if (key-&gt;keylen == 5)
++		if (key-&gt;keylen == LEN_WEP40)
+ 			algorithm = B43_SEC_ALGO_WEP40;
+ 		else
+ 			algorithm = B43_SEC_ALGO_WEP104;
+ 		break;
+ 	case ALG_TKIP:
+ 		algorithm = B43_SEC_ALGO_TKIP;
+@@ -3576,23 +3582,20 @@ static int b43_op_set_key(struct ieee802
+ 		if (algorithm == B43_SEC_ALGO_TKIP) {
+ 			/* FIXME: No TKIP hardware encryption for now. */
+ 			err = -EOPNOTSUPP;
+ 			goto out_unlock;
+ 		}
+ 
+-		if (is_broadcast_ether_addr(addr)) {
+-			/* addr is FF:FF:FF:FF:FF:FF for default keys */
+-			err = b43_key_write(dev, index, algorithm,
+-					    key-&gt;key, key-&gt;keylen, NULL, key);
+-		} else {
+-			/*
+-			 * either pairwise key or address is 00:00:00:00:00:00
+-			 * for transmit-only keys
+-			 */
++		if (key-&gt;flags &amp; IEEE80211_KEY_FLAG_PAIRWISE) {
++			/* Pairwise key with an assigned MAC address. */
+ 			err = b43_key_write(dev, -1, algorithm,
+ 					    key-&gt;key, key-&gt;keylen, addr, key);
++		} else {
++			/* Group key */
++			err = b43_key_write(dev, index, algorithm,
++					    key-&gt;key, key-&gt;keylen, NULL, key);
+ 		}
+ 		if (err)
+ 			goto out_unlock;
+ 
+ 		if (algorithm == B43_SEC_ALGO_WEP40 ||
+ 		    algorithm == B43_SEC_ALGO_WEP104) {
+@@ -3618,13 +3621,14 @@ out_unlock:
+ 		b43dbg(wl, &quot;%s hardware based encryption for keyidx: %d, &quot;
+ 		       &quot;mac: %s\n&quot;,
+ 		       cmd == SET_KEY ? &quot;Using&quot; : &quot;Disabling&quot;, key-&gt;keyidx,
+ 		       print_mac(mac, addr));
+ 		b43_dump_keymemory(dev);
+ 	}
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
++	write_unlock(&amp;wl-&gt;tx_lock);
++	spin_unlock_irq(&amp;wl-&gt;irq_lock);
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+ 	return err;
+ }
+ 
+ static void b43_op_configure_filter(struct ieee80211_hw *hw,
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004966.html">[PATCH] b43: Add key memory dumping
+</A></li>
+	<LI>Next message: <A HREF="004968.html">[PATCH] b43: Use 64bit atomic register access for TSF
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4967">[ date ]</a>
+              <a href="thread.html#4967">[ thread ]</a>
+              <a href="subject.html#4967">[ subject ]</a>
+              <a href="author.html#4967">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: include full 64-bit timestamp in monitor mode
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20include%20full%2064-bit%20timestamp%20in%20monitor%20mode&In-Reply-To=%3C200711231450.52403.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002886.html">
+   <LINK REL="Next"  HREF="002895.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: include full 64-bit timestamp in monitor mode</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20include%20full%2064-bit%20timestamp%20in%20monitor%20mode&In-Reply-To=%3C200711231450.52403.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: include full 64-bit timestamp in monitor mode">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Nov 23 14:50:51 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002886.html">[PATCH] b43-fwcutter: make sparse happier
+</A></li>
+        <LI>Next message: <A HREF="002895.html">[PATCH] b43: include FCS in frames handed to mac80211
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2884">[ date ]</a>
+              <a href="thread.html#2884">[ thread ]</a>
+              <a href="subject.html#2884">[ subject ]</a>
+              <a href="author.html#2884">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: Johannes Berg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">johannes at sipsolutions.net</A>&gt;
+
+When monitor mode is enabled, this will make b43 read out the
+full 64-bit MAC time from the chip for each received packet.
+
+Signed-off-by: Johannes Berg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">johannes at sipsolutions.net</A>&gt;
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+ drivers/net/wireless/b43/b43.h  |    2 ++
+ drivers/net/wireless/b43/main.c |    2 ++
+ drivers/net/wireless/b43/xmit.c |   18 +++++++++++++++++-
+ 3 files changed, 21 insertions(+), 1 deletion(-)
+
+--- everything.orig/drivers/net/wireless/b43/b43.h	2007-11-22 22:56:20.648678709 +0100
++++ everything/drivers/net/wireless/b43/b43.h	2007-11-22 23:03:27.268675020 +0100
+@@ -635,6 +635,8 @@ struct b43_wl {
+ 	/* List of all wireless devices on this chip */
+ 	struct list_head devlist;
+ 	u8 nr_devs;
++
++	bool radiotap_enabled;
+ };
+ 
+ /* Pointers to the firmware data and meta information about it. */
+--- everything.orig/drivers/net/wireless/b43/main.c	2007-11-22 22:55:49.608678981 +0100
++++ everything/drivers/net/wireless/b43/main.c	2007-11-22 23:03:53.678676051 +0100
+@@ -2853,6 +2853,8 @@ static int b43_op_config(struct ieee8021
+ 			b43_short_slot_timing_disable(dev);
+ 	}
+ 
++	dev-&gt;wl-&gt;radiotap_enabled = !!(conf-&gt;flags &amp; IEEE80211_CONF_RADIOTAP);
++
+ 	/* Adjust the desired TX power level. */
+ 	if (conf-&gt;power_level != 0) {
+ 		if (conf-&gt;power_level != phy-&gt;power_level) {
+--- everything.orig/drivers/net/wireless/b43/xmit.c	2007-11-22 22:54:33.498725965 +0100
++++ everything/drivers/net/wireless/b43/xmit.c	2007-11-22 23:15:44.808681966 +0100
+@@ -526,7 +526,23 @@ void b43_rx(struct b43_wldev *dev, struc
+ 	else
+ 		status.rate = b43_plcp_get_bitrate_cck(plcp);
+ 	status.antenna = !!(phystat0 &amp; B43_RX_PHYST0_ANT);
+-	status.mactime = mactime;
++
++	/*
++	 * If monitors are present get full 64-bit timestamp. This
++	 * code assumes we get to process the packet within 16 bits
++	 * of timestamp, i.e. about 65 milliseconds after the PHY
++	 * received the first symbol.
++	 */
++	if (dev-&gt;wl-&gt;radiotap_enabled) {
++		u16 low_mactime_now;
++
++		b43_tsf_read(dev, &amp;status.mactime);
++		low_mactime_now = status.mactime;
++		status.mactime = status.mactime &amp; ~0xFFFFULL;
++		status.mactime += mactime;
++		if (low_mactime_now &lt;= mactime)
++			status.mactime -= 0x10000;
++	}
+ 
+ 	chanid = (chanstat &amp; B43_RX_CHAN_ID) &gt;&gt; B43_RX_CHAN_ID_SHIFT;
+ 	switch (chanstat &amp; B43_RX_CHAN_PHYTYPE) {
+
+
+
+
+-------------------------------------------------------
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002886.html">[PATCH] b43-fwcutter: make sparse happier
+</A></li>
+	<LI>Next message: <A HREF="002895.html">[PATCH] b43: include FCS in frames handed to mac80211
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2884">[ date ]</a>
+              <a href="thread.html#2884">[ thread ]</a>
+              <a href="subject.html#2884">[ subject ]</a>
+              <a href="author.html#2884">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

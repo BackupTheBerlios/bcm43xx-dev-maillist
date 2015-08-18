@@ -1,0 +1,558 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix bandswitch
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20bandswitch&In-Reply-To=%3C200802091208.59416.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003387.html">
+   <LINK REL="Next"  HREF="003390.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix bandswitch</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20bandswitch&In-Reply-To=%3C200802091208.59416.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix bandswitch">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Feb  9 12:08:58 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003387.html">[PATCH] b43: Add firmware information to modinfo
+</A></li>
+        <LI>Next message: <A HREF="003390.html">Problem with b43 on kernel 2.6.24 (dma.c parse_cookie() generating	B43_WARN_ON())
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3389">[ date ]</a>
+              <a href="thread.html#3389">[ thread ]</a>
+              <a href="subject.html#3389">[ subject ]</a>
+              <a href="author.html#3389">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes bandswitching for the new mac80211 band API.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, for 2.6.26
+
+
+Index: wireless-2.6/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/b43.h	2008-02-09 00:05:57.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/b43.h	2008-02-09 12:04:41.000000000 +0100
+@@ -455,20 +455,17 @@ struct b43_iv {
+ 		__be16 d16;
+ 		__be32 d32;
+ 	} data __attribute__((__packed__));
+ } __attribute__((__packed__));
+ 
+ 
+-#define B43_PHYMODE(phytype)		(1 &lt;&lt; (phytype))
+-#define B43_PHYMODE_A			B43_PHYMODE(B43_PHYTYPE_A)
+-#define B43_PHYMODE_B			B43_PHYMODE(B43_PHYTYPE_B)
+-#define B43_PHYMODE_G			B43_PHYMODE(B43_PHYTYPE_G)
+-
+ struct b43_phy {
+-	/* Possible PHYMODEs on this PHY */
+-	u8 possible_phymodes;
++	/* Band support flags. */
++	bool supports_2ghz;
++	bool supports_5ghz;
++
+ 	/* GMODE bit enabled? */
+ 	bool gmode;
+ 
+ 	/* Analog Type */
+ 	u8 analog;
+ 	/* B43_PHYTYPE_ */
+Index: wireless-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/main.c	2008-02-09 10:17:21.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/main.c	2008-02-09 12:03:20.000000000 +0100
+@@ -124,64 +124,149 @@ static struct ieee80211_rate __b43_ratet
+ #define b43_a_ratetable_size	8
+ #define b43_b_ratetable		(__b43_ratetable + 0)
+ #define b43_b_ratetable_size	4
+ #define b43_g_ratetable		(__b43_ratetable + 0)
+ #define b43_g_ratetable_size	12
+ 
+-#define CHANTAB_ENT(_chanid, _freq) \
+-	{							\
+-		.center_freq	= (_freq),			\
+-		.hw_value	= (_chanid),			\
+-	}
++#define CHAN4G(_channel, _freq, _flags) {			\
++	.band			= IEEE80211_BAND_2GHZ,		\
++	.center_freq		= (_freq),			\
++	.hw_value		= (_channel),			\
++	.flags			= (_flags),			\
++	.max_antenna_gain	= 0,				\
++	.max_power		= 30,				\
++}
+ static struct ieee80211_channel b43_2ghz_chantable[] = {
+-	CHANTAB_ENT(1, 2412),
+-	CHANTAB_ENT(2, 2417),
+-	CHANTAB_ENT(3, 2422),
+-	CHANTAB_ENT(4, 2427),
+-	CHANTAB_ENT(5, 2432),
+-	CHANTAB_ENT(6, 2437),
+-	CHANTAB_ENT(7, 2442),
+-	CHANTAB_ENT(8, 2447),
+-	CHANTAB_ENT(9, 2452),
+-	CHANTAB_ENT(10, 2457),
+-	CHANTAB_ENT(11, 2462),
+-	CHANTAB_ENT(12, 2467),
+-	CHANTAB_ENT(13, 2472),
+-	CHANTAB_ENT(14, 2484),
++	CHAN4G(1, 2412, 0),
++	CHAN4G(2, 2417, 0),
++	CHAN4G(3, 2422, 0),
++	CHAN4G(4, 2427, 0),
++	CHAN4G(5, 2432, 0),
++	CHAN4G(6, 2437, 0),
++	CHAN4G(7, 2442, 0),
++	CHAN4G(8, 2447, 0),
++	CHAN4G(9, 2452, 0),
++	CHAN4G(10, 2457, 0),
++	CHAN4G(11, 2462, 0),
++	CHAN4G(12, 2467, 0),
++	CHAN4G(13, 2472, 0),
++	CHAN4G(14, 2484, 0),
+ };
++#undef CHAN4G
+ 
+-#ifdef NOTYET
+-static struct ieee80211_channel b43_5ghz_chantable[] = {
+-	CHANTAB_ENT(36, 5180),
+-	CHANTAB_ENT(40, 5200),
+-	CHANTAB_ENT(44, 5220),
+-	CHANTAB_ENT(48, 5240),
+-	CHANTAB_ENT(52, 5260),
+-	CHANTAB_ENT(56, 5280),
+-	CHANTAB_ENT(60, 5300),
+-	CHANTAB_ENT(64, 5320),
+-	CHANTAB_ENT(149, 5745),
+-	CHANTAB_ENT(153, 5765),
+-	CHANTAB_ENT(157, 5785),
+-	CHANTAB_ENT(161, 5805),
+-	CHANTAB_ENT(165, 5825),
++#define CHAN5G(_channel, _flags) {				\
++	.band			= IEEE80211_BAND_5GHZ,		\
++	.center_freq		= 5000 + (5 * (_channel)),	\
++	.hw_value		= (_channel),			\
++	.flags			= (_flags),			\
++	.max_antenna_gain	= 0,				\
++	.max_power		= 30,				\
++}
++static struct ieee80211_channel b43_5ghz_nphy_chantable[] = {
++	CHAN5G(32, 0),		CHAN5G(34, 0),
++	CHAN5G(36, 0),		CHAN5G(38, 0),
++	CHAN5G(40, 0),		CHAN5G(42, 0),
++	CHAN5G(44, 0),		CHAN5G(46, 0),
++	CHAN5G(48, 0),		CHAN5G(50, 0),
++	CHAN5G(52, 0),		CHAN5G(54, 0),
++	CHAN5G(56, 0),		CHAN5G(58, 0),
++	CHAN5G(60, 0),		CHAN5G(62, 0),
++	CHAN5G(64, 0),		CHAN5G(66, 0),
++	CHAN5G(68, 0),		CHAN5G(70, 0),
++	CHAN5G(72, 0),		CHAN5G(74, 0),
++	CHAN5G(76, 0),		CHAN5G(78, 0),
++	CHAN5G(80, 0),		CHAN5G(82, 0),
++	CHAN5G(84, 0),		CHAN5G(86, 0),
++	CHAN5G(88, 0),		CHAN5G(90, 0),
++	CHAN5G(92, 0),		CHAN5G(94, 0),
++	CHAN5G(96, 0),		CHAN5G(98, 0),
++	CHAN5G(100, 0),		CHAN5G(102, 0),
++	CHAN5G(104, 0),		CHAN5G(106, 0),
++	CHAN5G(108, 0),		CHAN5G(110, 0),
++	CHAN5G(112, 0),		CHAN5G(114, 0),
++	CHAN5G(116, 0),		CHAN5G(118, 0),
++	CHAN5G(120, 0),		CHAN5G(122, 0),
++	CHAN5G(124, 0),		CHAN5G(126, 0),
++	CHAN5G(128, 0),		CHAN5G(130, 0),
++	CHAN5G(132, 0),		CHAN5G(134, 0),
++	CHAN5G(136, 0),		CHAN5G(138, 0),
++	CHAN5G(140, 0),		CHAN5G(142, 0),
++	CHAN5G(144, 0),		CHAN5G(145, 0),
++	CHAN5G(146, 0),		CHAN5G(147, 0),
++	CHAN5G(148, 0),		CHAN5G(149, 0),
++	CHAN5G(150, 0),		CHAN5G(151, 0),
++	CHAN5G(152, 0),		CHAN5G(153, 0),
++	CHAN5G(154, 0),		CHAN5G(155, 0),
++	CHAN5G(156, 0),		CHAN5G(157, 0),
++	CHAN5G(158, 0),		CHAN5G(159, 0),
++	CHAN5G(160, 0),		CHAN5G(161, 0),
++	CHAN5G(162, 0),		CHAN5G(163, 0),
++	CHAN5G(164, 0),		CHAN5G(165, 0),
++	CHAN5G(166, 0),		CHAN5G(168, 0),
++	CHAN5G(170, 0),		CHAN5G(172, 0),
++	CHAN5G(174, 0),		CHAN5G(176, 0),
++	CHAN5G(178, 0),		CHAN5G(180, 0),
++	CHAN5G(182, 0),		CHAN5G(184, 0),
++	CHAN5G(186, 0),		CHAN5G(188, 0),
++	CHAN5G(190, 0),		CHAN5G(192, 0),
++	CHAN5G(194, 0),		CHAN5G(196, 0),
++	CHAN5G(198, 0),		CHAN5G(200, 0),
++	CHAN5G(202, 0),		CHAN5G(204, 0),
++	CHAN5G(206, 0),		CHAN5G(208, 0),
++	CHAN5G(210, 0),		CHAN5G(212, 0),
++	CHAN5G(214, 0),		CHAN5G(216, 0),
++	CHAN5G(218, 0),		CHAN5G(220, 0),
++	CHAN5G(222, 0),		CHAN5G(224, 0),
++	CHAN5G(226, 0),		CHAN5G(228, 0),
+ };
+ 
+-static struct ieee80211_supported_band b43_band_5GHz = {
+-	.channels = b43_5ghz_chantable,
+-	.n_channels = ARRAY_SIZE(b43_5ghz_chantable),
+-	.bitrates = b43_a_ratetable,
+-	.n_bitrates = b43_a_ratetable_size,
++static struct ieee80211_channel b43_5ghz_aphy_chantable[] = {
++	CHAN5G(34, 0),		CHAN5G(36, 0),
++	CHAN5G(38, 0),		CHAN5G(40, 0),
++	CHAN5G(42, 0),		CHAN5G(44, 0),
++	CHAN5G(46, 0),		CHAN5G(48, 0),
++	CHAN5G(52, 0),		CHAN5G(56, 0),
++	CHAN5G(60, 0),		CHAN5G(64, 0),
++	CHAN5G(100, 0),		CHAN5G(104, 0),
++	CHAN5G(108, 0),		CHAN5G(112, 0),
++	CHAN5G(116, 0),		CHAN5G(120, 0),
++	CHAN5G(124, 0),		CHAN5G(128, 0),
++	CHAN5G(132, 0),		CHAN5G(136, 0),
++	CHAN5G(140, 0),		CHAN5G(149, 0),
++	CHAN5G(153, 0),		CHAN5G(157, 0),
++	CHAN5G(161, 0),		CHAN5G(165, 0),
++	CHAN5G(184, 0),		CHAN5G(188, 0),
++	CHAN5G(192, 0),		CHAN5G(196, 0),
++	CHAN5G(200, 0),		CHAN5G(204, 0),
++	CHAN5G(208, 0),		CHAN5G(212, 0),
++	CHAN5G(216, 0),
++};
++#undef CHAN5G
++
++static struct ieee80211_supported_band b43_band_5GHz_nphy = {
++	.band		= IEEE80211_BAND_5GHZ,
++	.channels	= b43_5ghz_nphy_chantable,
++	.n_channels	= ARRAY_SIZE(b43_5ghz_nphy_chantable),
++	.bitrates	= b43_a_ratetable,
++	.n_bitrates	= b43_a_ratetable_size,
++};
++
++static struct ieee80211_supported_band b43_band_5GHz_aphy = {
++	.band		= IEEE80211_BAND_5GHZ,
++	.channels	= b43_5ghz_aphy_chantable,
++	.n_channels	= ARRAY_SIZE(b43_5ghz_aphy_chantable),
++	.bitrates	= b43_a_ratetable,
++	.n_bitrates	= b43_a_ratetable_size,
+ };
+-#endif
+ 
+ static struct ieee80211_supported_band b43_band_2GHz = {
+-	.channels = b43_2ghz_chantable,
+-	.n_channels = ARRAY_SIZE(b43_2ghz_chantable),
+-	.bitrates = b43_g_ratetable,
+-	.n_bitrates = b43_g_ratetable_size,
++	.band		= IEEE80211_BAND_2GHZ,
++	.channels	= b43_2ghz_chantable,
++	.n_channels	= ARRAY_SIZE(b43_2ghz_chantable),
++	.bitrates	= b43_g_ratetable,
++	.n_bitrates	= b43_g_ratetable_size,
+ };
+ 
+ static void b43_wireless_core_exit(struct b43_wldev *dev);
+ static int b43_wireless_core_init(struct b43_wldev *dev);
+ static void b43_wireless_core_stop(struct b43_wldev *dev);
+ static int b43_wireless_core_start(struct b43_wldev *dev);
+@@ -2653,51 +2738,12 @@ static int b43_op_get_stats(struct ieee8
+ 	memcpy(stats, &amp;wl-&gt;ieee_stats, sizeof(*stats));
+ 	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 
+ 	return 0;
+ }
+ 
+-static const char *phymode_to_string(unsigned int phymode)
+-{
+-	switch (phymode) {
+-	case B43_PHYMODE_A:
+-		return &quot;A&quot;;
+-	case B43_PHYMODE_B:
+-		return &quot;B&quot;;
+-	case B43_PHYMODE_G:
+-		return &quot;G&quot;;
+-	default:
+-		B43_WARN_ON(1);
+-	}
+-	return &quot;&quot;;
+-}
+-
+-static int find_wldev_for_phymode(struct b43_wl *wl,
+-				  unsigned int phymode,
+-				  struct b43_wldev **dev, bool * gmode)
+-{
+-	struct b43_wldev *d;
+-
+-	list_for_each_entry(d, &amp;wl-&gt;devlist, list) {
+-		if (d-&gt;phy.possible_phymodes &amp; phymode) {
+-			/* Ok, this device supports the PHY-mode.
+-			 * Now figure out how the gmode bit has to be
+-			 * set to support it. */
+-			if (phymode == B43_PHYMODE_A)
+-				*gmode = 0;
+-			else
+-				*gmode = 1;
+-			*dev = d;
+-
+-			return 0;
+-		}
+-	}
+-
+-	return -ESRCH;
+-}
+-
+ static void b43_put_phy_into_reset(struct b43_wldev *dev)
+ {
+ 	struct ssb_device *sdev = dev-&gt;dev;
+ 	u32 tmslow;
+ 
+ 	tmslow = ssb_read32(sdev, SSB_TMSLOW);
+@@ -2711,34 +2757,70 @@ static void b43_put_phy_into_reset(struc
+ 	tmslow &amp;= ~SSB_TMSLOW_FGC;
+ 	tmslow |= B43_TMSLOW_PHYRESET;
+ 	ssb_write32(sdev, SSB_TMSLOW, tmslow);
+ 	msleep(1);
+ }
+ 
++static const char * band_to_string(enum ieee80211_band band)
++{
++	switch (band) {
++	case IEEE80211_BAND_5GHZ:
++		return &quot;5&quot;;
++	case IEEE80211_BAND_2GHZ:
++		return &quot;2.4&quot;;
++	default:
++		break;
++	}
++	B43_WARN_ON(1);
++	return &quot;&quot;;
++}
++
+ /* Expects wl-&gt;mutex locked */
+-static int b43_switch_phymode(struct b43_wl *wl, unsigned int new_mode)
++static int b43_switch_band(struct b43_wl *wl, struct ieee80211_channel *chan)
+ {
+-	struct b43_wldev *up_dev;
++	struct b43_wldev *up_dev = NULL;
+ 	struct b43_wldev *down_dev;
++	struct b43_wldev *d;
+ 	int err;
+-	bool gmode = 0;
++	bool gmode;
+ 	int prev_status;
+ 
+-	err = find_wldev_for_phymode(wl, new_mode, &amp;up_dev, &amp;gmode);
+-	if (err) {
+-		b43err(wl, &quot;Could not find a device for %s-PHY mode\n&quot;,
+-		       phymode_to_string(new_mode));
+-		return err;
++	/* Find a device and PHY which supports the band. */
++	list_for_each_entry(d, &amp;wl-&gt;devlist, list) {
++		switch (chan-&gt;band) {
++		case IEEE80211_BAND_5GHZ:
++			if (d-&gt;phy.supports_5ghz) {
++				up_dev = d;
++				gmode = 0;
++			}
++			break;
++		case IEEE80211_BAND_2GHZ:
++			if (d-&gt;phy.supports_2ghz) {
++				up_dev = d;
++				gmode = 1;
++			}
++			break;
++		default:
++			B43_WARN_ON(1);
++			return -EINVAL;
++		}
++		if (up_dev)
++			break;
++	}
++	if (!up_dev) {
++		b43err(wl, &quot;Could not find a device for %s-GHz band operation\n&quot;,
++		       band_to_string(chan-&gt;band));
++		return -ENODEV;
+ 	}
+ 	if ((up_dev == wl-&gt;current_dev) &amp;&amp;
+ 	    (!!wl-&gt;current_dev-&gt;phy.gmode == !!gmode)) {
+ 		/* This device is already running. */
+ 		return 0;
+ 	}
+-	b43dbg(wl, &quot;Reconfiguring PHYmode to %s-PHY\n&quot;,
+-	       phymode_to_string(new_mode));
++	b43dbg(wl, &quot;Switching to %s-GHz band\n&quot;,
++	       band_to_string(chan-&gt;band));
+ 	down_dev = wl-&gt;current_dev;
+ 
+ 	prev_status = b43_status(down_dev);
+ 	/* Shutdown the currently running core. */
+ 	if (prev_status &gt;= B43_STAT_STARTED)
+ 		b43_wireless_core_stop(down_dev);
+@@ -2754,33 +2836,33 @@ static int b43_switch_phymode(struct b43
+ 	/* Now start the new core. */
+ 	up_dev-&gt;phy.gmode = gmode;
+ 	if (prev_status &gt;= B43_STAT_INITIALIZED) {
+ 		err = b43_wireless_core_init(up_dev);
+ 		if (err) {
+ 			b43err(wl, &quot;Fatal: Could not initialize device for &quot;
+-			       &quot;newly selected %s-PHY mode\n&quot;,
+-			       phymode_to_string(new_mode));
++			       &quot;selected %s-GHz band\n&quot;,
++			       band_to_string(chan-&gt;band));
+ 			goto init_failure;
+ 		}
+ 	}
+ 	if (prev_status &gt;= B43_STAT_STARTED) {
+ 		err = b43_wireless_core_start(up_dev);
+ 		if (err) {
+ 			b43err(wl, &quot;Fatal: Coult not start device for &quot;
+-			       &quot;newly selected %s-PHY mode\n&quot;,
+-			       phymode_to_string(new_mode));
++			       &quot;selected %s-GHz band\n&quot;,
++			       band_to_string(chan-&gt;band));
+ 			b43_wireless_core_exit(up_dev);
+ 			goto init_failure;
+ 		}
+ 	}
+ 	B43_WARN_ON(b43_status(up_dev) != prev_status);
+ 
+ 	wl-&gt;current_dev = up_dev;
+ 
+ 	return 0;
+-      init_failure:
++init_failure:
+ 	/* Whoops, failed to init the new core. No core is operating now. */
+ 	wl-&gt;current_dev = NULL;
+ 	return err;
+ }
+ 
+ /* Check if the use of the antenna that ieee80211 told us to
+@@ -2832,31 +2914,20 @@ static int b43_antenna_from_ieee80211(st
+ static int b43_op_config(struct ieee80211_hw *hw, struct ieee80211_conf *conf)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev;
+ 	struct b43_phy *phy;
+ 	unsigned long flags;
+-	unsigned int new_phymode = 0xFFFF;
+ 	int antenna;
+ 	int err = 0;
+ 	u32 savedirqs;
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 
+-	/* Switch the PHY mode (if necessary). */
+-	switch (conf-&gt;channel-&gt;band) {
+-	case IEEE80211_BAND_5GHZ:
+-		new_phymode = B43_PHYMODE_A;
+-		break;
+-	case IEEE80211_BAND_2GHZ:
+-		new_phymode = B43_PHYMODE_G;
+-		break;
+-	default:
+-		B43_WARN_ON(1);
+-	}
+-	err = b43_switch_phymode(wl, new_phymode);
++	/* Switch the band (if necessary). This might change the active core. */
++	err = b43_switch_band(wl, conf-&gt;channel);
+ 	if (err)
+ 		goto out_unlock_mutex;
+ 	dev = wl-&gt;current_dev;
+ 	phy = &amp;dev-&gt;phy;
+ 
+ 	/* Disable IRQs while reconfiguring the device.
+@@ -3809,27 +3880,29 @@ static void b43_chip_reset(struct work_s
+ 	if (err)
+ 		b43err(wl, &quot;Controller restart FAILED\n&quot;);
+ 	else
+ 		b43info(wl, &quot;Controller restarted\n&quot;);
+ }
+ 
+-static int b43_setup_modes(struct b43_wldev *dev,
++static int b43_setup_bands(struct b43_wldev *dev,
+ 			   bool have_2ghz_phy, bool have_5ghz_phy)
+ {
+ 	struct ieee80211_hw *hw = dev-&gt;wl-&gt;hw;
+-	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 
+-	/* XXX: This function will go away soon, when mac80211
+-	 *      band stuff is rewritten. So this is just a hack.
+-	 *      For now we always claim GPHY mode, as there is no
+-	 *      support for NPHY and APHY in the device, yet.
+-	 *      This assumption is OK, as any B, N or A PHY will already
+-	 *      have died a horrible sanity check death earlier. */
++	if (have_2ghz_phy)
++		hw-&gt;wiphy-&gt;bands[IEEE80211_BAND_2GHZ] = &amp;b43_band_2GHz;
++	if (dev-&gt;phy.type == B43_PHYTYPE_N) {
++		if (have_5ghz_phy)
++			hw-&gt;wiphy-&gt;bands[IEEE80211_BAND_5GHZ] = &amp;b43_band_5GHz_nphy;
++	} else {
++		if (have_5ghz_phy)
++			hw-&gt;wiphy-&gt;bands[IEEE80211_BAND_5GHZ] = &amp;b43_band_5GHz_aphy;
++	}
+ 
+-	hw-&gt;wiphy-&gt;bands[IEEE80211_BAND_2GHZ] = &amp;b43_band_2GHz;
+-	phy-&gt;possible_phymodes |= B43_PHYMODE_G;
++	dev-&gt;phy.supports_2ghz = have_2ghz_phy;
++	dev-&gt;phy.supports_5ghz = have_5ghz_phy;
+ 
+ 	return 0;
+ }
+ 
+ static void b43_wireless_core_detach(struct b43_wldev *dev)
+ {
+@@ -3905,13 +3978,13 @@ static int b43_wireless_core_attach(stru
+ 	tmp = dev-&gt;phy.gmode ? B43_TMSLOW_GMODE : 0;
+ 	b43_wireless_core_reset(dev, tmp);
+ 
+ 	err = b43_validate_chipaccess(dev);
+ 	if (err)
+ 		goto err_powerdown;
+-	err = b43_setup_modes(dev, have_2ghz_phy, have_5ghz_phy);
++	err = b43_setup_bands(dev, have_2ghz_phy, have_5ghz_phy);
+ 	if (err)
+ 		goto err_powerdown;
+ 
+ 	/* Now set some default &quot;current_dev&quot; */
+ 	if (!wl-&gt;current_dev)
+ 		wl-&gt;current_dev = dev;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003387.html">[PATCH] b43: Add firmware information to modinfo
+</A></li>
+	<LI>Next message: <A HREF="003390.html">Problem with b43 on kernel 2.6.24 (dma.c parse_cookie() generating	B43_WARN_ON())
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3389">[ date ]</a>
+              <a href="thread.html#3389">[ thread ]</a>
+              <a href="subject.html#3389">[ subject ]</a>
+              <a href="author.html#3389">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

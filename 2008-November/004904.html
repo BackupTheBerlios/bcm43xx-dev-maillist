@@ -1,0 +1,130 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BCM4312 Fails when xdm is started
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4312%20Fails%20when%20xdm%20is%20started&In-Reply-To=%3C20081123204631.21061.qmail%40stuge.se%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004902.html">
+   <LINK REL="Next"  HREF="004905.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BCM4312 Fails when xdm is started</H1>
+    <B>Peter Stuge</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4312%20Fails%20when%20xdm%20is%20started&In-Reply-To=%3C20081123204631.21061.qmail%40stuge.se%3E"
+       TITLE="BCM4312 Fails when xdm is started">peter at stuge.se
+       </A><BR>
+    <I>Sun Nov 23 21:46:31 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004902.html">BCM4312 Fails when xdm is started
+</A></li>
+        <LI>Next message: <A HREF="004905.html">BCM4312 Fails when xdm is started
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4904">[ date ]</a>
+              <a href="thread.html#4904">[ thread ]</a>
+              <a href="subject.html#4904">[ subject ]</a>
+              <a href="author.html#4904">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> On Sunday 23 November 2008 12:49:55 Yuval Hager wrote:
+</I>&gt;<i> &gt; [  182.891400] ****** b43: B43_MMIO_MACCTL 0x840A0503
+</I>&gt;<i> &gt; [  182.891409] ****** b43: SSB_TMSLOW 0x20150000
+</I>&gt;<i> &gt; [  258.299027] irq 10: nobody cared (try booting with the &quot;irqpoll&quot; option)
+</I>&gt;<i> 
+</I>&gt;<i> Does the kernel disable the PCI device, if it ignores the IRQ?
+</I>
+The kernel disables the IRQ at least internally, maybe also by
+deconfiguring the interrupt register in any devices using it, which
+would explain the change in config register 0x3c (but not the changes
+in all the other bytes, could that be a freak chain reaction inside
+the hardware?) but I haven't heard/seen the kernel disable the PCI
+device itself. I don't know if it can.
+
+Why doesn't b43 care about this interrupt? Without APIC interrupt 10
+is what both device and driver should be using (according to earlier
+lspci -x output).
+
+
+&gt;<i> &gt; [  258.299173] handlers:
+</I>&gt;<i> &gt; [  258.299176] [&lt;f7906455&gt;] (b43_interrupt_handler+0x0/0x1b7 [b43])
+</I>&gt;<i> &gt; [  258.299212] Disabling IRQ #10
+</I>&gt;<i> &gt; [  258.315148] b43-phy0: Radio hardware status changed to DISABLED
+</I>&gt;<i> &gt; [  258.315160] b43-phy0: ******** B43_B43_MMIO_RADIO_HWENABLED_HI 0xFFFFFFFF
+</I>&gt;<i> &gt; [  258.342341] kobject: 'rfkill0' (f43b7d78): kobject_uevent_env
+</I>&gt;<i> &gt; [  258.342367] kobject: 'rfkill0' (f43b7d78): fill_kobj_path: path = '/class/rfkill/rfkill0'
+</I>&gt;<i> &gt; [  258.342418] kobject: 'ssb0:0' (f40dfcd8): fill_kobj_path: path = '/devices/pci0000:00/0000:00:02.0/0000:02:00.0/ssb0:0'
+</I>
+Why does the radio hw status changes here?
+How is the change notified to the driver?
+
+
+&gt;<i> &gt; [  258.391951] 
+</I>&gt;<i> &gt; [  258.391956] =================================
+</I>&gt;<i> &gt; [  258.391964] [ INFO: inconsistent lock state ]
+</I>&gt;<i> &gt; [  258.391971] 2.6.28-rc5 #15
+</I>&gt;<i> &gt; [  258.391975] ---------------------------------
+</I>&gt;<i> &gt; [  258.391980] inconsistent {in-hardirq-W} -&gt; {hardirq-on-W} usage.
+</I>&gt;<i> &gt; [  258.391987] X/3965 [HC0[0]:SC1[1]:HE1:SE0] takes:
+</I>&gt;<i> &gt; [  258.391993]  (&amp;irq_desc_lock_class){++..}, at: [&lt;c0148c60&gt;] try_one_irq+0x15/0xe8
+</I>&gt;<i> &gt; [  258.392016] {in-hardirq-W} state was registered at:
+</I>&gt;<i> &gt; [  258.392021]   [&lt;c013bc07&gt;] __lock_acquire+0x490/0x6bc
+</I>&gt;<i> &gt; [  258.392034]   [&lt;c013be8d&gt;] lock_acquire+0x5a/0x74
+</I>&gt;<i> &gt; [  258.392043]   [&lt;c01496f8&gt;] handle_level_irq+0x12/0xba
+</I>&gt;<i> &gt; [  258.392053]   [&lt;c03c4842&gt;] _spin_lock+0x1c/0x45
+</I>&gt;<i> &gt; [  258.392066]   [&lt;c01496f8&gt;] handle_level_irq+0x12/0xba
+</I>&gt;<i> &gt; [  258.392076]   [&lt;c01496f8&gt;] handle_level_irq+0x12/0xba
+</I>&gt;<i> &gt; [  258.392085]   [&lt;c010564e&gt;] do_IRQ+0x89/0x9f
+</I>&gt;<i> &gt; [  258.392096]   [&lt;c0103ea8&gt;] common_interrupt+0x28/0x30
+</I>&gt;<i> &gt; [  258.392105]   [&lt;c03c4cc2&gt;] _spin_unlock_irqrestore+0x37/0x39
+</I>&gt;<i> &gt; [  258.392115]   [&lt;c01487e6&gt;] __setup_irq+0x17a/0x1f3
+</I>&gt;<i> &gt; [  258.392124]   [&lt;c05ce79d&gt;] start_kernel+0x285/0x2f1
+</I>&gt;<i> &gt; [  258.392140]   [&lt;ffffffff&gt;] 0xffffffff
+</I>&gt;<i> &gt; [  258.392159] irq event stamp: 1844456
+</I>&gt;<i> &gt; [  258.392164] hardirqs last  enabled at (1844456): [&lt;c03c4b6f&gt;] _spin_unlock_irq+0x20/0x23
+</I>&gt;<i> &gt; [  258.392175] hardirqs last disabled at (1844455): [&lt;c03c4ac3&gt;] _spin_lock_irq+0xa/0x4b
+</I>&gt;<i> &gt; [  258.392186] softirqs last  enabled at (1844310): [&lt;c0125406&gt;] do_softirq+0x37/0x4d
+</I>&gt;<i> &gt; [  258.392198] softirqs last disabled at (1844447): [&lt;c0125406&gt;] do_softirq+0x37/0x4d
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> That's a bit weird. Looks like another bug in the IRQ layer.
+</I>
+Something happens with the hardware that confuses the kernel. It's
+triggered by software but I don't know where.. Like Michael, I'm
+not too convinced that it is in b43. :\
+
+
+//Peter
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004902.html">BCM4312 Fails when xdm is started
+</A></li>
+	<LI>Next message: <A HREF="004905.html">BCM4312 Fails when xdm is started
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4904">[ date ]</a>
+              <a href="thread.html#4904">[ thread ]</a>
+              <a href="subject.html#4904">[ subject ]</a>
+              <a href="author.html#4904">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

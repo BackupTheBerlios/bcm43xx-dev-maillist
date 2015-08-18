@@ -1,0 +1,139 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] b43: New help text for Kconfig
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43%3A%20New%20help%20text%20for%20Kconfig&In-Reply-To=%3C200708171928.25288.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002099.html">
+   <LINK REL="Next"  HREF="002103.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] b43: New help text for Kconfig</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43%3A%20New%20help%20text%20for%20Kconfig&In-Reply-To=%3C200708171928.25288.mb%40bu3sch.de%3E"
+       TITLE="[RFC] b43: New help text for Kconfig">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Aug 17 19:28:25 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002099.html">[RFC] b43: New help text for Kconfig
+</A></li>
+        <LI>Next message: <A HREF="002103.html">[PATCH] b32: Update Kconfig help text
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2102">[ date ]</a>
+              <a href="thread.html#2102">[ thread ]</a>
+              <a href="subject.html#2102">[ subject ]</a>
+              <a href="author.html#2102">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 17 August 2007 18:12:05 Larry Finger wrote:
+&gt;<i> Michael,
+</I>&gt;<i> 
+</I>&gt;<i> Now that I have solved the module loading problem on my openSUSE 10.2 systems, I'm nearly ready to 
+</I>&gt;<i> push the b43legacy patch to John.
+</I>&gt;<i> 
+</I>&gt;<i> Is it your plan to stay with the current firmware naming scheme, or are you going to change to what 
+</I>&gt;<i> Johannes proposed?
+</I>
+I am just changing that. I'm also changing the file format
+to contain a header and a new IV file format to use less space.
+
+&gt;<i> For the help text in b43's Kconfig, what do you think of the following?
+</I>
+Yeah, cool.
+But add something like the following to b43, too:
+&gt;<i> +         devices need b43. It is safe to include both b43legacy and b43 as the
+</I>&gt;<i> +         ssb driver will load the correct version for your device.
+</I>
+it's important to know that the two drivers can coexist.
+
+&gt;<i> Index: wireless-dev/drivers/net/wireless/b43/Kconfig
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-dev.orig/drivers/net/wireless/b43/Kconfig
+</I>&gt;<i> +++ wireless-dev/drivers/net/wireless/b43/Kconfig
+</I>&gt;<i> @@ -6,7 +6,14 @@ config B43
+</I>&gt;<i>          select HW_RANDOM
+</I>&gt;<i>          ---help---
+</I>&gt;<i>            This is an experimental driver for the Broadcom 43xx wireless chip,
+</I>&gt;<i> -         found in the Apple Airport Extreme and various other devices.
+</I>&gt;<i> +         found in the Apple Airport Extreme and various other devices. This
+</I>&gt;<i> +         driver supports 802.11a and 802.11g, but not 802.11b. As a result,
+</I>&gt;<i> +         BCM4301 and BCM4303 are not supported - use b43legacy instead.
+</I>&gt;<i> +
+</I>&gt;<i> +         This driver uses V4 firmware, which must be installed separately using
+</I>&gt;<i> +         b43-fwcutter.
+</I>&gt;<i> +
+</I>&gt;<i> +         This driver can be built as a module (recommended) that will be called &quot;b43&quot;.
+</I>&gt;<i> 
+</I>&gt;<i>   # Auto-select SSB PCI-HOST support, if possible
+</I>&gt;<i>   config B43_PCI_AUTOSELECT
+</I>&gt;<i> 
+</I>&gt;<i> The corresponding text for b43legacy would be
+</I>&gt;<i> 
+</I>&gt;<i> +config B43LEGACY
+</I>&gt;<i> +       tristate &quot;Broadcom BCM43xx legacy wireless support (mac80211 stack)&quot;
+</I>&gt;<i> +       depends on SSB_POSSIBLE &amp;&amp; MAC80211 &amp;&amp; WLAN_80211 &amp;&amp; EXPERIMENTAL
+</I>&gt;<i> +       select SSB
+</I>&gt;<i> +       select FW_LOADER
+</I>&gt;<i> +       select HW_RANDOM
+</I>&gt;<i> +       ---help---
+</I>&gt;<i> +         This is a driver for 802.11b devices from Broadcom (BCM4301 and
+</I>&gt;<i> +         BCM4303).  It is also the driver for early model 802.11g chips (BCM4306
+</I>&gt;<i> +         Ver. 2) that were used in the Linksys WPC54G V1 PCMCIA devices. Newer
+</I>&gt;<i> +         devices need b43. It is safe to include both b43legacy and b43 as the
+</I>&gt;<i> +         ssb driver will load the correct version for your device.
+</I>&gt;<i> +
+</I>&gt;<i> +         This driver uses V3 firmware, which must be installed separately using
+</I>&gt;<i> +         b43-fwcutter.
+</I>&gt;<i> +
+</I>&gt;<i> +         This driver can be compiled as a module (recommended) that will be
+</I>&gt;<i> +         called &quot;b43legacy&quot;.
+</I>&gt;<i> +
+</I>&gt;<i> 
+</I>&gt;<i> Thanks,
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Bcm43xx-dev mailing list
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002099.html">[RFC] b43: New help text for Kconfig
+</A></li>
+	<LI>Next message: <A HREF="002103.html">[PATCH] b32: Update Kconfig help text
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2102">[ date ]</a>
+              <a href="thread.html#2102">[ thread ]</a>
+              <a href="subject.html#2102">[ subject ]</a>
+              <a href="author.html#2102">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

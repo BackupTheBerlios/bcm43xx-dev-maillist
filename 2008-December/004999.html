@@ -1,0 +1,136 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Change schedule for old-fw support removal
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Change%20schedule%20for%20old-fw%20support%20removal&In-Reply-To=%3C200812271826.39910.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004989.html">
+   <LINK REL="Next"  HREF="005000.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Change schedule for old-fw support removal</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Change%20schedule%20for%20old-fw%20support%20removal&In-Reply-To=%3C200812271826.39910.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Change schedule for old-fw support removal">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Dec 27 18:26:39 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004989.html">I am a student and want to do some research on my bcm4311 driver,	what free kernel debugger can I use?
+</A></li>
+        <LI>Next message: <A HREF="005000.html">[PATCH] b43: Change schedule for old-fw support removal
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4999">[ date ]</a>
+              <a href="thread.html#4999">[ thread ]</a>
+              <a href="subject.html#4999">[ subject ]</a>
+              <a href="author.html#4999">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The scheduled date for the removal of old fw support was in July 2008.
+However, we're not going to remove the support unless it causes a major
+headache. So change the schedule from &quot;July 2008&quot; to &quot;when it causes headaches&quot;.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+Please queue for 2.6.29
+
+Index: wireless-testing/Documentation/feature-removal-schedule.txt
+===================================================================
+--- wireless-testing.orig/Documentation/feature-removal-schedule.txt	2008-12-05 17:54:27.000000000 +0100
++++ wireless-testing/Documentation/feature-removal-schedule.txt	2008-12-27 15:06:55.000000000 +0100
+@@ -233,13 +233,15 @@ When:	January 2009 or Linux 2.7.0, which
+ Why:	Superseded by newer revisions or modules
+ Who:	Jan Engelhardt &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">jengelh at computergmbh.de</A>&gt;
+ 
+ ---------------------------
+ 
+ What:	b43 support for firmware revision &lt; 410
+-When:	July 2008
++When:	The schedule was July 2008, but it was decided that we are going to keep the
++        code as long as there are no major maintanance headaches.
++	So it _could_ be removed _any_ time now, if it conflicts with something new.
+ Why:	The support code for the old firmware hurts code readability/maintainability
+ 	and slightly hurts runtime performance. Bugfixes for the old firmware
+ 	are not provided by Broadcom anymore.
+ Who:	Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+ 
+ ---------------------------
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-12-27 15:01:47.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-12-27 15:10:48.000000000 +0100
+@@ -1949,14 +1949,15 @@ static void b43_release_firmware(struct 
+ 
+ static void b43_print_fw_helptext(struct b43_wl *wl, bool error)
+ {
+ 	const char *text;
+ 
+ 	text = &quot;You must go to &quot;
+-	       &quot;<A HREF="http://linuxwireless.org/en/users/Drivers/b43#devicefirmware">http://linuxwireless.org/en/users/Drivers/b43#devicefirmware</A> &quot;
+-	       &quot;and download the latest firmware (version 4).\n&quot;;
++	       &quot;<A HREF="http://wireless.kernel.org/en/users/Drivers/b43#devicefirmware">http://wireless.kernel.org/en/users/Drivers/b43#devicefirmware</A> &quot;
++	       &quot;and download the correct firmware for this driver version. &quot;
++	       &quot;Please carefully read all instructions on this website.\n&quot;;
+ 	if (error)
+ 		b43err(wl, text);
+ 	else
+ 		b43warn(wl, text);
+ }
+ 
+@@ -2266,14 +2267,17 @@ static int b43_upload_microcode(struct b
+ 				&quot;Hardware accelerated cryptography is disabled.\n&quot;);
+ 			b43_print_fw_helptext(dev-&gt;wl, 0);
+ 		}
+ 	}
+ 
+ 	if (b43_is_old_txhdr_format(dev)) {
++		/* We're over the deadline, but we keep support for old fw
++		 * until it turns out to be in major conflict with something new. */
+ 		b43warn(dev-&gt;wl, &quot;You are using an old firmware image. &quot;
+-			&quot;Support for old firmware will be removed in July 2008.\n&quot;);
++			&quot;Support for old firmware will be removed soon &quot;
++			&quot;(official deadline was July 2008).\n&quot;);
+ 		b43_print_fw_helptext(dev-&gt;wl, 0);
+ 	}
+ 
+ 	return 0;
+ 
+ error:
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004989.html">I am a student and want to do some research on my bcm4311 driver,	what free kernel debugger can I use?
+</A></li>
+	<LI>Next message: <A HREF="005000.html">[PATCH] b43: Change schedule for old-fw support removal
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4999">[ date ]</a>
+              <a href="thread.html#4999">[ thread ]</a>
+              <a href="subject.html#4999">[ subject ]</a>
+              <a href="author.html#4999">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

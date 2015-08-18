@@ -1,0 +1,232 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add HostFlags HI support
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20HostFlags%20HI%20support&In-Reply-To=%3C200802131431.08386.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003452.html">
+   <LINK REL="Next"  HREF="003455.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add HostFlags HI support</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20HostFlags%20HI%20support&In-Reply-To=%3C200802131431.08386.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add HostFlags HI support">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Feb 13 14:31:08 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003452.html">[PATCH RFT/RFC] b43: Add QOS support
+</A></li>
+        <LI>Next message: <A HREF="003455.html">Pb with &quot;make&quot; when trying to built b43-fwcutter-011
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3454">[ date ]</a>
+              <a href="thread.html#3454">[ thread ]</a>
+              <a href="subject.html#3454">[ subject ]</a>
+              <a href="author.html#3454">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds support for the high 16 bits of the hostflags.
+No functional change.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, this is for 2.6.26.
+
+Index: wireless-2.6/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/b43.h	2008-02-13 14:28:06.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/b43.h	2008-02-13 14:28:51.000000000 +0100
+@@ -141,13 +141,14 @@ enum {
+ #define B43_SHM_SH_PCTLWDPOS		0x0008
+ #define B43_SHM_SH_RXPADOFF		0x0034	/* RX Padding data offset (PIO only) */
+ #define B43_SHM_SH_PHYVER		0x0050	/* PHY version */
+ #define B43_SHM_SH_PHYTYPE		0x0052	/* PHY type */
+ #define B43_SHM_SH_ANTSWAP		0x005C	/* Antenna swap threshold */
+ #define B43_SHM_SH_HOSTFLO		0x005E	/* Hostflags for ucode options (low) */
+-#define B43_SHM_SH_HOSTFHI		0x0060	/* Hostflags for ucode options (high) */
++#define B43_SHM_SH_HOSTFMI		0x0060	/* Hostflags for ucode options (middle) */
++#define B43_SHM_SH_HOSTFHI		0x0062	/* Hostflags for ucode options (high) */
+ #define B43_SHM_SH_RFATT		0x0064	/* Current radio attenuation value */
+ #define B43_SHM_SH_RADAR		0x0066	/* Radar register */
+ #define B43_SHM_SH_PHYTXNOI		0x006E	/* PHY noise directly after TX (lower 8bit only) */
+ #define B43_SHM_SH_RFRXSP1		0x0072	/* RF RX SP Register 1 */
+ #define B43_SHM_SH_CHAN			0x00A0	/* Current channel (low 8bit only) */
+ #define  B43_SHM_SH_CHAN_5GHZ		0x0100	/* Bit set, if 5Ghz channel */
+@@ -229,37 +230,47 @@ enum {
+ 
+ /* Hardware Radio Enable masks */
+ #define B43_MMIO_RADIO_HWENABLED_HI_MASK (1 &lt;&lt; 16)
+ #define B43_MMIO_RADIO_HWENABLED_LO_MASK (1 &lt;&lt; 4)
+ 
+ /* HostFlags. See b43_hf_read/write() */
+-#define B43_HF_ANTDIVHELP		0x00000001	/* ucode antenna div helper */
+-#define B43_HF_SYMW			0x00000002	/* G-PHY SYM workaround */
+-#define B43_HF_RXPULLW			0x00000004	/* RX pullup workaround */
+-#define B43_HF_CCKBOOST			0x00000008	/* 4dB CCK power boost (exclusive with OFDM boost) */
+-#define B43_HF_BTCOEX			0x00000010	/* Bluetooth coexistance */
+-#define B43_HF_GDCW			0x00000020	/* G-PHY DV canceller filter bw workaround */
+-#define B43_HF_OFDMPABOOST		0x00000040	/* Enable PA gain boost for OFDM */
+-#define B43_HF_ACPR			0x00000080	/* Disable for Japan, channel 14 */
+-#define B43_HF_EDCF			0x00000100	/* on if WME and MAC suspended */
+-#define B43_HF_TSSIRPSMW		0x00000200	/* TSSI reset PSM ucode workaround */
+-#define B43_HF_DSCRQ			0x00000400	/* Disable slow clock request in ucode */
+-#define B43_HF_ACIW			0x00000800	/* ACI workaround: shift bits by 2 on PHY CRS */
+-#define B43_HF_2060W			0x00001000	/* 2060 radio workaround */
+-#define B43_HF_RADARW			0x00002000	/* Radar workaround */
+-#define B43_HF_USEDEFKEYS		0x00004000	/* Enable use of default keys */
+-#define B43_HF_BT4PRIOCOEX		0x00010000	/* Bluetooth 2-priority coexistance */
+-#define B43_HF_FWKUP			0x00020000	/* Fast wake-up ucode */
+-#define B43_HF_VCORECALC		0x00040000	/* Force VCO recalculation when powering up synthpu */
+-#define B43_HF_PCISCW			0x00080000	/* PCI slow clock workaround */
+-#define B43_HF_4318TSSI			0x00200000	/* 4318 TSSI */
+-#define B43_HF_FBCMCFIFO		0x00400000	/* Flush bcast/mcast FIFO immediately */
+-#define B43_HF_HWPCTL			0x00800000	/* Enable hardwarre power control */
+-#define B43_HF_BTCOEXALT		0x01000000	/* Bluetooth coexistance in alternate pins */
+-#define B43_HF_TXBTCHECK		0x02000000	/* Bluetooth check during transmission */
+-#define B43_HF_SKCFPUP			0x04000000	/* Skip CFP update */
++#define B43_HF_ANTDIVHELP	0x000000000001ULL /* ucode antenna div helper */
++#define B43_HF_SYMW		0x000000000002ULL /* G-PHY SYM workaround */
++#define B43_HF_RXPULLW		0x000000000004ULL /* RX pullup workaround */
++#define B43_HF_CCKBOOST		0x000000000008ULL /* 4dB CCK power boost (exclusive with OFDM boost) */
++#define B43_HF_BTCOEX		0x000000000010ULL /* Bluetooth coexistance */
++#define B43_HF_GDCW		0x000000000020ULL /* G-PHY DC canceller filter bw workaround */
++#define B43_HF_OFDMPABOOST	0x000000000040ULL /* Enable PA gain boost for OFDM */
++#define B43_HF_ACPR		0x000000000080ULL /* Disable for Japan, channel 14 */
++#define B43_HF_EDCF		0x000000000100ULL /* on if WME and MAC suspended */
++#define B43_HF_TSSIRPSMW	0x000000000200ULL /* TSSI reset PSM ucode workaround */
++#define B43_HF_20IN40IQW	0x000000000200ULL /* 20 in 40 MHz I/Q workaround (rev &gt;= 13 only) */
++#define B43_HF_DSCRQ		0x000000000400ULL /* Disable slow clock request in ucode */
++#define B43_HF_ACIW		0x000000000800ULL /* ACI workaround: shift bits by 2 on PHY CRS */
++#define B43_HF_2060W		0x000000001000ULL /* 2060 radio workaround */
++#define B43_HF_RADARW		0x000000002000ULL /* Radar workaround */
++#define B43_HF_USEDEFKEYS	0x000000004000ULL /* Enable use of default keys */
++#define B43_HF_AFTERBURNER	0x000000008000ULL /* Afterburner enabled */
++#define B43_HF_BT4PRIOCOEX	0x000000010000ULL /* Bluetooth 4-priority coexistance */
++#define B43_HF_FWKUP		0x000000020000ULL /* Fast wake-up ucode */
++#define B43_HF_VCORECALC	0x000000040000ULL /* Force VCO recalculation when powering up synthpu */
++#define B43_HF_PCISCW		0x000000080000ULL /* PCI slow clock workaround */
++#define B43_HF_4318TSSI		0x000000200000ULL /* 4318 TSSI */
++#define B43_HF_FBCMCFIFO	0x000000400000ULL /* Flush bcast/mcast FIFO immediately */
++#define B43_HF_HWPCTL		0x000000800000ULL /* Enable hardwarre power control */
++#define B43_HF_BTCOEXALT	0x000001000000ULL /* Bluetooth coexistance in alternate pins */
++#define B43_HF_TXBTCHECK	0x000002000000ULL /* Bluetooth check during transmission */
++#define B43_HF_SKCFPUP		0x000004000000ULL /* Skip CFP update */
++#define B43_HF_N40W		0x000008000000ULL /* N PHY 40 MHz workaround (rev &gt;= 13 only) */
++#define B43_HF_ANTSEL		0x000020000000ULL /* Antenna selection (for testing antenna div.) */
++#define B43_HF_BT3COEXT		0x000020000000ULL /* Bluetooth 3-wire coexistence (rev &gt;= 13 only) */
++#define B43_HF_BTCANT		0x000040000000ULL /* Bluetooth coexistence (antenna mode) (rev &gt;= 13 only) */
++#define B43_HF_ANTSELEN		0x000100000000ULL /* Antenna selection enabled (rev &gt;= 13 only) */
++#define B43_HF_ANTSELMODE	0x000200000000ULL /* Antenna selection mode (rev &gt;= 13 only) */
++#define B43_HF_MLADVW		0x001000000000ULL /* N PHY ML ADV workaround (rev &gt;= 13 only) */
++#define B43_HF_PR45960W		0x080000000000ULL /* PR 45960 workaround (rev &gt;= 13 only) */
+ 
+ /* MacFilter offsets. */
+ #define B43_MACFILTER_SELF		0x0000
+ #define B43_MACFILTER_BSSID		0x0003
+ 
+ /* PowerControl */
+Index: wireless-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/main.c	2008-02-13 14:28:06.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/main.c	2008-02-13 14:28:51.000000000 +0100
+@@ -461,30 +461,36 @@ void b43_shm_write16(struct b43_wldev *d
+ 	b43_write16(dev, B43_MMIO_SHM_DATA, value);
+ out:
+ 	spin_unlock_irqrestore(&amp;wl-&gt;shm_lock, flags);
+ }
+ 
+ /* Read HostFlags */
+-u32 b43_hf_read(struct b43_wldev * dev)
++u64 b43_hf_read(struct b43_wldev * dev)
+ {
+-	u32 ret;
++	u64 ret;
+ 
+ 	ret = b43_shm_read16(dev, B43_SHM_SHARED, B43_SHM_SH_HOSTFHI);
+ 	ret &lt;&lt;= 16;
++	ret |= b43_shm_read16(dev, B43_SHM_SHARED, B43_SHM_SH_HOSTFMI);
++	ret &lt;&lt;= 16;
+ 	ret |= b43_shm_read16(dev, B43_SHM_SHARED, B43_SHM_SH_HOSTFLO);
+ 
+ 	return ret;
+ }
+ 
+ /* Write HostFlags */
+-void b43_hf_write(struct b43_wldev *dev, u32 value)
++void b43_hf_write(struct b43_wldev *dev, u64 value)
+ {
+-	b43_shm_write16(dev, B43_SHM_SHARED,
+-			B43_SHM_SH_HOSTFLO, (value &amp; 0x0000FFFF));
+-	b43_shm_write16(dev, B43_SHM_SHARED,
+-			B43_SHM_SH_HOSTFHI, ((value &amp; 0xFFFF0000) &gt;&gt; 16));
++	u16 lo, mi, hi;
++
++	lo = (value &amp; 0x00000000FFFFULL);
++	mi = (value &amp; 0x0000FFFF0000ULL) &gt;&gt; 16;
++	hi = (value &amp; 0xFFFF00000000ULL) &gt;&gt; 32;
++	b43_shm_write16(dev, B43_SHM_SHARED, B43_SHM_SH_HOSTFLO, lo);
++	b43_shm_write16(dev, B43_SHM_SHARED, B43_SHM_SH_HOSTFMI, mi);
++	b43_shm_write16(dev, B43_SHM_SHARED, B43_SHM_SH_HOSTFHI, hi);
+ }
+ 
+ void b43_tsf_read(struct b43_wldev *dev, u64 * tsf)
+ {
+ 	/* We need to be careful. As we read the TSF from multiple
+ 	 * registers, we should take care of register overflows.
+Index: wireless-2.6/drivers/net/wireless/b43/main.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/main.h	2008-02-13 14:27:37.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/main.h	2008-02-13 14:28:51.000000000 +0100
+@@ -92,14 +92,14 @@ void b43_tsf_write(struct b43_wldev *dev
+ 
+ u32 b43_shm_read32(struct b43_wldev *dev, u16 routing, u16 offset);
+ u16 b43_shm_read16(struct b43_wldev *dev, u16 routing, u16 offset);
+ void b43_shm_write32(struct b43_wldev *dev, u16 routing, u16 offset, u32 value);
+ void b43_shm_write16(struct b43_wldev *dev, u16 routing, u16 offset, u16 value);
+ 
+-u32 b43_hf_read(struct b43_wldev *dev);
+-void b43_hf_write(struct b43_wldev *dev, u32 value);
++u64 b43_hf_read(struct b43_wldev *dev);
++void b43_hf_write(struct b43_wldev *dev, u64 value);
+ 
+ void b43_dummy_transmission(struct b43_wldev *dev);
+ 
+ void b43_wireless_core_reset(struct b43_wldev *dev, u32 flags);
+ 
+ void b43_mac_suspend(struct b43_wldev *dev);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003452.html">[PATCH RFT/RFC] b43: Add QOS support
+</A></li>
+	<LI>Next message: <A HREF="003455.html">Pb with &quot;make&quot; when trying to built b43-fwcutter-011
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3454">[ date ]</a>
+              <a href="thread.html#3454">[ thread ]</a>
+              <a href="subject.html#3454">[ subject ]</a>
+              <a href="author.html#3454">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

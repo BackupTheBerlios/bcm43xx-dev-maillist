@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%2C%20b43%2C%20b43legacy%2C%20b44%3A%20Rewrite%20SSB%20DMA%20API&In-Reply-To=%3C1215102618.17143.13.camel%40you%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004408.html">
+   <LINK REL="Next"  HREF="004410.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API</H1>
+    <B>Felipe Maya</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%2C%20b43%2C%20b43legacy%2C%20b44%3A%20Rewrite%20SSB%20DMA%20API&In-Reply-To=%3C1215102618.17143.13.camel%40you%3E"
+       TITLE="[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API">felipe.maya at vexcorp.com
+       </A><BR>
+    <I>Thu Jul  3 18:30:18 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004408.html">[PATCH stable] b43: Do not return TX_BUSY from op_tx
+</A></li>
+        <LI>Next message: <A HREF="004410.html">[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4409">[ date ]</a>
+              <a href="thread.html#4409">[ thread ]</a>
+              <a href="subject.html#4409">[ subject ]</a>
+              <a href="author.html#4409">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi, I have applied this patch and i tested on a wl500gpv2 (BCM5354). The
+following part disable the ethernet device. If this part of the patch is
+restored the device work ok.
+&gt;<i>  
+</I>&gt;<i> -int ssb_dma_set_mask(struct ssb_device *ssb_dev, u64 mask)
+</I>&gt;<i> +int ssb_dma_set_mask(struct ssb_device *dev, u64 mask)
+</I>&gt;<i>  {
+</I>&gt;<i> -	struct device *dma_dev = ssb_dev-&gt;dma_dev;
+</I>&gt;<i> -	int err = 0;
+</I>&gt;<i> +	int err;
+</I>&gt;<i>  
+</I>&gt;<i> -#ifdef CONFIG_SSB_PCIHOST
+</I>&gt;<i> -	if (ssb_dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_PCI) {
+</I>&gt;<i> -		err = pci_set_dma_mask(ssb_dev-&gt;bus-&gt;host_pci, mask);
+</I>&gt;<i> +	switch (dev-&gt;bus-&gt;bustype) {
+</I>&gt;<i> +	case SSB_BUSTYPE_PCI:
+</I>&gt;<i> +		err = pci_set_dma_mask(dev-&gt;bus-&gt;host_pci, mask);
+</I>&gt;<i>  		if (err)
+</I>&gt;<i>  			return err;
+</I>&gt;<i> -		err = pci_set_consistent_dma_mask(ssb_dev-&gt;bus-&gt;host_pci, mask);
+</I>&gt;<i> +		err = pci_set_consistent_dma_mask(dev-&gt;bus-&gt;host_pci, mask);
+</I>&gt;<i>  		return err;
+</I>&gt;<i> +	case SSB_BUSTYPE_SSB:
+</I>&gt;<i> +		return dma_set_mask(dev-&gt;dev, mask);
+</I>&gt;<i> +	default:
+</I>&gt;<i> +		__ssb_dma_not_implemented(dev);
+</I>&gt;<i>  	}
+</I>&gt;<i> -#endif
+</I>&gt;<i> -	dma_dev-&gt;coherent_dma_mask = mask;
+</I>&gt;<i> -	dma_dev-&gt;dma_mask = &amp;dma_dev-&gt;coherent_dma_mask;
+</I>&gt;<i> -
+</I>&gt;<i> -	return err;
+</I>&gt;<i> +	return -ENOSYS;
+</I>&gt;<i>  }
+</I>&gt;<i>  EXPORT_SYMBOL(ssb_dma_set_mask);
+</I>
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004408.html">[PATCH stable] b43: Do not return TX_BUSY from op_tx
+</A></li>
+	<LI>Next message: <A HREF="004410.html">[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4409">[ date ]</a>
+              <a href="thread.html#4409">[ thread ]</a>
+              <a href="subject.html#4409">[ subject ]</a>
+              <a href="author.html#4409">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

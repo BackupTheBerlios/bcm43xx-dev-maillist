@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43legacy: Problems with dhclient
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43legacy%3A%20Problems%20with%20dhclient&In-Reply-To=%3C1212614749.20351.11.camel%40dv%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004191.html">
+   <LINK REL="Next"  HREF="004195.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43legacy: Problems with dhclient</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43legacy%3A%20Problems%20with%20dhclient&In-Reply-To=%3C1212614749.20351.11.camel%40dv%3E"
+       TITLE="b43legacy: Problems with dhclient">proski at gnu.org
+       </A><BR>
+    <I>Wed Jun  4 23:25:49 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004191.html">b43legacy: Problems with dhclient
+</A></li>
+        <LI>Next message: <A HREF="004195.html">b43 opensource firmware for monitor mode
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4192">[ date ]</a>
+              <a href="thread.html#4192">[ thread ]</a>
+              <a href="subject.html#4192">[ subject ]</a>
+              <a href="author.html#4192">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Wed, 2008-06-04 at 15:49 -0400, David Ellingsworth wrote:
+
+&gt;<i> For a while now, I've been experiencing connection stability issues which from
+</I>&gt;<i> what I can tell seem to stem from the use of dhclient.
+</I>&gt;<i> 
+</I>&gt;<i> After upgrading to the latest wireless-testing kernel, I noticed the output from
+</I>&gt;<i> wpa_supplicant and iwconfig regarding association status differed as well as an
+</I>&gt;<i> inability to use dhclient to receive an ip address. In an attempt to resolve the
+</I>&gt;<i> issue, I first eliminated the use of dhclient by issuing a static ip address for
+</I>&gt;<i> the interface after it was associated with the AP. Doing so resulted in a very
+</I>&gt;<i> stable and reliable connection. This led me to believe the issues were a result
+</I>&gt;<i> of using dhclient. To verify, I tried dhcpcd in place of dhclient, which once
+</I>&gt;<i> again resulted in a stable and reliable connection. Thus confirming my suspicion.
+</I>
+The problem with dhclient is that it brings the interface down
+temporarily, thus breaking the WPA connection.  You can see hostap
+archives for a recent discussion about it:
+<A HREF="http://lists.shmoo.com/pipermail/hostap/">http://lists.shmoo.com/pipermail/hostap/</A>
+
+It's a complicated problem, involving a lot of software, including
+distribution specific scripts.  It's entirely possible that simply
+different timing can break the behavior.  Jouni Malinen mentioned that
+the driver is supposed to tell wpa_supplicant to renegotiate the
+connection after the interface goes down and up.  It's possible that the
+kernel is not doing it right, but the code is not in b43legacy, it's in
+mac80211.
+
+My solution is either to use static addresses with WPA or use a dhclient
+script that brings the interface up and tell wpa_supplicant to
+renegotiate the connection.
+
+In any case, I'm quite sure that discussing the problem here is not
+going to be useful because it's not specific to the particular driver.
+
+-- 
+Regards,
+Pavel Roskin
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004191.html">b43legacy: Problems with dhclient
+</A></li>
+	<LI>Next message: <A HREF="004195.html">b43 opensource firmware for monitor mode
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4192">[ date ]</a>
+              <a href="thread.html#4192">[ thread ]</a>
+              <a href="subject.html#4192">[ subject ]</a>
+              <a href="author.html#4192">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

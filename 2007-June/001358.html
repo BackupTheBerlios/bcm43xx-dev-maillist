@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH V2] bcm43xx-mac80211: Make wireless statistics yield	reasonable values
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20bcm43xx-mac80211%3A%20Make%20wireless%20statistics%20yield%0A%09reasonable%20values&In-Reply-To=%3C46608cb3.kcEmWfiAoSA%2BsvnR%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001360.html">
+   <LINK REL="Next"  HREF="001361.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH V2] bcm43xx-mac80211: Make wireless statistics yield	reasonable values</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20bcm43xx-mac80211%3A%20Make%20wireless%20statistics%20yield%0A%09reasonable%20values&In-Reply-To=%3C46608cb3.kcEmWfiAoSA%2BsvnR%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH V2] bcm43xx-mac80211: Make wireless statistics yield	reasonable values">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Jun  1 23:16:35 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001360.html">Upgrade to f7 breaks bcm43xx module
+</A></li>
+        <LI>Next message: <A HREF="001361.html">[PATCH V2] bcm43xx-mac80211: Make wireless statistics yield	reasonable values
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1358">[ date ]</a>
+              <a href="thread.html#1358">[ thread ]</a>
+              <a href="subject.html#1358">[ subject ]</a>
+              <a href="author.html#1358">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The changes contained herein are needed to get reasonable numbers for wireless
+statistics in bcm43xx-mac80211.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+ bcm43xx_main.c |    4 ++--
+ bcm43xx_xmit.c |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+Index: wireless-mb/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_xmit.c
+===================================================================
+--- wireless-mb.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_xmit.c
++++ wireless-mb/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_xmit.c
+@@ -517,12 +517,12 @@ void bcm43xx_rx(struct bcm43xx_wldev *de
+ 		}
+ 	}
+ 
+-	status.signal = bcm43xx_rssi_postprocess(dev, jssi,
++	status.ssi = bcm43xx_rssi_postprocess(dev, jssi,
+ 					      (phystat0 &amp; BCM43xx_RX_PHYST0_OFDM),
+ 					      (phystat0 &amp; BCM43xx_RX_PHYST0_GAINCTL),
+ 					      (phystat3 &amp; BCM43xx_RX_PHYST3_TRSTATE));
+ 	status.noise = dev-&gt;stats.link_noise;
+-	status.ssi = jssi;
++	status.signal = jssi; /* this looks wrong, but is what mac80211 wants */
+ 	if (phystat0 &amp; BCM43xx_RX_PHYST0_OFDM)
+ 		status.rate = bcm43xx_plcp_get_bitrate_ofdm(plcp);
+ 	else
+Index: wireless-mb/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-mb.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
++++ wireless-mb/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
+@@ -3799,8 +3799,8 @@ static int bcm43xx_wireless_init(struct 
+ 		    IEEE80211_HW_MONITOR_DURING_OPER |
+ 		    IEEE80211_HW_DEVICE_HIDES_WEP |
+ 		    IEEE80211_HW_WEP_INCLUDE_IV;
+-	hw-&gt;max_signal = -110;
+-	hw-&gt;max_rssi = BCM43xx_RX_MAX_SSI;
++	hw-&gt;max_signal = 100;
++	hw-&gt;max_rssi = -110;
+ 	hw-&gt;max_noise = -110;
+ 	hw-&gt;queues = 1;
+ 	SET_IEEE80211_DEV(hw, dev-&gt;dev);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001360.html">Upgrade to f7 breaks bcm43xx module
+</A></li>
+	<LI>Next message: <A HREF="001361.html">[PATCH V2] bcm43xx-mac80211: Make wireless statistics yield	reasonable values
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1358">[ date ]</a>
+              <a href="thread.html#1358">[ thread ]</a>
+              <a href="subject.html#1358">[ subject ]</a>
+              <a href="author.html#1358">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

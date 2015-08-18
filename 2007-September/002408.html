@@ -1,0 +1,220 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20machine%20check%20errors%20for%20PPC%20architecture%0A%09with%20BCM4306/2&In-Reply-To=%3C200709151948.46667.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002407.html">
+   <LINK REL="Next"  HREF="002409.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20machine%20check%20errors%20for%20PPC%20architecture%0A%09with%20BCM4306/2&In-Reply-To=%3C200709151948.46667.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Sep 15 19:48:46 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002407.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+        <LI>Next message: <A HREF="002409.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2408">[ date ]</a>
+              <a href="thread.html#2408">[ thread ]</a>
+              <a href="subject.html#2408">[ subject ]</a>
+              <a href="author.html#2408">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Saturday 15 September 2007 19:39:34 Larry Finger wrote:
+&gt;<i> In b43, the variable gmode merely indicates whether the given core
+</I>&gt;<i> has a GPHY or a BPHY. In b43legacy, this is always true; however,
+</I>&gt;<i> on a BCM4306/2 it must be set only when the PHY is connected to the
+</I>&gt;<i> ssb backplane, otherwise, reads of the PHY registers are invalid.
+</I>&gt;<i> For x86 architecture, these read failures cause no problems; however,
+</I>&gt;<i> on the ppc architecture, they cause a machine check. This patch has been
+</I>&gt;<i> tested on an i386 platform using special code to detect these invalid
+</I>&gt;<i> reads, and on two different Powerbooks.
+</I>&gt;<i>  
+</I>&gt;<i> Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i> John,
+</I>&gt;<i> 
+</I>&gt;<i> This patch fixes a problem with the Fedora Rawhide kernel reported by David
+</I>&gt;<i> Woodhouse on the bcm43xx mailing list and by Will Woods at 
+</I>&gt;<i> <A HREF="https://bugzilla.redhat.com/show_bug.cgi?id=233011.">https://bugzilla.redhat.com/show_bug.cgi?id=233011.</A>
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> 
+</I>&gt;<i>  drivers/net/wireless/b43legacy/main.c |    5 ++++-
+</I>&gt;<i>  1 file changed, 4 insertions(+), 1 deletion(-)
+</I>&gt;<i> 
+</I>&gt;<i> Index: wireless-dev/drivers/net/wireless/b43legacy/main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-dev.orig/drivers/net/wireless/b43legacy/main.c
+</I>&gt;<i> +++ wireless-dev/drivers/net/wireless/b43legacy/main.c
+</I>&gt;<i> @@ -738,8 +738,11 @@ void b43legacy_wireless_core_reset(struc
+</I>&gt;<i>  
+</I>&gt;<i>  	macctl = b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
+</I>&gt;<i>  	macctl &amp;= ~B43legacy_MACCTL_GMODE;
+</I>&gt;<i> -	if (flags &amp; B43legacy_TMSLOW_GMODE)
+</I>&gt;<i> +	if (flags &amp; B43legacy_TMSLOW_GMODE) {
+</I>&gt;<i>  		macctl |= B43legacy_MACCTL_GMODE;
+</I>&gt;<i> +		dev-&gt;phy.gmode = 1;
+</I>&gt;<i> +	} else
+</I>&gt;<i> +		dev-&gt;phy.gmode = 0;
+</I>&gt;<i>  	macctl |= B43legacy_MACCTL_IHR_ENABLED;
+</I>&gt;<i>  	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, macctl);
+</I>&gt;<i>  }
+</I>&gt;<i> @@ -3424,7 +3427,6 @@ static int b43legacy_wireless_core_attac
+</I>&gt;<i>  	int err;
+</I>&gt;<i>  	int have_bphy = 0;
+</I>&gt;<i>  	int have_gphy = 0;
+</I>&gt;<i> -	u32 tmp;
+</I>&gt;<i>  
+</I>&gt;<i>  	/* Do NOT do any device initialization here.
+</I>&gt;<i>  	 * Do it in wireless_core_init() instead.
+</I>&gt;<i> @@ -3456,9 +3458,7 @@ static int b43legacy_wireless_core_attac
+</I>&gt;<i>  	if (err)
+</I>&gt;<i>  		goto err_powerdown;
+</I>&gt;<i>  
+</I>&gt;<i> -	dev-&gt;phy.gmode = (have_gphy || have_bphy);
+</I>&gt;<i> -	tmp = dev-&gt;phy.gmode ? B43legacy_TMSLOW_GMODE : 0;
+</I>&gt;<i> -	b43legacy_wireless_core_reset(dev, tmp);
+</I>&gt;<i> +	b43legacy_wireless_core_reset(dev, B43legacy_TMSLOW_GMODE);
+</I>&gt;<i>  
+</I>&gt;<i>  	err = b43legacy_phy_versioning(dev);
+</I>&gt;<i>  	if (err)
+</I>&gt;<i> @@ -3482,9 +3482,7 @@ static int b43legacy_wireless_core_attac
+</I>&gt;<i>  			B43legacy_BUG_ON(1);
+</I>&gt;<i>  		}
+</I>&gt;<i>  	}
+</I>&gt;<i> -	dev-&gt;phy.gmode = (have_gphy || have_bphy);
+</I>&gt;<i> -	tmp = dev-&gt;phy.gmode ? B43legacy_TMSLOW_GMODE : 0;
+</I>&gt;<i> -	b43legacy_wireless_core_reset(dev, tmp);
+</I>&gt;<i> +	b43legacy_wireless_core_reset(dev, B43legacy_TMSLOW_GMODE);
+</I>&gt;<i>  
+</I>&gt;<i>  	err = b43legacy_validate_chipaccess(dev);
+</I>&gt;<i>  	if (err)
+</I>&gt;<i> Index: wireless-dev/drivers/net/wireless/b43legacy/b43legacy.h
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-dev.orig/drivers/net/wireless/b43legacy/b43legacy.h
+</I>&gt;<i> +++ wireless-dev/drivers/net/wireless/b43legacy/b43legacy.h
+</I>&gt;<i> @@ -389,7 +389,7 @@ struct b43legacy_lopair {
+</I>&gt;<i>  struct b43legacy_phy {
+</I>&gt;<i>  	/* Possible PHYMODEs on this PHY */
+</I>&gt;<i>  	u8 possible_phymodes;
+</I>&gt;<i> -	/* GMODE bit enabled? */
+</I>&gt;<i> +	/* True if PHY connected to ssb backplane */
+</I>&gt;<i>  	bool gmode;
+</I>
+Nono, wait. That &quot;PHY Connected&quot; bit never existed. It was a bug
+in the specification. It really is &quot;Drive the PHY in G-mode&quot;.
+It has nothing to do with &quot;connecting&quot; something.
+So your changes above are, strictly said, also wrong.
+The bit must be enabled, if we want to use the G-mode PHY on the
+device and disabled otherwise. This is for multi-phy devices with
+an A PHY and a B/G PHY.
+So, well. As you won't ever support an A-PHY in the driver, I am
+probably OK with always forcing the GMODE bit on (which your above code does,
+but I don't see how this could fix anything). Better, yet, fix the _real_
+cause why gmode wasn't set (that's what you are trying to fix, no?)
+And please don't break the comment above. :)
+It _really_ is a &quot;GMODE bit enabled&quot; bit.
+
+Again: This has nothing to do with connecting some PHY to anything.
+
+&gt;<i>  	/* Possible ieee80211 subsystem hwmodes for this PHY.
+</I>&gt;<i>  	 * Which mode is selected, depends on thr GMODE enabled bit */
+</I>&gt;<i> Index: wireless-dev/drivers/net/wireless/b43legacy/xmit.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-dev.orig/drivers/net/wireless/b43legacy/xmit.c
+</I>&gt;<i> +++ wireless-dev/drivers/net/wireless/b43legacy/xmit.c
+</I>&gt;<i> @@ -49,8 +49,8 @@ static u8 b43legacy_plcp_get_bitrate_cck
+</I>&gt;<i>  	case 0x6E:
+</I>&gt;<i>  		return B43legacy_CCK_RATE_11MB;
+</I>&gt;<i>  	}
+</I>&gt;<i> -	B43legacy_BUG_ON(1);
+</I>&gt;<i> -	return 0;
+</I>&gt;<i> +	printk(KERN_INFO &quot;b43legacy: Invalid CCK bitrate of 0x%X\n&quot;, plcp-&gt;raw[0]);
+</I>&gt;<i> +	return B43legacy_CCK_RATE_1MB;
+</I>
+Please ratelimit this message, if you really want a message here.
+
+&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i>  /* Extract the bitrate out of an OFDM PLCP header. */
+</I>&gt;<i> @@ -74,8 +74,8 @@ static u8 b43legacy_plcp_get_bitrate_ofd
+</I>&gt;<i>  	case 0xC:
+</I>&gt;<i>  		return B43legacy_OFDM_RATE_54MB;
+</I>&gt;<i>  	}
+</I>&gt;<i> -	B43legacy_BUG_ON(1);
+</I>&gt;<i> -	return 0;
+</I>&gt;<i> +	printk(KERN_INFO &quot;b43legacy: Invalid OFDM bitrate of 0x%X\n&quot;, plcp-&gt;raw[0] &amp; 0xF);
+</I>&gt;<i> +	return B43legacy_OFDM_RATE_6MB;
+</I>&gt;<i>  }
+</I>
+Same.
+
+&gt;<i>  u8 b43legacy_plcp_get_ratecode_cck(const u8 bitrate)
+</I>&gt;<i> @@ -90,8 +90,8 @@ u8 b43legacy_plcp_get_ratecode_cck(const
+</I>&gt;<i>  	case B43legacy_CCK_RATE_11MB:
+</I>&gt;<i>  		return 0x6E;
+</I>&gt;<i>  	}
+</I>&gt;<i> -	B43legacy_BUG_ON(1);
+</I>&gt;<i> -	return 0;
+</I>&gt;<i> +	printk(KERN_INFO &quot;b43legacy: Invalid CCK ratecode of 0x%X\n&quot;, bitrate);
+</I>&gt;<i> +	return 0x0A;
+</I>&gt;<i>  }
+</I>
+Same.
+
+&gt;<i>  u8 b43legacy_plcp_get_ratecode_ofdm(const u8 bitrate)
+</I>&gt;<i> @@ -114,8 +114,8 @@ u8 b43legacy_plcp_get_ratecode_ofdm(cons
+</I>&gt;<i>  	case B43legacy_OFDM_RATE_54MB:
+</I>&gt;<i>  		return 0xC;
+</I>&gt;<i>  	}
+</I>&gt;<i> -	B43legacy_BUG_ON(1);
+</I>&gt;<i> -	return 0;
+</I>&gt;<i> +	printk(KERN_INFO &quot;b43legacy: Invalid OFDM ratecode of 0x%X\n&quot;, bitrate);
+</I>&gt;<i> +	return 0x0B;
+</I>&gt;<i>  }
+</I>
+Same.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002407.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+	<LI>Next message: <A HREF="002409.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2408">[ date ]</a>
+              <a href="thread.html#2408">[ thread ]</a>
+              <a href="subject.html#2408">[ subject ]</a>
+              <a href="author.html#2408">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

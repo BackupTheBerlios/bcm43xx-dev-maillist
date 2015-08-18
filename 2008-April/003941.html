@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH stable 3/4] b43: Add more btcoexist workarounds
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20stable%203/4%5D%20b43%3A%20Add%20more%20btcoexist%20workarounds&In-Reply-To=%3C200804242004.39249.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003942.html">
+   <LINK REL="Next"  HREF="003939.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH stable 3/4] b43: Add more btcoexist workarounds</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20stable%203/4%5D%20b43%3A%20Add%20more%20btcoexist%20workarounds&In-Reply-To=%3C200804242004.39249.mb%40bu3sch.de%3E"
+       TITLE="[PATCH stable 3/4] b43: Add more btcoexist workarounds">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Apr 24 20:04:38 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003942.html">[PATCH stable 2/4] b43: Workaround invalid bluetooth settings
+</A></li>
+        <LI>Next message: <A HREF="003939.html">[PATCH stable 4/4] b43: Workaround DMA quirks
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3941">[ date ]</a>
+              <a href="thread.html#3941">[ thread ]</a>
+              <a href="subject.html#3941">[ subject ]</a>
+              <a href="author.html#3941">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds more workarounds for devices with broken BT bits.
+
+This patch is in wireless-testing.git, commit
+4b43b16f74b362d4d2ce7df5b761eb838dfd5d32
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+
+Index: linux-2.6.25/drivers/net/wireless/b43/main.c
+===================================================================
+--- linux-2.6.25.orig/drivers/net/wireless/b43/main.c	2008-04-19 18:32:08.000000000 +0200
++++ linux-2.6.25/drivers/net/wireless/b43/main.c	2008-04-19 18:32:08.000000000 +0200
+@@ -4009,6 +4009,12 @@ static int b43_one_core_attach(struct ss
+ 	return err;
+ }
+ 
++#define IS_PDEV(pdev, _vendor, _device, _subvendor, _subdevice)		( \
++	(pdev-&gt;vendor == PCI_VENDOR_ID_##_vendor) &amp;&amp;			\
++	(pdev-&gt;device == _device) &amp;&amp;					\
++	(pdev-&gt;subsystem_vendor == PCI_VENDOR_ID_##_subvendor) &amp;&amp;	\
++	(pdev-&gt;subsystem_device == _subdevice)				)
++
+ static void b43_sprom_fixup(struct ssb_bus *bus)
+ {
+ 	struct pci_dev *pdev;
+@@ -4022,10 +4028,9 @@ static void b43_sprom_fixup(struct ssb_b
+ 		bus-&gt;sprom.boardflags_lo |= B43_BFL_PACTRL;
+ 	if (bus-&gt;bustype == SSB_BUSTYPE_PCI) {
+ 		pdev = bus-&gt;host_pci;
+-		if (pdev-&gt;vendor == PCI_VENDOR_ID_BROADCOM &amp;&amp;
+-		    pdev-&gt;device == 0x4318 &amp;&amp;
+-		    pdev-&gt;subsystem_vendor == PCI_VENDOR_ID_ASUSTEK &amp;&amp;
+-		    pdev-&gt;subsystem_device == 0x100F)
++		if (IS_PDEV(pdev, BROADCOM, 0x4318, ASUSTEK, 0x100F) ||
++		    IS_PDEV(pdev, BROADCOM, 0x4320, LINKSYS, 0x0015) ||
++		    IS_PDEV(pdev, BROADCOM, 0x4320, LINKSYS, 0x0013))
+ 			bus-&gt;sprom.boardflags_lo &amp;= ~B43_BFL_BTCOEXIST;
+ 	}
+ }
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003942.html">[PATCH stable 2/4] b43: Workaround invalid bluetooth settings
+</A></li>
+	<LI>Next message: <A HREF="003939.html">[PATCH stable 4/4] b43: Workaround DMA quirks
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3941">[ date ]</a>
+              <a href="thread.html#3941">[ thread ]</a>
+              <a href="subject.html#3941">[ subject ]</a>
+              <a href="author.html#3941">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

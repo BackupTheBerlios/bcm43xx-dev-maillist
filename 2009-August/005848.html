@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Remove BROKEN from B43_PHY_LP
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Remove%20BROKEN%20from%20B43_PHY_LP&In-Reply-To=%3C4A88370B.5090506%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005847.html">
+   <LINK REL="Next"  HREF="005849.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Remove BROKEN from B43_PHY_LP</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Remove%20BROKEN%20from%20B43_PHY_LP&In-Reply-To=%3C4A88370B.5090506%40gmail.com%3E"
+       TITLE="[PATCH] b43: LP-PHY: Remove BROKEN from B43_PHY_LP">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Sun Aug 16 18:42:51 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005847.html">[PATCH] b43: LP-PHY: Fix a bug in the B2062 channel tune path
+</A></li>
+        <LI>Next message: <A HREF="005849.html">[PATCH] b43: LP-PHY: Remove BROKEN from B43_PHY_LP
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5848">[ date ]</a>
+              <a href="thread.html#5848">[ thread ]</a>
+              <a href="subject.html#5848">[ subject ]</a>
+              <a href="author.html#5848">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Larry has reported success getting scan data with an LP-PHY device,
+so it's probably time to release LP-PHY support for testing.
+
+Also add a temporary BROKEN Kconfig symbol to disable 5GHz support,
+as 5GHz currently causes the driver to panic (NULL pointer deref).
+
+Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/Kconfig  |   25 +++++++++++++++++++------
+ drivers/net/wireless/b43/main.c   |    2 ++
+ drivers/net/wireless/b43/phy_lp.c |    2 ++
+ 3 files changed, 23 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/Kconfig b/drivers/net/wireless/b43/Kconfig
+index 67f564e..13414c9 100644
+--- a/drivers/net/wireless/b43/Kconfig
++++ b/drivers/net/wireless/b43/Kconfig
+@@ -80,16 +80,29 @@ config B43_NPHY
+ 	  SAY N.
+ 
+ config B43_PHY_LP
+-	bool &quot;IEEE 802.11g LP-PHY support (BROKEN)&quot;
+-	depends on B43 &amp;&amp; EXPERIMENTAL &amp;&amp; BROKEN
++	bool &quot;Support for low-power (LP-PHY) devices (VERY EXPERIMENTAL)&quot;
++	depends on B43 &amp;&amp; EXPERIMENTAL
+ 	---help---
+ 	  Support for the LP-PHY.
+-	  The LP-PHY is an IEEE 802.11g based PHY built into some notebooks
+-	  and embedded devices.
++	  The LP-PHY is a low-power PHY built into some notebooks
++	  and embedded devices. It supports 802.11a/g
++	  (802.11a support is optional, and currently disabled).
+ 
+-	  THIS IS BROKEN AND DOES NOT WORK YET.
++	  Known LP-PHY devices include the BCM4310, BCM4312 (PCI ID 0x4315),
++	  BCM4325 (currently unsupported), BCM4326 &amp; BCM4328 wireless cards
++	  and the BCM5354 SoC.
+ 
+-	  SAY N.
++	  This is heavily experimental, and probably will not work for you.
++	  Say N unless you want to help debug the driver.
++
++config B43_PHY_LP_5GHZ
++	bool &quot;Enable 802.11a support for LP-PHYs (BROKEN)&quot;
++	depends on B43_PHY_LP &amp;&amp; BROKEN
++	---help---
++	  Enable the 5GHz band of LP-PHY devices. Currently, all it
++	  does is cause the driver to panic on startup.
++
++	  Only select this if you are a developer working on this feature.
+ 
+ # This config option automatically enables b43 LEDS support,
+ # if it's possible.
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index 99b41ce..0096d25 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -4514,7 +4514,9 @@ static int b43_wireless_core_attach(struct b43_wldev *dev)
+ 			have_5ghz_phy = 1;
+ 			break;
+ 		case B43_PHYTYPE_LP: //FIXME not always!
++#ifdef CONFIG_B43_PHY_LP_5GHZ
+ 			have_5ghz_phy = 1;
++#endif
+ 		case B43_PHYTYPE_G:
+ 		case B43_PHYTYPE_N:
+ 			have_2ghz_phy = 1;
+diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+index 3889519..c902dd1 100644
+--- a/drivers/net/wireless/b43/phy_lp.c
++++ b/drivers/net/wireless/b43/phy_lp.c
+@@ -43,7 +43,9 @@ static inline u16 channel2freq_lp(u8 channel)
+ 
+ static unsigned int b43_lpphy_op_get_default_chan(struct b43_wldev *dev)
+ {
++#ifdef CONFIG_B43_PHY_LP_5GHZ
+ 	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)
++#endif
+ 		return 1;
+ 	return 36;
+ }
+-- 
+1.6.2.4
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005847.html">[PATCH] b43: LP-PHY: Fix a bug in the B2062 channel tune path
+</A></li>
+	<LI>Next message: <A HREF="005849.html">[PATCH] b43: LP-PHY: Remove BROKEN from B43_PHY_LP
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5848">[ date ]</a>
+              <a href="thread.html#5848">[ thread ]</a>
+              <a href="subject.html#5848">[ subject ]</a>
+              <a href="author.html#5848">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

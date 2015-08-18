@@ -1,0 +1,514 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add more N-PHY init code
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20more%20N-PHY%20init%20code&In-Reply-To=%3C200801180109.25938.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003254.html">
+   <LINK REL="Next"  HREF="003257.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add more N-PHY init code</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20more%20N-PHY%20init%20code&In-Reply-To=%3C200801180109.25938.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add more N-PHY init code">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jan 18 01:09:25 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003254.html">testing ad-hoc don't connect (Failed to configure IBSS beacon	template)
+</A></li>
+        <LI>Next message: <A HREF="003257.html">b43_suspend problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3255">[ date ]</a>
+              <a href="thread.html#3255">[ thread ]</a>
+              <a href="subject.html#3255">[ subject ]</a>
+              <a href="author.html#3255">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This also adds lots of TODOs. Oh well. Lots of work. :)
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+For 2.6.25
+
+Index: wireless-2.6/drivers/net/wireless/b43/nphy.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/nphy.c	2008-01-17 00:27:48.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/nphy.c	2008-01-18 00:56:34.000000000 +0100
+@@ -23,12 +23,14 @@
+ */
+ 
+ #include &quot;b43.h&quot;
+ #include &quot;nphy.h&quot;
+ #include &quot;tables_nphy.h&quot;
+ 
++#include &lt;linux/delay.h&gt;
++
+ 
+ void b43_nphy_set_rxantenna(struct b43_wldev *dev, int antenna)
+ {//TODO
+ }
+ 
+ void b43_nphy_xmitpower(struct b43_wldev *dev)
+@@ -185,12 +187,300 @@ void b43_nphy_radio_turn_on(struct b43_w
+ void b43_nphy_radio_turn_off(struct b43_wldev *dev)
+ {
+ 	b43_phy_mask(dev, B43_NPHY_RFCTL_CMD,
+ 		     ~B43_NPHY_RFCTL_CMD_EN);
+ }
+ 
++#define ntab_upload(dev, offset, data) do { \
++		unsigned int i;						\
++		for (i = 0; i &lt; (offset##_SIZE); i++)			\
++			b43_ntab_write(dev, (offset) + i, (data)[i]);	\
++	} while (0)
++
++/* Upload the N-PHY tables. */
++static void b43_nphy_tables_init(struct b43_wldev *dev)
++{
++	/* Static tables */
++	ntab_upload(dev, B43_NTAB_FRAMESTRUCT, b43_ntab_framestruct);
++	ntab_upload(dev, B43_NTAB_FRAMELT, b43_ntab_framelookup);
++	ntab_upload(dev, B43_NTAB_TMAP, b43_ntab_tmap);
++	ntab_upload(dev, B43_NTAB_TDTRN, b43_ntab_tdtrn);
++	ntab_upload(dev, B43_NTAB_INTLEVEL, b43_ntab_intlevel);
++	ntab_upload(dev, B43_NTAB_PILOT, b43_ntab_pilot);
++	ntab_upload(dev, B43_NTAB_PILOTLT, b43_ntab_pilotlt);
++	ntab_upload(dev, B43_NTAB_TDI20A0, b43_ntab_tdi20a0);
++	ntab_upload(dev, B43_NTAB_TDI20A1, b43_ntab_tdi20a1);
++	ntab_upload(dev, B43_NTAB_TDI40A0, b43_ntab_tdi40a0);
++	ntab_upload(dev, B43_NTAB_TDI40A1, b43_ntab_tdi40a1);
++	ntab_upload(dev, B43_NTAB_BDI, b43_ntab_bdi);
++	ntab_upload(dev, B43_NTAB_CHANEST, b43_ntab_channelest);
++	ntab_upload(dev, B43_NTAB_MCS, b43_ntab_mcs);
++
++	/* Volatile tables */
++	ntab_upload(dev, B43_NTAB_NOISEVAR10, b43_ntab_noisevar10);
++	ntab_upload(dev, B43_NTAB_NOISEVAR11, b43_ntab_noisevar11);
++	ntab_upload(dev, B43_NTAB_C0_ESTPLT, b43_ntab_estimatepowerlt0);
++	ntab_upload(dev, B43_NTAB_C1_ESTPLT, b43_ntab_estimatepowerlt1);
++	ntab_upload(dev, B43_NTAB_C0_ADJPLT, b43_ntab_adjustpower0);
++	ntab_upload(dev, B43_NTAB_C1_ADJPLT, b43_ntab_adjustpower1);
++	ntab_upload(dev, B43_NTAB_C0_GAINCTL, b43_ntab_gainctl0);
++	ntab_upload(dev, B43_NTAB_C1_GAINCTL, b43_ntab_gainctl1);
++	ntab_upload(dev, B43_NTAB_C0_IQLT, b43_ntab_iqlt0);
++	ntab_upload(dev, B43_NTAB_C1_IQLT, b43_ntab_iqlt1);
++	ntab_upload(dev, B43_NTAB_C0_LOFEEDTH, b43_ntab_loftlt0);
++	ntab_upload(dev, B43_NTAB_C1_LOFEEDTH, b43_ntab_loftlt1);
++}
++
++static void b43_nphy_workarounds(struct b43_wldev *dev)
++{
++	struct b43_phy *phy = &amp;dev-&gt;phy;
++	unsigned int i;
++
++	b43_phy_set(dev, B43_NPHY_IQFLIP,
++		    B43_NPHY_IQFLIP_ADC1 | B43_NPHY_IQFLIP_ADC2);
++	//FIXME the following condition is different in the specs.
++	if (1 /* FIXME band is 2.4GHz */) {
++		b43_phy_set(dev, B43_NPHY_CLASSCTL,
++			    B43_NPHY_CLASSCTL_CCKEN);
++	} else {
++		b43_phy_mask(dev, B43_NPHY_CLASSCTL,
++			     ~B43_NPHY_CLASSCTL_CCKEN);
++	}
++	b43_radio_set(dev, B2055_C1_TX_RF_SPARE, 0x8);
++	b43_phy_write(dev, B43_NPHY_TXFRAMEDELAY, 8);
++
++	/* Fixup some tables */
++	b43_ntab_write(dev, B43_NTAB16(8, 0x00), 0xA);
++	b43_ntab_write(dev, B43_NTAB16(8, 0x10), 0xA);
++	b43_ntab_write(dev, B43_NTAB16(8, 0x02), 0xCDAA);
++	b43_ntab_write(dev, B43_NTAB16(8, 0x12), 0xCDAA);
++	b43_ntab_write(dev, B43_NTAB16(8, 0x08), 0);
++	b43_ntab_write(dev, B43_NTAB16(8, 0x18), 0);
++	b43_ntab_write(dev, B43_NTAB16(8, 0x07), 0x7AAB);
++	b43_ntab_write(dev, B43_NTAB16(8, 0x17), 0x7AAB);
++	b43_ntab_write(dev, B43_NTAB16(8, 0x06), 0x800);
++	b43_ntab_write(dev, B43_NTAB16(8, 0x16), 0x800);
++
++	b43_phy_write(dev, B43_NPHY_RFCTL_LUT_TRSW_LO1, 0x2D8);
++	b43_phy_write(dev, B43_NPHY_RFCTL_LUT_TRSW_UP1, 0x301);
++	b43_phy_write(dev, B43_NPHY_RFCTL_LUT_TRSW_LO2, 0x2D8);
++	b43_phy_write(dev, B43_NPHY_RFCTL_LUT_TRSW_UP2, 0x301);
++
++	//TODO set RF sequence
++
++	/* Set narrowband clip threshold */
++	b43_phy_write(dev, B43_NPHY_C1_NBCLIPTHRES, 66);
++	b43_phy_write(dev, B43_NPHY_C2_NBCLIPTHRES, 66);
++
++	/* Set wideband clip 2 threshold */
++	b43_phy_maskset(dev, B43_NPHY_C1_CLIPWBTHRES,
++			~B43_NPHY_C1_CLIPWBTHRES_CLIP2,
++			21 &lt;&lt; B43_NPHY_C1_CLIPWBTHRES_CLIP2_SHIFT);
++	b43_phy_maskset(dev, B43_NPHY_C2_CLIPWBTHRES,
++			~B43_NPHY_C2_CLIPWBTHRES_CLIP2,
++			21 &lt;&lt; B43_NPHY_C2_CLIPWBTHRES_CLIP2_SHIFT);
++
++	/* Set Clip 2 detect */
++	b43_phy_set(dev, B43_NPHY_C1_CGAINI,
++		    B43_NPHY_C1_CGAINI_CL2DETECT);
++	b43_phy_set(dev, B43_NPHY_C2_CGAINI,
++		    B43_NPHY_C2_CGAINI_CL2DETECT);
++
++	if (0 /*FIXME*/) {
++		/* Set dwell lengths */
++		b43_phy_write(dev, B43_NPHY_CLIP1_NBDWELL_LEN, 43);
++		b43_phy_write(dev, B43_NPHY_CLIP2_NBDWELL_LEN, 43);
++		b43_phy_write(dev, B43_NPHY_W1CLIP1_DWELL_LEN, 9);
++		b43_phy_write(dev, B43_NPHY_W1CLIP2_DWELL_LEN, 9);
++
++		/* Set gain backoff */
++		b43_phy_maskset(dev, B43_NPHY_C1_CGAINI,
++				~B43_NPHY_C1_CGAINI_GAINBKOFF,
++				1 &lt;&lt; B43_NPHY_C1_CGAINI_GAINBKOFF_SHIFT);
++		b43_phy_maskset(dev, B43_NPHY_C2_CGAINI,
++				~B43_NPHY_C2_CGAINI_GAINBKOFF,
++				1 &lt;&lt; B43_NPHY_C2_CGAINI_GAINBKOFF_SHIFT);
++
++		/* Set HPVGA2 index */
++		b43_phy_maskset(dev, B43_NPHY_C1_INITGAIN,
++				~B43_NPHY_C1_INITGAIN_HPVGA2,
++				6 &lt;&lt; B43_NPHY_C1_INITGAIN_HPVGA2_SHIFT);
++		b43_phy_maskset(dev, B43_NPHY_C2_INITGAIN,
++				~B43_NPHY_C2_INITGAIN_HPVGA2,
++				6 &lt;&lt; B43_NPHY_C2_INITGAIN_HPVGA2_SHIFT);
++
++		//FIXME verify that the specs really mean to use autoinc here.
++		for (i = 0; i &lt; 3; i++)
++			b43_ntab_write(dev, B43_NTAB16(7, 0x106) + i, 0x673);
++	}
++
++	/* Set minimum gain value */
++	b43_phy_maskset(dev, B43_NPHY_C1_MINMAX_GAIN,
++			~B43_NPHY_C1_MINGAIN,
++			23 &lt;&lt; B43_NPHY_C1_MINGAIN_SHIFT);
++	b43_phy_maskset(dev, B43_NPHY_C2_MINMAX_GAIN,
++			~B43_NPHY_C2_MINGAIN,
++			23 &lt;&lt; B43_NPHY_C2_MINGAIN_SHIFT);
++
++	if (phy-&gt;rev &lt; 2) {
++		b43_phy_mask(dev, B43_NPHY_SCRAM_SIGCTL,
++			     ~B43_NPHY_SCRAM_SIGCTL_SCM);
++	}
++
++	/* Set phase track alpha and beta */
++	b43_phy_write(dev, B43_NPHY_PHASETR_A0, 0x125);
++	b43_phy_write(dev, B43_NPHY_PHASETR_A1, 0x1B3);
++	b43_phy_write(dev, B43_NPHY_PHASETR_A2, 0x105);
++	b43_phy_write(dev, B43_NPHY_PHASETR_B0, 0x16E);
++	b43_phy_write(dev, B43_NPHY_PHASETR_B1, 0xCD);
++	b43_phy_write(dev, B43_NPHY_PHASETR_B2, 0x20);
++}
++
++static void b43_nphy_reset_cca(struct b43_wldev *dev)
++{
++	u16 bbcfg;
++
++	ssb_write32(dev-&gt;dev, SSB_TMSLOW,
++		    ssb_read32(dev-&gt;dev, SSB_TMSLOW) | SSB_TMSLOW_FGC);
++	bbcfg = b43_phy_read(dev, B43_NPHY_BBCFG);
++	b43_phy_set(dev, B43_NPHY_BBCFG, B43_NPHY_BBCFG_RSTCCA);
++	b43_phy_write(dev, B43_NPHY_BBCFG,
++		      bbcfg &amp; ~B43_NPHY_BBCFG_RSTCCA);
++	ssb_write32(dev-&gt;dev, SSB_TMSLOW,
++		    ssb_read32(dev-&gt;dev, SSB_TMSLOW) &amp; ~SSB_TMSLOW_FGC);
++}
++
++enum b43_nphy_rf_sequence {
++	B43_RFSEQ_RX2TX,
++	B43_RFSEQ_TX2RX,
++	B43_RFSEQ_RESET2RX,
++	B43_RFSEQ_UPDATE_GAINH,
++	B43_RFSEQ_UPDATE_GAINL,
++	B43_RFSEQ_UPDATE_GAINU,
++};
++
++static void b43_nphy_force_rf_sequence(struct b43_wldev *dev,
++				       enum b43_nphy_rf_sequence seq)
++{
++	static const u16 trigger[] = {
++		[B43_RFSEQ_RX2TX]		= B43_NPHY_RFSEQTR_RX2TX,
++		[B43_RFSEQ_TX2RX]		= B43_NPHY_RFSEQTR_TX2RX,
++		[B43_RFSEQ_RESET2RX]		= B43_NPHY_RFSEQTR_RST2RX,
++		[B43_RFSEQ_UPDATE_GAINH]	= B43_NPHY_RFSEQTR_UPGH,
++		[B43_RFSEQ_UPDATE_GAINL]	= B43_NPHY_RFSEQTR_UPGL,
++		[B43_RFSEQ_UPDATE_GAINU]	= B43_NPHY_RFSEQTR_UPGU,
++	};
++	int i;
++
++	B43_WARN_ON(seq &gt;= ARRAY_SIZE(trigger));
++
++	b43_phy_set(dev, B43_NPHY_RFSEQMODE,
++		    B43_NPHY_RFSEQMODE_CAOVER | B43_NPHY_RFSEQMODE_TROVER);
++	b43_phy_set(dev, B43_NPHY_RFSEQTR, trigger[seq]);
++	for (i = 0; i &lt; 200; i++) {
++		if (!(b43_phy_read(dev, B43_NPHY_RFSEQST) &amp; trigger[seq]))
++			goto ok;
++		msleep(1);
++	}
++	b43err(dev-&gt;wl, &quot;RF sequence status timeout\n&quot;);
++ok:
++	b43_phy_mask(dev, B43_NPHY_RFSEQMODE,
++		     ~(B43_NPHY_RFSEQMODE_CAOVER | B43_NPHY_RFSEQMODE_TROVER));
++}
++
++static void b43_nphy_bphy_init(struct b43_wldev *dev)
++{
++	unsigned int i;
++	u16 val;
++
++	val = 0x1E1F;
++	for (i = 0; i &lt; 14; i++) {
++		b43_phy_write(dev, B43_PHY_N_BMODE(0x88 + i), val);
++		val -= 0x202;
++	}
++	val = 0x3E3F;
++	for (i = 0; i &lt; 16; i++) {
++		b43_phy_write(dev, B43_PHY_N_BMODE(0x97 + i), val);
++		val -= 0x202;
++	}
++	b43_phy_write(dev, B43_PHY_N_BMODE(0x38), 0x668);
++}
++
++/* RSSI Calibration */
++static void b43_nphy_rssi_cal(struct b43_wldev *dev, u8 type)
++{
++	//TODO
++}
++
+ int b43_phy_initn(struct b43_wldev *dev)
+ {
+-	b43err(dev-&gt;wl, &quot;IEEE 802.11n devices are not supported, yet.\n&quot;);
++	struct b43_phy *phy = &amp;dev-&gt;phy;
++	u16 tmp;
+ 
++	//TODO: Spectral management
++	b43_nphy_tables_init(dev);
++
++	/* Clear all overrides */
++	b43_phy_write(dev, B43_NPHY_RFCTL_OVER, 0);
++	b43_phy_write(dev, B43_NPHY_RFCTL_INTC1, 0);
++	b43_phy_write(dev, B43_NPHY_RFCTL_INTC2, 0);
++	b43_phy_write(dev, B43_NPHY_RFCTL_INTC3, 0);
++	b43_phy_write(dev, B43_NPHY_RFCTL_INTC4, 0);
++	b43_phy_mask(dev, B43_NPHY_RFSEQMODE,
++		     ~(B43_NPHY_RFSEQMODE_CAOVER |
++		       B43_NPHY_RFSEQMODE_TROVER));
++	b43_phy_write(dev, B43_NPHY_AFECTL_OVER, 0);
++
++	tmp = (phy-&gt;rev &lt; 2) ? 64 : 59;
++	b43_phy_maskset(dev, B43_NPHY_BPHY_CTL3,
++			~B43_NPHY_BPHY_CTL3_SCALE,
++			tmp &lt;&lt; B43_NPHY_BPHY_CTL3_SCALE_SHIFT);
++
++	b43_phy_write(dev, B43_NPHY_AFESEQ_TX2RX_PUD_20M, 0x20);
++	b43_phy_write(dev, B43_NPHY_AFESEQ_TX2RX_PUD_40M, 0x20);
++
++	b43_phy_write(dev, B43_NPHY_TXREALFD, 184);
++	b43_phy_write(dev, B43_NPHY_MIMO_CRSTXEXT, 200);
++	b43_phy_write(dev, B43_NPHY_PLOAD_CSENSE_EXTLEN, 80);
++	b43_phy_write(dev, B43_NPHY_C2_BCLIPBKOFF, 511);
++
++	//TODO MIMO-Config
++	//TODO Update TX/RX chain
++
++	if (phy-&gt;rev &lt; 2) {
++		b43_phy_write(dev, B43_NPHY_DUP40_GFBL, 0xAA8);
++		b43_phy_write(dev, B43_NPHY_DUP40_BL, 0x9A4);
++	}
++	b43_nphy_workarounds(dev);
++	b43_nphy_reset_cca(dev);
++
++	ssb_write32(dev-&gt;dev, SSB_TMSLOW,
++		    ssb_read32(dev-&gt;dev, SSB_TMSLOW) | B43_TMSLOW_MACPHYCLKEN);
++	b43_nphy_force_rf_sequence(dev, B43_RFSEQ_RX2TX);
++	b43_nphy_force_rf_sequence(dev, B43_RFSEQ_RESET2RX);
++
++	b43_phy_read(dev, B43_NPHY_CLASSCTL); /* dummy read */
++	//TODO read core1/2 clip1 thres regs
++
++	if (1 /* FIXME Band is 2.4GHz */)
++		b43_nphy_bphy_init(dev);
++	//TODO disable TX power control
++	//TODO Fix the TX power settings
++	//TODO Init periodic calibration with reason 3
++	b43_nphy_rssi_cal(dev, 2);
++	b43_nphy_rssi_cal(dev, 0);
++	b43_nphy_rssi_cal(dev, 1);
++	//TODO get TX gain
++	//TODO init superswitch
++	//TODO calibrate LO
++	//TODO idle TSSI TX pctl
++	//TODO TX power control power setup
++	//TODO table writes
++	//TODO TX power control coefficients
++	//TODO enable TX power control
++	//TODO control antenna selection
++	//TODO init radar detection
++	//TODO reset channel if changed
++
++	b43err(dev-&gt;wl, &quot;IEEE 802.11n devices are not supported, yet.\n&quot;);
+ 	return 0;
+ }
+Index: wireless-2.6/drivers/net/wireless/b43/nphy.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/nphy.h	2008-01-16 23:24:20.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/nphy.h	2008-01-18 00:35:50.000000000 +0100
+@@ -22,14 +22,17 @@
+ #define B43_NPHY_C1_DESPWR			B43_PHY_N(0x018) /* Core 1 desired power */
+ #define B43_NPHY_C1_CCK_DESPWR			B43_PHY_N(0x019) /* Core 1 CCK desired power */
+ #define B43_NPHY_C1_BCLIPBKOFF			B43_PHY_N(0x01A) /* Core 1 barely clip backoff */
+ #define B43_NPHY_C1_CCK_BCLIPBKOFF		B43_PHY_N(0x01B) /* Core 1 CCK barely clip backoff */
+ #define B43_NPHY_C1_CGAINI			B43_PHY_N(0x01C) /* Core 1 compute gain info */
+ #define  B43_NPHY_C1_CGAINI_GAINBKOFF		0x001F /* Gain backoff */
++#define  B43_NPHY_C1_CGAINI_GAINBKOFF_SHIFT	0
+ #define  B43_NPHY_C1_CGAINI_CLIPGBKOFF		0x03E0 /* Clip gain backoff */
++#define  B43_NPHY_C1_CGAINI_CLIPGBKOFF_SHIFT	5
+ #define  B43_NPHY_C1_CGAINI_GAINSTEP		0x1C00 /* Gain step */
++#define  B43_NPHY_C1_CGAINI_GAINSTEP_SHIFT	10
+ #define  B43_NPHY_C1_CGAINI_CL2DETECT		0x2000 /* Clip 2 detect mask */
+ #define B43_NPHY_C1_CCK_CGAINI			B43_PHY_N(0x01D) /* Core 1 CCK compute gain info */
+ #define  B43_NPHY_C1_CCK_CGAINI_GAINBKOFF	0x001F /* Gain backoff */
+ #define  B43_NPHY_C1_CCK_CGAINI_CLIPGBKOFF	0x01E0 /* CCK barely clip gain backoff */
+ #define B43_NPHY_C1_MINMAX_GAIN			B43_PHY_N(0x01E) /* Core 1 min/max gain */
+ #define  B43_NPHY_C1_MINGAIN			0x00FF /* Minimum gain */
+@@ -66,61 +69,64 @@
+ #define B43_NPHY_C1_EDTHRES			B43_PHY_N(0x029) /* Core 1 ED threshold */
+ #define B43_NPHY_C1_SMSIGTHRES			B43_PHY_N(0x02A) /* Core 1 small sig threshold */
+ #define B43_NPHY_C1_NBCLIPTHRES			B43_PHY_N(0x02B) /* Core 1 NB clip threshold */
+ #define B43_NPHY_C1_CLIP1THRES			B43_PHY_N(0x02C) /* Core 1 clip1 threshold */
+ #define B43_NPHY_C1_CLIP2THRES			B43_PHY_N(0x02D) /* Core 1 clip2 threshold */
+ 
+-#define B43_NPHY_C2_DESPWR			B43_PHY_N(0x018 + 22) /* Core 2 desired power */
+-#define B43_NPHY_C2_CCK_DESPWR			B43_PHY_N(0x019 + 22) /* Core 2 CCK desired power */
+-#define B43_NPHY_C2_BCLIPBKOFF			B43_PHY_N(0x01A + 22) /* Core 2 barely clip backoff */
+-#define B43_NPHY_C2_CCK_BCLIPBKOFF		B43_PHY_N(0x01B + 22) /* Core 2 CCK barely clip backoff */
+-#define B43_NPHY_C2_CGAINI			B43_PHY_N(0x01C + 22) /* Core 2 compute gain info */
++#define B43_NPHY_C2_DESPWR			B43_PHY_N(0x02E) /* Core 2 desired power */
++#define B43_NPHY_C2_CCK_DESPWR			B43_PHY_N(0x02F) /* Core 2 CCK desired power */
++#define B43_NPHY_C2_BCLIPBKOFF			B43_PHY_N(0x030) /* Core 2 barely clip backoff */
++#define B43_NPHY_C2_CCK_BCLIPBKOFF		B43_PHY_N(0x031) /* Core 2 CCK barely clip backoff */
++#define B43_NPHY_C2_CGAINI			B43_PHY_N(0x032) /* Core 2 compute gain info */
+ #define  B43_NPHY_C2_CGAINI_GAINBKOFF		0x001F /* Gain backoff */
++#define  B43_NPHY_C2_CGAINI_GAINBKOFF_SHIFT	0
+ #define  B43_NPHY_C2_CGAINI_CLIPGBKOFF		0x03E0 /* Clip gain backoff */
++#define  B43_NPHY_C2_CGAINI_CLIPGBKOFF_SHIFT	5
+ #define  B43_NPHY_C2_CGAINI_GAINSTEP		0x1C00 /* Gain step */
++#define  B43_NPHY_C2_CGAINI_GAINSTEP_SHIFT	10
+ #define  B43_NPHY_C2_CGAINI_CL2DETECT		0x2000 /* Clip 2 detect mask */
+-#define B43_NPHY_C2_CCK_CGAINI			B43_PHY_N(0x01D + 22) /* Core 2 CCK compute gain info */
++#define B43_NPHY_C2_CCK_CGAINI			B43_PHY_N(0x033) /* Core 2 CCK compute gain info */
+ #define  B43_NPHY_C2_CCK_CGAINI_GAINBKOFF	0x001F /* Gain backoff */
+ #define  B43_NPHY_C2_CCK_CGAINI_CLIPGBKOFF	0x01E0 /* CCK barely clip gain backoff */
+-#define B43_NPHY_C2_MINMAX_GAIN			B43_PHY_N(0x01E + 22) /* Core 2 min/max gain */
++#define B43_NPHY_C2_MINMAX_GAIN			B43_PHY_N(0x034) /* Core 2 min/max gain */
+ #define  B43_NPHY_C2_MINGAIN			0x00FF /* Minimum gain */
+ #define  B43_NPHY_C2_MINGAIN_SHIFT		0
+ #define  B43_NPHY_C2_MAXGAIN			0xFF00 /* Maximum gain */
+ #define  B43_NPHY_C2_MAXGAIN_SHIFT		8
+-#define B43_NPHY_C2_CCK_MINMAX_GAIN		B43_PHY_N(0x01F + 22) /* Core 2 CCK min/max gain */
++#define B43_NPHY_C2_CCK_MINMAX_GAIN		B43_PHY_N(0x035) /* Core 2 CCK min/max gain */
+ #define  B43_NPHY_C2_CCK_MINGAIN		0x00FF /* Minimum gain */
+ #define  B43_NPHY_C2_CCK_MINGAIN_SHIFT		0
+ #define  B43_NPHY_C2_CCK_MAXGAIN		0xFF00 /* Maximum gain */
+ #define  B43_NPHY_C2_CCK_MAXGAIN_SHIFT		8
+-#define B43_NPHY_C2_INITGAIN			B43_PHY_N(0x020 + 22) /* Core 2 initial gain code */
++#define B43_NPHY_C2_INITGAIN			B43_PHY_N(0x036) /* Core 2 initial gain code */
+ #define  B43_NPHY_C2_INITGAIN_EXTLNA		0x0001 /* External LNA index */
+ #define  B43_NPHY_C2_INITGAIN_LNA		0x0006 /* LNA index */
+ #define  B43_NPHY_C2_INITGAIN_LNAIDX_SHIFT	1
+ #define  B43_NPHY_C2_INITGAIN_HPVGA1		0x0078 /* HPVGA1 index */
+ #define  B43_NPHY_C2_INITGAIN_HPVGA1_SHIFT	3
+ #define  B43_NPHY_C2_INITGAIN_HPVGA2		0x0F80 /* HPVGA2 index */
+ #define  B43_NPHY_C2_INITGAIN_HPVGA2_SHIFT	7
+ #define  B43_NPHY_C2_INITGAIN_TRRX		0x1000 /* TR RX index */
+ #define  B43_NPHY_C2_INITGAIN_TRTX		0x2000 /* TR TX index */
+-#define B43_NPHY_C2_CLIP1_HIGAIN		B43_PHY_N(0x021 + 22) /* Core 2 clip1 high gain code */
+-#define B43_NPHY_C2_CLIP1_MEDGAIN		B43_PHY_N(0x022 + 22) /* Core 2 clip1 medium gain code */
+-#define B43_NPHY_C2_CLIP1_LOGAIN		B43_PHY_N(0x023 + 22) /* Core 2 clip1 low gain code */
+-#define B43_NPHY_C2_CLIP2_GAIN			B43_PHY_N(0x024 + 22) /* Core 2 clip2 gain code */
+-#define B43_NPHY_C2_FILTERGAIN			B43_PHY_N(0x025 + 22) /* Core 2 filter gain */
+-#define B43_NPHY_C2_LPF_QHPF_BW			B43_PHY_N(0x026 + 22) /* Core 2 LPF Q HP F bandwidth */
+-#define B43_NPHY_C2_CLIPWBTHRES			B43_PHY_N(0x027 + 22) /* Core 2 clip wideband threshold */
++#define B43_NPHY_C2_CLIP1_HIGAIN		B43_PHY_N(0x037) /* Core 2 clip1 high gain code */
++#define B43_NPHY_C2_CLIP1_MEDGAIN		B43_PHY_N(0x038) /* Core 2 clip1 medium gain code */
++#define B43_NPHY_C2_CLIP1_LOGAIN		B43_PHY_N(0x039) /* Core 2 clip1 low gain code */
++#define B43_NPHY_C2_CLIP2_GAIN			B43_PHY_N(0x03A) /* Core 2 clip2 gain code */
++#define B43_NPHY_C2_FILTERGAIN			B43_PHY_N(0x03B) /* Core 2 filter gain */
++#define B43_NPHY_C2_LPF_QHPF_BW			B43_PHY_N(0x03C) /* Core 2 LPF Q HP F bandwidth */
++#define B43_NPHY_C2_CLIPWBTHRES			B43_PHY_N(0x03D) /* Core 2 clip wideband threshold */
+ #define  B43_NPHY_C2_CLIPWBTHRES_CLIP2		0x003F /* Clip 2 */
+ #define  B43_NPHY_C2_CLIPWBTHRES_CLIP2_SHIFT	0
+ #define  B43_NPHY_C2_CLIPWBTHRES_CLIP1		0x0FC0 /* Clip 1 */
+ #define  B43_NPHY_C2_CLIPWBTHRES_CLIP1_SHIFT	6
+-#define B43_NPHY_C2_W1THRES			B43_PHY_N(0x028 + 22) /* Core 2 W1 threshold */
+-#define B43_NPHY_C2_EDTHRES			B43_PHY_N(0x029 + 22) /* Core 2 ED threshold */
+-#define B43_NPHY_C2_SMSIGTHRES			B43_PHY_N(0x02A + 22) /* Core 2 small sig threshold */
+-#define B43_NPHY_C2_NBCLIPTHRES			B43_PHY_N(0x02B + 22) /* Core 2 NB clip threshold */
+-#define B43_NPHY_C2_CLIP1THRES			B43_PHY_N(0x02C + 22) /* Core 2 clip1 threshold */
+-#define B43_NPHY_C2_CLIP2THRES			B43_PHY_N(0x02D + 22) /* Core 2 clip2 threshold */
++#define B43_NPHY_C2_W1THRES			B43_PHY_N(0x03E) /* Core 2 W1 threshold */
++#define B43_NPHY_C2_EDTHRES			B43_PHY_N(0x03F) /* Core 2 ED threshold */
++#define B43_NPHY_C2_SMSIGTHRES			B43_PHY_N(0x040) /* Core 2 small sig threshold */
++#define B43_NPHY_C2_NBCLIPTHRES			B43_PHY_N(0x041) /* Core 2 NB clip threshold */
++#define B43_NPHY_C2_CLIP1THRES			B43_PHY_N(0x042) /* Core 2 clip1 threshold */
++#define B43_NPHY_C2_CLIP2THRES			B43_PHY_N(0x043) /* Core 2 clip2 threshold */
+ 
+ #define B43_NPHY_CRS_THRES1			B43_PHY_N(0x044) /* CRS threshold 1 */
+ #define B43_NPHY_CRS_THRES2			B43_PHY_N(0x045) /* CRS threshold 2 */
+ #define B43_NPHY_CRS_THRES3			B43_PHY_N(0x046) /* CRS threshold 3 */
+ #define B43_NPHY_CRSCTL				B43_PHY_N(0x047) /* CRS control */
+ #define B43_NPHY_DCFADDR			B43_PHY_N(0x048) /* DC filter address */
+@@ -222,13 +228,13 @@
+ #define B43_NPHY_RFCTL_RXG4			B43_PHY_N(0x084) /* RF control (RX gain 4) */
+ #define B43_NPHY_RFCTL_TXG4			B43_PHY_N(0x085) /* RF control (TX gain 4) */
+ #define B43_NPHY_C1_TXIQ_COMP_OFF		B43_PHY_N(0x087) /* Core 1 TX I/Q comp offset */
+ #define B43_NPHY_C2_TXIQ_COMP_OFF		B43_PHY_N(0x088) /* Core 2 TX I/Q comp offset */
+ #define B43_NPHY_C1_TXCTL			B43_PHY_N(0x08B) /* Core 1 TX control */
+ #define B43_NPHY_C2_TXCTL			B43_PHY_N(0x08C) /* Core 2 TX control */
+-#define B43_NPHY_SCRAM_SIGCTL			B43_PHY_N(0x090) /* Scran signal control */
++#define B43_NPHY_SCRAM_SIGCTL			B43_PHY_N(0x090) /* Scram signal control */
+ #define  B43_NPHY_SCRAM_SIGCTL_INITST		0x007F /* Initial state value */
+ #define  B43_NPHY_SCRAM_SIGCTL_INITST_SHIFT	0
+ #define  B43_NPHY_SCRAM_SIGCTL_SCM		0x0080 /* Scram control mode */
+ #define  B43_NPHY_SCRAM_SIGCTL_SICE		0x0100 /* Scram index control enable */
+ #define  B43_NPHY_SCRAM_SIGCTL_START		0xFE00 /* Scram start bit */
+ #define  B43_NPHY_SCRAM_SIGCTL_START_SHIFT	9
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003254.html">testing ad-hoc don't connect (Failed to configure IBSS beacon	template)
+</A></li>
+	<LI>Next message: <A HREF="003257.html">b43_suspend problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3255">[ date ]</a>
+              <a href="thread.html#3255">[ thread ]</a>
+              <a href="subject.html#3255">[ subject ]</a>
+              <a href="author.html#3255">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,141 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC/T] b43: Fix Radio On/Off LED action
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/T%5D%20b43%3A%20Fix%20Radio%20On/Off%20LED%20action&In-Reply-To=%3C474C61F9.2020602%40wetwork.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002923.html">
+   <LINK REL="Next"  HREF="002927.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC/T] b43: Fix Radio On/Off LED action</H1>
+    <B>Ehud Gavron</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/T%5D%20b43%3A%20Fix%20Radio%20On/Off%20LED%20action&In-Reply-To=%3C474C61F9.2020602%40wetwork.net%3E"
+       TITLE="[RFC/T] b43: Fix Radio On/Off LED action">gavron at wetwork.net
+       </A><BR>
+    <I>Tue Nov 27 19:29:13 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002923.html">[RFC/T] b43: Fix Radio On/Off LED action
+</A></li>
+        <LI>Next message: <A HREF="002927.html">[RFC/T V2] b43: Fix Radio On/Off LED action
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2924">[ date ]</a>
+              <a href="thread.html#2924">[ thread ]</a>
+              <a href="subject.html#2924">[ subject ]</a>
+              <a href="author.html#2924">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+
+Michael Buesch wrote:
+&gt;<i> On Tuesday 27 November 2007 17:28:33 Larry Finger wrote:
+</I>&gt;<i>   
+</I>&gt;&gt;<i> Michael Buesch wrote:
+</I>&gt;&gt;<i>     
+</I>&gt;&gt;&gt;<i> On Tuesday 27 November 2007 17:03:57 Larry Finger wrote:
+</I>&gt;&gt;&gt;<i> This is not how led triggers work.
+</I>&gt;&gt;&gt;<i> You are shortcutting the whole thing here. So you could as well
+</I>&gt;&gt;&gt;<i> remove the whole rfkill and LEDs code.
+</I>&gt;&gt;&gt;<i>       
+</I>&gt;&gt;<i> It just plain doesn't work now. What I'm trying to do is get something to the users that will
+</I>&gt;&gt;<i> restore the behavior they want while we work out the details of the rfkill and LEDs code.
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> Well, ok. But we don't apply this to mainline. As
+</I>&gt;<i> a temporary patch for users it's OK.
+</I>&gt;<i>   
+</I>Yes, it is! :)  Works great!
+$ uname -a
+Linux egdell.wetwork.net 2.6.24-rc3-LF27NOV2007 #2 SMP Tue Nov 27 
+09:19:11 MST 2007 x86_64 x86_64 x86_64 GNU/Linux
+
+E
+
+
+&gt;<i>   
+</I>&gt;&gt;&gt;<i> Please properly register the LED in the leds code and
+</I>&gt;&gt;&gt;<i> add a default LED trigger for the rfkill trigger.
+</I>&gt;&gt;&gt;<i> This has several advantages to the user, among the possiblility to
+</I>&gt;&gt;&gt;<i> reassign a LED to a different trigger.
+</I>&gt;&gt;&gt;<i>       
+</I>&gt;&gt;<i> How do I do that?
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> Well, what you basically have to do it restore the old
+</I>&gt;<i> mapping in b43_map_led().
+</I>&gt;<i> Look at the &quot;case B43_LED_RADIO_ALL&quot; (and below) statement.
+</I>&gt;<i> It maps these LEDs to the rfkill trigger.
+</I>&gt;<i> So you have to find out which behaviour value your LED has and
+</I>&gt;<i> map that to the rfkill trigger in this function.
+</I>&gt;<i>
+</I>&gt;<i> So when the rfkill LED trigger triggers, it will enable/disable this LED.
+</I>&gt;<i> That's all done behind the scenes.
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>&gt;&gt;&gt;&gt;<i> @@ -70,11 +75,13 @@ static int b43_rfkill_soft_toggle(void *
+</I>&gt;&gt;&gt;&gt;<i>  	struct b43_wldev *dev = data;
+</I>&gt;&gt;&gt;&gt;<i>  	struct b43_wl *wl = dev-&gt;wl;
+</I>&gt;&gt;&gt;&gt;<i>  	int err = 0;
+</I>&gt;&gt;&gt;&gt;<i> +	int lock = mutex_is_locked(&amp;wl-&gt;mutex);
+</I>&gt;&gt;&gt;&gt;<i>  
+</I>&gt;&gt;&gt;&gt;<i>  	if (!wl-&gt;rfkill.registered)
+</I>&gt;&gt;&gt;&gt;<i>  		return 0;
+</I>&gt;&gt;&gt;&gt;<i>  
+</I>&gt;&gt;&gt;&gt;<i> -	mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;&gt;&gt;&gt;<i> +	if (!lock)
+</I>&gt;&gt;&gt;&gt;<i> +		mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;&gt;&gt;&gt;<i>         
+</I>&gt;&gt;&gt;<i> Nah, it shouldn't be locked by &quot;current&quot; in the first place, here.
+</I>&gt;&gt;&gt;<i> (I guess that's what you are trying to check here).
+</I>&gt;&gt;&gt;<i> That's what the !registered check above is for.
+</I>&gt;&gt;&gt;<i> This !lock check is racy.
+</I>&gt;&gt;&gt;<i>       
+</I>&gt;&gt;<i> If you recall my message from yesterday, I got a locking error. That is what I'm trying to prevent.
+</I>&gt;&gt;<i> I know it is racy, but I don't know the correct way to do it.
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> I think RFkill has a bad design regarding this.
+</I>&gt;<i> It does synchronously call back into the driver from a call made by
+</I>&gt;<i> the driver. That is broken by design. Maybe it's best to fix this
+</I>&gt;<i> in rfkill and let it asynchronously call back on rfkill_init.
+</I>&gt;<i> Synchronous callbacks from calls made by drivers are broken by design
+</I>&gt;<i> and will lead to recursive lockings. We can not fix this in the driver,
+</I>&gt;<i> nor work around it in a sane way. We can hack around it, though, which
+</I>&gt;<i> is what the !registered flag tries to do. Though, it seems it doesn't
+</I>&gt;<i> work. :)
+</I>&gt;<i>
+</I>&gt;<i>   
+</I>
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002923.html">[RFC/T] b43: Fix Radio On/Off LED action
+</A></li>
+	<LI>Next message: <A HREF="002927.html">[RFC/T V2] b43: Fix Radio On/Off LED action
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2924">[ date ]</a>
+              <a href="thread.html#2924">[ thread ]</a>
+              <a href="subject.html#2924">[ subject ]</a>
+              <a href="author.html#2924">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

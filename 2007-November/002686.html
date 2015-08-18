@@ -1,0 +1,206 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb: Fix PCMCIA-host lowlevel bus access
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Fix%20PCMCIA-host%20lowlevel%20bus%20access&In-Reply-To=%3C200711071903.35469.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002684.html">
+   <LINK REL="Next"  HREF="002687.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb: Fix PCMCIA-host lowlevel bus access</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Fix%20PCMCIA-host%20lowlevel%20bus%20access&In-Reply-To=%3C200711071903.35469.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] ssb: Fix PCMCIA-host lowlevel bus access">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Nov  7 19:03:35 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002684.html">[PATCH] b43legacy: fix shared IRQ race condition
+</A></li>
+        <LI>Next message: <A HREF="002687.html">[PATCH] b43: properly request pcmcia IRQ
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2686">[ date ]</a>
+              <a href="thread.html#2686">[ thread ]</a>
+              <a href="subject.html#2686">[ subject ]</a>
+              <a href="author.html#2686">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes the lowlevel bus access routines for
+PCMCIA based devices.
+
+There are still a few issues with register access sideeffects after
+this patch. This will be addressed in a later patch.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+Index: wireless-2.6/drivers/ssb/pcmcia.c
+===================================================================
+--- wireless-2.6.orig/drivers/ssb/pcmcia.c	2007-11-06 18:19:27.000000000 +0100
++++ wireless-2.6/drivers/ssb/pcmcia.c	2007-11-07 15:48:37.000000000 +0100
+@@ -63,17 +63,17 @@ int ssb_pcmcia_switch_coreidx(struct ssb
+ 		err = pcmcia_access_configuration_register(pdev, &amp;reg);
+ 		if (err != CS_SUCCESS)
+ 			goto error;
+-		read_addr |= (reg.Value &amp; 0xF) &lt;&lt; 12;
++		read_addr |= ((u32)(reg.Value &amp; 0x0F)) &lt;&lt; 12;
+ 		reg.Offset = 0x30;
+ 		err = pcmcia_access_configuration_register(pdev, &amp;reg);
+ 		if (err != CS_SUCCESS)
+ 			goto error;
+-		read_addr |= reg.Value &lt;&lt; 16;
++		read_addr |= ((u32)reg.Value) &lt;&lt; 16;
+ 		reg.Offset = 0x32;
+ 		err = pcmcia_access_configuration_register(pdev, &amp;reg);
+ 		if (err != CS_SUCCESS)
+ 			goto error;
+-		read_addr |= reg.Value &lt;&lt; 24;
++		read_addr |= ((u32)reg.Value) &lt;&lt; 24;
+ 
+ 		cur_core = (read_addr - SSB_ENUM_BASE) / SSB_CORE_SIZE;
+ 		if (cur_core == coreidx)
+@@ -152,28 +152,29 @@ error:
+ 	goto out_unlock;
+ }
+ 
+-/* These are the main device register access functions.
+- * do_select_core is inline to have the likely hotpath inline.
+- * All unlikely codepaths are out-of-line. */
+-static inline int do_select_core(struct ssb_bus *bus,
+-				 struct ssb_device *dev,
+-				 u16 *offset)
++static int select_core_and_segment(struct ssb_device *dev,
++				   u16 *offset)
+ {
++	struct ssb_bus *bus = dev-&gt;bus;
+ 	int err;
+-	u8 need_seg = (*offset &gt;= 0x800) ? 1 : 0;
++	u8 need_segment;
++
++	if (*offset &gt;= 0x800) {
++		*offset -= 0x800;
++		need_segment = 1;
++	} else
++		need_segment = 0;
+ 
+ 	if (unlikely(dev != bus-&gt;mapped_device)) {
+ 		err = ssb_pcmcia_switch_core(bus, dev);
+ 		if (unlikely(err))
+ 			return err;
+ 	}
+-	if (unlikely(need_seg != bus-&gt;mapped_pcmcia_seg)) {
+-		err = ssb_pcmcia_switch_segment(bus, need_seg);
++	if (unlikely(need_segment != bus-&gt;mapped_pcmcia_seg)) {
++		err = ssb_pcmcia_switch_segment(bus, need_segment);
+ 		if (unlikely(err))
+ 			return err;
+ 	}
+-	if (need_seg == 1)
+-		*offset -= 0x800;
+ 
+ 	return 0;
+ }
+@@ -181,32 +182,31 @@ static inline int do_select_core(struct 
+ static u16 ssb_pcmcia_read16(struct ssb_device *dev, u16 offset)
+ {
+ 	struct ssb_bus *bus = dev-&gt;bus;
+-	u16 x;
+ 
+-	if (unlikely(do_select_core(bus, dev, &amp;offset)))
++	if (unlikely(select_core_and_segment(dev, &amp;offset)))
+ 		return 0xFFFF;
+-	x = readw(bus-&gt;mmio + offset);
+ 
+-	return x;
++	return readw(bus-&gt;mmio + offset);
+ }
+ 
+ static u32 ssb_pcmcia_read32(struct ssb_device *dev, u16 offset)
+ {
+ 	struct ssb_bus *bus = dev-&gt;bus;
+-	u32 x;
++	u32 lo, hi;
+ 
+-	if (unlikely(do_select_core(bus, dev, &amp;offset)))
++	if (unlikely(select_core_and_segment(dev, &amp;offset)))
+ 		return 0xFFFFFFFF;
+-	x = readl(bus-&gt;mmio + offset);
++	lo = readw(bus-&gt;mmio + offset);
++	hi = readw(bus-&gt;mmio + offset + 2);
+ 
+-	return x;
++	return (lo | (hi &lt;&lt; 16));
+ }
+ 
+ static void ssb_pcmcia_write16(struct ssb_device *dev, u16 offset, u16 value)
+ {
+ 	struct ssb_bus *bus = dev-&gt;bus;
+ 
+-	if (unlikely(do_select_core(bus, dev, &amp;offset)))
++	if (unlikely(select_core_and_segment(dev, &amp;offset)))
+ 		return;
+ 	writew(value, bus-&gt;mmio + offset);
+ }
+@@ -215,12 +215,12 @@ static void ssb_pcmcia_write32(struct ss
+ {
+ 	struct ssb_bus *bus = dev-&gt;bus;
+ 
+-	if (unlikely(do_select_core(bus, dev, &amp;offset)))
++	if (unlikely(select_core_and_segment(dev, &amp;offset)))
+ 		return;
+-	readw(bus-&gt;mmio + offset);
+-	writew(value &gt;&gt; 16, bus-&gt;mmio + offset + 2);
+-	readw(bus-&gt;mmio + offset);
+-	writew(value, bus-&gt;mmio + offset);
++	writeb((value &amp; 0xFF000000) &gt;&gt; 24, bus-&gt;mmio + offset + 3);
++	writeb((value &amp; 0x00FF0000) &gt;&gt; 16, bus-&gt;mmio + offset + 2);
++	writeb((value &amp; 0x0000FF00) &gt;&gt; 8, bus-&gt;mmio + offset + 1);
++	writeb((value &amp; 0x000000FF) &gt;&gt; 0, bus-&gt;mmio + offset + 0);
+ }
+ 
+ /* Not &quot;static&quot;, as it's used in main.c */
+Index: wireless-2.6/drivers/ssb/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/ssb/main.c	2007-11-06 17:34:27.000000000 +0100
++++ wireless-2.6/drivers/ssb/main.c	2007-11-07 15:54:53.000000000 +0100
+@@ -440,6 +440,7 @@ static int ssb_devices_register(struct s
+ 			break;
+ 		case SSB_BUSTYPE_PCMCIA:
+ #ifdef CONFIG_SSB_PCMCIAHOST
++			sdev-&gt;irq = bus-&gt;host_pcmcia-&gt;irq.AssignedIRQ;
+ 			dev-&gt;parent = &amp;bus-&gt;host_pcmcia-&gt;dev;
+ #endif
+ 			break;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002684.html">[PATCH] b43legacy: fix shared IRQ race condition
+</A></li>
+	<LI>Next message: <A HREF="002687.html">[PATCH] b43: properly request pcmcia IRQ
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2686">[ date ]</a>
+              <a href="thread.html#2686">[ thread ]</a>
+              <a href="subject.html#2686">[ subject ]</a>
+              <a href="author.html#2686">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

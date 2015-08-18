@@ -1,0 +1,184 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> mac80211 sysfs interface
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mac80211%20sysfs%20interface&In-Reply-To=%3C69e28c910804151431x5cdbf688o982c00be7b402619%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003815.html">
+   <LINK REL="Next"  HREF="003820.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>mac80211 sysfs interface</H1>
+    <B>Stefanik G&#225;bor</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mac80211%20sysfs%20interface&In-Reply-To=%3C69e28c910804151431x5cdbf688o982c00be7b402619%40mail.gmail.com%3E"
+       TITLE="mac80211 sysfs interface">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Tue Apr 15 23:31:58 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003815.html">mac80211 sysfs interface
+</A></li>
+        <LI>Next message: <A HREF="003820.html">mac80211 sysfs interface
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3817">[ date ]</a>
+              <a href="thread.html#3817">[ thread ]</a>
+              <a href="subject.html#3817">[ subject ]</a>
+              <a href="author.html#3817">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Pavel, your syntax is not quite right. It's actually &quot;iw dev wmaster0
+interface add mon0 type monitor&quot; (for a Radiotap interface - replace
+&quot;monitor&quot; with &quot;managed&quot; for a STA interface). I'll write up some
+documentation on it when I have time.
+
+For the record, here is my conversation with Celejar about iw, which I
+accidentally didn't post to the list:
+
+
+
+---------- Forwarded message ----------
+From: Stefanik G&#225;bor &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+Date: Tue, Apr 15, 2008 at 3:08 PM
+Subject: Re: mac80211 sysfs interface
+To: Celejar &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">celejar at gmail.com</A>&gt;
+
+
+The usage information given by iw itself, is pretty much nonsense. The
+actual syntax is this: &quot;iw dev &lt;master device or an existing virtual
+interface&gt; interface add &lt;the interface you want to create&gt; type &lt;type of
+virtual interface&gt;&quot; for adding interfaces, and &quot;iw dev &lt;virtual interface
+you want to remove&gt; interface del&quot; for removing them. There is also an &quot;iw
+dev &lt;master device or existing VAP&gt; info&quot; command for information related to
+the device. When adding interfaces, the first parameter can be either the
+master device you want your VAP to point to, or an existing VAP pointing to
+the same master device, but NOT the PHY device as iw's help says, that is,
+&quot;wmaster0&quot;, &quot;wlan3&quot; and &quot;rtap0&quot; are correct for this parameter, but not
+&quot;phy0&quot;. The second parameter is the interface you want to create. I tend to
+name my interfaces &quot;wlanX&quot; for managed mode interfaces and &quot;rtapX&quot; for
+monitor interfaces, however you can use almost any name - I once did a
+penetration test of my own network with a managed interface called &quot;victim&quot;
+and a monitor/radiotap interface called &quot;hacker&quot;, to simulate the conditions
+of a real-world attack. I was Youtubing through &quot;victim&quot;, while monitoring
+on &quot;hacker&quot;, and managed to crack my own WEP key in 5 minutes. (That was
+when I switched to WPA.) The third parameter is possibly the most important
+one - the values you will most likely need are &quot;managed&quot; (to create a
+managed/STA device) and &quot;monitor&quot; (for a Radiotap monitor/promiscuous
+interface). So, the equivalent of &quot;echo -n mon0 &gt;
+/sys/class/ieee80211/phy0/add_iface&quot; is &quot;iw dev wmaster0 interface add mon0
+type monitor&quot; (not &quot;iw dev phy0 interface add mon0 mode monitor&quot; as the
+documentation suggests). The new interface will be in monitor mode
+immediately, so you don't need to put it into monitor mode before bringing
+it up. When removing interfaces, there is only one variable parameter, and
+that's the interface you are removing. So, the equivalent of &quot;echo -n mon0 &gt;
+/sys/class/ieee80211/phy0/remove_iface&quot; is &quot;iw dev mon0 interface del&quot;, and
+not &quot;iw dev phy0 interface del&quot; or &quot;iw dev phy0 interface del mon0&quot; as the
+documentation suggests.
+
+Note to the devs of iw: the syntax could be greatly simplified by removing
+the &quot;dev&quot; and &quot;interface&quot; (and possibly &quot;type&quot;) strings from the command
+line, so &quot;iw dev wmaster0 interface add mon0 type monitor&quot; would become &quot;iw
+wmaster0 add mon0 monitor&quot; or &quot;iw wmaster0 add mon0 mode monitor&quot;. Even
+better would be &quot;iw -a --phy=wmaster0 --mode=monitor mon0&quot;.
+
+On Tue, Apr 15, 2008 at 5:46 AM, Celejar &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">celejar at gmail.com</A>&gt; wrote:
+
+&gt;<i> On Tue, 15 Apr 2008 00:14:17 +0200
+</I>&gt;<i> &quot;Stefanik G&#225;bor&quot; &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt; wrote:
+</I>&gt;<i>
+</I>&gt;<i> &gt; Add_iface/remove_iface have been removed long ago, you need to use an
+</I>&gt;<i> &gt; nl80211 utility like iw or pynl80211 to add/remove virtual interfaces.
+</I>&gt;<i>
+</I>&gt;<i> Thanks much.  I managed to build it, and even edited the wiki page to
+</I>&gt;<i> reflect my experiences [0], but I'm having trouble figuring out the
+</I>&gt;<i> usage syntax.  Can you point me toward some sort of guide?
+</I>&gt;<i>
+</I>&gt;<i> [0] <A HREF="http://linuxwireless.org/en/users/Documentation/iw">http://linuxwireless.org/en/users/Documentation/iw</A>
+</I>&gt;<i>
+</I>&gt;<i> Celejar
+</I>&gt;<i> --
+</I>&gt;<i> mailmin.sourceforge.net - remote access via secure (OpenPGP) email
+</I>&gt;<i> ssuds.sourceforge.net - A Simple Sudoku Solver and Generator
+</I>&gt;<i>
+</I>&gt;<i>
+</I>
+--------------------------------------------------------------------------------------------------------
+
+
+On Tue, Apr 15, 2008 at 9:49 PM, Pavel Roskin &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">proski at gnu.org</A>&gt; wrote:
+
+&gt;<i> On Mon, 2008-04-14 at 09:52 -0400, Celejar wrote:
+</I>&gt;<i> &gt; Hi,
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; I'm playing with b43 with my BCM4318 (rev 02).  It seems to be working
+</I>&gt;<i> &gt; fine in station and monitor modes (currently 2.6.24 self compiled from
+</I>&gt;<i> &gt; Debian Sid packaged source), but I'm baffled by instructions I've seen
+</I>&gt;<i> &gt; (e.g. in the Packetspammer docs) that discuss adding monitor mode to my
+</I>&gt;<i> &gt; interface via something like &quot;echo -n mon0
+</I>&gt;<i> &gt; &gt; /sys/class/ieee80211/phy0/add_iface&quot;.  That directory on my system
+</I>&gt;<i> doesn't
+</I>&gt;<i> &gt; contain 'add_iface':
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; $ ls /sys/class/ieee80211/phy0/
+</I>&gt;<i> &gt; device  index  macaddress  power  subsystem  uevent
+</I>&gt;<i>
+</I>&gt;<i> Same thing here with wireless-testing.  I don't see any &quot;add_iface&quot; in
+</I>&gt;<i> the kernel sources.  Perhaps your documentation is obsolete.
+</I>&gt;<i>
+</I>&gt;<i> I guess you need iw:
+</I>&gt;<i> git-clone <A HREF="http://git.sipsolutions.net/iw.git">http://git.sipsolutions.net/iw.git</A>
+</I>&gt;<i>
+</I>&gt;<i> And then run something like this:
+</I>&gt;<i> iw type station dev wmaster0 interface add
+</I>&gt;<i>
+</I>&gt;<i> Sorry, iw is undocumented, so that's what I could figure out by reading
+</I>&gt;<i> the code.  If it doesn't work, please ask in
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linux-wireless at vger.kernel.org</A>
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i> Regards,
+</I>&gt;<i> Pavel Roskin
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Bcm43xx-dev mailing list
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080415/b3142642/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080415/b3142642/attachment.html</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003815.html">mac80211 sysfs interface
+</A></li>
+	<LI>Next message: <A HREF="003820.html">mac80211 sysfs interface
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3817">[ date ]</a>
+              <a href="thread.html#3817">[ thread ]</a>
+              <a href="subject.html#3817">[ subject ]</a>
+              <a href="author.html#3817">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

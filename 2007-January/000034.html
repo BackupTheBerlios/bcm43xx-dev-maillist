@@ -1,0 +1,233 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: Fix failure to deliver PCI-E interrupts
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20failure%20to%20deliver%20PCI-E%20interrupts&In-Reply-To=%3C200701121517.40539.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000030.html">
+   <LINK REL="Next"  HREF="000035.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: Fix failure to deliver PCI-E interrupts</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20failure%20to%20deliver%20PCI-E%20interrupts&In-Reply-To=%3C200701121517.40539.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] bcm43xx: Fix failure to deliver PCI-E interrupts">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jan 12 15:17:40 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000030.html">[PATCH] bcm43xx: Fix failure to deliver PCI-E interrupts
+</A></li>
+        <LI>Next message: <A HREF="000035.html">[PATCH] bcm43xx: Fix failure to deliver PCI-E interrupts
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#34">[ date ]</a>
+              <a href="thread.html#34">[ thread ]</a>
+              <a href="subject.html#34">[ subject ]</a>
+              <a href="author.html#34">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 12 January 2007 05:52, Larry Finger wrote:
+&gt;<i> The PCI-E modifications to bcm43xx do not set up the interrupt vector
+</I>&gt;<i> correctly.
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i> John,
+</I>&gt;<i> 
+</I>&gt;<i> This fix should be applied to wireless-2.6 _AND_ pushed upstream to
+</I>&gt;<i> 2.6.20-rcX. Without this patch, none of the PCI-E interfaces will work.
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> +++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> @@ -2704,7 +2704,7 @@ static int bcm43xx_probe_cores(struct bc
+</I>&gt;<i>  		sb_id_hi = bcm43xx_read32(bcm, BCM43xx_CIR_SB_ID_HI);
+</I>&gt;<i>  
+</I>&gt;<i>  		/* extract core_id, core_rev, core_vendor */
+</I>&gt;<i> -		core_id = (sb_id_hi &amp; 0xFFF0) &gt;&gt; 4;
+</I>&gt;<i> +		core_id = (sb_id_hi &amp; 0x8FF0) &gt;&gt; 4;
+</I>
+ACK. That one fixes a bug.
+
+&gt;<i>  		core_rev = (sb_id_hi &amp; 0xF);
+</I>
+This is also buggy. Should be something like:
+
+	core_rev = ((sb_id_hi &amp; 0xF) | ((sb_id_hi &amp; 0x7000) &gt;&gt; 8));
+
+&gt;<i>  		core_vendor = (sb_id_hi &amp; 0xFFFF0000) &gt;&gt; 16;
+</I>&gt;<i>  
+</I>&gt;<i> @@ -2717,7 +2717,7 @@ static int bcm43xx_probe_cores(struct bc
+</I>&gt;<i>  		case BCM43xx_COREID_PCIE:
+</I>&gt;<i>  			core = &amp;bcm-&gt;core_pci;
+</I>&gt;<i>  			if (core-&gt;available) {
+</I>&gt;<i> -				printk(KERN_WARNING PFX &quot;Multiple PCI cores found.\n&quot;);
+</I>&gt;<i> +				printk(KERN_WARNING PFX &quot;Multiple PCI/PCI-E cores found.\n&quot;);
+</I>&gt;<i>  				continue;
+</I>&gt;<i>  			}
+</I>&gt;<i>  			break;
+</I>&gt;<i> @@ -2872,11 +2872,14 @@ static int bcm43xx_wireless_core_init(st
+</I>&gt;<i>  	u32 sbimconfiglow;
+</I>&gt;<i>  	u8 limit;
+</I>&gt;<i>  
+</I>&gt;<i> -	if (bcm-&gt;core_pci.rev &lt;= 5 &amp;&amp; bcm-&gt;core_pci.id != BCM43xx_COREID_PCIE) {
+</I>&gt;<i> +	if (bcm-&gt;core_pci.rev &lt;= 5 &amp;&amp; bcm-&gt;core_pci.id == BCM43xx_COREID_PCI) {
+</I>
+That's semantically equal.
+
+&gt;<i>  		sbimconfiglow = bcm43xx_read32(bcm, BCM43xx_CIR_SBIMCONFIGLOW);
+</I>&gt;<i>  		sbimconfiglow &amp;= ~ BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
+</I>&gt;<i>  		sbimconfiglow &amp;= ~ BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
+</I>&gt;<i> -		sbimconfiglow |= 0x32;
+</I>&gt;<i> +		if (bcm-&gt;bustype == BCM43xx_BUSTYPE_PCI)
+</I>&gt;<i> +			sbimconfiglow |= 0x32;
+</I>&gt;<i> +		else
+</I>&gt;<i> +			sbimconfiglow |= 0x53;
+</I>
+That used to be there until someone ripped it out (not me). Not sure why.
+
+&gt;<i>  		bcm43xx_write32(bcm, BCM43xx_CIR_SBIMCONFIGLOW, sbimconfiglow);
+</I>&gt;<i>  	}
+</I>&gt;<i>  
+</I>&gt;<i> @@ -3070,6 +3073,7 @@ static int bcm43xx_setup_backplane_pci_c
+</I>&gt;<i>  	u32 backplane_flag_nr;
+</I>&gt;<i>  	u32 value;
+</I>&gt;<i>  	struct bcm43xx_coreinfo *old_core;
+</I>&gt;<i> +	struct bcm43xx_coreinfo *pci_core = &amp;bcm-&gt;core_pci ;
+</I>&gt;<i>  	int err = 0;
+</I>&gt;<i>  
+</I>&gt;<i>  	value = bcm43xx_read32(bcm, BCM43xx_CIR_SBTPSFLAG);
+</I>&gt;<i> @@ -3080,26 +3084,22 @@ static int bcm43xx_setup_backplane_pci_c
+</I>&gt;<i>  	if (err)
+</I>&gt;<i>  		goto out;
+</I>&gt;<i>  
+</I>&gt;<i> -	if (bcm-&gt;current_core-&gt;rev &lt; 6 ||
+</I>&gt;<i> -		bcm-&gt;current_core-&gt;id == BCM43xx_COREID_PCI) {
+</I>&gt;<i> -		value = bcm43xx_read32(bcm, BCM43xx_CIR_SBINTVEC);
+</I>&gt;<i> -		value |= (1 &lt;&lt; backplane_flag_nr);
+</I>&gt;<i> -		bcm43xx_write32(bcm, BCM43xx_CIR_SBINTVEC, value);
+</I>&gt;<i> -	} else {
+</I>&gt;<i> +	if ((pci_core-&gt;rev &gt;= 6) || (pci_core-&gt;id == BCM43xx_COREID_PCIE)) {
+</I>&gt;<i>  		err = bcm43xx_pci_read_config32(bcm, BCM43xx_PCICFG_ICR, &amp;value);
+</I>&gt;<i> -		if (err) {
+</I>&gt;<i> -			printk(KERN_ERR PFX &quot;Error: ICR setup failure!\n&quot;);
+</I>&gt;<i> +		if (err)
+</I>&gt;<i>  			goto out_switch_back;
+</I>&gt;<i> -		}
+</I>&gt;<i>  		value |= core_mask &lt;&lt; 8;
+</I>&gt;<i>  		err = bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_ICR, value);
+</I>&gt;<i> -		if (err) {
+</I>&gt;<i> -			printk(KERN_ERR PFX &quot;Error: ICR setup failure!\n&quot;);
+</I>&gt;<i> +		if (err)
+</I>&gt;<i>  			goto out_switch_back;
+</I>&gt;<i> -		}
+</I>&gt;<i> +	} else {
+</I>&gt;<i> +                err = -EINVAL;
+</I>&gt;<i> +                value = bcm43xx_read32(bcm, BCM43xx_CIR_SBINTVEC);
+</I>&gt;<i> +		value |= 1 &lt;&lt; backplane_flag_nr;
+</I>&gt;<i> +                bcm43xx_write32(bcm, BCM43xx_CIR_SBINTVEC, value);
+</I>&gt;<i>  	}
+</I>
+The above doesn't change semantics. Or am I simply not seeing it? :)
+Seems that it just shuffles the code.
+
+&gt;<i>  
+</I>&gt;<i> -	if (bcm-&gt;current_core-&gt;id == BCM43xx_COREID_PCI) {
+</I>&gt;<i> +	if (pci_core-&gt;id == BCM43xx_COREID_PCI) {
+</I>
+That's semantically equal.
+
+&gt;<i>  		value = bcm43xx_read32(bcm, BCM43xx_PCICORE_SBTOPCI2);
+</I>&gt;<i>  		value |= BCM43xx_SBTOPCI2_PREFETCH | BCM43xx_SBTOPCI2_BURST;
+</I>&gt;<i>  		bcm43xx_write32(bcm, BCM43xx_PCICORE_SBTOPCI2, value);
+</I>&gt;<i> @@ -3118,21 +3118,21 @@ static int bcm43xx_setup_backplane_pci_c
+</I>&gt;<i>  			value |= BCM43xx_SBTOPCI2_MEMREAD_MULTI;
+</I>&gt;<i>  			bcm43xx_write32(bcm, BCM43xx_PCICORE_SBTOPCI2, value);
+</I>&gt;<i>  		}
+</I>&gt;<i> -	} else {
+</I>&gt;<i> -		if (bcm-&gt;current_core-&gt;rev == 0 || bcm-&gt;current_core-&gt;rev == 1) {
+</I>&gt;<i> +	} else if (pci_core-&gt;id == BCM43xx_COREID_PCIE) {
+</I>
+That's redundant. If it's not a PCI core, it must be a PCIE core.
+
+&gt;<i> +		if (pci_core-&gt;rev == 0 || pci_core-&gt;rev == 1) {
+</I>
+Semantically equal.
+
+&gt;<i>  			value = bcm43xx_pcie_reg_read(bcm, BCM43xx_PCIE_TLP_WORKAROUND);
+</I>&gt;<i>  			value |= 0x8;
+</I>&gt;<i>  			bcm43xx_pcie_reg_write(bcm, BCM43xx_PCIE_TLP_WORKAROUND,
+</I>&gt;<i>  					       value);
+</I>&gt;<i>  		}
+</I>&gt;<i> -		if (bcm-&gt;current_core-&gt;rev == 0) {
+</I>&gt;<i> +		if (pci_core-&gt;rev == 0) {
+</I>
+dito
+
+&gt;<i>  			bcm43xx_pcie_mdio_write(bcm, BCM43xx_MDIO_SERDES_RX,
+</I>&gt;<i>  						BCM43xx_SERDES_RXTIMER, 0x8128);
+</I>&gt;<i>  			bcm43xx_pcie_mdio_write(bcm, BCM43xx_MDIO_SERDES_RX,
+</I>&gt;<i>  						BCM43xx_SERDES_CDR, 0x0100);
+</I>&gt;<i>  			bcm43xx_pcie_mdio_write(bcm, BCM43xx_MDIO_SERDES_RX,
+</I>&gt;<i>  						BCM43xx_SERDES_CDR_BW, 0x1466);
+</I>&gt;<i> -		} else if (bcm-&gt;current_core-&gt;rev == 1) {
+</I>&gt;<i> +		} else if (pci_core-&gt;rev == 1) {
+</I>
+dito
+
+&gt;<i>  			value = bcm43xx_pcie_reg_read(bcm, BCM43xx_PCIE_DLLP_LINKCTL);
+</I>&gt;<i>  			value |= 0x40;
+</I>&gt;<i>  			bcm43xx_pcie_reg_write(bcm, BCM43xx_PCIE_DLLP_LINKCTL,
+</I>&gt;<i> @@ -3141,6 +3141,7 @@ static int bcm43xx_setup_backplane_pci_c
+</I>&gt;<i>  	}
+</I>&gt;<i>  out_switch_back:
+</I>&gt;<i>  	err = bcm43xx_switch_core(bcm, old_core);
+</I>&gt;<i> +	printk(KERN_ERR PFX &quot;Error: ICR setup failure!\n&quot;);
+</I>&gt;<i>  out:
+</I>&gt;<i>  	return err;
+</I>&gt;<i>  }
+</I>&gt;<i> 
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000030.html">[PATCH] bcm43xx: Fix failure to deliver PCI-E interrupts
+</A></li>
+	<LI>Next message: <A HREF="000035.html">[PATCH] bcm43xx: Fix failure to deliver PCI-E interrupts
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#34">[ date ]</a>
+              <a href="thread.html#34">[ thread ]</a>
+              <a href="subject.html#34">[ subject ]</a>
+              <a href="author.html#34">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

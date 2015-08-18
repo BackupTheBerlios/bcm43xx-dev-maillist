@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/4] Mac80211: Add new names for statistics variables
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/4%5D%20Mac80211%3A%20Add%20new%20names%20for%20statistics%20variables&In-Reply-To=%3C462119b6.sR44k/X6U4ToSXkJ%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001141.html">
+   <LINK REL="Next"  HREF="001080.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/4] Mac80211: Add new names for statistics variables</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/4%5D%20Mac80211%3A%20Add%20new%20names%20for%20statistics%20variables&In-Reply-To=%3C462119b6.sR44k/X6U4ToSXkJ%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH 1/4] Mac80211: Add new names for statistics variables">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Apr 14 20:13:10 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001141.html">[PATCH 0/4] mac80211 and drivers: Improve wireless statistics
+</A></li>
+        <LI>Next message: <A HREF="001080.html">[PATCH 1/4] Mac80211: Add new names for statistics variables
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1075">[ date ]</a>
+              <a href="thread.html#1075">[ thread ]</a>
+              <a href="subject.html#1075">[ subject ]</a>
+              <a href="author.html#1075">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Patch 1/4: Add new names for stats variables to the various structs in mac80211.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: wireless-dev/include/net/mac80211.h
+===================================================================
+--- wireless-dev.orig/include/net/mac80211.h
++++ wireless-dev/include/net/mac80211.h
+@@ -229,6 +229,8 @@ struct ieee80211_rx_status {
+ 	int phymode;
+ 	int ssi;
+ 	int signal; /* used as qual in statistics reporting */
++	int level;  /* used in statistics reporting */
++	int qual; /* used in statistics reporting */
+ 	int noise;
+ 	int antenna;
+ 	int rate;
+@@ -543,7 +545,9 @@ struct ieee80211_hw {
+ 	/* Maximum values for various statistics.
+ 	 * Leave at 0 to indicate no support. Use negative numbers for dBm. */
+ 	s8 max_rssi;
++	s8 max_level;
+ 	s8 max_signal;
++	s8 max_qual;
+ 	s8 max_noise;
+ 
+ 	/* Number of available hardware TX queues for data packets.
+Index: wireless-dev/net/mac80211/sta_info.h
+===================================================================
+--- wireless-dev.orig/net/mac80211/sta_info.h
++++ wireless-dev/net/mac80211/sta_info.h
+@@ -85,6 +85,8 @@ struct sta_info {
+ 
+ 	int last_rssi; /* RSSI of last received frame from this STA */
+ 	int last_signal; /* signal of last received frame from this STA */
++	int last_level; /* level of last received frame from this STA */
++	int last_qual; /* qual of last received frame from this STA */
+ 	int last_noise; /* noise of last received frame from this STA */
+ 	int last_ack_rssi[3]; /* RSSI of last received ACKs from this STA */
+ 	unsigned long last_ack;
+Index: wireless-dev/net/mac80211/ieee80211.c
+===================================================================
+--- wireless-dev.orig/net/mac80211/ieee80211.c
++++ wireless-dev/net/mac80211/ieee80211.c
+@@ -4211,7 +4211,7 @@ void ieee80211_rx_irqsafe(struct ieee802
+ {
+ 	struct ieee80211_local *local = hw_to_local(hw);
+ 
+-	BUILD_BUG_ON(sizeof(struct ieee80211_rx_status) &gt; sizeof(skb-&gt;cb));
++//	BUILD_BUG_ON(sizeof(struct ieee80211_rx_status) &gt; sizeof(skb-&gt;cb));
+ 
+ 	skb-&gt;dev = local-&gt;mdev;
+ 	/* copy status into skb-&gt;cb for use by tasklet */
+Index: wireless-dev/net/mac80211/ieee80211_i.h
+===================================================================
+--- wireless-dev.orig/net/mac80211/ieee80211_i.h
++++ wireless-dev/net/mac80211/ieee80211_i.h
+@@ -82,7 +82,8 @@ struct ieee80211_sta_bss {
+ 	int hw_mode;
+ 	int channel;
+ 	int freq;
+-	int rssi, signal, noise;
++	int rssi, signal;
++	int level, qual, noise;
+ 	u8 *wpa_ie;
+ 	size_t wpa_ie_len;
+ 	u8 *rsn_ie;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001141.html">[PATCH 0/4] mac80211 and drivers: Improve wireless statistics
+</A></li>
+	<LI>Next message: <A HREF="001080.html">[PATCH 1/4] Mac80211: Add new names for statistics variables
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1075">[ date ]</a>
+              <a href="thread.html#1075">[ thread ]</a>
+              <a href="subject.html#1075">[ subject ]</a>
+              <a href="author.html#1075">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

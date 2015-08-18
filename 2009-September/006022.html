@@ -1,0 +1,551 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add Soft-MAC SDIO device support
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20Soft-MAC%20SDIO%20device%20support&In-Reply-To=%3C200909101934.50283.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006020.html">
+   <LINK REL="Next"  HREF="006030.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add Soft-MAC SDIO device support</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20Soft-MAC%20SDIO%20device%20support&In-Reply-To=%3C200909101934.50283.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add Soft-MAC SDIO device support">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Sep 10 19:34:49 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006020.html">b43 dma error
+</A></li>
+        <LI>Next message: <A HREF="006030.html">[PATCH] b43: Add Soft-MAC SDIO device support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6022">[ date ]</a>
+              <a href="thread.html#6022">[ thread ]</a>
+              <a href="subject.html#6022">[ subject ]</a>
+              <a href="author.html#6022">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: Albert Herranz &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">albert_herranz at yahoo.es</A>&gt;
+
+This adds support for Soft-MAC SDIO devices to b43.
+The driver still lacks some fixes for SDIO devices, so it's currently
+marked as BROKEN.
+
+Signed-off-by: Albert Herranz &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">albert_herranz at yahoo.es</A>&gt;
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+Depends on the SSB SDIO patch.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/Kconfig
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/Kconfig	2009-09-10 19:23:09.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/Kconfig	2009-09-10 19:33:24.000000000 +0200
+@@ -61,11 +61,28 @@ config B43_PCMCIA
+ 
+ 	  If unsure, say N.
+ 
++config B43_SDIO
++	bool &quot;Broadcom 43xx SDIO device support (EXPERIMENTAL)&quot;
++	depends on B43 &amp;&amp; SSB_SDIOHOST_POSSIBLE &amp;&amp; EXPERIMENTAL &amp;&amp; BROKEN
++	select SSB_SDIOHOST
++	---help---
++	  Broadcom 43xx device support for Soft-MAC SDIO devices.
++
++	  With this config option you can drive Soft-MAC b43 cards with a
++	  Secure Digital I/O interface.
++	  This includes the WLAN daughter card found on the Nintendo Wii
++	  video game console.
++	  Note that this does not support Broadcom 43xx Full-MAC devices.
++
++	  It's safe to select Y here, even if you don't have a B43 SDIO device.
++
++	  If unsure, say N.
++
+ # Data transfers to the device via PIO
+-# This is only needed on PCMCIA devices. All others can do DMA properly.
++# This is only needed on PCMCIA and SDIO devices. All others can do DMA properly.
+ config B43_PIO
+ 	bool
+-	depends on B43 &amp;&amp; (B43_PCMCIA || B43_FORCE_PIO)
++	depends on B43 &amp;&amp; (B43_SDIO || B43_PCMCIA || B43_FORCE_PIO)
+ 	select SSB_BLOCKIO
+ 	default y
+ 
+Index: wireless-testing/drivers/net/wireless/b43/Makefile
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/Makefile	2009-09-10 19:23:09.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/Makefile	2009-09-10 19:23:20.000000000 +0200
+@@ -16,6 +16,7 @@ b43-$(CONFIG_B43_PIO)		+= pio.o
+ b43-y				+= rfkill.o
+ b43-$(CONFIG_B43_LEDS)		+= leds.o
+ b43-$(CONFIG_B43_PCMCIA)	+= pcmcia.o
++b43-$(CONFIG_B43_SDIO)		+= sdio.o
+ b43-$(CONFIG_B43_DEBUG)		+= debugfs.o
+ 
+ obj-$(CONFIG_B43)		+= b43.o
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2009-09-10 19:23:09.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2009-09-10 19:23:20.000000000 +0200
+@@ -8,6 +8,9 @@
+   Copyright (c) 2005 Danny van Dyk &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">kugelfang at gentoo.org</A>&gt;
+   Copyright (c) 2005 Andreas Jaggi &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">andreas.jaggi at waterwave.ch</A>&gt;
+ 
++  SDIO support
++  Copyright (c) 2009 Albert Herranz &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">albert_herranz at yahoo.es</A>&gt;
++
+   Some parts of the code in this file are derived from the ipw2200
+   driver  Copyright(c) 2003 - 2004 Intel Corporation.
+ 
+@@ -53,6 +56,8 @@
+ #include &quot;xmit.h&quot;
+ #include &quot;lo.h&quot;
+ #include &quot;pcmcia.h&quot;
++#include &quot;sdio.h&quot;
++#include &lt;linux/mmc/sdio_func.h&gt;
+ 
+ MODULE_DESCRIPTION(&quot;Broadcom B43 wireless driver&quot;);
+ MODULE_AUTHOR(&quot;Martin Langer&quot;);
+@@ -1587,7 +1592,7 @@ static void b43_beacon_update_trigger_wo
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 	dev = wl-&gt;current_dev;
+ 	if (likely(dev &amp;&amp; (b43_status(dev) &gt;= B43_STAT_INITIALIZED))) {
+-		if (0 /*FIXME dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO*/) {
++		if (dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO) {
+ 			/* wl-&gt;mutex is enough. */
+ 			b43_do_beacon_update_trigger_work(dev);
+ 			mmiowb();
+@@ -1905,6 +1910,27 @@ static irqreturn_t b43_interrupt_handler
+ 	return ret;
+ }
+ 
++/* SDIO interrupt handler. This runs in process context. */
++static void b43_sdio_interrupt_handler(struct b43_wldev *dev)
++{
++	struct b43_wl *wl = dev-&gt;wl;
++	struct sdio_func *func = dev-&gt;dev-&gt;bus-&gt;host_sdio;
++	irqreturn_t ret;
++
++	if (unlikely(b43_status(dev) &lt; B43_STAT_STARTED))
++		return;
++
++	mutex_lock(&amp;wl-&gt;mutex);
++	sdio_release_host(func);
++
++	ret = b43_do_interrupt(dev);
++	if (ret == IRQ_WAKE_THREAD)
++		b43_do_interrupt_thread(dev);
++
++	sdio_claim_host(func);
++	mutex_unlock(&amp;wl-&gt;mutex);
++}
++
+ void b43_do_release_fw(struct b43_firmware_file *fw)
+ {
+ 	release_firmware(fw-&gt;data);
+@@ -3828,7 +3854,7 @@ redo:
+ 
+ 	/* Disable interrupts on the device. */
+ 	b43_set_status(dev, B43_STAT_INITIALIZED);
+-	if (0 /*FIXME dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO*/) {
++	if (dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO) {
+ 		/* wl-&gt;mutex is locked. That is enough. */
+ 		b43_write32(dev, B43_MMIO_GEN_IRQ_MASK, 0);
+ 		b43_read32(dev, B43_MMIO_GEN_IRQ_MASK);	/* Flush */
+@@ -3858,7 +3884,10 @@ redo:
+ 		dev_kfree_skb(skb_dequeue(&amp;wl-&gt;tx_queue));
+ 
+ 	b43_mac_suspend(dev);
+-	free_irq(dev-&gt;dev-&gt;irq, dev);
++	if (dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO)
++		b43_sdio_free_irq(dev);
++	else
++		free_irq(dev-&gt;dev-&gt;irq, dev);
+ 	b43_leds_exit(dev);
+ 	b43dbg(wl, &quot;Wireless interface stopped\n&quot;);
+ 
+@@ -3873,12 +3902,20 @@ static int b43_wireless_core_start(struc
+ 	B43_WARN_ON(b43_status(dev) != B43_STAT_INITIALIZED);
+ 
+ 	drain_txstatus_queue(dev);
+-	err = request_threaded_irq(dev-&gt;dev-&gt;irq, b43_interrupt_handler,
+-				   b43_interrupt_thread_handler,
+-				   IRQF_SHARED, KBUILD_MODNAME, dev);
+-	if (err) {
+-		b43err(dev-&gt;wl, &quot;Cannot request IRQ-%d\n&quot;, dev-&gt;dev-&gt;irq);
+-		goto out;
++	if (dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO) {
++		err = b43_sdio_request_irq(dev, b43_sdio_interrupt_handler);
++		if (err) {
++			b43err(dev-&gt;wl, &quot;Cannot request SDIO IRQ\n&quot;);
++			goto out;
++		}
++	} else {
++		err = request_threaded_irq(dev-&gt;dev-&gt;irq, b43_interrupt_handler,
++					   b43_interrupt_thread_handler,
++					   IRQF_SHARED, KBUILD_MODNAME, dev);
++		if (err) {
++			b43err(dev-&gt;wl, &quot;Cannot request IRQ-%d\n&quot;, dev-&gt;dev-&gt;irq);
++			goto out;
++		}
+ 	}
+ 
+ 	/* We are ready to run. */
+@@ -4270,7 +4307,9 @@ static int b43_wireless_core_init(struct
+ 	/* Maximum Contention Window */
+ 	b43_shm_write16(dev, B43_SHM_SCRATCH, B43_SHM_SC_MAXCONT, 0x3FF);
+ 
+-	if ((dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_PCMCIA) || B43_FORCE_PIO) {
++	if ((dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_PCMCIA) ||
++	    (dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO) ||
++	    B43_FORCE_PIO) {
+ 		dev-&gt;__using_pio_transfers = 1;
+ 		err = b43_pio_init(dev);
+ 	} else {
+@@ -4944,7 +4983,7 @@ static struct ssb_driver b43_ssb_driver 
+ static void b43_print_driverinfo(void)
+ {
+ 	const char *feat_pci = &quot;&quot;, *feat_pcmcia = &quot;&quot;, *feat_nphy = &quot;&quot;,
+-		   *feat_leds = &quot;&quot;;
++		   *feat_leds = &quot;&quot;, *feat_sdio = &quot;&quot;;
+ 
+ #ifdef CONFIG_B43_PCI_AUTOSELECT
+ 	feat_pci = &quot;P&quot;;
+@@ -4958,11 +4997,14 @@ static void b43_print_driverinfo(void)
+ #ifdef CONFIG_B43_LEDS
+ 	feat_leds = &quot;L&quot;;
+ #endif
++#ifdef CONFIG_B43_SDIO
++	feat_sdio = &quot;S&quot;;
++#endif
+ 	printk(KERN_INFO &quot;Broadcom 43xx driver loaded &quot;
+-	       &quot;[ Features: %s%s%s%s, Firmware-ID: &quot;
++	       &quot;[ Features: %s%s%s%s%s, Firmware-ID: &quot;
+ 	       B43_SUPPORTED_FIRMWARE_ID &quot; ]\n&quot;,
+ 	       feat_pci, feat_pcmcia, feat_nphy,
+-	       feat_leds);
++	       feat_leds, feat_sdio);
+ }
+ 
+ static int __init b43_init(void)
+@@ -4973,13 +5015,18 @@ static int __init b43_init(void)
+ 	err = b43_pcmcia_init();
+ 	if (err)
+ 		goto err_dfs_exit;
+-	err = ssb_driver_register(&amp;b43_ssb_driver);
++	err = b43_sdio_init();
+ 	if (err)
+ 		goto err_pcmcia_exit;
++	err = ssb_driver_register(&amp;b43_ssb_driver);
++	if (err)
++		goto err_sdio_exit;
+ 	b43_print_driverinfo();
+ 
+ 	return err;
+ 
++err_sdio_exit:
++	b43_sdio_exit();
+ err_pcmcia_exit:
+ 	b43_pcmcia_exit();
+ err_dfs_exit:
+@@ -4990,6 +5037,7 @@ err_dfs_exit:
+ static void __exit b43_exit(void)
+ {
+ 	ssb_driver_unregister(&amp;b43_ssb_driver);
++	b43_sdio_exit();
+ 	b43_pcmcia_exit();
+ 	b43_debugfs_exit();
+ }
+Index: wireless-testing/drivers/net/wireless/b43/sdio.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ wireless-testing/drivers/net/wireless/b43/sdio.c	2009-09-10 19:23:20.000000000 +0200
+@@ -0,0 +1,197 @@
++/*
++ * Broadcom B43 wireless driver
++ *
++ * SDIO over Sonics Silicon Backplane bus glue for b43.
++ *
++ * Copyright (C) 2009 Albert Herranz
++ * Copyright (C) 2009 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or (at
++ * your option) any later version.
++ */
++
++#include &lt;linux/kernel.h&gt;
++#include &lt;linux/mmc/card.h&gt;
++#include &lt;linux/mmc/sdio_func.h&gt;
++#include &lt;linux/mmc/sdio_ids.h&gt;
++#include &lt;linux/ssb/ssb.h&gt;
++
++#include &quot;sdio.h&quot;
++#include &quot;b43.h&quot;
++
++
++#define HNBU_CHIPID		0x01	/* vendor &amp; device id */
++
++#define B43_SDIO_BLOCK_SIZE	64	/* rx fifo max size in bytes */
++
++
++static const struct b43_sdio_quirk {
++	u16 vendor;
++	u16 device;
++	unsigned int quirks;
++} b43_sdio_quirks[] = {
++	{ 0x14E4, 0x4318, SSB_QUIRK_SDIO_READ_AFTER_WRITE32, },
++	{ },
++};
++
++
++static unsigned int b43_sdio_get_quirks(u16 vendor, u16 device)
++{
++	const struct b43_sdio_quirk *q;
++
++	for (q = b43_sdio_quirks; q-&gt;quirks; q++) {
++		if (vendor == q-&gt;vendor &amp;&amp; device == q-&gt;device)
++			return q-&gt;quirks;
++	}
++
++	return 0;
++}
++
++static void b43_sdio_interrupt_dispatcher(struct sdio_func *func)
++{
++	struct b43_sdio *sdio = sdio_get_drvdata(func);
++	struct b43_wldev *dev = sdio-&gt;irq_handler_opaque;
++
++	sdio-&gt;irq_handler(dev);
++}
++
++int b43_sdio_request_irq(struct b43_wldev *dev,
++			 void (*handler)(struct b43_wldev *dev))
++{
++	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
++	struct sdio_func *func = bus-&gt;host_sdio;
++	struct b43_sdio *sdio = sdio_get_drvdata(func);
++	int err;
++
++	sdio-&gt;irq_handler_opaque = dev;
++	sdio-&gt;irq_handler = handler;
++	sdio_claim_host(func);
++	err = sdio_claim_irq(func, b43_sdio_interrupt_dispatcher);
++	sdio_release_host(func);
++
++	return err;
++}
++
++void b43_sdio_free_irq(struct b43_wldev *dev)
++{
++	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
++	struct sdio_func *func = bus-&gt;host_sdio;
++	struct b43_sdio *sdio = sdio_get_drvdata(func);
++
++	sdio_claim_host(func);
++	sdio_release_irq(func);
++	sdio_release_host(func);
++	sdio-&gt;irq_handler_opaque = NULL;
++	sdio-&gt;irq_handler = NULL;
++}
++
++static int b43_sdio_probe(struct sdio_func *func,
++			  const struct sdio_device_id *id)
++{
++	struct b43_sdio *sdio;
++	struct sdio_func_tuple *tuple;
++	u16 vendor = 0, device = 0;
++	int error;
++
++	/* Look for the card chip identifier. */
++	tuple = func-&gt;tuples;
++	while (tuple) {
++		switch (tuple-&gt;code) {
++		case 0x80:
++			switch (tuple-&gt;data[0]) {
++			case HNBU_CHIPID:
++				if (tuple-&gt;size != 5)
++					break;
++				vendor = tuple-&gt;data[1] | (tuple-&gt;data[2]&lt;&lt;8);
++				device = tuple-&gt;data[3] | (tuple-&gt;data[4]&lt;&lt;8);
++				dev_info(&amp;func-&gt;dev, &quot;Chip ID %04x:%04x\n&quot;,
++					 vendor, device);
++				break;
++			default:
++				break;
++			}
++			break;
++		default:
++			break;
++		}
++		tuple = tuple-&gt;next;
++	}
++	if (!vendor || !device) {
++		error = -ENODEV;
++		goto out;
++	}
++
++	sdio_claim_host(func);
++	error = sdio_set_block_size(func, B43_SDIO_BLOCK_SIZE);
++	if (error) {
++		dev_err(&amp;func-&gt;dev, &quot;failed to set block size to %u bytes,&quot;
++			&quot; error %d\n&quot;, B43_SDIO_BLOCK_SIZE, error);
++		goto err_release_host;
++	}
++	error = sdio_enable_func(func);
++	if (error) {
++		dev_err(&amp;func-&gt;dev, &quot;failed to enable func, error %d\n&quot;, error);
++		goto err_release_host;
++	}
++	sdio_release_host(func);
++
++	sdio = kzalloc(sizeof(*sdio), GFP_KERNEL);
++	if (!sdio) {
++		error = -ENOMEM;
++		dev_err(&amp;func-&gt;dev, &quot;failed to allocate ssb bus\n&quot;);
++		goto err_disable_func;
++	}
++	error = ssb_bus_sdiobus_register(&amp;sdio-&gt;ssb, func,
++					 b43_sdio_get_quirks(vendor, device));
++	if (error) {
++		dev_err(&amp;func-&gt;dev, &quot;failed to register ssb sdio bus,&quot;
++			&quot; error %d\n&quot;, error);
++		goto err_free_ssb;
++	}
++	sdio_set_drvdata(func, sdio);
++
++	return 0;
++
++err_free_ssb:
++	kfree(sdio);
++err_disable_func:
++	sdio_disable_func(func);
++err_release_host:
++	sdio_release_host(func);
++out:
++	return error;
++}
++
++static void b43_sdio_remove(struct sdio_func *func)
++{
++	struct b43_sdio *sdio = sdio_get_drvdata(func);
++
++	ssb_bus_unregister(&amp;sdio-&gt;ssb);
++	sdio_disable_func(func);
++	kfree(sdio);
++	sdio_set_drvdata(func, NULL);
++}
++
++static const struct sdio_device_id b43_sdio_ids[] = {
++	{ SDIO_DEVICE(0x02d0, 0x044b) }, /* Nintendo Wii WLAN daughter card */
++	{ },
++};
++
++static struct sdio_driver b43_sdio_driver = {
++	.name		= &quot;b43-sdio&quot;,
++	.id_table	= b43_sdio_ids,
++	.probe		= b43_sdio_probe,
++	.remove		= b43_sdio_remove,
++};
++
++int b43_sdio_init(void)
++{
++	return sdio_register_driver(&amp;b43_sdio_driver);
++}
++
++void b43_sdio_exit(void)
++{
++	sdio_unregister_driver(&amp;b43_sdio_driver);
++}
+Index: wireless-testing/drivers/net/wireless/b43/sdio.h
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ wireless-testing/drivers/net/wireless/b43/sdio.h	2009-09-10 19:23:20.000000000 +0200
+@@ -0,0 +1,45 @@
++#ifndef B43_SDIO_H_
++#define B43_SDIO_H_
++
++#include &lt;linux/ssb/ssb.h&gt;
++
++struct b43_wldev;
++
++
++#ifdef CONFIG_B43_SDIO
++
++struct b43_sdio {
++	struct ssb_bus ssb;
++	void *irq_handler_opaque;
++	void (*irq_handler)(struct b43_wldev *dev);
++};
++
++int b43_sdio_request_irq(struct b43_wldev *dev,
++			 void (*handler)(struct b43_wldev *dev));
++void b43_sdio_free_irq(struct b43_wldev *dev);
++
++int b43_sdio_init(void);
++void b43_sdio_exit(void);
++
++
++#else /* CONFIG_B43_SDIO */
++
++
++int b43_sdio_request_irq(struct b43_wldev *dev,
++			 void (*handler)(struct b43_wldev *dev))
++{
++	return -ENODEV;
++}
++void b43_sdio_free_irq(struct b43_wldev *dev)
++{
++}
++static inline int b43_sdio_init(void)
++{
++	return 0;
++}
++static inline void b43_sdio_exit(void)
++{
++}
++
++#endif /* CONFIG_B43_SDIO */
++#endif /* B43_SDIO_H_ */
+
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006020.html">b43 dma error
+</A></li>
+	<LI>Next message: <A HREF="006030.html">[PATCH] b43: Add Soft-MAC SDIO device support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6022">[ date ]</a>
+              <a href="thread.html#6022">[ thread ]</a>
+              <a href="subject.html#6022">[ subject ]</a>
+              <a href="author.html#6022">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

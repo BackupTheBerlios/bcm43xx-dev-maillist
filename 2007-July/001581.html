@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] [bcm43xx-mac80211] Fix pci flush in bcm43xx_mac_suspend
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20%5Bbcm43xx-mac80211%5D%20Fix%20pci%20flush%20in%20bcm43xx_mac_suspend&In-Reply-To=%3C1185427024671-git-send-email-will.dyson%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001580.html">
+   <LINK REL="Next"  HREF="001601.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] [bcm43xx-mac80211] Fix pci flush in bcm43xx_mac_suspend</H1>
+    <B>Will Dyson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20%5Bbcm43xx-mac80211%5D%20Fix%20pci%20flush%20in%20bcm43xx_mac_suspend&In-Reply-To=%3C1185427024671-git-send-email-will.dyson%40gmail.com%3E"
+       TITLE="[PATCH] [bcm43xx-mac80211] Fix pci flush in bcm43xx_mac_suspend">will.dyson at gmail.com
+       </A><BR>
+    <I>Thu Jul 26 07:17:04 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001580.html">An entry for the device list
+</A></li>
+        <LI>Next message: <A HREF="001601.html">[PATCH] [bcm43xx-mac80211] Fix pci flush in bcm43xx_mac_suspend
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1581">[ date ]</a>
+              <a href="thread.html#1581">[ thread ]</a>
+              <a href="subject.html#1581">[ subject ]</a>
+              <a href="author.html#1581">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Fix bcm43xx_mac_suspend to flush the status register that we wrote to,
+instead of the register where the result will appear. Improve the comment.
+
+I was getting many mac suspend failures, now it only happens occasionally.
+
+Signed-off-by: Will Dyson &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">will.dyson at gmail.com</A>&gt;
+---
+ .../net/wireless/bcm43xx-mac80211/bcm43xx_main.c   |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c b/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+index eefc536..4cf671a 100644
+--- a/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
++++ b/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+@@ -1875,7 +1875,8 @@ void bcm43xx_mac_suspend(struct bcm43xx_wldev *dev)
+ 		bcm43xx_write32(dev, BCM43xx_MMIO_STATUS_BITFIELD,
+ 		                bcm43xx_read32(dev, BCM43xx_MMIO_STATUS_BITFIELD)
+ 				&amp; ~BCM43xx_SBF_MAC_ENABLED);
+-		bcm43xx_read32(dev, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy read */
++		/* force pci to flush the write */
++		bcm43xx_read32(dev, BCM43xx_MMIO_STATUS_BITFIELD);
+ 		for (i = 10000; i; i--) {
+ 			tmp = bcm43xx_read32(dev, BCM43xx_MMIO_GEN_IRQ_REASON);
+ 			if (tmp &amp; BCM43xx_IRQ_MAC_SUSPENDED)
+-- 
+1.5.2.4
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001580.html">An entry for the device list
+</A></li>
+	<LI>Next message: <A HREF="001601.html">[PATCH] [bcm43xx-mac80211] Fix pci flush in bcm43xx_mac_suspend
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1581">[ date ]</a>
+              <a href="thread.html#1581">[ thread ]</a>
+              <a href="subject.html#1581">[ subject ]</a>
+              <a href="author.html#1581">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

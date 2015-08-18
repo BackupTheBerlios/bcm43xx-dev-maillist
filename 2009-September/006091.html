@@ -1,0 +1,136 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: fix build error if !CONFIG_B43_LEDS
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20fix%20build%20error%20if%20%21CONFIG_B43_LEDS&In-Reply-To=%3C200909160024.15475.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006094.html">
+   <LINK REL="Next"  HREF="006092.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: fix build error if !CONFIG_B43_LEDS</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20fix%20build%20error%20if%20%21CONFIG_B43_LEDS&In-Reply-To=%3C200909160024.15475.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: fix build error if !CONFIG_B43_LEDS">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Sep 16 00:24:12 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006094.html">[PATCH - RFC] Add lpphy_update_tx_power_npt for LP PHY
+</A></li>
+        <LI>Next message: <A HREF="006092.html">[PATCH] b43: fix build error if !CONFIG_B43_LEDS
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6091">[ date ]</a>
+              <a href="thread.html#6091">[ thread ]</a>
+              <a href="subject.html#6091">[ subject ]</a>
+              <a href="author.html#6091">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tuesday 15 September 2009 22:32:54 Albert Herranz wrote:
+&gt;<i> Fix the following build error when CONFIG_B43_LEDS is not selected:
+</I>&gt;<i> 
+</I>&gt;<i> drivers/net/wireless/b43/main.c: In function 'b43_remove':
+</I>&gt;<i> drivers/net/wireless/b43/main.c:4990: error: 'struct b43_leds' has no member named 'stop'
+</I>&gt;<i> drivers/net/wireless/b43/main.c:4991: error: 'struct b43_leds' has no member named 'work'
+</I>&gt;<i> make[4]: *** [drivers/net/wireless/b43/main.o] Error 1
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Albert Herranz &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">albert_herranz at yahoo.es</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i>  drivers/net/wireless/b43/leds.c |    8 ++++++++
+</I>&gt;<i>  drivers/net/wireless/b43/leds.h |    4 ++++
+</I>&gt;<i>  drivers/net/wireless/b43/main.c |    3 +--
+</I>&gt;<i>  3 files changed, 13 insertions(+), 2 deletions(-)
+</I>&gt;<i> 
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/leds.c b/drivers/net/wireless/b43/leds.c
+</I>&gt;<i> index fbe31e0..fbe3d4f 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/leds.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/leds.c
+</I>&gt;<i> @@ -325,6 +325,14 @@ void b43_leds_exit(struct b43_wldev *dev)
+</I>&gt;<i>  	b43_led_turn_off(dev, leds-&gt;led_radio.index, leds-&gt;led_radio.activelow);
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i> +void b43_leds_stop(struct b43_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +	struct b43_leds *leds = &amp;dev-&gt;wl-&gt;leds;
+</I>&gt;<i> +
+</I>&gt;<i> +	leds-&gt;stop = 1;
+</I>&gt;<i> +	cancel_work_sync(&amp;leds-&gt;work);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i>  void b43_leds_register(struct b43_wldev *dev)
+</I>&gt;<i>  {
+</I>&gt;<i>  	unsigned int i;
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/leds.h b/drivers/net/wireless/b43/leds.h
+</I>&gt;<i> index 49d3da5..9592e4c 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/leds.h
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/leds.h
+</I>&gt;<i> @@ -63,6 +63,7 @@ void b43_leds_register(struct b43_wldev *dev);
+</I>&gt;<i>  void b43_leds_unregister(struct b43_wldev *dev);
+</I>&gt;<i>  void b43_leds_init(struct b43_wldev *dev);
+</I>&gt;<i>  void b43_leds_exit(struct b43_wldev *dev);
+</I>&gt;<i> +void b43_leds_stop(struct b43_wldev *dev);
+</I>&gt;<i>  
+</I>&gt;<i>  
+</I>&gt;<i>  #else /* CONFIG_B43_LEDS */
+</I>&gt;<i> @@ -84,6 +85,9 @@ static inline void b43_leds_init(struct b43_wldev *dev)
+</I>&gt;<i>  static inline void b43_leds_exit(struct b43_wldev *dev)
+</I>&gt;<i>  {
+</I>&gt;<i>  }
+</I>&gt;<i> +static inline void b43_leds_stop(struct b43_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +}
+</I>&gt;<i>  #endif /* CONFIG_B43_LEDS */
+</I>&gt;<i>  
+</I>&gt;<i>  #endif /* B43_LEDS_H_ */
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+</I>&gt;<i> index a8840ef..6c0ea21 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/main.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/main.c
+</I>&gt;<i> @@ -4987,8 +4987,7 @@ static void b43_remove(struct ssb_device *dev)
+</I>&gt;<i>  		 * might have modified it. Restoring is important, so the networking
+</I>&gt;<i>  		 * stack can properly free resources. */
+</I>&gt;<i>  		wl-&gt;hw-&gt;queues = wl-&gt;mac80211_initially_registered_queues;
+</I>&gt;<i> -		wl-&gt;leds.stop = 1;
+</I>&gt;<i> -		cancel_work_sync(&amp;wl-&gt;leds.work);
+</I>&gt;<i> +		b43_leds_stop(wldev);
+</I>&gt;<i>  		ieee80211_unregister_hw(wl-&gt;hw);
+</I>&gt;<i>  	}
+</I>&gt;<i>  
+</I>
+ACK
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006094.html">[PATCH - RFC] Add lpphy_update_tx_power_npt for LP PHY
+</A></li>
+	<LI>Next message: <A HREF="006092.html">[PATCH] b43: fix build error if !CONFIG_B43_LEDS
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6091">[ date ]</a>
+              <a href="thread.html#6091">[ thread ]</a>
+              <a href="subject.html#6091">[ subject ]</a>
+              <a href="author.html#6091">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

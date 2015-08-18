@@ -1,0 +1,97 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Fix analog core switching
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Fix%20analog%20core%20switching&In-Reply-To=%3C4AAE950C.2050704%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006072.html">
+   <LINK REL="Next"  HREF="006069.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Fix analog core switching</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Fix%20analog%20core%20switching&In-Reply-To=%3C4AAE950C.2050704%40gmail.com%3E"
+       TITLE="[PATCH] b43: LP-PHY: Fix analog core switching">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Mon Sep 14 21:10:04 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006072.html">[PATCH] - try2 Add analog switching support for LP PHY based chips
+</A></li>
+        <LI>Next message: <A HREF="006069.html">[PATCH] b43: LP-PHY: Fix analog core switching
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6067">[ date ]</a>
+              <a href="thread.html#6067">[ thread ]</a>
+              <a href="subject.html#6067">[ subject ]</a>
+              <a href="author.html#6067">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The generic analog switch routine is not correct for LP-PHY according
+to the latest specs. Implement the proper analog core switch routine.
+
+Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+---
+diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+index 80da9c7..b0e127a 100644
+--- a/drivers/net/wireless/b43/phy_lp.c
++++ b/drivers/net/wireless/b43/phy_lp.c
+@@ -2160,6 +2160,16 @@ static int lpphy_b2063_tune(struct b43_w
+ 	return 0;
+ }
+ 
++static void b43_lpphy_op_switch_analog(struct b43_wldev *dev, bool on)
++{
++	if (on) {
++		b43_phy_set(dev, B43_LPPHY_AFE_CTL_OVRVAL, 0x7);
++		b43_phy_set(dev, B43_LPPHY_AFE_CTL_OVR, 0x7);
++	} else {
++		b43_phy_mask(dev, B43_LPPHY_AFE_CTL_OVR, 0xFFF8);
++	}
++}
++
+ static int b43_lpphy_op_switch_channel(struct b43_wldev *dev,
+ 				       unsigned int new_channel)
+ {
+@@ -2239,7 +2249,7 @@ const struct b43_phy_operations b43_phyo
+ 	.radio_read		= b43_lpphy_op_radio_read,
+ 	.radio_write		= b43_lpphy_op_radio_write,
+ 	.software_rfkill	= b43_lpphy_op_software_rfkill,
+-	.switch_analog		= b43_phyop_switch_analog_generic,
++	.switch_analog		= b43_lpphy_op_switch_analog,
+ 	.switch_channel		= b43_lpphy_op_switch_channel,
+ 	.get_default_chan	= b43_lpphy_op_get_default_chan,
+ 	.set_rx_antenna		= b43_lpphy_op_set_rx_antenna,
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006072.html">[PATCH] - try2 Add analog switching support for LP PHY based chips
+</A></li>
+	<LI>Next message: <A HREF="006069.html">[PATCH] b43: LP-PHY: Fix analog core switching
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6067">[ date ]</a>
+              <a href="thread.html#6067">[ thread ]</a>
+              <a href="subject.html#6067">[ subject ]</a>
+              <a href="author.html#6067">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

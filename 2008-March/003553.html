@@ -1,0 +1,248 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add TX statistics debugging counters
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20TX%20statistics%20debugging%20counters&In-Reply-To=%3C200803071550.03185.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003550.html">
+   <LINK REL="Next"  HREF="003555.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add TX statistics debugging counters</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20TX%20statistics%20debugging%20counters&In-Reply-To=%3C200803071550.03185.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add TX statistics debugging counters">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Mar  7 15:50:02 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003550.html">powerbook 4306 disassociate/reassociate 'bouncing' with	b43/2.6.24.x
+</A></li>
+        <LI>Next message: <A HREF="003555.html">[PATCH] b43: Fix failed frames status report typo
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3553">[ date ]</a>
+              <a href="thread.html#3553">[ thread ]</a>
+              <a href="subject.html#3553">[ subject ]</a>
+              <a href="author.html#3553">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds a few debugging counters, that are useful for debugging the
+&quot;card does not transmit&quot; or &quot;connection is unstable&quot; kind of problems.
+It's also useful for tuning an RC algorithm.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+For 2.6.26
+
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2008-03-06 16:30:32.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2008-03-07 15:42:18.000000000 +0100
+@@ -35,12 +35,13 @@
+ 
+ #include &lt;linux/dma-mapping.h&gt;
+ #include &lt;linux/pci.h&gt;
+ #include &lt;linux/delay.h&gt;
+ #include &lt;linux/skbuff.h&gt;
+ #include &lt;linux/etherdevice.h&gt;
++#include &lt;asm/div64.h&gt;
+ 
+ 
+ /* 32bit DMA ops. */
+ static
+ struct b43_dmadesc_generic *op32_idx2desc(struct b43_dmaring *ring,
+ 					  int slot,
+@@ -875,22 +876,58 @@ struct b43_dmaring *b43_setup_dmaring(st
+       err_kfree_ring:
+ 	kfree(ring);
+ 	ring = NULL;
+ 	goto out;
+ }
+ 
++#define divide(a, b)	({	\
++	typeof(a) __a = a;	\
++	do_div(__a, b);		\
++	__a;			\
++  })
++
++#define modulo(a, b)	({	\
++	typeof(a) __a = a;	\
++	do_div(__a, b);		\
++  })
++
+ /* Main cleanup function. */
+ static void b43_destroy_dmaring(struct b43_dmaring *ring,
+ 				const char *ringname)
+ {
+ 	if (!ring)
+ 		return;
+ 
+-	b43dbg(ring-&gt;dev-&gt;wl, &quot;DMA-%u %s max used slots: %d/%d\n&quot;,
+-	       (unsigned int)(ring-&gt;type), ringname,
+-	       ring-&gt;max_used_slots, ring-&gt;nr_slots);
++#ifdef CONFIG_B43_DEBUG
++	{
++		/* Print some statistics. */
++		u64 failed_packets = ring-&gt;nr_failed_tx_packets;
++		u64 succeed_packets = ring-&gt;nr_succeed_tx_packets;
++		u64 nr_packets = failed_packets + succeed_packets;
++		u64 permille_failed = 0, average_tries = 0;
++
++		if (nr_packets)
++			permille_failed = divide(failed_packets * 1000, nr_packets);
++		if (nr_packets)
++			average_tries = divide(ring-&gt;nr_total_packet_tries * 100, nr_packets);
++
++		b43dbg(ring-&gt;dev-&gt;wl, &quot;DMA-%u %s: &quot;
++		       &quot;Used slots %d/%d, Failed frames %llu/%llu = %llu.%01llu%%, &quot;
++		       &quot;Average tries %llu.%02llu\n&quot;,
++		       (unsigned int)(ring-&gt;type), ringname,
++		       ring-&gt;max_used_slots,
++		       ring-&gt;nr_slots,
++		       (unsigned long long)failed_packets,
++		       (unsigned long long)succeed_packets,
++		       (unsigned long long)divide(permille_failed, 10),
++		       (unsigned long long)modulo(permille_failed, 10),
++		       (unsigned long long)divide(average_tries, 100),
++		       (unsigned long long)modulo(average_tries, 100));
++	}
++#endif /* DEBUG */
++
+ 	/* Device IRQs are disabled prior entering this function,
+ 	 * so no need to take care of concurrency with rx handler stuff.
+ 	 */
+ 	dmacontroller_cleanup(ring);
+ 	free_all_descbuffers(ring);
+ 	free_ringmemory(ring);
+@@ -1267,12 +1304,44 @@ int b43_dma_tx(struct b43_wldev *dev,
+ out_unlock:
+ 	spin_unlock_irqrestore(&amp;ring-&gt;lock, flags);
+ 
+ 	return err;
+ }
+ 
++static void b43_fill_txstatus_report(struct b43_dmaring *ring,
++				    struct ieee80211_tx_status *report,
++				    const struct b43_txstatus *status)
++{
++	bool frame_failed = 0;
++
++	if (status-&gt;acked) {
++		/* The frame was ACKed. */
++		report-&gt;flags |= IEEE80211_TX_STATUS_ACK;
++	} else {
++		/* The frame was not ACKed... */
++		if (!(report-&gt;control.flags &amp; IEEE80211_TXCTL_NO_ACK)) {
++			/* ...but we expected an ACK. */
++			frame_failed = 1;
++			report-&gt;excessive_retries = 1;
++		}
++	}
++	if (status-&gt;frame_count == 0) {
++		/* The frame was not transmitted at all. */
++		report-&gt;retry_count = 0;
++	} else {
++		report-&gt;retry_count = status-&gt;frame_count - 1;
++#ifdef CONFIG_B43_DEBUG
++		if (frame_failed)
++			ring-&gt;nr_failed_tx_packets++;
++		else
++			ring-&gt;nr_succeed_tx_packets++;
++		ring-&gt;nr_total_packet_tries += status-&gt;frame_count;
++#endif /* DEBUG */
++	}
++}
++
+ void b43_dma_handle_txstatus(struct b43_wldev *dev,
+ 			     const struct b43_txstatus *status)
+ {
+ 	const struct b43_dma_ops *ops;
+ 	struct b43_dmaring *ring;
+ 	struct b43_dmadesc_generic *desc;
+@@ -1301,24 +1370,13 @@ void b43_dma_handle_txstatus(struct b43_
+ 		if (meta-&gt;is_last_fragment) {
+ 			B43_WARN_ON(!meta-&gt;skb);
+ 			/* Call back to inform the ieee80211 subsystem about the
+ 			 * status of the transmission.
+ 			 * Some fields of txstat are already filled in dma_tx().
+ 			 */
+-			if (status-&gt;acked) {
+-				meta-&gt;txstat.flags |= IEEE80211_TX_STATUS_ACK;
+-			} else {
+-				if (!(meta-&gt;txstat.control.flags
+-				      &amp; IEEE80211_TXCTL_NO_ACK))
+-					meta-&gt;txstat.excessive_retries = 1;
+-			}
+-			if (status-&gt;frame_count == 0) {
+-				/* The frame was not transmitted at all. */
+-				meta-&gt;txstat.retry_count = 0;
+-			} else
+-				meta-&gt;txstat.retry_count = status-&gt;frame_count - 1;
++			b43_fill_txstatus_report(ring, &amp;(meta-&gt;txstat), status);
+ 			ieee80211_tx_status_irqsafe(dev-&gt;wl-&gt;hw, meta-&gt;skb,
+ 						    &amp;(meta-&gt;txstat));
+ 			/* skb is freed by ieee80211_tx_status_irqsafe() */
+ 			meta-&gt;skb = NULL;
+ 		} else {
+ 			/* No need to call free_descriptor_buffer here, as
+Index: wireless-testing/drivers/net/wireless/b43/dma.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.h	2008-03-06 16:15:23.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.h	2008-03-06 20:09:46.000000000 +0100
+@@ -253,13 +253,19 @@ struct b43_dmaring {
+ 	struct b43_wldev *dev;
+ #ifdef CONFIG_B43_DEBUG
+ 	/* Maximum number of used slots. */
+ 	int max_used_slots;
+ 	/* Last time we injected a ring overflow. */
+ 	unsigned long last_injected_overflow;
+-#endif				/* CONFIG_B43_DEBUG */
++	/* Statistics: Number of successfully transmitted packets */
++	u64 nr_succeed_tx_packets;
++	/* Statistics: Number of failed TX packets */
++	u64 nr_failed_tx_packets;
++	/* Statistics: Total number of TX plus all retries. */
++	u64 nr_total_packet_tries;
++#endif /* CONFIG_B43_DEBUG */
+ };
+ 
+ static inline u32 b43_dma_read(struct b43_dmaring *ring, u16 offset)
+ {
+ 	return b43_read32(ring-&gt;dev, ring-&gt;mmio_base + offset);
+ }
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003550.html">powerbook 4306 disassociate/reassociate 'bouncing' with	b43/2.6.24.x
+</A></li>
+	<LI>Next message: <A HREF="003555.html">[PATCH] b43: Fix failed frames status report typo
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3553">[ date ]</a>
+              <a href="thread.html#3553">[ thread ]</a>
+              <a href="subject.html#3553">[ subject ]</a>
+              <a href="author.html#3553">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

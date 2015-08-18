@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH stable] b43legacy: Fix possible NULL pointer dereference in	DMA code
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20stable%5D%20b43legacy%3A%20Fix%20possible%20NULL%20pointer%20dereference%20in%0A%09DMA%20code&In-Reply-To=%3C200806201146.12984.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004290.html">
+   <LINK REL="Next"  HREF="004292.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH stable] b43legacy: Fix possible NULL pointer dereference in	DMA code</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20stable%5D%20b43legacy%3A%20Fix%20possible%20NULL%20pointer%20dereference%20in%0A%09DMA%20code&In-Reply-To=%3C200806201146.12984.mb%40bu3sch.de%3E"
+       TITLE="[PATCH stable] b43legacy: Fix possible NULL pointer dereference in	DMA code">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jun 20 11:46:12 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004290.html">[PATCH] b43legacy: Fix possible NULL pointer dereference in DMA code
+</A></li>
+        <LI>Next message: <A HREF="004292.html">[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4291">[ date ]</a>
+              <a href="thread.html#4291">[ thread ]</a>
+              <a href="subject.html#4291">[ subject ]</a>
+              <a href="author.html#4291">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes a possible NULL pointer dereference in an error path of the
+DMA allocation error checking code.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+This patch is not merged to an upstream tree, yet, but is sent to John.
+
+
+Index: linux-2.6.25.6/drivers/net/wireless/b43legacy/dma.c
+===================================================================
+--- linux-2.6.25.6.orig/drivers/net/wireless/b43legacy/dma.c	2008-06-14 22:41:44.000000000 +0200
++++ linux-2.6.25.6/drivers/net/wireless/b43legacy/dma.c	2008-06-20 11:42:20.000000000 +0200
+@@ -873,12 +873,13 @@ struct b43legacy_dmaring *b43legacy_setu
+ 	dma_addr_t dma_test;
+ 
+ 	ring = kzalloc(sizeof(*ring), GFP_KERNEL);
+ 	if (!ring)
+ 		goto out;
+ 	ring-&gt;type = type;
++	ring-&gt;dev = dev;
+ 
+ 	nr_slots = B43legacy_RXRING_SLOTS;
+ 	if (for_tx)
+ 		nr_slots = B43legacy_TXRING_SLOTS;
+ 
+ 	ring-&gt;meta = kcalloc(nr_slots, sizeof(struct b43legacy_dmadesc_meta),
+@@ -919,13 +920,12 @@ struct b43legacy_dmaring *b43legacy_setu
+ 
+ 		dma_unmap_single(dev-&gt;dev-&gt;dma_dev,
+ 				 dma_test, sizeof(struct b43legacy_txhdr_fw3),
+ 				 DMA_TO_DEVICE);
+ 	}
+ 
+-	ring-&gt;dev = dev;
+ 	ring-&gt;nr_slots = nr_slots;
+ 	ring-&gt;mmio_base = b43legacy_dmacontroller_base(type, controller_index);
+ 	ring-&gt;index = controller_index;
+ 	if (type == B43legacy_DMA_64BIT)
+ 		ring-&gt;ops = &amp;dma64_ops;
+ 	else
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004290.html">[PATCH] b43legacy: Fix possible NULL pointer dereference in DMA code
+</A></li>
+	<LI>Next message: <A HREF="004292.html">[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4291">[ date ]</a>
+              <a href="thread.html#4291">[ thread ]</a>
+              <a href="subject.html#4291">[ subject ]</a>
+              <a href="author.html#4291">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

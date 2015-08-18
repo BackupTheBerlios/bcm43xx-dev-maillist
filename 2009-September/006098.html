@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 2/2] b43: Add lpphy_clear_tx_power_offsets to improve TX 	Power handling
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/2%5D%20b43%3A%20Add%20lpphy_clear_tx_power_offsets%20to%20improve%20TX%20%0A%09Power%20handling&In-Reply-To=%3C69e28c910909161240p7739edebi653b5d402a792856%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006097.html">
+   <LINK REL="Next"  HREF="006099.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 2/2] b43: Add lpphy_clear_tx_power_offsets to improve TX 	Power handling</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/2%5D%20b43%3A%20Add%20lpphy_clear_tx_power_offsets%20to%20improve%20TX%20%0A%09Power%20handling&In-Reply-To=%3C69e28c910909161240p7739edebi653b5d402a792856%40mail.gmail.com%3E"
+       TITLE="[PATCH 2/2] b43: Add lpphy_clear_tx_power_offsets to improve TX 	Power handling">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Wed Sep 16 21:40:52 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006097.html">[PATCH 2/2] b43: Add lpphy_clear_tx_power_offsets to improve TX	Power handling
+</A></li>
+        <LI>Next message: <A HREF="006099.html">[PATCH 2/2] b43: Add lpphy_clear_tx_power_offsets to improve	TX Power handling
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6098">[ date ]</a>
+              <a href="thread.html#6098">[ thread ]</a>
+              <a href="subject.html#6098">[ subject ]</a>
+              <a href="author.html#6098">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>You are essentially implementing dead code at this point - this will
+only ever be called if hardware-accelerated TX power control is
+enabled - and HW TX power control is unsupported, even for G-PHYs.
+
+On Wed, Sep 16, 2009 at 9:37 PM, Thomas Ilnseher &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">illth at gmx.de</A>&gt; wrote:
+&gt;<i> This patch adds the lpphy_clear_tx_power_offsets to b43.
+</I>&gt;<i>
+</I>&gt;<i> Signed-off-by: Thomas Ilnseher &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">illth at gmx.de</A>&gt;
+</I>&gt;<i>
+</I>&gt;<i> ---
+</I>&gt;<i> diff -uNr a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> --- a/drivers/net/wireless/b43/phy_lp.c 2009-09-16 20:52:17.501318374 +0200
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/phy_lp.c 2009-09-16 20:53:36.593319452 +0200
+</I>&gt;<i> @@ -1125,6 +1125,18 @@
+</I>&gt;<i> &#160; &#160; &#160; &#160;dev-&gt;phy.lp-&gt;tssi_idx = (b43_phy_read(dev, B43_LPPHY_TX_PWR_CTL_STAT) &amp; 0x7F00) &gt;&gt; 8;
+</I>&gt;<i> &#160;}
+</I>&gt;<i>
+</I>&gt;<i> +static void lpphy_clear_tx_power_offsets(struct b43_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> + &#160; &#160; &#160; int i;
+</I>&gt;<i> + &#160; &#160; &#160; int id = 7;
+</I>&gt;<i> + &#160; &#160; &#160; if (dev-&gt;phy.rev &lt; 2)
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; id = 10;
+</I>&gt;<i> + &#160; &#160; &#160; for (i = 0; i &lt; 12; i++)
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_lptab_write(dev, B43_LPTAB32(id, 0x40 + i), 0);
+</I>&gt;<i> + &#160; &#160; &#160; for (i = 0; i &lt; 64; i++)
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_lptab_write(dev, B43_LPTAB32(id, 0x80 + i), 0);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> &#160;static void lpphy_set_tx_power_control(struct b43_wldev *dev,
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; enum b43_lpphy_txpctl_mode mode)
+</I>&gt;<i> &#160;{
+</I>&gt;<i> @@ -1139,7 +1151,7 @@
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;if (oldmode == B43_LPPHY_TXPCTL_HW) {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;lpphy_update_tx_power_npt(dev);
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; //TODO Clear all TX Power offsets
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; lpphy_clear_tx_power_offsets(dev);
+</I>&gt;<i> &#160; &#160; &#160; &#160;} else {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;if (mode == B43_LPPHY_TXPCTL_HW) {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;//TODO Recalculate target TX power
+</I>&gt;<i>
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006097.html">[PATCH 2/2] b43: Add lpphy_clear_tx_power_offsets to improve TX	Power handling
+</A></li>
+	<LI>Next message: <A HREF="006099.html">[PATCH 2/2] b43: Add lpphy_clear_tx_power_offsets to improve	TX Power handling
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6098">[ date ]</a>
+              <a href="thread.html#6098">[ thread ]</a>
+              <a href="subject.html#6098">[ subject ]</a>
+              <a href="author.html#6098">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

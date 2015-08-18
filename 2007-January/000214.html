@@ -1,0 +1,235 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BCM4311 and Hidden SSIDs?
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4311%20and%20Hidden%20SSIDs%3F&In-Reply-To=%3C8e5b27790701261331x3a457853h3a320f7ea4de623c%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000210.html">
+   <LINK REL="Next"  HREF="000215.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BCM4311 and Hidden SSIDs?</H1>
+    <B>Paul Marks</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4311%20and%20Hidden%20SSIDs%3F&In-Reply-To=%3C8e5b27790701261331x3a457853h3a320f7ea4de623c%40mail.gmail.com%3E"
+       TITLE="BCM4311 and Hidden SSIDs?">pmarks at purdue.edu
+       </A><BR>
+    <I>Fri Jan 26 22:31:33 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000210.html">Bcm43xx oops after suspend to disk
+</A></li>
+        <LI>Next message: <A HREF="000215.html">BCM4311 and Hidden SSIDs?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#214">[ date ]</a>
+              <a href="thread.html#214">[ thread ]</a>
+              <a href="subject.html#214">[ subject ]</a>
+              <a href="author.html#214">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I have a BCM4311 card, and ever since the PCI-E interrupts patch, I've been
+able to associate just fine with my own WPA2-PSK access point, using
+wpa_supplicant with ap_scan=1.
+
+However, the access points at my school (Purdue) are all WPA-Enterprise with
+a hidden SSID, and I so far haven't had any luck getting bcm43xx to connect
+to these.  If I use ndiswrapper instead, then these APs work as expected.
+
+Am I doing something wrong, or is this a limitation in the driver?  Has
+anyone gotten bcm43xx to work in a hidden-SSID situation?
+
+
+Here's my wpa_supplicant.conf:
+
+ctrl_interface=/var/run/wpa_supplicant
+ctrl_interface_group=wheel
+
+ap_scan=2
+fast_reauth=1
+
+network={
+  ssid=&quot;PAL2.0&quot;
+  proto=WPA
+  key_mgmt=WPA-EAP
+  pairwise=TKIP
+  group=TKIP
+  eap=PEAP
+  ca_cert=&quot;/etc/ssl/certs/ca-certificates.crt&quot;
+  identity=&quot;pmarks&quot;
+  password=&quot;...&quot;
+}
+
+
+Here's the output from wpa_supplicant:
+
+# wpa_supplicant -ieth1 -Dwext -c /etc/wpa_supplicant/wpa_supplicant.conf
+-dd
+Initializing interface 'eth1' conf '/etc/wpa_supplicant/wpa_supplicant.conf'
+driver 'wext' ctrl_interface 'N/A' bridge 'N/A'
+Configuration file '/etc/wpa_supplicant/wpa_supplicant.conf' -&gt;
+'/etc/wpa_supplicant/wpa_supplicant.conf'
+Reading configuration file '/etc/wpa_supplicant/wpa_supplicant.conf'
+ctrl_interface='/var/run/wpa_supplicant'
+ctrl_interface_group='wheel' (DEPRECATED)
+ap_scan=2
+fast_reauth=1
+Line: 10 - start of a new network block
+ssid - hexdump_ascii(len=6):
+     50 41 4c 32 2e 30                                 PAL2.0
+proto: 0x1
+key_mgmt: 0x1
+pairwise: 0x8
+group: 0x8
+eap methods - hexdump(len=16): 00 00 00 00 19 00 00 00 00 00 00 00 00 00 00
+00
+ca_cert - hexdump_ascii(len=34):
+     2f 65 74 63 2f 73 73 6c 2f 63 65 72 74 73 2f 63   /etc/ssl/certs/c
+     61 2d 63 65 72 74 69 66 69 63 61 74 65 73 2e 63   a-certificates.c
+     72 74                                             rt
+identity - hexdump_ascii(len=6):
+     70 6d 61 72 6b 73                                 pmarks
+password - hexdump_ascii(len=8): [REMOVED]
+Priority group 0
+   id=0 ssid='PAL2.0'
+Initializing interface (2) 'eth1'
+EAPOL: SUPP_PAE entering state DISCONNECTED
+EAPOL: KEY_RX entering state NO_KEY_RECEIVE
+EAPOL: SUPP_BE entering state INITIALIZE
+EAP: EAP entering state DISABLED
+EAPOL: External notification - portEnabled=0
+EAPOL: External notification - portValid=0
+SIOCGIWRANGE: WE(compiled)=21 WE(source)=18 enc_capa=0xf
+  capabilities: key_mgmt 0xf enc 0xf
+WEXT: Operstate: linkmode=1, operstate=5
+Own MAC address: 00:16:cf:8f:61:00
+wpa_driver_wext_set_wpa
+wpa_driver_wext_set_key: alg=0 key_idx=0 set_tx=0 seq_len=0 key_len=0
+wpa_driver_wext_set_key: alg=0 key_idx=1 set_tx=0 seq_len=0 key_len=0
+wpa_driver_wext_set_key: alg=0 key_idx=2 set_tx=0 seq_len=0 key_len=0
+wpa_driver_wext_set_key: alg=0 key_idx=3 set_tx=0 seq_len=0 key_len=0
+wpa_driver_wext_set_countermeasures
+wpa_driver_wext_set_drop_unencrypted
+Setting scan request: 0 sec 100000 usec
+ctrl_interface_group=10 (from group name 'wheel')
+Added interface eth1
+RTM_NEWLINK: operstate=0 ifi_flags=0x1002 ()
+Wireless event: cmd=0x8b06 len=8
+RTM_NEWLINK: operstate=0 ifi_flags=0x1003 ([UP])
+RTM_NEWLINK, IFLA_IFNAME: Interface 'eth1' added
+RTM_NEWLINK: operstate=0 ifi_flags=0x1003 ([UP])
+RTM_NEWLINK, IFLA_IFNAME: Interface 'eth1' added
+State: DISCONNECTED -&gt; SCANNING
+Trying to associate with SSID 'PAL2.0'
+Cancelling scan request
+WPA: clearing own WPA/RSN IE
+Automatic auth_alg selection: 0x1
+WPA: No WPA/RSN IE available from association info
+WPA: Set cipher suites based on configuration
+WPA: Selected cipher suites: group 8 pairwise 8 key_mgmt 1 proto 1
+WPA: clearing AP WPA IE
+WPA: clearing AP RSN IE
+WPA: using GTK TKIP
+WPA: using PTK TKIP
+WPA: using KEY_MGMT 802.1X
+WPA: Set own WPA IE default - hexdump(len=24): dd 16 00 50 f2 01 01 00 00 50
+f2 02 01 00 00 50 f2 02 01 00 00 50 f2 01
+No keys have been configured - skip key clearing
+wpa_driver_wext_set_drop_unencrypted
+State: SCANNING -&gt; ASSOCIATING
+wpa_driver_wext_set_operstate: operstate 0-&gt;0 (DORMANT)
+WEXT: Operstate: linkmode=-1, operstate=5
+wpa_driver_wext_associate
+Setting authentication timeout: 60 sec 0 usec
+EAPOL: External notification - portControl=Auto
+RTM_NEWLINK: operstate=0 ifi_flags=0x1003 ([UP])
+Wireless event: cmd=0x8b06 len=8
+RTM_NEWLINK: operstate=0 ifi_flags=0x1003 ([UP])
+Wireless event: cmd=0x8b1a len=14
+RTM_NEWLINK: operstate=0 ifi_flags=0x1003 ([UP])
+Wireless event: cmd=0x8b19 len=8
+ioctl[SIOCGIWSCAN]: Resource temporarily unavailable
+Scan results: -1
+Failed to get scan results
+RTM_NEWLINK: operstate=0 ifi_flags=0x1003 ([UP])
+Wireless event: cmd=0x8b19 len=8
+ioctl[SIOCGIWSCAN]: Resource temporarily unavailable
+Scan results: -1
+Failed to get scan results
+RTM_NEWLINK: operstate=0 ifi_flags=0x1003 ([UP])
+Wireless event: cmd=0x8b19 len=8
+Received 154 bytes of scan results (1 BSSes)
+Scan results: 1
+RTM_NEWLINK: operstate=0 ifi_flags=0x1003 ([UP])
+Wireless event: cmd=0x8c02 len=64
+WEXT: Custom wireless event: 'associating failed because no suitable network
+was found'
+
+
+And here's my dmesg output during that time:
+
+bcm43xx driver
+ACPI: PCI Interrupt 0000:0c:00.0[A] -&gt; GSI 17 (level, low) -&gt; IRQ 17
+PCI: Setting latency timer of device 0000:0c:00.0 to 64
+bcm43xx: Chip ID 0x4311, rev 0x1
+bcm43xx: Number of cores: 4
+bcm43xx: Core 0: ID 0x800, rev 0x11, vendor 0x4243
+bcm43xx: Core 1: ID 0x812, rev 0xa, vendor 0x4243
+bcm43xx: Core 2: ID 0x817, rev 0x3, vendor 0x4243
+bcm43xx: Core 3: ID 0x820, rev 0x1, vendor 0x4243
+bcm43xx: PHY connected
+bcm43xx: Detected PHY: Version: 4, Type 2, Revision 8
+bcm43xx: Detected Radio: ID: 2205017f (Manuf: 17f Ver: 2050 Rev: 2)
+bcm43xx: Radio turned off
+bcm43xx: Radio turned off
+bcm43xx: PHY connected
+bcm43xx: Microcode rev 0x123, pl 0x23 (2005-03-22  00:11:18)
+bcm43xx: Radio turned on
+bcm43xx: Chip initialized
+bcm43xx: 32-bit DMA initialized
+bcm43xx: Keys cleared
+bcm43xx: Selected 802.11 core (phytype 2)
+ADDRCONF(NETDEV_UP): eth1: link is not ready
+bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
+bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
+bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
+bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
+SoftMAC: generic IE set to dd160050f20101000050f20201000050f20201000050f201
+SoftMAC: Associate: Scanning for networks first.
+SoftMAC: Scanning finished: scanned 14 channels starting with channel 1
+SoftMAC: Associate: Scanning for networks first.
+SoftMAC: Scanning finished: scanned 14 channels starting with channel 1
+SoftMAC: Associate: Scanning for networks first.
+SoftMAC: Scanning finished: scanned 14 channels starting with channel 1
+SoftMAC: Unable to find matching network after scan!
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000210.html">Bcm43xx oops after suspend to disk
+</A></li>
+	<LI>Next message: <A HREF="000215.html">BCM4311 and Hidden SSIDs?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#214">[ date ]</a>
+              <a href="thread.html#214">[ thread ]</a>
+              <a href="subject.html#214">[ subject ]</a>
+              <a href="author.html#214">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

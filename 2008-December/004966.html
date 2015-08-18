@@ -1,0 +1,200 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add key memory dumping
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20key%20memory%20dumping&In-Reply-To=%3C200812192024.30700.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004965.html">
+   <LINK REL="Next"  HREF="004967.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add key memory dumping</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20key%20memory%20dumping&In-Reply-To=%3C200812192024.30700.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add key memory dumping">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Dec 19 20:24:30 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004965.html">[PATCH] b43: Suspend MAC while killing the radio
+</A></li>
+        <LI>Next message: <A HREF="004967.html">[PATCH] b43: Fixup set_key handling
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4966">[ date ]</a>
+              <a href="thread.html#4966">[ thread ]</a>
+              <a href="subject.html#4966">[ subject ]</a>
+              <a href="author.html#4966">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds an option to dump all crypto related memory to
+the kernel log.
+Obviously, it should not be enabled on productive systems. ;)
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+For 2.6.29
+
+Index: wireless-testing/drivers/net/wireless/b43/debugfs.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/debugfs.c	2008-08-30 02:13:22.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/debugfs.c	2008-12-19 19:34:17.000000000 +0100
+@@ -728,12 +728,13 @@ static void b43_add_dynamic_debug(struct
+ 	add_dyn_dbg(&quot;debug_dmaoverflow&quot;, B43_DBG_DMAOVERFLOW, 0);
+ 	add_dyn_dbg(&quot;debug_dmaverbose&quot;, B43_DBG_DMAVERBOSE, 0);
+ 	add_dyn_dbg(&quot;debug_pwork_fast&quot;, B43_DBG_PWORK_FAST, 0);
+ 	add_dyn_dbg(&quot;debug_pwork_stop&quot;, B43_DBG_PWORK_STOP, 0);
+ 	add_dyn_dbg(&quot;debug_lo&quot;, B43_DBG_LO, 0);
+ 	add_dyn_dbg(&quot;debug_firmware&quot;, B43_DBG_FIRMWARE, 0);
++	add_dyn_dbg(&quot;debug_keys&quot;, B43_DBG_KEYS, 0);
+ 
+ #undef add_dyn_dbg
+ }
+ 
+ void b43_debugfs_add_device(struct b43_wldev *dev)
+ {
+Index: wireless-testing/drivers/net/wireless/b43/debugfs.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/debugfs.h	2008-08-28 18:38:15.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/debugfs.h	2008-12-19 19:33:41.000000000 +0100
+@@ -9,12 +9,13 @@ enum b43_dyndbg {		/* Dynamic debugging 
+ 	B43_DBG_DMAOVERFLOW,
+ 	B43_DBG_DMAVERBOSE,
+ 	B43_DBG_PWORK_FAST,
+ 	B43_DBG_PWORK_STOP,
+ 	B43_DBG_LO,
+ 	B43_DBG_FIRMWARE,
++	B43_DBG_KEYS,
+ 	__B43_NR_DYNDBG,
+ };
+ 
+ #ifdef CONFIG_B43_DEBUG
+ 
+ struct dentry;
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-12-19 18:32:33.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-12-19 19:42:21.000000000 +0100
+@@ -989,12 +989,58 @@ static void b43_clear_keys(struct b43_wl
+ 	int i;
+ 
+ 	for (i = 0; i &lt; dev-&gt;max_nr_keys; i++)
+ 		b43_key_clear(dev, i);
+ }
+ 
++static void b43_dump_keymemory(struct b43_wldev *dev)
++{
++	unsigned int i, index, offset;
++	DECLARE_MAC_BUF(macbuf);
++	u8 mac[ETH_ALEN];
++	u16 algo;
++	u32 rcmta0;
++	u16 rcmta1;
++	u64 hf;
++	struct b43_key *key;
++
++	if (!b43_debug(dev, B43_DBG_KEYS))
++		return;
++
++	hf = b43_hf_read(dev);
++	b43dbg(dev-&gt;wl, &quot;Hardware key memory dump:  USEDEFKEYS=%u\n&quot;,
++	       !!(hf &amp; B43_HF_USEDEFKEYS));
++	for (index = 0; index &lt; dev-&gt;max_nr_keys; index++) {
++		key = &amp;(dev-&gt;key[index]);
++		printk(KERN_DEBUG &quot;Key slot %02u: %s&quot;,
++		       index, (key-&gt;keyconf == NULL) ? &quot; &quot; : &quot;*&quot;);
++		offset = dev-&gt;ktp + (index * B43_SEC_KEYSIZE);
++		for (i = 0; i &lt; B43_SEC_KEYSIZE; i += 2) {
++			u16 tmp = b43_shm_read16(dev, B43_SHM_SHARED, offset + i);
++			printk(&quot;%02X%02X&quot;, (tmp &amp; 0xFF), ((tmp &gt;&gt; 8) &amp; 0xFF));
++		}
++
++		algo = b43_shm_read16(dev, B43_SHM_SHARED,
++				      B43_SHM_SH_KEYIDXBLOCK + (index * 2));
++		printk(&quot;   Algo: %04X/%02X&quot;, algo, key-&gt;algorithm);
++
++		if (index &gt;= 4) {
++			rcmta0 = b43_shm_read32(dev, B43_SHM_RCMTA,
++						((index - 4) * 2) + 0);
++			rcmta1 = b43_shm_read16(dev, B43_SHM_RCMTA,
++						((index - 4) * 2) + 1);
++			*((__le32 *)(&amp;mac[0])) = cpu_to_le32(rcmta0);
++			*((__le16 *)(&amp;mac[4])) = cpu_to_le16(rcmta1);
++			printk(&quot;   MAC: %s&quot;,
++			       print_mac(macbuf, mac));
++		} else
++			printk(&quot;   DEFAULT KEY&quot;);
++		printk(&quot;\n&quot;);
++	}
++}
++
+ void b43_power_saving_ctl_bits(struct b43_wldev *dev, unsigned int ps_flags)
+ {
+ 	u32 macctl;
+ 	u16 ucstat;
+ 	bool hwps;
+ 	bool awake;
+@@ -3563,21 +3609,24 @@ static int b43_op_set_key(struct ieee802
+ 			goto out_unlock;
+ 		break;
+ 	}
+ 	default:
+ 		B43_WARN_ON(1);
+ 	}
++
+ out_unlock:
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+-	mutex_unlock(&amp;wl-&gt;mutex);
+ 	if (!err) {
+ 		b43dbg(wl, &quot;%s hardware based encryption for keyidx: %d, &quot;
+ 		       &quot;mac: %s\n&quot;,
+ 		       cmd == SET_KEY ? &quot;Using&quot; : &quot;Disabling&quot;, key-&gt;keyidx,
+ 		       print_mac(mac, addr));
++		b43_dump_keymemory(dev);
+ 	}
++	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
++	mutex_unlock(&amp;wl-&gt;mutex);
++
+ 	return err;
+ }
+ 
+ static void b43_op_configure_filter(struct ieee80211_hw *hw,
+ 				    unsigned int changed, unsigned int *fflags,
+ 				    int mc_count, struct dev_addr_list *mc_list)
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004965.html">[PATCH] b43: Suspend MAC while killing the radio
+</A></li>
+	<LI>Next message: <A HREF="004967.html">[PATCH] b43: Fixup set_key handling
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4966">[ date ]</a>
+              <a href="thread.html#4966">[ thread ]</a>
+              <a href="subject.html#4966">[ subject ]</a>
+              <a href="author.html#4966">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

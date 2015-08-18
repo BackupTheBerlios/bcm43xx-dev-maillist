@@ -1,0 +1,133 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Operation%20%22wpa_driver_wext_set_countermeasures%22%20not%20supported&In-Reply-To=%3C200712171100.00503.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003074.html">
+   <LINK REL="Next"  HREF="003075.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Operation%20%22wpa_driver_wext_set_countermeasures%22%20not%20supported&In-Reply-To=%3C200712171100.00503.mb%40bu3sch.de%3E"
+       TITLE="Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Dec 17 11:00:00 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003074.html">Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+</A></li>
+        <LI>Next message: <A HREF="003075.html">Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3073">[ date ]</a>
+              <a href="thread.html#3073">[ thread ]</a>
+              <a href="subject.html#3073">[ subject ]</a>
+              <a href="author.html#3073">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 17 December 2007 02:46:29 Robert Allerstorfer wrote:
+&gt;<i> On Thu, 13 Dec 2007, 00:20 GMT+01 Michael Buesch wrote:
+</I>&gt;<i> 
+</I>&gt;<i> &gt; On Wednesday 12 December 2007 23:48:10 Robert Allerstorfer wrote:
+</I>&gt;<i> &gt;&gt; Before starting wpa_supplicant:
+</I>&gt;<i> &gt;&gt; [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at localhost</A> ~]# dmesg | egrep 'b43|ssb|wlan0|wmaster0'
+</I>&gt;<i> &gt;&gt; ssb: SPROM revision 1 detected.
+</I>&gt;<i> &gt;&gt; ssb: Sonics Silicon Backplane found on PCI device 0001:10:12.0
+</I>&gt;<i> &gt;&gt; b43-phy0: Broadcom 4306 WLAN found
+</I>&gt;<i> &gt;&gt; b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 2
+</I>&gt;<i> &gt;&gt; b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+</I>&gt;<i> &gt;&gt; b43-phy0 debug: Loading firmware version 351.126 (2006-07-29 05:54:02)
+</I>&gt;<i> &gt;&gt; Registered led device: b43-phy0:tx
+</I>&gt;<i> &gt;&gt; Registered led device: b43-phy0:rx
+</I>&gt;<i> &gt;&gt; b43-phy0 debug: !WARNING! Idle-TSSI phy-&gt;cur_idle_tssi measuring failed. (cur=42, tgt=62). Disabling TX power adjustment.
+</I>&gt;<i> 
+</I>&gt;<i> &gt; Hm, that's probably a false positive.
+</I>&gt;<i> &gt; Please locate the function b43_phy_init_pctl() inside of
+</I>&gt;<i> &gt; drivers/net/wireless/b43/phy.c
+</I>&gt;<i> &gt; Locate these lines inside of the function:
+</I>&gt;<i> &gt;                 if (B43_DEBUG) {
+</I>&gt;<i> &gt;                         /* Current-Idle-TSSI sanity check. */
+</I>&gt;<i> &gt;                         if (abs(phy-&gt;cur_idle_tssi - phy-&gt;tgt_idle_tssi) &gt;= 20) {
+</I>&gt;<i> &gt;                                 b43dbg(dev-&gt;wl,
+</I>&gt;<i> &gt;                                        &quot;!WARNING! Idle-TSSI phy-&gt;cur_idle_tssi &quot;
+</I>&gt;<i> &gt;                                        &quot;measuring failed. (cur=%d, tgt=%d). Disabling TX power &quot;
+</I>&gt;<i> &gt;                                        &quot;adjustment.\n&quot;, phy-&gt;cur_idle_tssi,
+</I>&gt;<i> &gt;                                        phy-&gt;tgt_idle_tssi);
+</I>&gt;<i> &gt;                                 phy-&gt;cur_idle_tssi = 0;
+</I>&gt;<i> &gt;                         }
+</I>&gt;<i> &gt;                 }
+</I>&gt;<i> 
+</I>&gt;<i> &gt; Please change the
+</I>&gt;<i> &gt;                 if (B43_DEBUG) {
+</I>&gt;<i> &gt; into
+</I>&gt;<i> &gt;                 if (0) {
+</I>&gt;<i> 
+</I>&gt;<i> The strange thing is that the &quot;b43-phy0 debug: !WARNING!...&quot; line
+</I>&gt;<i> disappeared from the dmesg output after I replaced ssb.ko by a
+</I>&gt;<i> self-compiled version (and - of course - rebooted).
+</I>
+Which version of ssb were you using before and which one are you using now?
+Can you make a diff -u?
+
+&gt;<i> All other kernel files have kept exactly the same (originating from
+</I>&gt;<i> kernel-2.6.23.9-90.fc8.ppc.rpm grabbed from
+</I>&gt;<i> <A HREF="http://koji.fedoraproject.org/">http://koji.fedoraproject.org/</A>). The original ssb.ko has been built
+</I>&gt;<i> without defining CONFIG_SSB_DEBUG, while I turned CONFIG_SSB_DEBUG on.
+</I>&gt;<i> Executing &quot;dmesg | egrep 'b43|ssb|wlan0|wmaster0'&quot; now begins with the
+</I>&gt;<i> following 5 additional lines:
+</I>&gt;<i> ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x04, vendor 0x4243)
+</I>&gt;<i> ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x05, vendor 0x4243)
+</I>                                            ^^^^^^^^
+&gt;<i> ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x02, vendor 0x4243)
+</I>&gt;<i> ssb: Core 3 found: V90 (cc 0x807, rev 0x02, vendor 0x4243)
+</I>&gt;<i> ssb: Core 4 found: PCI (cc 0x804, rev 0x09, vendor 0x4243)
+</I>&gt;<i> 
+</I>&gt;<i> According to <A HREF="http://linuxwireless.org/en/users/Drivers/b43">http://linuxwireless.org/en/users/Drivers/b43</A> &quot;the full
+</I>&gt;<i> MAC core version is printed in the kernel logs when &quot;SSB debugging&quot; is
+</I>&gt;<i> enabled in KConfig and the driver finds a board.&quot; So, could someone
+</I>&gt;<i> please explain which of the 5 SSB debug dmesg lines prints &quot;the full
+</I>&gt;<i> MAC core version&quot;?
+</I>
+rev 5
+
+&gt;<i> I am curios about this to be sure if my system 
+</I>&gt;<i> needs the b43 or the b43legacy driver.
+</I>
+It will automatically load the right one.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003074.html">Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+</A></li>
+	<LI>Next message: <A HREF="003075.html">Operation &quot;wpa_driver_wext_set_countermeasures&quot; not supported
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3073">[ date ]</a>
+              <a href="thread.html#3073">[ thread ]</a>
+              <a href="subject.html#3073">[ subject ]</a>
+              <a href="author.html#3073">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

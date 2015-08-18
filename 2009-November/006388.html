@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 kills my kernel
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20kills%20my%20kernel&In-Reply-To=%3C200911181851.31244.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006387.html">
+   <LINK REL="Next"  HREF="006389.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 kills my kernel</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20kills%20my%20kernel&In-Reply-To=%3C200911181851.31244.mb%40bu3sch.de%3E"
+       TITLE="b43 kills my kernel">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Nov 18 18:51:29 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006387.html">b43 kills my kernel
+</A></li>
+        <LI>Next message: <A HREF="006389.html">b43 kills my kernel
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6388">[ date ]</a>
+              <a href="thread.html#6388">[ thread ]</a>
+              <a href="subject.html#6388">[ subject ]</a>
+              <a href="author.html#6388">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Wednesday 18 November 2009 18:36:12 Oncaphillis wrote:
+&gt;<i> &gt; Index: wireless-testing/drivers/ssb/pci.c
+</I>&gt;<i> &gt; ===================================================================
+</I>&gt;<i> &gt; --- wireless-testing.orig/drivers/ssb/pci.c
+</I>&gt;<i> &gt; +++ wireless-testing/drivers/ssb/pci.c
+</I>&gt;<i> &gt; @@ -251,10 +251,16 @@ static int sprom_check_crc(const u16 *sp
+</I>&gt;<i> &gt;   static int sprom_do_read(struct ssb_bus *bus, u16 *sprom)
+</I>&gt;<i> &gt;   {
+</I>&gt;<i> &gt;   	int i;
+</I>&gt;<i> &gt; +	u32 buf;
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; -	for (i = 0; i&lt;  bus-&gt;sprom_size; i++)
+</I>&gt;<i> &gt; -		sprom[i] = ioread16(bus-&gt;mmio + SSB_SPROM_BASE + (i * 2));
+</I>&gt;<i> &gt; -
+</I>&gt;<i> &gt; +	printk(KERN_INFO &quot;ssb: Entering %s\n&quot;, __func__);
+</I>&gt;<i> &gt; +	for (i = 0; i&lt;  bus-&gt;sprom_size; i = i + 2) {
+</I>&gt;<i> &gt; +		buf = ioread32(bus-&gt;mmio + SSB_SPROM_BASE + (i * 2));
+</I>&gt;<i> &gt; +		printk(KERN_INFO &quot;ssb: Read 0x%.8X from SPROM\n&quot;, buf);
+</I>&gt;<i> &gt; +		sprom[i] = buf&amp;  0x0000FFFF;
+</I>&gt;<i> &gt; +		sprom[i+1] = (buf&gt;&gt;  16)&amp;  0x0000FFFF;
+</I>&gt;<i> &gt; +	}
+</I>&gt;<i> &gt; +	printk(KERN_INFO &quot;ssb: Leaving %s\n&quot;, __func__);
+</I>&gt;<i> &gt;   	return 0;
+</I>&gt;<i> &gt;   }
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;
+</I>
+
+&gt;<i>       u32 *my_buff = (u32 *)spromm;
+</I>&gt;<i>       u32 dw;
+</I>&gt;<i> 
+</I>&gt;<i> 	for (i = 0; i&lt;  bus-&gt;sprom_size/2; i = i++) {
+</I>&gt;<i> 		dw = ioread32(bus-&gt;mmio + SSB_SPROM_BASE + (i * 4));
+</I>&gt;<i>                  my_buff[i] = (dw&lt;&lt;  16) | (dw&gt;&gt;  16);
+</I>&gt;<i> 	}
+</I>&gt;<i> 
+</I>&gt;<i>       Is there something fishy in that approach ?
+</I>
+Yeah, completely wrong.
+Use larry's patch.
+
+I don't see why a 16bit access would hang. This code's been like this forever
+and is tested on thousands of devices. We need to find out what's special about
+your device. First being: Does your device actually _have_ an sprom? Or is
+it some of these freaky built-in stripped-down save-two-cents devices?
+
+So can you check what the first 16bit read returns? Just printk it.
+If it returns all-ones, there's a good chance that there is no sprom at all.
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006387.html">b43 kills my kernel
+</A></li>
+	<LI>Next message: <A HREF="006389.html">b43 kills my kernel
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6388">[ date ]</a>
+              <a href="thread.html#6388">[ thread ]</a>
+              <a href="subject.html#6388">[ subject ]</a>
+              <a href="author.html#6388">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

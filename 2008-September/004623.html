@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43: out-of-standard behavior
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%3A%20out-of-standard%20behavior&In-Reply-To=%3CB22D8628-19FE-4FEC-83F2-51BAD3597CE2%40ing.unibs.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004622.html">
+   <LINK REL="Next"  HREF="004625.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43: out-of-standard behavior</H1>
+    <B>Francesco Gringoli</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%3A%20out-of-standard%20behavior&In-Reply-To=%3CB22D8628-19FE-4FEC-83F2-51BAD3597CE2%40ing.unibs.it%3E"
+       TITLE="b43: out-of-standard behavior">francesco.gringoli at ing.unibs.it
+       </A><BR>
+    <I>Wed Sep 10 21:42:57 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004622.html">[PATCH] b43: Fix QoS defaults
+</A></li>
+        <LI>Next message: <A HREF="004625.html">b43: out-of-standard behavior
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4623">[ date ]</a>
+              <a href="thread.html#4623">[ thread ]</a>
+              <a href="subject.html#4623">[ subject ]</a>
+              <a href="author.html#4623">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello everybody,
+
+we found a strange behavior problem with the b43 driver. We begin  
+investigating this when doing some access tests with several boards:  
+we discovered that the Broadcom boards usually acquire the channel  
+usage with higher priority when the b43 driver is used as respect to  
+other vendor boards.
+
+After investigating we saw that the intra-queue contention procedure  
+is carried out by the firmware which stores information, such as AIFS  
+and current backoffs for each queue, inside the shared memory. The  
+AIFS for each queue is used to compute the initial backoff so that  
+internal contention usually gives more priority to VO queue (smallest  
+AIFS) and less to background (biggest AIFS). AIFS parameters are  
+initialized by the driver which is told to use a 22 words long  
+structures. The firmware instead use 16 words structures: this means  
+that AIFS parameters initialized by the driver do not match the  
+corresponding values read by the firmware. We saw that the firmware  
+reads (2,0,0,0) instead of (2,2,3,7) which results in very short  
+backoff procedures.
+
+Has anyone noticed similar behavior? For the sake of clarity, I'm  
+referring to latest (30 minutes ago) version of wireless-git and  
+broadcom-wl-4.150.10.5 driver version. I verified that all ucode5.s,  
+ucode9.s, ucode11.s, ucode13.s and ucode14.s firmwares use 16 words  
+structures, and the driver instead still uses 22 words long  
+structures.  Probably the attached patch sorts out the problem.
+
+I also noticed that the specs say that these structures are 16 words:  
+could not someone read 16 as 0x16 that finally became 0x16 = 22?
+
+Cheers,
+FG
+
+--- b43.h.old	2008-09-10 21:12:59.000000000 +0200
++++ b43.h	2008-09-10 21:13:09.000000000 +0200
+@@ -569,7 +569,7 @@
+  #define B43_QOS_VOICE		B43_QOS_PARAMS(3)
+
+  /* QOS parameter hardware data structure offsets. */
+-#define B43_NR_QOSPARAMS	22
++#define B43_NR_QOSPARAMS	16
+  enum {
+  	B43_QOSPARAM_TXOP = 0,
+  	B43_QOSPARAM_CWMIN,
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004622.html">[PATCH] b43: Fix QoS defaults
+</A></li>
+	<LI>Next message: <A HREF="004625.html">b43: out-of-standard behavior
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4623">[ date ]</a>
+              <a href="thread.html#4623">[ thread ]</a>
+              <a href="subject.html#4623">[ subject ]</a>
+              <a href="author.html#4623">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

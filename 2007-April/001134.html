@@ -1,0 +1,126 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/3] bcm43xx-mac80211: Fix machine check on PPC for	phy-&gt;rev == 1
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/3%5D%20bcm43xx-mac80211%3A%20Fix%20machine%20check%20on%20PPC%20for%0A%09phy-%3Erev%20%3D%3D%201&In-Reply-To=%3C462772c4.i/6WywXw5chGDs/l%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001133.html">
+   <LINK REL="Next"  HREF="001135.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/3] bcm43xx-mac80211: Fix machine check on PPC for	phy-&gt;rev == 1</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/3%5D%20bcm43xx-mac80211%3A%20Fix%20machine%20check%20on%20PPC%20for%0A%09phy-%3Erev%20%3D%3D%201&In-Reply-To=%3C462772c4.i/6WywXw5chGDs/l%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH 1/3] bcm43xx-mac80211: Fix machine check on PPC for	phy-&gt;rev == 1">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Thu Apr 19 15:46:44 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001133.html">[PATCH 0/3] bcm43xx-mac80211: Fix machine check on PPC for phy-&gt;rev	== 1
+</A></li>
+        <LI>Next message: <A HREF="001135.html">[PATCH 2/3] bcm43xx-mac80211: Fix machine check on PPC for	phy-&gt;rev == 1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1134">[ date ]</a>
+              <a href="thread.html#1134">[ thread ]</a>
+              <a href="subject.html#1134">[ subject ]</a>
+              <a href="author.html#1134">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Patch 1/3: Fix some typos and a logic error involving phy-&gt;gmode that caused
+machine checks on PPC architecture with phy-&gt;rev == 1 chips.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+This patch is for the wireless-dev tree. A separate one will be prepared
+for the mb tree.
+
+Larry
+
+
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
+@@ -655,7 +660,7 @@ static void bcm43xx_phy_agcsetup(struct 
+ 				   &amp; 0xFFF0) | 0x0004);
+ 	}
+ 
+-	if (phy-&gt;rev &lt; 6) {
++	if (phy-&gt;rev &gt;= 6) {
+ 		bcm43xx_phy_write(dev, 0x0422, 0x287A);
+ 		bcm43xx_phy_write(dev, 0x0420,
+ 				  (bcm43xx_phy_read(dev, 0x0420)
+@@ -3239,7 +3265,7 @@ bcm43xx_radio_interference_mitigation_di
+ 			                  bcm43xx_phy_read(dev, BCM43xx_PHY_G_CRS) | 0x4000);
+ 			break;
+ 		}
+-		phy_stackrestore(0x0078);
++		radio_stackrestore(0x0078);
+ 		bcm43xx_calc_nrssi_threshold(dev);
+ 		phy_stackrestore(0x0406);
+ 		bcm43xx_phy_write(dev, 0x042B,
+
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
+@@ -830,6 +830,7 @@ static void bcm43xx_switch_analog(struct
+ 
+ void bcm43xx_wireless_core_reset(struct bcm43xx_wldev *dev, u32 flags)
+ {
++	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+ 	u32 tmslow;
+ 	u32 macctl;
+ 
+@@ -853,10 +854,13 @@ void bcm43xx_wireless_core_reset(struct 
+ 	/* Turn Analog ON */
+ 	bcm43xx_switch_analog(dev, 1);
+ 
+-	macctl = bcm43xx_read32(dev, BCM43xx_MMIO_MACCTL);
++	macctl = bcm43xx_read32(dev, BCM43xx_MMIO_MACCTL) &amp; ~BCM43xx_MACCTL_GMODE;
+ 	macctl |= BCM43xx_MACCTL_IHR_ENABLED;
+-	if (flags &amp; BCM43xx_TMSLOW_GMODE)
++	if (flags &amp; BCM43xx_TMSLOW_GMODE) {
+ 		macctl |= BCM43xx_MACCTL_GMODE;
++		phy-&gt;gmode = 1;
++	} else
++		phy-&gt;gmode = 0;
+ 	bcm43xx_write32(dev, BCM43xx_MMIO_MACCTL, macctl);
+ }
+ 
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001133.html">[PATCH 0/3] bcm43xx-mac80211: Fix machine check on PPC for phy-&gt;rev	== 1
+</A></li>
+	<LI>Next message: <A HREF="001135.html">[PATCH 2/3] bcm43xx-mac80211: Fix machine check on PPC for	phy-&gt;rev == 1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1134">[ date ]</a>
+              <a href="thread.html#1134">[ thread ]</a>
+              <a href="subject.html#1134">[ subject ]</a>
+              <a href="author.html#1134">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

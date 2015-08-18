@@ -1,0 +1,249 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Refactor and update antenna diversity for A/G-PHY
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Refactor%20and%20update%20antenna%20diversity%20for%20A/G-PHY&In-Reply-To=%3C4A9831DC.4050802%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005939.html">
+   <LINK REL="Next"  HREF="005942.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Refactor and update antenna diversity for A/G-PHY</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Refactor%20and%20update%20antenna%20diversity%20for%20A/G-PHY&In-Reply-To=%3C4A9831DC.4050802%40gmail.com%3E"
+       TITLE="[PATCH] b43: Refactor and update antenna diversity for A/G-PHY">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Fri Aug 28 21:37:00 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005939.html">[PATCH v2] b43: Implement antenna diversity support for LP-PHY
+</A></li>
+        <LI>Next message: <A HREF="005942.html">[PATCH] b43: Add myself to module authors &amp; to LP-PHY file copyright	notices
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5941">[ date ]</a>
+              <a href="thread.html#5941">[ thread ]</a>
+              <a href="subject.html#5941">[ subject ]</a>
+              <a href="author.html#5941">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>-Make use of the b43_phy_set/mask/maskset helpers.
+-Fix a few errors in the code.
+-Make the code more readable.
+
+Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+---
+The &quot;phy-&gt;analog == 3&quot; to &quot;phy-&gt;rev == 3&quot; change in A-PHY is intentional,
+it's a bugfix/spec conformance fix.
+
+ drivers/net/wireless/b43/phy_a.c |   48 ++++++++++----------------------
+ drivers/net/wireless/b43/phy_g.c |   55 +++++++++++++++----------------------
+ 2 files changed, 37 insertions(+), 66 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_a.c b/drivers/net/wireless/b43/phy_a.c
+index 809ec97..d90217c 100644
+--- a/drivers/net/wireless/b43/phy_a.c
++++ b/drivers/net/wireless/b43/phy_a.c
+@@ -518,58 +518,40 @@ static unsigned int b43_aphy_op_get_default_chan(struct b43_wldev *dev)
+ static void b43_aphy_op_set_rx_antenna(struct b43_wldev *dev, int antenna)
+ {//TODO
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+-	u64 hf;
+ 	u16 tmp;
+ 	int autodiv = 0;
+ 
+ 	if (antenna == B43_ANTENNA_AUTO0 || antenna == B43_ANTENNA_AUTO1)
+ 		autodiv = 1;
+ 
+-	hf = b43_hf_read(dev);
+-	hf &amp;= ~B43_HF_ANTDIVHELP;
+-	b43_hf_write(dev, hf);
++	b43_hf_write(dev, b43_hf_read(dev) &amp; ~B43_HF_ANTDIVHELP);
+ 
+-	tmp = b43_phy_read(dev, B43_PHY_BBANDCFG);
+-	tmp &amp;= ~B43_PHY_BBANDCFG_RXANT;
+-	tmp |= (autodiv ? B43_ANTENNA_AUTO1 : antenna)
+-	    &lt;&lt; B43_PHY_BBANDCFG_RXANT_SHIFT;
+-	b43_phy_write(dev, B43_PHY_BBANDCFG, tmp);
++	b43_phy_maskset(dev, B43_PHY_BBANDCFG, ~B43_PHY_BBANDCFG_RXANT,
++			(autodiv ? B43_ANTENNA_AUTO1 : antenna) &lt;&lt;
++			B43_PHY_BBANDCFG_RXANT_SHIFT);
+ 
+ 	if (autodiv) {
+ 		tmp = b43_phy_read(dev, B43_PHY_ANTDWELL);
+-		if (antenna == B43_ANTENNA_AUTO0)
++		if (antenna == B43_ANTENNA_AUTO1)
+ 			tmp &amp;= ~B43_PHY_ANTDWELL_AUTODIV1;
+ 		else
+ 			tmp |= B43_PHY_ANTDWELL_AUTODIV1;
+ 		b43_phy_write(dev, B43_PHY_ANTDWELL, tmp);
+ 	}
+-	if (phy-&gt;rev &lt; 3) {
+-		tmp = b43_phy_read(dev, B43_PHY_ANTDWELL);
+-		tmp = (tmp &amp; 0xFF00) | 0x24;
+-		b43_phy_write(dev, B43_PHY_ANTDWELL, tmp);
+-	} else {
+-		tmp = b43_phy_read(dev, B43_PHY_OFDM61);
+-		tmp |= 0x10;
+-		b43_phy_write(dev, B43_PHY_OFDM61, tmp);
+-		if (phy-&gt;analog == 3) {
+-			b43_phy_write(dev, B43_PHY_CLIPPWRDOWNT,
+-				      0x1D);
+-			b43_phy_write(dev, B43_PHY_ADIVRELATED,
+-				      8);
++	if (phy-&gt;rev &lt; 3)
++		b43_phy_maskset(dev, B43_PHY_ANTDWELL, 0xFF00, 0x24);
++	else {
++		b43_phy_set(dev, B43_PHY_OFDM61, 0x10);
++		if (phy-&gt;rev == 3) {
++			b43_phy_write(dev, B43_PHY_CLIPPWRDOWNT, 0x1D);
++			b43_phy_write(dev, B43_PHY_ADIVRELATED, 8);
+ 		} else {
+-			b43_phy_write(dev, B43_PHY_CLIPPWRDOWNT,
+-				      0x3A);
+-			tmp =
+-			    b43_phy_read(dev,
+-					 B43_PHY_ADIVRELATED);
+-			tmp = (tmp &amp; 0xFF00) | 8;
+-			b43_phy_write(dev, B43_PHY_ADIVRELATED,
+-				      tmp);
++			b43_phy_write(dev, B43_PHY_CLIPPWRDOWNT, 0x3A);
++			b43_phy_maskset(dev, B43_PHY_ADIVRELATED, 0xFF00, 8);
+ 		}
+ 	}
+ 
+-	hf |= B43_HF_ANTDIVHELP;
+-	b43_hf_write(dev, hf);
++	b43_hf_write(dev, b43_hf_read(dev) | B43_HF_ANTDIVHELP);
+ }
+ 
+ static void b43_aphy_op_adjust_txpower(struct b43_wldev *dev)
+diff --git a/drivers/net/wireless/b43/phy_g.c b/drivers/net/wireless/b43/phy_g.c
+index c6d639d..4b6154b 100644
+--- a/drivers/net/wireless/b43/phy_g.c
++++ b/drivers/net/wireless/b43/phy_g.c
+@@ -2638,65 +2638,54 @@ static unsigned int b43_gphy_op_get_default_chan(struct b43_wldev *dev)
+ static void b43_gphy_op_set_rx_antenna(struct b43_wldev *dev, int antenna)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+-	u64 hf;
+ 	u16 tmp;
+ 	int autodiv = 0;
+ 
+ 	if (antenna == B43_ANTENNA_AUTO0 || antenna == B43_ANTENNA_AUTO1)
+ 		autodiv = 1;
+ 
+-	hf = b43_hf_read(dev);
+-	hf &amp;= ~B43_HF_ANTDIVHELP;
+-	b43_hf_write(dev, hf);
+-
+-	tmp = b43_phy_read(dev, B43_PHY_BBANDCFG);
+-	tmp &amp;= ~B43_PHY_BBANDCFG_RXANT;
+-	tmp |= (autodiv ? B43_ANTENNA_AUTO1 : antenna)
+-			&lt;&lt; B43_PHY_BBANDCFG_RXANT_SHIFT;
+-	b43_phy_write(dev, B43_PHY_BBANDCFG, tmp);
++	b43_hf_write(dev, b43_hf_read(dev) &amp; ~B43_HF_ANTDIVHELP);
+ 
++	b43_phy_maskset(dev, B43_PHY_BBANDCFG, ~B43_PHY_BBANDCFG_RXANT,
++			(autodiv ? B43_ANTENNA_AUTO1 : antenna) &lt;&lt;
++			B43_PHY_BBANDCFG_RXANT_SHIFT);
++			
+ 	if (autodiv) {
+ 		tmp = b43_phy_read(dev, B43_PHY_ANTDWELL);
+-		if (antenna == B43_ANTENNA_AUTO0)
++		if (antenna == B43_ANTENNA_AUTO1)
+ 			tmp &amp;= ~B43_PHY_ANTDWELL_AUTODIV1;
+ 		else
+ 			tmp |= B43_PHY_ANTDWELL_AUTODIV1;
+ 		b43_phy_write(dev, B43_PHY_ANTDWELL, tmp);
+ 	}
++
+ 	tmp = b43_phy_read(dev, B43_PHY_ANTWRSETT);
+ 	if (autodiv)
+ 		tmp |= B43_PHY_ANTWRSETT_ARXDIV;
+ 	else
+ 		tmp &amp;= ~B43_PHY_ANTWRSETT_ARXDIV;
+ 	b43_phy_write(dev, B43_PHY_ANTWRSETT, tmp);
+-	if (phy-&gt;rev &gt;= 2) {
+-		tmp = b43_phy_read(dev, B43_PHY_OFDM61);
+-		tmp |= B43_PHY_OFDM61_10;
+-		b43_phy_write(dev, B43_PHY_OFDM61, tmp);
+ 
+-		tmp =
+-		    b43_phy_read(dev, B43_PHY_DIVSRCHGAINBACK);
+-		tmp = (tmp &amp; 0xFF00) | 0x15;
+-		b43_phy_write(dev, B43_PHY_DIVSRCHGAINBACK,
+-			      tmp);
++	if (autodiv)
++		b43_phy_set(dev, B43_PHY_ANTWRSETT, B43_PHY_ANTWRSETT_ARXDIV);
++	else {
++		b43_phy_mask(dev, B43_PHY_ANTWRSETT,
++			     B43_PHY_ANTWRSETT_ARXDIV);
++	}
+ 
+-		if (phy-&gt;rev == 2) {
+-			b43_phy_write(dev, B43_PHY_ADIVRELATED,
+-				      8);
+-		} else {
+-			tmp =
+-			    b43_phy_read(dev,
+-					 B43_PHY_ADIVRELATED);
+-			tmp = (tmp &amp; 0xFF00) | 8;
+-			b43_phy_write(dev, B43_PHY_ADIVRELATED,
+-				      tmp);
+-		}
++	if (phy-&gt;rev &gt;= 2) {
++		b43_phy_set(dev, B43_PHY_OFDM61, B43_PHY_OFDM61_10);
++		b43_phy_maskset(dev, B43_PHY_DIVSRCHGAINBACK, 0xFF00, 0x15);
++
++		if (phy-&gt;rev == 2)
++			b43_phy_write(dev, B43_PHY_ADIVRELATED, 8);
++		else
++			b43_phy_maskset(dev, B43_PHY_ADIVRELATED, 0xFF00, 8);
+ 	}
+ 	if (phy-&gt;rev &gt;= 6)
+ 		b43_phy_write(dev, B43_PHY_OFDM9B, 0xDC);
+ 
+-	hf |= B43_HF_ANTDIVHELP;
+-	b43_hf_write(dev, hf);
++	b43_hf_write(dev, b43_hf_read(dev) | B43_HF_ANTDIVHELP);
+ }
+ 
+ static int b43_gphy_op_interf_mitigation(struct b43_wldev *dev,
+-- 
+1.6.2.4
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005939.html">[PATCH v2] b43: Implement antenna diversity support for LP-PHY
+</A></li>
+	<LI>Next message: <A HREF="005942.html">[PATCH] b43: Add myself to module authors &amp; to LP-PHY file copyright	notices
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5941">[ date ]</a>
+              <a href="thread.html#5941">[ thread ]</a>
+              <a href="subject.html#5941">[ subject ]</a>
+              <a href="author.html#5941">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

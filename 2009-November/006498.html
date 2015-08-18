@@ -1,0 +1,114 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Does this help b43 DMA errors?
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Does%20this%20help%20b43%20DMA%20errors%3F&In-Reply-To=%3C4B103D28.9020802%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006496.html">
+   <LINK REL="Next"  HREF="006499.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Does this help b43 DMA errors?</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Does%20this%20help%20b43%20DMA%20errors%3F&In-Reply-To=%3C4B103D28.9020802%40lwfinger.net%3E"
+       TITLE="Does this help b43 DMA errors?">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Nov 27 21:57:12 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006496.html">DMA errors with BCM4312 - an update
+</A></li>
+        <LI>Next message: <A HREF="006499.html">Does this help b43 DMA errors?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6498">[ date ]</a>
+              <a href="thread.html#6498">[ thread ]</a>
+              <a href="subject.html#6498">[ subject ]</a>
+              <a href="author.html#6498">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Please try this patch without the pm_qos patch to see if it helps. The Broadcom
+wl driver does this during the setup.
+
+Thanks,
+
+Larry
+
+====================
+
+Index: wireless-testing/drivers/ssb/driver_pcicore.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/driver_pcicore.c
++++ wireless-testing/drivers/ssb/driver_pcicore.c
+@@ -606,6 +606,12 @@ int ssb_pcicore_dev_irqvecs_enable(struc
+ 			tmp |= 0x8;
+ 			ssb_pcie_write(pc, 0x4, tmp);
+ 		}
++		if (pdev-&gt;id.revision == 1) {
++			/* DLLP Link Control register. */
++			tmp = ssb_pcie_read(pc, 0x100);
++			tmp |= 0x40;
++			ssb_pcie_write(pc, 0x100, tmp);
++		}
+ 		if (pdev-&gt;id.revision == 0) {
+ 			const u8 serdes_rx_device = 0x1F;
+
+@@ -615,12 +621,19 @@ int ssb_pcicore_dev_irqvecs_enable(struc
+ 					    6 /* CDR */, 0x0100);
+ 			ssb_pcie_mdio_write(pc, serdes_rx_device,
+ 					    7 /* CDR BW */, 0x1466);
+-		} else if (pdev-&gt;id.revision == 1) {
+-			/* DLLP Link Control register. */
+-			tmp = ssb_pcie_read(pc, 0x100);
+-			tmp |= 0x40;
+-			ssb_pcie_write(pc, 0x100, tmp);
++		} else if (pdev-&gt;id.revision &gt;= 3 &amp;&amp; pdev-&gt;id.revision &lt;= 5) {
++			/* DLLP Power Management Threshold */
++			tmp = ssb_pcie_read(pc, 0x128) &amp; 0x00FF;
++			tmp |= 0x7200;
++			ssb_pcie_write(pc, 0x128, tmp);
++			/* TODO: PCIe serdes workaround */
++			/* TODO: PCIe ASPM Clock Request workaround */
++		} else {
++			/* TODO: PCIe Extend L1 Timer - for core rev 7 or 8 */
++			/* TODO: PCIe No PLL Down workaround - for core rev 3 or 4 */
++			writew(readw(bus-&gt;mmio + 0x80A) | 0x8000, bus-&gt;mmio + 0x80A);
+ 		}
++
+ 	}
+ 	pc-&gt;setup_done = 1;
+ out:
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006496.html">DMA errors with BCM4312 - an update
+</A></li>
+	<LI>Next message: <A HREF="006499.html">Does this help b43 DMA errors?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6498">[ date ]</a>
+              <a href="thread.html#6498">[ thread ]</a>
+              <a href="subject.html#6498">[ subject ]</a>
+              <a href="author.html#6498">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

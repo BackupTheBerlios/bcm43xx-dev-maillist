@@ -1,0 +1,130 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Refresh RX poison on buffer recycling
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Refresh%20RX%20poison%20on%20buffer%20recycling&In-Reply-To=%3C30353c3d0904051138k313460f0p111282e3b279bd05%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005373.html">
+   <LINK REL="Next"  HREF="005375.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Refresh RX poison on buffer recycling</H1>
+    <B>David Ellingsworth</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Refresh%20RX%20poison%20on%20buffer%20recycling&In-Reply-To=%3C30353c3d0904051138k313460f0p111282e3b279bd05%40mail.gmail.com%3E"
+       TITLE="[PATCH] b43: Refresh RX poison on buffer recycling">david at identd.dyndns.org
+       </A><BR>
+    <I>Sun Apr  5 20:38:16 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005373.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+        <LI>Next message: <A HREF="005375.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5374">[ date ]</a>
+              <a href="thread.html#5374">[ thread ]</a>
+              <a href="subject.html#5374">[ subject ]</a>
+              <a href="author.html#5374">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sun, Apr 5, 2009 at 2:01 PM, Francesco Gringoli
+&lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">francesco.gringoli at ing.unibs.it</A>&gt; wrote:
+&gt;<i> On Mar 30, 2009, at 11:35 PM, Francesco Gringoli wrote:
+</I>&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> On Mar 28, 2009, at 12:41 AM, Michael Buesch wrote:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> The RX buffer poison needs to be refreshed, if we recycle an RX
+</I>&gt;&gt;&gt;<i> buffer,
+</I>&gt;&gt;&gt;<i> because it might be (partially) overwritten by some DMA operations.
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> Cc: <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stable at kernel.org</A>
+</I>&gt;&gt;&gt;<i> Cc: Francesco Gringoli &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">francesco.gringoli at ing.unibs.it</A>&gt;
+</I>&gt;&gt;&gt;<i> Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> ---
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> Francesco, please stresstest this on top of the other patch that
+</I>&gt;&gt;&gt;<i> adds poisoning.
+</I>&gt;&gt;<i> Hi Michael,
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> great work! No more crashes with the two patches. I will continue
+</I>&gt;&gt;<i> stress testing anyway but it seems stable.
+</I>&gt;<i> Hi Michael,
+</I>&gt;<i>
+</I>&gt;<i> I run the patched kernel for some time and, though it is stable and
+</I>&gt;<i> never crashes, there are still (few) some strange rx events. I will
+</I>&gt;<i> refer to them as Wrong Frame Type I, Type II, and III. Please note
+</I>&gt;<i> however, that we can observe them ONLY when the FCSFAIL bit is set in
+</I>&gt;<i> the mac_ctrl_high (at least in my setup).
+</I>&gt;<i>
+</I>&gt;<i> - Type I: plcp length mismatch
+</I>&gt;<i> These frames have a plcp that seems to be correct (I mean, the first
+</I>&gt;<i> two bytes appear to be taken from a valid plcp), the padding reported
+</I>&gt;<i> by the firmware in this cases is correct too (e.g. the padding always
+</I>&gt;<i> point to the byte where the valid plcp seems to start). HOWEVER, the
+</I>&gt;<i> length of such frames is different than the length encoded in their
+</I>&gt;<i> plcp. In all these frames the B43_RX_MAC_FCSERR bit is not set, though
+</I>&gt;<i> these frames will fail a crc check. We should check the plcp matches
+</I>&gt;<i> the skb length and manually set the RX_FLAG_FAILED_FCS_CRC bit in the
+</I>&gt;<i> status field so that mac80211 will skip these frames.
+</I>&gt;<i>
+</I>&gt;<i> - Type II: fcs is wrong
+</I>&gt;<i> These frames have a correct plcp that matches their skb length. Their
+</I>&gt;<i> FCS however is wrong! but the B43_RX_MAC_FCSERR is not set. Again we
+</I>&gt;<i> should manually set the RX_FLAG_FAILED_FCS_CRC bit in the status field
+</I>&gt;<i> so that mac80211 will skip these frames. I believe that these frames
+</I>&gt;<i> are nothing more than Type I but the broken length collided with their
+</I>&gt;<i> actual length.
+</I>&gt;<i>
+</I>&gt;<i> - Type III: plcp is not a... plcp
+</I>&gt;<i> These frames have a plcp that is not a plcp, in the sense that the
+</I>&gt;<i> first two bytes (with both padding 0 or 2) does not represent any
+</I>&gt;<i> possible plcp.
+</I>&gt;<i>
+</I>&gt;<i> I attach a patch to correctly set the RX_FLAG_FAILED_FCS_CRC bit in
+</I>&gt;<i> the status field on such situations so that such frames are not passed
+</I>&gt;<i> to the upper layers.
+</I>&gt;<i>
+</I>&gt;<i> Cheers,
+</I>&gt;<i> -FG
+</I>&gt;<i>
+</I>
+Your patch was mangled by your email client. Maybe you should inline
+your patches and attach a copy of it before sending in the future.
+
+Regards,
+
+David Ellingsworth
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005373.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+	<LI>Next message: <A HREF="005375.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5374">[ date ]</a>
+              <a href="thread.html#5374">[ thread ]</a>
+              <a href="subject.html#5374">[ subject ]</a>
+              <a href="author.html#5374">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

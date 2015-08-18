@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Query about 'ssb_sprom' utility
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Query%20about%20%27ssb_sprom%27%20utility&In-Reply-To=%3C200804211538.16824.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003914.html">
+   <LINK REL="Next"  HREF="003924.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Query about 'ssb_sprom' utility</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Query%20about%20%27ssb_sprom%27%20utility&In-Reply-To=%3C200804211538.16824.mb%40bu3sch.de%3E"
+       TITLE="Query about 'ssb_sprom' utility">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Apr 21 15:38:16 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003914.html">Query about 'ssb_sprom' utility
+</A></li>
+        <LI>Next message: <A HREF="003924.html">Query about 'ssb_sprom' utility
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3923">[ date ]</a>
+              <a href="thread.html#3923">[ thread ]</a>
+              <a href="subject.html#3923">[ subject ]</a>
+              <a href="author.html#3923">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday 20 April 2008 22:41:27 Larry Finger wrote:
+&gt;<i> Michael Buesch wrote:
+</I>&gt;<i> &gt; On Sunday 20 April 2008 07:27:57 Larry Finger wrote:
+</I>&gt;<i> &gt;&gt; I'm not sure what happened to my patch; however, I just added that 
+</I>&gt;<i> &gt;&gt; information to the sprom section of the b43 wiki at linux-wireless.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Can you resend it?
+</I>&gt;<i> 
+</I>&gt;<i> Yes.
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> Index: ssb_sprom/README
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- ssb_sprom.orig/README
+</I>&gt;<i> +++ ssb_sprom/README
+</I>&gt;<i> @@ -13,3 +13,78 @@ Requirements
+</I>&gt;<i>   ------------
+</I>&gt;<i> 
+</I>&gt;<i>   1)	C99 compatible compiler.
+</I>&gt;<i> +
+</I>&gt;<i> +Usage
+</I>&gt;<i> +-----
+</I>&gt;<i> +
+</I>&gt;<i> +The contents of the sprom are exposed to the user in sysfs. This
+</I>&gt;<i> +tool can, in principle, read and write the sprom in place; however,
+</I>&gt;<i> +making a mistake during sprom writing could render your device
+</I>&gt;<i> +unusable. For this reason, we recommend copying the sprom contents
+</I>&gt;<i> +to disk as the first step. This copy can then be modified until it
+</I>&gt;<i> +contains the desired new information. Only then and with caution
+</I>&gt;<i> +should the sprom be rewritten. DO NOT MAKE ANY CHANGES UNLESS YOU
+</I>&gt;<i> +KNOW WHAT YOU ARE DOING!!!! You have been warned!!!
+</I>&gt;<i> +
+</I>&gt;<i> +Obtaining a disk copy of the sprom contents
+</I>&gt;<i> +-------------------------------------------
+</I>&gt;<i> +
+</I>&gt;<i> +This file name for the sprom contents depends on the bus layout of
+</I>&gt;<i> +the specific computer being used and will be something cryptic like
+</I>&gt;<i> +
+</I>&gt;<i> +/sys/devices/pci0000:00/0000:00:02.0/0000:01:00.0/ssb_sprom
+</I>&gt;<i> +
+</I>&gt;<i> +It is not recommended that you try to type the name. Instead, you
+</I>&gt;<i> +should use the following commands to get the working copy:
+</I>&gt;<i> +
+</I>&gt;<i> +SSB_SPROM=$(find /sys -name ssb_sprom)
+</I>&gt;<i> +sudo cat $SSB_SPROM &gt; ssb_sprom_copy
+</I>
+This is _dangerous_, if the person doing this has two SSB based
+cards in the machine. It is extremely dangerous, if there's a b44 and b43
+card in the machine!
+We should instead go the way down explaining what this &quot;cryptic&quot; (no it's
+not cryptic) path means and explain how to derive it from lspci info.
+
+&gt;<i> +Modifying the contents of the working copy
+</I>&gt;<i> +------------------------------------------
+</I>&gt;<i> +
+</I>&gt;<i> +You may now look at the contents of your sprom with the command
+</I>&gt;<i> +
+</I>&gt;<i> +ssb-sprom -i ssb_sprom_copy -P
+</I>&gt;<i> +
+</I>&gt;<i> +As an example, let us suppose that you have purchased a Dell mini-pci
+</I>&gt;<i> +card to use in an HP laptop. The HP BIOS refuses to use the card when
+</I>&gt;<i> +the pcivendor is Dell (code 0x1028), not HP (code 0x103C). From the
+</I>&gt;<i> +dump above, we learn that the pcivendor code is a 16-bit quantity
+</I>&gt;<i> +stored at 0x06. To change that code, we use the commands
+</I>&gt;<i> +
+</I>&gt;<i> +ssb-sprom -i ssb_sprom_copy -o ssb_sprom_copy -s 0x06,0x3C
+</I>&gt;<i> +ssb-sprom -i ssb_sprom_copy -o ssb_sprom_copy -s 0x07,0x10
+</I>
+This can be done in an easier way:
+
+ssb-sprom -i ssb_sprom_copy -o ssb_sprom_copy --subv 0x103C
+
+&gt;<i> +to write the two bytes separately. The documentation implies that
+</I>&gt;<i> +these data could be written as a single 16-bit quantity; however,
+</I>&gt;<i> +that doesn't work at the moment.
+</I>
+I'm not sure which part of the documentation does imply that.
+
+&gt;<i> +Once you think you have updated correctly, use
+</I>&gt;<i> +
+</I>&gt;<i> +ssb-sprom -i ssb_sprom_copy -P
+</I>&gt;<i> +
+</I>&gt;<i> +again to check the contents.
+</I>&gt;<i> +
+</I>&gt;<i> +Rewriting the sprom contents
+</I>&gt;<i> +----------------------------
+</I>&gt;<i> +
+</I>&gt;<i> +Once the sprom contents are the way you want them, and presumably
+</I>&gt;<i> +correct, you are ready to rewrite the file. If you have logged out
+</I>&gt;<i> +since the working copy of the sprom contents was obtained, the symbol
+</I>&gt;<i> +containing the location of the file in sysfs will have been lost. In
+</I>&gt;<i> +any case, it is safe to reload that symbol again with
+</I>
+No it's not safe for reasons explained above.
+
+&gt;<i> +SSB_SPROM=`find /sys -name ssb_sprom`
+</I>&gt;<i> +
+</I>&gt;<i> +You are then ready to rewrite the sprom with
+</I>&gt;<i> +
+</I>&gt;<i> +sudo cp ssb_sprom_copy $SSB_SPROM
+</I>&gt;<i> +
+</I>&gt;<i> +Once again, you are urged to be absolutely certain of the contents
+</I>&gt;<i> +of the working copy BEFORE taking this step. If your interface
+</I>&gt;<i> +becomes unusable as a result of writing incorrect data into the
+</I>&gt;<i> +sprom, the responsibility is YOURS. Once again, you have been warned.
+</I>&gt;<i> +
+</I>&gt;<i> +----------
+</I>
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003914.html">Query about 'ssb_sprom' utility
+</A></li>
+	<LI>Next message: <A HREF="003924.html">Query about 'ssb_sprom' utility
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3923">[ date ]</a>
+              <a href="thread.html#3923">[ thread ]</a>
+              <a href="subject.html#3923">[ subject ]</a>
+              <a href="author.html#3923">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

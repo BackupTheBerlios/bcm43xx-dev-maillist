@@ -1,0 +1,150 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC PATCH 1/2] Rename V4 firmware
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%20PATCH%201/2%5D%20Rename%20V4%20firmware&In-Reply-To=%3C20070126135127.GA3050%40srcf.ucam.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000207.html">
+   <LINK REL="Next"  HREF="000199.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC PATCH 1/2] Rename V4 firmware</H1>
+    <B>Matthew Garrett</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%20PATCH%201/2%5D%20Rename%20V4%20firmware&In-Reply-To=%3C20070126135127.GA3050%40srcf.ucam.org%3E"
+       TITLE="[RFC PATCH 1/2] Rename V4 firmware">mjg59 at srcf.ucam.org
+       </A><BR>
+    <I>Fri Jan 26 14:51:27 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000207.html">USB device protocol
+</A></li>
+        <LI>Next message: <A HREF="000199.html">[RFC PATCH 2/2] Rename V4 firmware
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#198">[ date ]</a>
+              <a href="thread.html#198">[ thread ]</a>
+              <a href="subject.html#198">[ subject ]</a>
+              <a href="author.html#198">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The dscape driver requires v4 firmware, while the mainline driver 
+prefers v3. Giving the two different names makes it easier to support 
+parallel installation. This patches fwcutter to dump v4 firmware with a 
+different name - the second patch alters the dscape driver to request 
+it.
+
+Signed-off-by: Matthew Garrett &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mjg59 at srcf.ucam.org</A>&gt;
+
+---
+
+diff -urp bcm43xx-fwcutter-006/fwcutter.c bcm43xx-fwcutter-006.new/fwcutter.c
+--- bcm43xx-fwcutter-006/fwcutter.c	2006-12-08 21:00:28.000000000 +0000
++++ bcm43xx-fwcutter-006.new/fwcutter.c	2007-01-26 13:42:08.000000000 +0000
+@@ -28,6 +28,7 @@
+ 
+ static struct cmdline_args cmdargs;
+ int big_endian_cpu;
++int v4_firmware;
+ 
+ static void write_little_endian(FILE *f, byte *buffer, int len, uint8_t flags) 
+ {
+@@ -110,11 +111,18 @@ static void write_iv(uint8_t flags, uint
+ 				ivnum = 0;
+ 		}
+ 
+-		snprintf(ivfilename, sizeof(ivfilename),
+-			 &quot;%s/bcm43xx_initval%02d%s.fw&quot;,
+-			 cmdargs.target_dir,
+-			 ivnum,
+-			 cmdargs.postfix);
++		if (v4_firmware) 
++			snprintf(ivfilename, sizeof(ivfilename),
++				 &quot;%s/bcm43xx_v4_initval%02d%s.fw&quot;,
++				 cmdargs.target_dir,
++				 ivnum,
++				 cmdargs.postfix);
++		else
++			snprintf(ivfilename, sizeof(ivfilename),
++				 &quot;%s/bcm43xx_initval%02d%s.fw&quot;,
++				 cmdargs.target_dir,
++				 ivnum,
++				 cmdargs.postfix);
+ 
+ 		/* don't extract initval 0 */
+ 		if ( ivnum == 0 ) {
+@@ -289,16 +297,27 @@ static void extract_fw(uint8_t fwtype, u
+ 	case FIRMWARE_UCODE_5:
+ 	case FIRMWARE_UCODE_11:
+ 	case FIRMWARE_UCODE_13:
+-		snprintf(outfile, sizeof(outfile), &quot;bcm43xx_microcode%i%s.fw&quot;, 
+-			 fwtype - FIRMWARE_UCODE_OFFSET, cmdargs.postfix);
++		if (v4_firmware)
++			snprintf(outfile, sizeof(outfile), &quot;bcm43xx_v4_microcode%i%s.fw&quot;, 
++				 fwtype - FIRMWARE_UCODE_OFFSET, cmdargs.postfix);
++		else
++			snprintf(outfile, sizeof(outfile), &quot;bcm43xx_microcode%i%s.fw&quot;, 
++				 fwtype - FIRMWARE_UCODE_OFFSET, cmdargs.postfix);
+ 		break;
+ 	case FIRMWARE_PCM_4:
+ 	case FIRMWARE_PCM_5:
+-		snprintf(outfile, sizeof(outfile), &quot;bcm43xx_pcm%i%s.fw&quot;, 
+-			 fwtype, cmdargs.postfix);
++		if (v4_firmware)
++			snprintf(outfile, sizeof(outfile), &quot;bcm43xx_v4_pcm%i%s.fw&quot;, 
++				 fwtype, cmdargs.postfix);
++		else
++			snprintf(outfile, sizeof(outfile), &quot;bcm43xx_pcm%i%s.fw&quot;, 
++				 fwtype, cmdargs.postfix);
+ 		break;
+ 	default:
+-		snprintf(outfile, sizeof(outfile), &quot;bcm43xx_unknown.fw&quot;);
++		if (v4_firmware)
++			snprintf(outfile, sizeof(outfile), &quot;bcm43xx_v4_unknown.fw&quot;);
++		else
++			snprintf(outfile, sizeof(outfile), &quot;bcm43xx_unknown.fw&quot;);
+ 	}
+ 
+ 	if (length &gt; 0) {
+@@ -577,6 +596,7 @@ static const struct file * find_file(FIL
+ 				       &quot;(wireless-dev kernel tree). If you don't know what \n&quot;
+ 				       &quot;this warning is about, use a 3.xx.xx.xx driver version \n&quot;
+ 				       &quot;instead to extract the firmware.\n&quot;);
++				v4_firmware = 1;
+ 			}
+ 			printf(&quot;\n  filename   :  %s\n&quot;, files[i].name);
+ 			printf(&quot;  version    :  %s\n&quot;, files[i].version);
+
+-- 
+Matthew Garrett | <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mjg59 at srcf.ucam.org</A>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000207.html">USB device protocol
+</A></li>
+	<LI>Next message: <A HREF="000199.html">[RFC PATCH 2/2] Rename V4 firmware
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#198">[ date ]</a>
+              <a href="thread.html#198">[ thread ]</a>
+              <a href="subject.html#198">[ subject ]</a>
+              <a href="author.html#198">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

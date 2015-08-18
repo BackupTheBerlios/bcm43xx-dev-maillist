@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Dereference of wl-&gt;current_dev must be protected by	wl-&gt;mutex
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Dereference%20of%20wl-%3Ecurrent_dev%20must%20be%20protected%20by%0A%09wl-%3Emutex&In-Reply-To=%3C200710281559.59012.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002616.html">
+   <LINK REL="Next"  HREF="002620.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Dereference of wl-&gt;current_dev must be protected by	wl-&gt;mutex</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Dereference%20of%20wl-%3Ecurrent_dev%20must%20be%20protected%20by%0A%09wl-%3Emutex&In-Reply-To=%3C200710281559.59012.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Dereference of wl-&gt;current_dev must be protected by	wl-&gt;mutex">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Oct 28 15:59:58 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002616.html">bcm43xx: Error: Microcode &quot;bcm43xx_microcode5.fw&quot; not available	or load failed.
+</A></li>
+        <LI>Next message: <A HREF="002620.html">[PATCH] b43: Use the retry limit parameters from mac80211
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2619">[ date ]</a>
+              <a href="thread.html#2619">[ thread ]</a>
+              <a href="subject.html#2619">[ subject ]</a>
+              <a href="author.html#2619">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Put all access to wl-&gt;current_dev under protection of the mutex.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+Cc: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">larry.finger at lwfinger.net</A>&gt;
+
+Index: wireless-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/main.c	2007-10-28 15:46:24.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/main.c	2007-10-28 15:54:55.000000000 +0100
+@@ -2813,18 +2813,25 @@ static int b43_dev_set_key(struct ieee80
+ 			   struct ieee80211_key_conf *key)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+-	struct b43_wldev *dev = wl-&gt;current_dev;
++	struct b43_wldev *dev;
+ 	unsigned long flags;
+ 	u8 algorithm;
+ 	u8 index;
+-	int err = -EINVAL;
++	int err;
+ 	DECLARE_MAC_BUF(mac);
+ 
+ 	if (modparam_nohwcrypt)
+ 		return -ENOSPC; /* User disabled HW-crypto */
+ 
+-	if (!dev)
+-		return -ENODEV;
++	mutex_lock(&amp;wl-&gt;mutex);
++	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
++
++	dev = wl-&gt;current_dev;
++	err = -ENODEV;
++	if (!dev || b43_status(dev) &lt; B43_STAT_INITIALIZED)
++		goto out_unlock;
++
++	err = -EINVAL;
+ 	switch (key-&gt;alg) {
+ 	case ALG_WEP:
+ 		if (key-&gt;keylen == 5)
+@@ -2840,20 +2847,11 @@ static int b43_dev_set_key(struct ieee80
+ 		break;
+ 	default:
+ 		B43_WARN_ON(1);
+-		goto out;
++		goto out_unlock;
+ 	}
+-
+ 	index = (u8) (key-&gt;keyidx);
+ 	if (index &gt; 3)
+-		goto out;
+-
+-	mutex_lock(&amp;wl-&gt;mutex);
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-
+-	if (b43_status(dev) &lt; B43_STAT_INITIALIZED) {
+-		err = -ENODEV;
+ 		goto out_unlock;
+-	}
+ 
+ 	switch (cmd) {
+ 	case SET_KEY:
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002616.html">bcm43xx: Error: Microcode &quot;bcm43xx_microcode5.fw&quot; not available	or load failed.
+</A></li>
+	<LI>Next message: <A HREF="002620.html">[PATCH] b43: Use the retry limit parameters from mac80211
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2619">[ date ]</a>
+              <a href="thread.html#2619">[ thread ]</a>
+              <a href="subject.html#2619">[ subject ]</a>
+              <a href="author.html#2619">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

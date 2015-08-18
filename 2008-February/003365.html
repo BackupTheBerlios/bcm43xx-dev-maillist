@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20WiFi%20-%20Broadcom%204306%20on%20kernel%202.6.24%20%28b43%20module%29&In-Reply-To=%3C47AB404E.80307%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003364.html">
+   <LINK REL="Next"  HREF="003357.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20WiFi%20-%20Broadcom%204306%20on%20kernel%202.6.24%20%28b43%20module%29&In-Reply-To=%3C47AB404E.80307%40lwfinger.net%3E"
+       TITLE="WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Thu Feb  7 18:30:54 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003364.html">WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)
+</A></li>
+        <LI>Next message: <A HREF="003357.html">[stable] [PATCH stable 1/3] b43: Fix suspend/resume
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3365">[ date ]</a>
+              <a href="thread.html#3365">[ thread ]</a>
+              <a href="subject.html#3365">[ subject ]</a>
+              <a href="author.html#3365">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Anthony Durity wrote:
+&gt;<i> Hi folks,
+</I>&gt;<i> 
+</I>&gt;<i> The same happened with me upgrading from 2.6.22 to 2.6.24 via an upgrade
+</I>&gt;<i> from Ubuntu Gutsy to Ubuntu Hardy. There is definitely a renaming thing
+</I>&gt;<i> going on. I tried adding the ATTR clause like you suggested here and
+</I>&gt;<i> also suggested to another poster if I recall correctly and it didn't
+</I>&gt;<i> work. They recently pushed a brand spanking new kernel which I haven't
+</I>&gt;<i> tried. What information would you need to exactly pinpoint the problem.
+</I>&gt;<i> It seems that a number of people have been bitten by this. Cheers for
+</I>&gt;<i> your great work thus far by the way.
+</I>
+The output of iwconfig is usually what is needed. The problem is NOT with b43 or mac80211, but with
+the udev renaming rules for network devices. When you switch from bcm43xx/softmac to b43/mac80211,
+the number of &quot;wireless&quot; devices goes from a single &quot;wlan0&quot; the the combination of &quot;wmaster0&quot; and
+&quot;wlan0&quot;. The existing renaming rule renames &quot;wmaster0&quot; to &quot;eth1&quot; and then tries to rename &quot;wlan0&quot;.
+It fails as &quot;eth1&quot; already exists. You then end up with &quot;eth1&quot; and &quot;wlan0-rename&quot;. Your network
+support software then tries to manipulate eth1 and fails.
+
+You have two options: (1) rewrite the renaming rule in /etc/udev/rules.d/70-persistent-net.rules, or
+(2) delete the rule and let udev recreate it.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003364.html">WiFi - Broadcom 4306 on kernel 2.6.24 (b43 module)
+</A></li>
+	<LI>Next message: <A HREF="003357.html">[stable] [PATCH stable 1/3] b43: Fix suspend/resume
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3365">[ date ]</a>
+              <a href="thread.html#3365">[ thread ]</a>
+              <a href="subject.html#3365">[ subject ]</a>
+              <a href="author.html#3365">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

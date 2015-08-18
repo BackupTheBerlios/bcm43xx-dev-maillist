@@ -1,0 +1,149 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Regression%20in%202.6.27-rcX%20caused%20by%20commit%0A%09bc19d6e0b74ef03a3baf035412c95192b54dfc6f&In-Reply-To=%3C200809171759.32645.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004682.html">
+   <LINK REL="Next"  HREF="004685.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Regression%20in%202.6.27-rcX%20caused%20by%20commit%0A%09bc19d6e0b74ef03a3baf035412c95192b54dfc6f&In-Reply-To=%3C200809171759.32645.mb%40bu3sch.de%3E"
+       TITLE="Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Sep 17 17:59:32 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004682.html">Regression in 2.6.27-rcX caused by	commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+        <LI>Next message: <A HREF="004685.html">[RFC] b43: A patch for control of the radio LED using rfkill
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4683">[ date ]</a>
+              <a href="thread.html#4683">[ thread ]</a>
+              <a href="subject.html#4683">[ subject ]</a>
+              <a href="author.html#4683">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Wednesday 17 September 2008 17:18:22 Henrique de Moraes Holschuh wrote:
+&gt;<i> On Wed, 17 Sep 2008, Michael Buesch wrote:
+</I>&gt;<i> &gt; On Tuesday 16 September 2008 23:09:20 Matthew Garrett wrote:
+</I>&gt;<i> &gt; &gt; Oh, hey, I suck. This one might stand a better chance of not falling 
+</I>&gt;<i> &gt; &gt; over.
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; diff --git a/drivers/net/wireless/b43/rfkill.c b/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> &gt; &gt; index fec5645..991e318 100644
+</I>&gt;<i> &gt; &gt; --- a/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> &gt; &gt; +++ b/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> &gt; &gt; @@ -49,21 +49,18 @@ static void b43_rfkill_update_state(struct b43_wldev *dev)
+</I>&gt;<i> &gt; &gt;  	struct b43_rfkill *rfk = &amp;(dev-&gt;wl-&gt;rfkill);
+</I>&gt;<i> &gt; &gt;  
+</I>&gt;<i> &gt; &gt;  	if (!dev-&gt;radio_hw_enable) {
+</I>&gt;<i> &gt; &gt; -		rfk-&gt;rfkill-&gt;state = RFKILL_STATE_HARD_BLOCKED;
+</I>&gt;<i> &gt; &gt; +		rfkill_force_state(rfk-&gt;rfkill, RFKILL_STATE_HARD_BLOCKED);
+</I>&gt;<i> &gt; &gt;  		return;
+</I>&gt;<i> &gt; &gt;  	}
+</I>&gt;<i> &gt; &gt;  
+</I>&gt;<i> &gt; &gt;  	if (!dev-&gt;phy.radio_on)
+</I>&gt;<i> &gt; &gt; -		rfk-&gt;rfkill-&gt;state = RFKILL_STATE_SOFT_BLOCKED;
+</I>&gt;<i> &gt; &gt; +		rfkill_force_state(rfk-&gt;rfkill, RFKILL_STATE_SOFT_BLOCKED);
+</I>&gt;<i> &gt; &gt;  	else
+</I>&gt;<i> &gt; &gt; -		rfk-&gt;rfkill-&gt;state = RFKILL_STATE_UNBLOCKED;
+</I>&gt;<i> &gt; &gt; -
+</I>&gt;<i> &gt; &gt; +		rfkill_force_state(rfk-&gt;rfkill, RFKILL_STATE_UNBLOCKED);
+</I>&gt;<i> &gt; &gt;  }
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; I still thing that it is really wrong to check and change the software
+</I>&gt;<i> &gt; rfkill state from within the _hardware_ rfkill state handler.
+</I>&gt;<i> &gt; So let's say this handler sets the state to SOFT_BLOCKED. Who is going
+</I>&gt;<i> &gt; to set it back to unblocked, if the user unblocks the radio?
+</I>&gt;<i> 
+</I>&gt;<i> I would suggest reading the updated docs, but I know you'd rather just stay
+</I>&gt;<i> away from rfkill.
+</I>&gt;<i> 
+</I>&gt;<i> For reference:
+</I>&gt;<i> 
+</I>&gt;<i> Basically, your wireless device driver has to monitor any hardware rfkill
+</I>&gt;<i> lines and call rfkill_force_state() accordingly (you don't even need to
+</I>&gt;<i> track if the state changed, rfkill core will do that).
+</I>&gt;<i> 
+</I>&gt;<i> The call to rfkill_force_state() should set state to HARD_BLOCKED (any of
+</I>&gt;<i> the hardware rfkill lines are active), SOFT_BLOCKED (no hardware rfkill
+</I>&gt;<i> lines are active, but one of the software rfkill lines are active), or
+</I>&gt;<i> UNBLOCKED (no rfkill lines of any type are active).
+</I>&gt;<i> 
+</I>&gt;<i> Whether this is to be done through interrupts or pooling is something that
+</I>&gt;<i> depends on your driver and the hardware.
+</I>&gt;<i> 
+</I>&gt;<i> User and userspace interaction is taken care of by the rfkill core.  You do
+</I>&gt;<i> nothing of the sort in the wireless device driver.
+</I>&gt;<i> 
+</I>&gt;<i> There are *very few* exceptions for the above as far as wireless device
+</I>&gt;<i> drivers go.  They are explained in the docs, and I know of no wireless
+</I>&gt;<i> device driver that would require any them.
+</I>&gt;<i> 
+</I>&gt;<i> &gt; We can turn the radio on/off from the mac80211 config callback. Possibly
+</I>&gt;<i> &gt; we must tell rfkill about it (I'm not sure. I don't understand the API).
+</I>&gt;<i> &gt; I think this is pretty hard to get right, actually. HW-block and SW-block
+</I>&gt;<i> &gt; are two completely independent states in b43. You can HW-block and SW-block
+</I>&gt;<i> &gt; the device at the same time. So one must make sure that at any time the rfkill
+</I>&gt;<i> &gt; is in a sane state if _either_ HW-block or SW-block changes. Currently I think
+</I>&gt;<i> &gt; we only change rfkill state if HW-block state changes. Which is wrong.
+</I>&gt;<i> 
+</I>&gt;<i> Again, for reference:
+</I>&gt;<i> 
+</I>&gt;<i> You need to synthesize a single state (unblock/soft-block/hard-block) for a
+</I>&gt;<i> transmitter from every rfkill line that affects that transmitter.  This
+</I>&gt;<i> happens because the interface is a SINGLE ONE rfkill class per independent
+</I>&gt;<i> wireless interface (&quot;transmitter&quot;).
+</I>
+Right. But that's not what I was talking about. The hw and sw rfkill is something
+_completely_ different in b43 and it's handled by _completely_ different codepaths.
+I just said that currently the sw-rfkill path does _not_ announce the state
+correctly to the rfkill subsystem. Additionally we must _not_ check the sw rfkill
+state from within the hw rfkill handlers, as it will get out of sync this way.
+(that's what we're currently doing. If you revert the commit from the subject
+this will go away, afaics).
+Telling rfkill about the state isn't the hard part, but the
+&quot;You need to synthesize a single state&quot; part, which currently is not done correctly.
+We currently have _two_ states. (Don't get me wrong, the fix is _not_ to remove
+either of these. The fix is to introduce a common rfkill notifier that constructs
+a common rfkill state from these two states. This notifier is called from hw-rfkill
+and sw-rfkill.)
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004682.html">Regression in 2.6.27-rcX caused by	commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+	<LI>Next message: <A HREF="004685.html">[RFC] b43: A patch for control of the radio LED using rfkill
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4683">[ date ]</a>
+              <a href="thread.html#4683">[ thread ]</a>
+              <a href="subject.html#4683">[ subject ]</a>
+              <a href="author.html#4683">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

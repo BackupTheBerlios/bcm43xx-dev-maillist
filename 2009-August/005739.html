@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed	for LP-PHY
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RFC%5D%20ssb%3A%20Implement%20the%20remaining%20rev.8%20SPROM%20vars%20needed%0A%09for%20LP-PHY&In-Reply-To=%3C200908102101.38698.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005735.html">
+   <LINK REL="Next"  HREF="005741.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed	for LP-PHY</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RFC%5D%20ssb%3A%20Implement%20the%20remaining%20rev.8%20SPROM%20vars%20needed%0A%09for%20LP-PHY&In-Reply-To=%3C200908102101.38698.mb%40bu3sch.de%3E"
+       TITLE="[PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed	for LP-PHY">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Aug 10 21:01:38 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005735.html">[PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed	for LP-PHY
+</A></li>
+        <LI>Next message: <A HREF="005741.html">[PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed 	for LP-PHY
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5739">[ date ]</a>
+              <a href="thread.html#5739">[ thread ]</a>
+              <a href="subject.html#5739">[ subject ]</a>
+              <a href="author.html#5739">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 10 August 2009 20:49:02 G&#225;bor Stefanik wrote:
+&gt;<i> Also add a &quot;SPEX32&quot; macro for extracting 32-bit SPROM variables.
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i> I'm not quite sure that the SPEX32 macro is sane endianness-wise;
+</I>&gt;<i> please review it carefully. (In the future, we will probably need
+</I>&gt;<i> a SPEX64 macro too, to correctly extract boardflags.)
+</I>&gt;<i> 
+</I>&gt;<i>  drivers/ssb/pci.c            |   53 +++++++++++++++++++++++++++++++++-
+</I>&gt;<i>  include/linux/ssb/ssb.h      |   44 +++++++++++++++++++++++----
+</I>&gt;<i>  include/linux/ssb/ssb_regs.h |   66 +++++++++++++++++++++++++++++++++++++----
+</I>&gt;<i>  3 files changed, 148 insertions(+), 15 deletions(-)
+</I>&gt;<i> 
+</I>&gt;<i> diff --git a/drivers/ssb/pci.c b/drivers/ssb/pci.c
+</I>&gt;<i> index 40ea417..50811e4 100644
+</I>&gt;<i> --- a/drivers/ssb/pci.c
+</I>&gt;<i> +++ b/drivers/ssb/pci.c
+</I>&gt;<i> @@ -169,8 +169,14 @@ err_pci:
+</I>&gt;<i>  /* Get the word-offset for a SSB_SPROM_XXX define. */
+</I>&gt;<i>  #define SPOFF(offset)	(((offset) - SSB_SPROM_BASE) / sizeof(u16))
+</I>&gt;<i>  /* Helper to extract some _offset, which is one of the SSB_SPROM_XXX defines. */
+</I>&gt;<i> -#define SPEX(_outvar, _offset, _mask, _shift)	\
+</I>&gt;<i> +#define SPEX16(_outvar, _offset, _mask, _shift)	\
+</I>&gt;<i>  	out-&gt;_outvar = ((in[SPOFF(_offset)] &amp; (_mask)) &gt;&gt; (_shift))
+</I>&gt;<i> +#define SPEX32(_outvar, _offset, _mask, _shift)	\
+</I>&gt;<i> +	out-&gt;_outvar = ((((in[SPOFF((_offset)+2)] &lt;&lt; sizeof(u16)) | \
+</I>                                                  ^^^^^^^^^^^^^^
+This shifts by 2 bit. Did you want 16 bits? Just write  &lt;&lt; 16  then.
+Also, it seems you need +1 instead of +2 (it is an u16 pointer).
+I also usually cast u16 values to u32 before shifting &gt;=16 bits.
+The result of shifting a 16bit variable left by 16bits is machine dependent.
+It works as expected for every linux architecture, but I prefer the cast anyway.
+
+Your macro extracts the value in littleendian format. I didn't check if this is
+correct for your values. But there also are values stored in BE format.
+
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005735.html">[PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed	for LP-PHY
+</A></li>
+	<LI>Next message: <A HREF="005741.html">[PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed 	for LP-PHY
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5739">[ date ]</a>
+              <a href="thread.html#5739">[ thread ]</a>
+              <a href="subject.html#5739">[ subject ]</a>
+              <a href="author.html#5739">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

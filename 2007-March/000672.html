@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: do not rebuild when kernel version changes
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20do%20not%20rebuild%20when%20kernel%20version%20changes&In-Reply-To=%3C45ea5f3c.mlfmHoZ11OcoG/sT%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000671.html">
+   <LINK REL="Next"  HREF="000673.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: do not rebuild when kernel version changes</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20do%20not%20rebuild%20when%20kernel%20version%20changes&In-Reply-To=%3C45ea5f3c.mlfmHoZ11OcoG/sT%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] bcm43xx: do not rebuild when kernel version changes">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sun Mar  4 06:55:08 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000671.html">[PATCH] bcm43xx: remove ethtool
+</A></li>
+        <LI>Next message: <A HREF="000673.html">[PATCH] bcm43xx: do not rebuild when kernel version changes
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#672">[ date ]</a>
+              <a href="thread.html#672">[ thread ]</a>
+              <a href="subject.html#672">[ subject ]</a>
+              <a href="author.html#672">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: Sam Ravnborg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">sam at ravnborg.org</A>&gt;
+
+In bcm43xx_ethtool, UTS_RELEASE is used. Replacing this with utsname()-&gt;release
+avoids rebuilding this module each time the kernel version changes.
+
+Signed-off-by: Sam Ravnborg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">sam at ravnborg.org</A>&gt;
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+As the ethtool removal was NACKed by Jeff, we need to do this one.
+
+Larry
+
+===
+
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_ethtool.c b/drivers/net/wireless/bcm43xx/bcm43xx_ethtool.c
+index c947025..d2df6a0 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_ethtool.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_ethtool.c
+@@ -32,7 +32,7 @@
+ #include &lt;linux/netdevice.h&gt;
+ #include &lt;linux/pci.h&gt;
+ #include &lt;linux/string.h&gt;
+-#include &lt;linux/utsrelease.h&gt;
++#include &lt;linux/utsname.h&gt;
+ 
+ 
+ static void bcm43xx_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+@@ -40,7 +40,7 @@ static void bcm43xx_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *
+ 	struct bcm43xx_private *bcm = bcm43xx_priv(dev);
+ 
+ 	strncpy(info-&gt;driver, KBUILD_MODNAME, sizeof(info-&gt;driver));
+-	strncpy(info-&gt;version, UTS_RELEASE, sizeof(info-&gt;version));
++	strncpy(info-&gt;version, utsname()-&gt;release, sizeof(info-&gt;version));
+ 	strncpy(info-&gt;bus_info, pci_name(bcm-&gt;pci_dev), ETHTOOL_BUSINFO_LEN);
+ }
+ 
+-
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000671.html">[PATCH] bcm43xx: remove ethtool
+</A></li>
+	<LI>Next message: <A HREF="000673.html">[PATCH] bcm43xx: do not rebuild when kernel version changes
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#672">[ date ]</a>
+              <a href="thread.html#672">[ thread ]</a>
+              <a href="subject.html#672">[ subject ]</a>
+              <a href="author.html#672">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

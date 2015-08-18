@@ -1,0 +1,156 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.23-rc1-wireless-dev%20bcm43xx_mac80211%20associates%2C%0A%09but%20Ethernet%20appears%20broken&In-Reply-To=%3C46BC8776.7090600%40Wetwork.Net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001948.html">
+   <LINK REL="Next"  HREF="001941.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken</H1>
+    <B>Ehud Gavron</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.23-rc1-wireless-dev%20bcm43xx_mac80211%20associates%2C%0A%09but%20Ethernet%20appears%20broken&In-Reply-To=%3C46BC8776.7090600%40Wetwork.Net%3E"
+       TITLE="2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken">gavron at Wetwork.Net
+       </A><BR>
+    <I>Fri Aug 10 17:42:46 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001948.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken
+</A></li>
+        <LI>Next message: <A HREF="001941.html">Usage of bcm43xx-sprom tool
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1949">[ date ]</a>
+              <a href="thread.html#1949">[ thread ]</a>
+              <a href="subject.html#1949">[ subject ]</a>
+              <a href="author.html#1949">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>That change is already built on my kernel (now wireless-dev with two 
+patches).  I'm assuming it's correct, but if you'd like to confirm it, 
+please let me know which packet(s) to craft in order to test it.
+Thanks again,
+Ehud
+
+Larry Finger wrote:
+&gt;<i> Michael Buesch wrote:
+</I>&gt;<i>   
+</I>&gt;&gt;<i> On Friday 10 August 2007 17:02:15 Larry Finger wrote:
+</I>&gt;&gt;<i>     
+</I>&gt;&gt;&gt;<i> Jory A. Pratt wrote:
+</I>&gt;&gt;&gt;<i>       
+</I>&gt;&gt;&gt;&gt;<i> Larry Finger wrote:
+</I>&gt;&gt;&gt;&gt;<i>         
+</I>&gt;&gt;&gt;&gt;&gt;<i> What encryption method are you using?
+</I>&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;<i> Larry
+</I>&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;<i>           
+</I>&gt;&gt;&gt;&gt;<i> I use wep encryption on a WRT54G V3 with dd-wrt. I will work on it later 
+</I>&gt;&gt;&gt;&gt;<i> tonight and see what I can come up with.
+</I>&gt;&gt;&gt;&gt;<i>         
+</I>&gt;&gt;&gt;<i> Your answer confirms my latest result in which I have been able to reproduce the problem here.
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> I bisected the wireless-dev kernel to an arbitrary point before the change in status handling 
+</I>&gt;&gt;&gt;<i> (commit 85a83d26). That version could connect successfully using WEP and WPA encryption. I then 
+</I>&gt;&gt;&gt;<i> added the status-handling patch and tried again. This kernel could still do WPA encryption and it 
+</I>&gt;&gt;&gt;<i> could authenticate and associate with the WEP-using AP, but it could not get an IP number using DHCP.
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> I then did a diff between the dmesg output for the driver that works (dmesg.good) and the one that 
+</I>&gt;&gt;&gt;<i> does not (dmesg.bad). There are the usual number of differences due to slight timing difference, 
+</I>&gt;&gt;&gt;<i> etc, but the following difference stands out:
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> --- dmesg.good  2007-08-10 09:40:23.000000000 -0500
+</I>&gt;&gt;&gt;<i> +++ dmesg.bad   2007-08-10 09:41:23.000000000 -0500
+</I>&gt;&gt;&gt;<i> ..snip..
+</I>&gt;&gt;&gt;<i> @@ -569,7 +569,6 @@
+</I>&gt;&gt;&gt;<i>   bcm43xx_mac80211: 32-bit DMA initialized
+</I>&gt;&gt;&gt;<i>   bcm43xx_mac80211: Wireless interface started
+</I>&gt;&gt;&gt;<i>   NET: Registered protocol family 17
+</I>&gt;&gt;&gt;<i> -bcm43xx_mac80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+</I>&gt;&gt;&gt;<i>   eth1: Initial auth_alg=0
+</I>&gt;&gt;&gt;<i>   eth1: authenticate with AP 00:1a:70:46:ba:b1
+</I>&gt;&gt;&gt;<i>   eth1: RX authentication from 00:1a:70:46:ba:b1 (alg=0 transaction=2 status=0)
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> The good version is using hardware encryption, and the bad one is not. I have no idea why, but it 
+</I>&gt;&gt;&gt;<i> seems to be the critical difference. I'm ready to test any trial patch.
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> Larry
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i>       
+</I>&gt;&gt;<i> Ok, I see the bug in set_key.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> 	if (bcm43xx_status(dev) != BCM43xx_STAT_INITIALIZED) {
+</I>&gt;&gt;<i> 		err = -ENODEV;
+</I>&gt;&gt;<i> 		goto out_unlock;
+</I>&gt;&gt;<i> 	}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> We didn't have a chance to spot the bug in the patch that introduced
+</I>&gt;&gt;<i> it, because it did not touch this function.
+</I>&gt;&gt;<i> This should be changed to
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> 	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_INITIALIZED) {
+</I>&gt;&gt;<i> 		err = -ENODEV;
+</I>&gt;&gt;<i> 		goto out_unlock;
+</I>&gt;&gt;<i> 	}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> This part of set_multicast_list also was not touched by the patch
+</I>&gt;<i>
+</I>&gt;<i>          if (wl-&gt;promisc != !!(netflags &amp; IFF_PROMISC)) {
+</I>&gt;<i>                  wl-&gt;promisc = !!(netflags &amp; IFF_PROMISC);
+</I>&gt;<i>                  if (bcm43xx_status(dev) == BCM43xx_STAT_INITIALIZED)
+</I>&gt;<i>                          bcm43xx_adjust_opmode(dev);
+</I>&gt;<i>          }
+</I>&gt;<i>
+</I>&gt;<i> Is that correct? My thinking is that it should be &gt;= BCM43xx_STAT_INITIALIZED.
+</I>&gt;<i>
+</I>&gt;<i> Larry
+</I>&gt;<i>
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Bcm43xx-dev mailing list
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>&gt;<i>   
+</I>-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/x-pkcs7-signature
+Size: 3283 bytes
+Desc: S/MIME Cryptographic Signature
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070810/6c75fff0/attachment.bin">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070810/6c75fff0/attachment.bin</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001948.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken
+</A></li>
+	<LI>Next message: <A HREF="001941.html">Usage of bcm43xx-sprom tool
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1949">[ date ]</a>
+              <a href="thread.html#1949">[ thread ]</a>
+              <a href="subject.html#1949">[ subject ]</a>
+              <a href="author.html#1949">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

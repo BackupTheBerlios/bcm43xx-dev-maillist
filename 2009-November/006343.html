@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43-phy0 ERROR: Fatal DMA error: 0x00000400
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43-phy0%20ERROR%3A%20Fatal%20DMA%20error%3A%200x00000400&In-Reply-To=%3C4AFE1E5F.9040009%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006341.html">
+   <LINK REL="Next"  HREF="006355.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43-phy0 ERROR: Fatal DMA error: 0x00000400</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43-phy0%20ERROR%3A%20Fatal%20DMA%20error%3A%200x00000400&In-Reply-To=%3C4AFE1E5F.9040009%40lwfinger.net%3E"
+       TITLE="b43-phy0 ERROR: Fatal DMA error: 0x00000400">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Nov 14 04:05:03 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006341.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+        <LI>Next message: <A HREF="006355.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6343">[ date ]</a>
+              <a href="thread.html#6343">[ thread ]</a>
+              <a href="subject.html#6343">[ subject ]</a>
+              <a href="author.html#6343">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 11/13/2009 06:15 PM, William Bourque wrote:
+&gt;<i> 
+</I>&gt;<i> Larry Finger wrote:
+</I>&gt;&gt;<i> Based on a suggestion by Matthew Garrett, please try the patch below.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Thanks,
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Larry
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> =================
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/main.c
+</I>&gt;&gt;<i> ===================================================================
+</I>&gt;&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/main.c
+</I>&gt;&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/main.c
+</I>&gt;&gt;<i> @@ -43,6 +43,7 @@
+</I>&gt;&gt;<i>  #include &lt;linux/io.h&gt;
+</I>&gt;&gt;<i>  #include &lt;linux/dma-mapping.h&gt;
+</I>&gt;&gt;<i>  #include &lt;asm/unaligned.h&gt;
+</I>&gt;&gt;<i> +#include &lt;linux/pm_qos_params.h&gt;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>  #include &quot;b43.h&quot;
+</I>&gt;&gt;<i>  #include &quot;main.h&quot;
+</I>&gt;&gt;<i> @@ -3881,6 +3882,8 @@ redo:
+</I>&gt;&gt;<i>  	if (!dev || b43_status(dev) &lt; B43_STAT_STARTED)
+</I>&gt;&gt;<i>  		return dev;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> +	pm_qos_update_requirement(PM_QOS_CPU_DMA_LATENCY, &quot;b43&quot;,
+</I>&gt;&gt;<i> +				  PM_QOS_DEFAULT_VALUE);
+</I>&gt;&gt;<i>  	/* Cancel work. Unlock to avoid deadlocks. */
+</I>&gt;&gt;<i>  	mutex_unlock(&amp;wl-&gt;mutex);
+</I>&gt;&gt;<i>  	cancel_delayed_work_sync(&amp;dev-&gt;periodic_work);
+</I>&gt;&gt;<i> @@ -3963,6 +3966,9 @@ static int b43_wireless_core_start(struc
+</I>&gt;&gt;<i>  	/* We are ready to run. */
+</I>&gt;&gt;<i>  	b43_set_status(dev, B43_STAT_STARTED);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> +	/* Set the maximum DMA latency */
+</I>&gt;&gt;<i> +	pm_qos_update_requirement(PM_QOS_CPU_DMA_LATENCY, &quot;b43&quot;, 200);
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i>  	/* Start data flow (TX/RX). */
+</I>&gt;&gt;<i>  	b43_mac_enable(dev);
+</I>&gt;&gt;<i>  	b43_write32(dev, B43_MMIO_GEN_IRQ_MASK, dev-&gt;irq_mask);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;<i> 
+</I>&gt;<i> Well, this one did not solve the problem but it certainly did help!
+</I>&gt;<i> 
+</I>&gt;<i> It took me some effort to make it bug again... I worked fine for 5 
+</I>&gt;<i> minutes, I was able to browse the web and such. I was also 
+</I>&gt;<i> removed/inserted the module a few times. It finally crashed when I tried 
+</I>&gt;<i> to transfert a file of several MB.
+</I>&gt;<i> 
+</I>&gt;<i> Maybe the 200ms delay should be less (or more?) I think I will try to 
+</I>&gt;<i> change it for some arbitrary number, just to see if it helps.
+</I>
+You should try decreasing it. That parameter is used by 2 drivers in the kernel:
+ipw2100 with a value of 175 and e1000e with a value of 55. I would expect the
+value for the other wireless device to be closer that that for a wired
+interface. Please try 150. If that also fails, try 100. BTW, the parameter is in
+usec, not msec.
+
+I'm finally encouraged that we might figure out this problem.
+
+Larry
+
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006341.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+	<LI>Next message: <A HREF="006355.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6343">[ date ]</a>
+              <a href="thread.html#6343">[ thread ]</a>
+              <a href="subject.html#6343">[ subject ]</a>
+              <a href="author.html#6343">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

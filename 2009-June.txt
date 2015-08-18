@@ -1,0 +1,2987 @@
+From Larry.Finger at lwfinger.net  Tue Jun  2 02:25:37 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Mon, 01 Jun 2009 19:25:37 -0500
+Subject: Changes in b43-fwcutter
+Message-ID: <4A247181.8040001@lwfinger.net>
+
+Michael,
+
+The extraction of the firmware files for rev 4 cores seems to be causing confusion.
+Perhaps it would be better to modify b43-fwcutter to skip those files, even though the
+Broadcom drivers include that FW.
+
+The patch to accomplish this is as follows:
+
+
+
+Signed-off-by: Larry Finger <Larry.Finger at lwfinger.net>
+---
+
+Index: b43-fwcutter-011/fwcutter_list.h
+===================================================================
+--- b43-fwcutter-011.orig/fwcutter_list.h
++++ b43-fwcutter-011/fwcutter_list.h
+@@ -23,16 +23,11 @@ static struct extract _e08665c5c5b66beb9
+
+ static struct extract _9207bc565c2fc9fa1591f6c7911d3fc0[] =
+ {
+-	{ .name = "ucode4",  .offset = 0x66220 +  0x7ad8, .length = 0x4e68, .type = EXT_UCODE_1, },
+ 	{ .name = "ucode5",  .offset = 0x66220 +  0xc944, .length = 0x5640, .type = EXT_UCODE_2, },
+ 	{ .name = "ucode11", .offset = 0x66220 + 0x11f90, .length = 0x67e0, .type = EXT_UCODE_2, },
+ 	{ .name = "ucode13", .offset = 0x66220 + 0x18774, .length = 0x5f60, .type = EXT_UCODE_2, },
+ 	{ .name = "pcm4", .offset = 0x66220 + 0x1e6d8, .length = 0x520, .type = EXT_PCM, },
+ 	{ .name = "pcm5", .offset = 0x66220 + 0x1ebfc, .length = 0x520, .type = EXT_PCM, },
+-	{ .name = "b0g0initvals4",	.offset = 0x66220 + 0x1710, .length = 0xe90 - 8, .type = EXT_IV, },
+-	{ .name = "b0g0bsinitvals4",	.offset = 0x66220 + 0x25a0, .length = 0x18 - 8, .type = EXT_IV, },
+-	{ .name = "a0g0initvals4",	.offset = 0x66220 + 0x25b8, .length = 0xe90 - 8, .type = EXT_IV, },
+-	{ .name = "a0g0bsinitvals4",	.offset = 0x66220 + 0x3448, .length = 0x18 - 8, .type = EXT_IV, },
+ 	{ .name = "b0g0initvals5",	.offset = 0x66220 + 0x3460, .length = 0xa28 - 8, .type = EXT_IV, },
+ 	{ .name = "b0g0bsinitvals5",	.offset = 0x66220 + 0x3e88, .length = 0x100 - 8, .type = EXT_IV, },
+ 	{ .name = "a0g0initvals5",	.offset = 0x66220 + 0x3f88, .length = 0xa28 - 8, .type = EXT_IV, },
+@@ -50,16 +45,11 @@ static struct extract _9207bc565c2fc9fa1
+
+ static struct extract _722e2e0d8cc04b8f118bb5afe6829ff9[] =
+ {
+-	{ .name = "ucode4",  .offset = 0x76a10 +  0x8960, .length = 0x4e68, .type = EXT_UCODE_1, },
+ 	{ .name = "ucode5",  .offset = 0x76a10 +  0xd7cc, .length = 0x5640, .type = EXT_UCODE_2, },
+ 	{ .name = "ucode11", .offset = 0x76a10 + 0x12e18, .length = 0x67e0, .type = EXT_UCODE_2, },
+ 	{ .name = "ucode13", .offset = 0x76a10 + 0x195fc, .length = 0x5f60, .type = EXT_UCODE_2, },
+ 	{ .name = "pcm4", .offset = 0x76a10 + 0x1f560, .length = 0x520, .type = EXT_PCM, },
+ 	{ .name = "pcm5", .offset = 0x76a10 + 0x1fa84, .length = 0x520, .type = EXT_PCM, },
+-	{ .name = "b0g0initvals4",	.offset = 0x76a10 + 0x1840, .length = 0xe90 - 8, .type = EXT_IV, },
+-	{ .name = "b0g0bsinitvals4",	.offset = 0x76a10 + 0x26d0, .length = 0x18 - 8, .type = EXT_IV, },
+-	{ .name = "a0g0initvals4",	.offset = 0x76a10 + 0x26e8, .length = 0xe90 - 8, .type = EXT_IV, },
+-	{ .name = "a0g0bsinitvals4",	.offset = 0x76a10 + 0x3578, .length = 0x18 - 8, .type = EXT_IV, },
+ 	{ .name = "b0g0initvals5",	.offset = 0x76a10 + 0x3590, .length = 0xa28 - 8, .type = EXT_IV, },
+ 	{ .name = "b0g0bsinitvals5",	.offset = 0x76a10 + 0x3fb8, .length = 0x100 - 8, .type = EXT_IV, },
+ 	{ .name = "a0g0initvals5",	.offset = 0x76a10 + 0x40b8, .length = 0xa28 - 8, .type = EXT_IV, },
+@@ -116,14 +106,12 @@ static struct extract _1e4763b4cb8cfbaae
+ static struct extract _cb8d70972b885b1f8883b943c0261a3c[] =
+ {
+ 	{ .name = "pcm5", .offset = 0x8e554, .type = EXT_PCM, .length = 0x520 },
+-	{ .name = "pcm4", .offset = 0x8ea78, .type = EXT_PCM, .length = 0x520 },
+ 	{ .name = "ucode15", .offset = 0x8ef9c, .type = EXT_UCODE_3, .length = 0x7710 },
+ 	{ .name = "ucode14", .offset = 0x966b0, .type = EXT_UCODE_2, .length = 0x7a90 },
+ 	{ .name = "ucode13", .offset = 0x9e144, .type = EXT_UCODE_2, .length = 0x7de0 },
+ 	{ .name = "ucode11", .offset = 0xa5f28, .type = EXT_UCODE_2, .length = 0x74a0 },
+ 	{ .name = "ucode9", .offset = 0xad3cc, .type = EXT_UCODE_2, .length = 0x6240 },
+ 	{ .name = "ucode5", .offset = 0xb3610, .type = EXT_UCODE_2, .length = 0x5768 },
+-	{ .name = "ucode4", .offset = 0xb8d7c, .type = EXT_UCODE_1, .length = 0x4ec8 },
+ 	{ .name = "lp0bsinitvals15", .offset = 0xbdc44, .type = EXT_IV, .length = 0xf8 },
+ 	{ .name = "lp0initvals15", .offset = 0xbdd44, .type = EXT_IV, .length = 0xb30 },
+ 	{ .name = "lp0bsinitvals14", .offset = 0xbe87c, .type = EXT_IV, .length = 0xf8 },
+@@ -149,10 +137,6 @@ static struct extract _cb8d70972b885b1f8
+ 	{ .name = "a0g0initvals5", .offset = 0xc5f24, .type = EXT_IV, .length = 0xa08 },
+ 	{ .name = "b0g0bsinitvals5", .offset = 0xc6934, .type = EXT_IV, .length = 0xf8 },
+ 	{ .name = "b0g0initvals5", .offset = 0xc6a34, .type = EXT_IV, .length = 0xa08 },
+-	{ .name = "a0g0bsinitvals4", .offset = 0xc7444, .type = EXT_IV, .length = 0x10 },
+-	{ .name = "a0g0initvals4", .offset = 0xc745c, .type = EXT_IV, .length = 0xe88 },
+-	{ .name = "b0g0bsinitvals4", .offset = 0xc82ec, .type = EXT_IV, .length = 0x10 },
+-	{ .name = "b0g0initvals4", .offset = 0xc8304, .type = EXT_IV, .length = 0xe8c },
+ 	EXTRACT_LIST_END
+ };
+
+
+
+
+
+From mb at bu3sch.de  Tue Jun  2 16:39:25 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Tue, 2 Jun 2009 16:39:25 +0200
+Subject: Changes in b43-fwcutter
+In-Reply-To: <4A247181.8040001@lwfinger.net>
+References: <4A247181.8040001@lwfinger.net>
+Message-ID: <200906021639.25805.mb@bu3sch.de>
+
+On Tuesday 02 June 2009 02:25:37 Larry Finger wrote:
+> Michael,
+> 
+> The extraction of the firmware files for rev 4 cores seems to be causing confusion.
+> Perhaps it would be better to modify b43-fwcutter to skip those files, even though the
+> Broadcom drivers include that FW.
+> 
+> The patch to accomplish this is as follows:
+> 
+> 
+> 
+> Signed-off-by: Larry Finger <Larry.Finger at lwfinger.net>
+> ---
+> 
+> Index: b43-fwcutter-011/fwcutter_list.h
+> ===================================================================
+> --- b43-fwcutter-011.orig/fwcutter_list.h
+> +++ b43-fwcutter-011/fwcutter_list.h
+> @@ -23,16 +23,11 @@ static struct extract _e08665c5c5b66beb9
+> 
+>  static struct extract _9207bc565c2fc9fa1591f6c7911d3fc0[] =
+>  {
+> -	{ .name = "ucode4",  .offset = 0x66220 +  0x7ad8, .length = 0x4e68, .type = EXT_UCODE_1, },
+
+Instead of removing these lines, can you comment them out, please?
+
+-- 
+Greetings, Michael.
+
+
+From mb at bu3sch.de  Tue Jun  2 17:55:28 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Tue, 2 Jun 2009 17:55:28 +0200
+Subject: Changes in b43-fwcutter (V2)
+In-Reply-To: <4a254403.pwa6X3dMP+L8d498%Larry.Finger@lwfinger.net>
+References: <4a254403.pwa6X3dMP+L8d498%Larry.Finger@lwfinger.net>
+Message-ID: <200906021755.28603.mb@bu3sch.de>
+
+On Tuesday 02 June 2009 17:23:47 Larry Finger wrote:
+> The present version of b43-fwcutter extracts core 4 firmware from V4 drivers that
+> contain it even though b43 will not work with these devices. As this causes
+> confusion among the users, this patch suppresses such extraction.
+> 
+> Note: For b43legacy, firmware for core 5 devices is extracted. This capacity should
+> be retained as this overlap is used in the testing of b43legacy.
+> 
+> Signed-off-by: Larry Finger <Larry.Finger at lwfinger.net>
+
+Thanks. I released b43-fwcutter-012 with this stuff included.
+
+-- 
+Greetings, Michael.
+
+
+From Larry.Finger at lwfinger.net  Tue Jun  2 17:23:47 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Tue, 02 Jun 2009 10:23:47 -0500
+Subject: Changes in b43-fwcutter (V2)
+Message-ID: <4a254403.pwa6X3dMP+L8d498%Larry.Finger@lwfinger.net>
+
+The present version of b43-fwcutter extracts core 4 firmware from V4 drivers that
+contain it even though b43 will not work with these devices. As this causes
+confusion among the users, this patch suppresses such extraction.
+
+Note: For b43legacy, firmware for core 5 devices is extracted. This capacity should
+be retained as this overlap is used in the testing of b43legacy.
+
+Signed-off-by: Larry Finger <Larry.Finger at lwfinger.net>
+---
+
+Index: b43-fwcutter-011/fwcutter_list.h
+===================================================================
+--- b43-fwcutter-011.orig/fwcutter_list.h
++++ b43-fwcutter-011/fwcutter_list.h
+@@ -1,3 +1,10 @@
++/*
++ * Extraction of core 4 firmware from V4 drivers has been commented out as these
++ * cores will not work with driver b43.
++ *
++ * In contrast, extraction of core 5 firmware from V3 drivers should be retained
++ * as those devices will work with b43legacy and are useful for testing.
++ */
+ 
+ /* file member lists */
+ static struct extract _e08665c5c5b66beb9c3b2dd54aa80cb3[] =
+@@ -23,16 +30,22 @@ static struct extract _e08665c5c5b66beb9
+ 
+ static struct extract _9207bc565c2fc9fa1591f6c7911d3fc0[] =
+ {
+-	{ .name = "ucode4",  .offset = 0x66220 +  0x7ad8, .length = 0x4e68, .type = EXT_UCODE_1, },
++/*
++ *	{ .name = "ucode4",  .offset = 0x66220 +  0x7ad8, .length = 0x4e68, .type = EXT_UCODE_1, },
++ */
+ 	{ .name = "ucode5",  .offset = 0x66220 +  0xc944, .length = 0x5640, .type = EXT_UCODE_2, },
+ 	{ .name = "ucode11", .offset = 0x66220 + 0x11f90, .length = 0x67e0, .type = EXT_UCODE_2, },
+ 	{ .name = "ucode13", .offset = 0x66220 + 0x18774, .length = 0x5f60, .type = EXT_UCODE_2, },
+-	{ .name = "pcm4", .offset = 0x66220 + 0x1e6d8, .length = 0x520, .type = EXT_PCM, },
++/*
++ *	{ .name = "pcm4", .offset = 0x66220 + 0x1e6d8, .length = 0x520, .type = EXT_PCM, },
++ */
+ 	{ .name = "pcm5", .offset = 0x66220 + 0x1ebfc, .length = 0x520, .type = EXT_PCM, },
+-	{ .name = "b0g0initvals4",	.offset = 0x66220 + 0x1710, .length = 0xe90 - 8, .type = EXT_IV, },
+-	{ .name = "b0g0bsinitvals4",	.offset = 0x66220 + 0x25a0, .length = 0x18 - 8, .type = EXT_IV, },
+-	{ .name = "a0g0initvals4",	.offset = 0x66220 + 0x25b8, .length = 0xe90 - 8, .type = EXT_IV, },
+-	{ .name = "a0g0bsinitvals4",	.offset = 0x66220 + 0x3448, .length = 0x18 - 8, .type = EXT_IV, },
++/*
++ *	{ .name = "b0g0initvals4",	.offset = 0x66220 + 0x1710, .length = 0xe90 - 8, .type = EXT_IV, },
++ *	{ .name = "b0g0bsinitvals4",	.offset = 0x66220 + 0x25a0, .length = 0x18 - 8, .type = EXT_IV, },
++ *	{ .name = "a0g0initvals4",	.offset = 0x66220 + 0x25b8, .length = 0xe90 - 8, .type = EXT_IV, },
++ *	{ .name = "a0g0bsinitvals4",	.offset = 0x66220 + 0x3448, .length = 0x18 - 8, .type = EXT_IV, },
++ */
+ 	{ .name = "b0g0initvals5",	.offset = 0x66220 + 0x3460, .length = 0xa28 - 8, .type = EXT_IV, },
+ 	{ .name = "b0g0bsinitvals5",	.offset = 0x66220 + 0x3e88, .length = 0x100 - 8, .type = EXT_IV, },
+ 	{ .name = "a0g0initvals5",	.offset = 0x66220 + 0x3f88, .length = 0xa28 - 8, .type = EXT_IV, },
+@@ -50,16 +63,22 @@ static struct extract _9207bc565c2fc9fa1
+ 
+ static struct extract _722e2e0d8cc04b8f118bb5afe6829ff9[] =
+ {
+-	{ .name = "ucode4",  .offset = 0x76a10 +  0x8960, .length = 0x4e68, .type = EXT_UCODE_1, },
++/*
++ *	{ .name = "ucode4",  .offset = 0x76a10 +  0x8960, .length = 0x4e68, .type = EXT_UCODE_1, },
++ */
+ 	{ .name = "ucode5",  .offset = 0x76a10 +  0xd7cc, .length = 0x5640, .type = EXT_UCODE_2, },
+ 	{ .name = "ucode11", .offset = 0x76a10 + 0x12e18, .length = 0x67e0, .type = EXT_UCODE_2, },
+ 	{ .name = "ucode13", .offset = 0x76a10 + 0x195fc, .length = 0x5f60, .type = EXT_UCODE_2, },
+-	{ .name = "pcm4", .offset = 0x76a10 + 0x1f560, .length = 0x520, .type = EXT_PCM, },
++/*
++ *	{ .name = "pcm4", .offset = 0x76a10 + 0x1f560, .length = 0x520, .type = EXT_PCM, },
++ */
+ 	{ .name = "pcm5", .offset = 0x76a10 + 0x1fa84, .length = 0x520, .type = EXT_PCM, },
+-	{ .name = "b0g0initvals4",	.offset = 0x76a10 + 0x1840, .length = 0xe90 - 8, .type = EXT_IV, },
+-	{ .name = "b0g0bsinitvals4",	.offset = 0x76a10 + 0x26d0, .length = 0x18 - 8, .type = EXT_IV, },
+-	{ .name = "a0g0initvals4",	.offset = 0x76a10 + 0x26e8, .length = 0xe90 - 8, .type = EXT_IV, },
+-	{ .name = "a0g0bsinitvals4",	.offset = 0x76a10 + 0x3578, .length = 0x18 - 8, .type = EXT_IV, },
++/*
++ *	{ .name = "b0g0initvals4",	.offset = 0x76a10 + 0x1840, .length = 0xe90 - 8, .type = EXT_IV, },
++ *	{ .name = "b0g0bsinitvals4",	.offset = 0x76a10 + 0x26d0, .length = 0x18 - 8, .type = EXT_IV, },
++ *	{ .name = "a0g0initvals4",	.offset = 0x76a10 + 0x26e8, .length = 0xe90 - 8, .type = EXT_IV, },
++ *	{ .name = "a0g0bsinitvals4",	.offset = 0x76a10 + 0x3578, .length = 0x18 - 8, .type = EXT_IV, },
++ */
+ 	{ .name = "b0g0initvals5",	.offset = 0x76a10 + 0x3590, .length = 0xa28 - 8, .type = EXT_IV, },
+ 	{ .name = "b0g0bsinitvals5",	.offset = 0x76a10 + 0x3fb8, .length = 0x100 - 8, .type = EXT_IV, },
+ 	{ .name = "a0g0initvals5",	.offset = 0x76a10 + 0x40b8, .length = 0xa28 - 8, .type = EXT_IV, },
+@@ -116,14 +135,18 @@ static struct extract _1e4763b4cb8cfbaae
+ static struct extract _cb8d70972b885b1f8883b943c0261a3c[] =
+ {
+ 	{ .name = "pcm5", .offset = 0x8e554, .type = EXT_PCM, .length = 0x520 },
+-	{ .name = "pcm4", .offset = 0x8ea78, .type = EXT_PCM, .length = 0x520 },
++/*
++ *	{ .name = "pcm4", .offset = 0x8ea78, .type = EXT_PCM, .length = 0x520 },
++ */
+ 	{ .name = "ucode15", .offset = 0x8ef9c, .type = EXT_UCODE_3, .length = 0x7710 },
+ 	{ .name = "ucode14", .offset = 0x966b0, .type = EXT_UCODE_2, .length = 0x7a90 },
+ 	{ .name = "ucode13", .offset = 0x9e144, .type = EXT_UCODE_2, .length = 0x7de0 },
+ 	{ .name = "ucode11", .offset = 0xa5f28, .type = EXT_UCODE_2, .length = 0x74a0 },
+ 	{ .name = "ucode9", .offset = 0xad3cc, .type = EXT_UCODE_2, .length = 0x6240 },
+ 	{ .name = "ucode5", .offset = 0xb3610, .type = EXT_UCODE_2, .length = 0x5768 },
+-	{ .name = "ucode4", .offset = 0xb8d7c, .type = EXT_UCODE_1, .length = 0x4ec8 },
++/*
++ *	{ .name = "ucode4", .offset = 0xb8d7c, .type = EXT_UCODE_1, .length = 0x4ec8 },
++ */
+ 	{ .name = "lp0bsinitvals15", .offset = 0xbdc44, .type = EXT_IV, .length = 0xf8 },
+ 	{ .name = "lp0initvals15", .offset = 0xbdd44, .type = EXT_IV, .length = 0xb30 },
+ 	{ .name = "lp0bsinitvals14", .offset = 0xbe87c, .type = EXT_IV, .length = 0xf8 },
+@@ -149,10 +172,12 @@ static struct extract _cb8d70972b885b1f8
+ 	{ .name = "a0g0initvals5", .offset = 0xc5f24, .type = EXT_IV, .length = 0xa08 },
+ 	{ .name = "b0g0bsinitvals5", .offset = 0xc6934, .type = EXT_IV, .length = 0xf8 },
+ 	{ .name = "b0g0initvals5", .offset = 0xc6a34, .type = EXT_IV, .length = 0xa08 },
+-	{ .name = "a0g0bsinitvals4", .offset = 0xc7444, .type = EXT_IV, .length = 0x10 },
+-	{ .name = "a0g0initvals4", .offset = 0xc745c, .type = EXT_IV, .length = 0xe88 },
+-	{ .name = "b0g0bsinitvals4", .offset = 0xc82ec, .type = EXT_IV, .length = 0x10 },
+-	{ .name = "b0g0initvals4", .offset = 0xc8304, .type = EXT_IV, .length = 0xe8c },
++/*
++ *	{ .name = "a0g0bsinitvals4", .offset = 0xc7444, .type = EXT_IV, .length = 0x10 },
++ *	{ .name = "a0g0initvals4", .offset = 0xc745c, .type = EXT_IV, .length = 0xe88 },
++ *	{ .name = "b0g0bsinitvals4", .offset = 0xc82ec, .type = EXT_IV, .length = 0x10 },
++ *	{ .name = "b0g0initvals4", .offset = 0xc8304, .type = EXT_IV, .length = 0xe8c },
++ */
+ 	EXTRACT_LIST_END
+ };
+ 
+
+
+From Larry.Finger at lwfinger.net  Tue Jun  2 18:52:33 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Tue, 02 Jun 2009 11:52:33 -0500
+Subject: Changes in b43-fwcutter (V2)
+In-Reply-To: <200906021755.28603.mb@bu3sch.de>
+References: <4a254403.pwa6X3dMP+L8d498%Larry.Finger@lwfinger.net>
+	<200906021755.28603.mb@bu3sch.de>
+Message-ID: <4A2558D1.7090608@lwfinger.net>
+
+Michael Buesch wrote:
+> 
+> Thanks. I released b43-fwcutter-012 with this stuff included.
+
+Good. I updated the wiki, but did not include any information
+regarding the wrt610n driver that is now in b43-fwcutter.
+
+Larry
+
+
+
+
+
+From Larry.Finger at lwfinger.net  Tue Jun  2 19:07:13 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Tue, 02 Jun 2009 12:07:13 -0500
+Subject: Changes in V12 of b43-fwcutter
+Message-ID: <4a255c41.DV56NCulz8kIabVI%Larry.Finger@lwfinger.net>
+
+The new driver wrt610n, which was not in v11, still extracts core 4 firmware.
+
+Signed-off-by: Larry Finger <Larry.Finger at lwfinger.net>
+---
+
+Index: b43-fwcutter-012/fwcutter_list.h
+===================================================================
+--- b43-fwcutter-012.orig/fwcutter_list.h
++++ b43-fwcutter-012/fwcutter_list.h
+@@ -189,13 +189,17 @@ static struct extract _2dd738b8feb8b3559
+ 	{ .name = "a0g1bsinitvals9", .offset = 0x94540, .type = EXT_IV, .length = 0x118 },
+ 	{ .name = "b0g0bsinitvals13", .offset = 0x974D0, .type = EXT_IV, .length = 0x118 },
+ 	{ .name = "b0g0bsinitvals5", .offset = 0x90A78, .type = EXT_IV, .length = 0x118 },
+-	{ .name = "ucode4", .offset = 0x9B868, .type = EXT_UCODE_1, .length = 0x4EA0 },
+-	{ .name = "b0g0initvals4", .offset = 0x8E2D8, .type = EXT_IV, .length = 0xE80 },
++/*
++ *	{ .name = "ucode4", .offset = 0x9B868, .type = EXT_UCODE_1, .length = 0x4EA0 },
++ *	{ .name = "b0g0initvals4", .offset = 0x8E2D8, .type = EXT_IV, .length = 0xE80 },
++ */
+ 	{ .name = "b0g0initvals13", .offset = 0x96930, .type = EXT_IV, .length = 0xB98 },
+ 	{ .name = "ucode14", .offset = 0xBBB1C, .type = EXT_UCODE_2, .length = 0x7910 },
+ 	{ .name = "a0g0initvals5", .offset = 0x90B98, .type = EXT_IV, .length = 0xA18 },
+ 	{ .name = "lp0bsinitvals16", .offset = 0x9B748, .type = EXT_IV, .length = 0x118 },
+-	{ .name = "pcm4", .offset = 0xD4A40, .type = EXT_PCM, .length = 0x520 },
++/*
++ *	{ .name = "pcm4", .offset = 0xD4A40, .type = EXT_PCM, .length = 0x520 },
++ */
+ 	{ .name = "a0g1bsinitvals5", .offset = 0x920F8, .type = EXT_IV, .length = 0x118 },
+ 	{ .name = "n0bsinitvals11", .offset = 0x95230, .type = EXT_IV, .length = 0x118 },
+ 	{ .name = "n0absinitvals11", .offset = 0x95350, .type = EXT_IV, .length = 0x118 },
+@@ -205,14 +209,18 @@ static struct extract _2dd738b8feb8b3559
+ 	/* ERROR: Could not guess data type for: ucode_2w_bomminor */
+ 	{ .name = "ucode9", .offset = 0xA5E00, .type = EXT_UCODE_2, .length = 0x6248 },
+ 	{ .name = "a0g0bsinitvals9", .offset = 0x94420, .type = EXT_IV, .length = 0x118 },
+-	{ .name = "a0g0bsinitvals4", .offset = 0x90020, .type = EXT_IV, .length = 0x30 },
++/*
++ *	{ .name = "a0g0bsinitvals4", .offset = 0x90020, .type = EXT_IV, .length = 0x30 },
++ */
+ 	{ .name = "a0g1initvals5", .offset = 0x915B8, .type = EXT_IV, .length = 0xA18 },
+ 	{ .name = "n0bsinitvals16", .offset = 0x9A980, .type = EXT_IV, .length = 0x118 },
+ 	{ .name = "ucode16", .offset = 0xCBB9C, .type = EXT_UCODE_3, .length = 0x8EA0 },
+ 	{ .name = "b0g0bsinitvals4", .offset = 0x8F160, .type = EXT_IV, .length = 0x30 },
+ 	{ .name = "lp0initvals15", .offset = 0x98F58, .type = EXT_IV, .length = 0xC68 },
+ 	{ .name = "b0g0initvals5", .offset = 0x90058, .type = EXT_IV, .length = 0xA18 },
+-	{ .name = "a0g0initvals4", .offset = 0x8F198, .type = EXT_IV, .length = 0xE80 },
++/*
++ *	{ .name = "a0g0initvals4", .offset = 0x8F198, .type = EXT_IV, .length = 0xE80 },
++ */
+ 	{ .name = "sslpn0initvals16", .offset = 0x9AAA0, .type = EXT_IV, .length = 0x0 },
+ 	{ .name = "a0g1initvals13", .offset = 0x975F0, .type = EXT_IV, .length = 0xB98 },
+ 	/* ERROR: Could not guess data type for: ucode_2w11 */
+
+
+From zajec5polish at gmail.com  Thu Jun  4 18:17:38 2009
+From: zajec5polish at gmail.com (=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?=)
+Date: Thu, 4 Jun 2009 18:17:38 +0200
+Subject: Open source firmware for b43 status
+Message-ID: <14b026160906040917k5f7f93c2g7d3092dd61ab81ce@mail.gmail.com>
+
+Could someone tell what is current status of open source firmware from
+OpenFWWF project, please?
+
+Does version 5.1 export it's capabilities using some registers (no qos
+and no hw encryption)?
+
+Does b43 in 2.6.30 recognite firmware capabilities?
+
+Does it work with b43legacy?
+
+And finally, were you able to fix firmware crashes Larry was reporting?
+
+-- 
+Rafa? Mi?ecki
+
+
+From mb at bu3sch.de  Thu Jun  4 23:18:33 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 4 Jun 2009 23:18:33 +0200
+Subject: [PATCH] b43: Fix possible unaligned u32 access
+Message-ID: <200906042318.33895.mb@bu3sch.de>
+
+From: Matthieu CASTET <castet.matthieu at free.fr>
+
+Fix possible unaligned u32 access in b43_generate_plcp_hdr().
+Unaligned data is read/write with a u32 pointer instead of using the
+packed structure. Some versions of gcc ignore the "packed" attribute, if the
+structure element is accessed through a local pointer.
+
+Signed-off-by: Matthieu CASTET <castet.matthieu at free.fr>
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+---
+
+Please queue this bugfix.
+
+
+diff --git a/drivers/net/wireless/b43/xmit.c b/drivers/net/wireless/b43/xmit.c
+index a63d888..55f36a7 100644
+--- a/drivers/net/wireless/b43/xmit.c
++++ b/drivers/net/wireless/b43/xmit.c
+@@ -118,7 +118,6 @@ u8 b43_plcp_get_ratecode_ofdm(const u8 bitrate)
+ void b43_generate_plcp_hdr(struct b43_plcp_hdr4 *plcp,
+ 			   const u16 octets, const u8 bitrate)
+ {
+-	__le32 *data = &(plcp->data);
+ 	__u8 *raw = plcp->raw;
+ 
+ 	if (b43_is_ofdm_rate(bitrate)) {
+@@ -127,7 +126,7 @@ void b43_generate_plcp_hdr(struct b43_plcp_hdr4 *plcp,
+ 		d = b43_plcp_get_ratecode_ofdm(bitrate);
+ 		B43_WARN_ON(octets & 0xF000);
+ 		d |= (octets << 5);
+-		*data = cpu_to_le32(d);
++		plcp->data = cpu_to_le32(d);
+ 	} else {
+ 		u32 plen;
+ 
+@@ -141,7 +140,7 @@ void b43_generate_plcp_hdr(struct b43_plcp_hdr4 *plcp,
+ 				raw[1] = 0x04;
+ 		} else
+ 			raw[1] = 0x04;
+-		*data |= cpu_to_le32(plen << 16);
++		plcp->data |= cpu_to_le32(plen << 16);
+ 		raw[0] = b43_plcp_get_ratecode_cck(bitrate);
+ 	}
+ }
+
+-- 
+Greetings, Michael.
+
+
+From mb at bu3sch.de  Thu Jun  4 23:21:32 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 4 Jun 2009 23:21:32 +0200
+Subject: Open source firmware for b43 status
+In-Reply-To: <14b026160906040917k5f7f93c2g7d3092dd61ab81ce@mail.gmail.com>
+References: <14b026160906040917k5f7f93c2g7d3092dd61ab81ce@mail.gmail.com>
+Message-ID: <200906042321.32394.mb@bu3sch.de>
+
+On Thursday 04 June 2009 18:17:38 Rafa? Mi?ecki wrote:
+> Could someone tell what is current status of open source firmware from
+> OpenFWWF project, please?
+> 
+> Does version 5.1 export it's capabilities using some registers (no qos
+> and no hw encryption)?
+
+Yes.
+
+> Does b43 in 2.6.30 recognite firmware capabilities?
+
+It should do this, yes.
+
+> Does it work with b43legacy?
+
+No. The firmware does only work on core rev5 compatible devices.
+
+> And finally, were you able to fix firmware crashes Larry was reporting?
+
+I think we currently work around these crashes, but the root cause is not
+yet fixed.
+
+-- 
+Greetings, Michael.
+
+
+From Larry.Finger at lwfinger.net  Thu Jun  4 23:57:59 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Thu, 04 Jun 2009 16:57:59 -0500
+Subject: Open source firmware for b43 status
+In-Reply-To: <200906042321.32394.mb@bu3sch.de>
+References: <14b026160906040917k5f7f93c2g7d3092dd61ab81ce@mail.gmail.com>
+	<200906042321.32394.mb@bu3sch.de>
+Message-ID: <4A284367.2090807@lwfinger.net>
+
+Michael Buesch wrote:
+>> And finally, were you able to fix firmware crashes Larry was reporting?
+> 
+> I think we currently work around these crashes, but the root cause is not
+> yet fixed.
+
+There is no workaround. This bug shows up only when you stress the
+interface with two simultaneous full transmit streams. I have never
+seen it under normal load.
+
+Larry
+
+
+
+From mb at bu3sch.de  Fri Jun  5 00:20:43 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Fri, 5 Jun 2009 00:20:43 +0200
+Subject: Open source firmware for b43 status
+In-Reply-To: <4A284367.2090807@lwfinger.net>
+References: <14b026160906040917k5f7f93c2g7d3092dd61ab81ce@mail.gmail.com>
+	<200906042321.32394.mb@bu3sch.de> <4A284367.2090807@lwfinger.net>
+Message-ID: <200906050020.43576.mb@bu3sch.de>
+
+On Thursday 04 June 2009 23:57:59 Larry Finger wrote:
+> Michael Buesch wrote:
+> >> And finally, were you able to fix firmware crashes Larry was reporting?
+> > 
+> > I think we currently work around these crashes, but the root cause is not
+> > yet fixed.
+> 
+> There is no workaround. This bug shows up only when you stress the
+> interface with two simultaneous full transmit streams. I have never
+> seen it under normal load.
+
+Doesn't the DMA poisoning workaround any possible crashes? What else can cause a crash?
+
+-- 
+Greetings, Michael.
+
+
+From linville at tuxdriver.com  Fri Jun  5 14:25:03 2009
+From: linville at tuxdriver.com (John W. Linville)
+Date: Fri, 5 Jun 2009 08:25:03 -0400
+Subject: [PATCH] b43: Fix possible unaligned u32 access
+In-Reply-To: <200906042318.33895.mb@bu3sch.de>
+References: <200906042318.33895.mb@bu3sch.de>
+Message-ID: <20090605122503.GA2791@tuxdriver.com>
+
+On Thu, Jun 04, 2009 at 11:18:33PM +0200, Michael Buesch wrote:
+> From: Matthieu CASTET <castet.matthieu at free.fr>
+> 
+> Fix possible unaligned u32 access in b43_generate_plcp_hdr().
+> Unaligned data is read/write with a u32 pointer instead of using the
+> packed structure. Some versions of gcc ignore the "packed" attribute, if the
+> structure element is accessed through a local pointer.
+> 
+> Signed-off-by: Matthieu CASTET <castet.matthieu at free.fr>
+> Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+That seems pretty brain-dead...can you cite a source for this
+information?  The patch seems like a no-op...
+
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville at tuxdriver.com			might be all we have.  Be ready.
+
+
+From mb at bu3sch.de  Fri Jun  5 19:29:07 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Fri, 5 Jun 2009 19:29:07 +0200
+Subject: [PATCH] b43: Fix possible unaligned u32 access
+In-Reply-To: <20090605122503.GA2791@tuxdriver.com>
+References: <200906042318.33895.mb@bu3sch.de>
+	<20090605122503.GA2791@tuxdriver.com>
+Message-ID: <200906051929.07714.mb@bu3sch.de>
+
+On Friday 05 June 2009 14:25:03 John W. Linville wrote:
+> On Thu, Jun 04, 2009 at 11:18:33PM +0200, Michael Buesch wrote:
+> > From: Matthieu CASTET <castet.matthieu at free.fr>
+> > 
+> > Fix possible unaligned u32 access in b43_generate_plcp_hdr().
+> > Unaligned data is read/write with a u32 pointer instead of using the
+> > packed structure. Some versions of gcc ignore the "packed" attribute, if the
+> > structure element is accessed through a local pointer.
+> > 
+> > Signed-off-by: Matthieu CASTET <castet.matthieu at free.fr>
+> > Signed-off-by: Michael Buesch <mb at bu3sch.de>
+> 
+> That seems pretty brain-dead...can you cite a source for this
+> information?  The patch seems like a no-op...
+> 
+> John
+
+struct foo {
+	int data;
+} __attribute__((packed));
+
+struct foo foo;
+int *d = &foo->data;
+foo->data = x;	/* Works for unaligned */
+*d = y;		/* Does not work for unaligned */
+
+-- 
+Greetings, Michael.
+
+
+From linville at tuxdriver.com  Fri Jun  5 20:50:48 2009
+From: linville at tuxdriver.com (John W. Linville)
+Date: Fri, 5 Jun 2009 14:50:48 -0400
+Subject: [PATCH] b43: Fix possible unaligned u32 access
+In-Reply-To: <200906051929.07714.mb@bu3sch.de>
+References: <200906042318.33895.mb@bu3sch.de>
+	<20090605122503.GA2791@tuxdriver.com>
+	<200906051929.07714.mb@bu3sch.de>
+Message-ID: <20090605185047.GA7361@tuxdriver.com>
+
+On Fri, Jun 05, 2009 at 07:29:07PM +0200, Michael Buesch wrote:
+> On Friday 05 June 2009 14:25:03 John W. Linville wrote:
+> > On Thu, Jun 04, 2009 at 11:18:33PM +0200, Michael Buesch wrote:
+> > > From: Matthieu CASTET <castet.matthieu at free.fr>
+> > > 
+> > > Fix possible unaligned u32 access in b43_generate_plcp_hdr().
+> > > Unaligned data is read/write with a u32 pointer instead of using the
+> > > packed structure. Some versions of gcc ignore the "packed" attribute, if the
+> > > structure element is accessed through a local pointer.
+> > > 
+> > > Signed-off-by: Matthieu CASTET <castet.matthieu at free.fr>
+> > > Signed-off-by: Michael Buesch <mb at bu3sch.de>
+> > 
+> > That seems pretty brain-dead...can you cite a source for this
+> > information?  The patch seems like a no-op...
+> > 
+> > John
+> 
+> struct foo {
+> 	int data;
+> } __attribute__((packed));
+> 
+> struct foo foo;
+> int *d = &foo->data;
+> foo->data = x;	/* Works for unaligned */
+> *d = y;		/* Does not work for unaligned */
+
+Why not?
+
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville at tuxdriver.com			might be all we have.  Be ready.
+
+
+From linville at tuxdriver.com  Fri Jun  5 20:53:07 2009
+From: linville at tuxdriver.com (John W. Linville)
+Date: Fri, 5 Jun 2009 14:53:07 -0400
+Subject: [PATCH] b43: Fix possible unaligned u32 access
+In-Reply-To: <1244214237.4a2933dda6634@imp.free.fr>
+References: <200906042318.33895.mb@bu3sch.de>
+	<20090605122503.GA2791@tuxdriver.com>
+	<1244214237.4a2933dda6634@imp.free.fr>
+Message-ID: <20090605185307.GB7361@tuxdriver.com>
+
+On Fri, Jun 05, 2009 at 05:03:57PM +0200, castet.matthieu at free.fr wrote:
+> Quoting "John W. Linville" <linville at tuxdriver.com>:
+> 
+> > On Thu, Jun 04, 2009 at 11:18:33PM +0200, Michael Buesch wrote:
+> > > From: Matthieu CASTET <castet.matthieu at free.fr>
+> > >
+> > > Fix possible unaligned u32 access in b43_generate_plcp_hdr().
+> > > Unaligned data is read/write with a u32 pointer instead of using the
+> > > packed structure. Some versions of gcc ignore the "packed" attribute, if
+> > the
+> > > structure element is accessed through a local pointer.
+> > >
+> > > Signed-off-by: Matthieu CASTET <castet.matthieu at free.fr>
+> > > Signed-off-by: Michael Buesch <mb at bu3sch.de>
+> >
+> > That seems pretty brain-dead...can you cite a source for this
+> > information?
+> The test I did with the attached test case in the first post.
+
+Link?
+
+> I don't see why gcc should propagate packed structure info to assignment.
+> That will be impossible to handle (think of passing it to function parameter).
+
+Perhaps this is obvious to you, but it isn't to me.
+
+> 
+> > The patch seems like a no-op...
+> At least the code produced on mips is different.
+
+Then why aren't you trying to get the mips gcc guys to fix it?
+
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville at tuxdriver.com			might be all we have.  Be ready.
+
+
+From mb at bu3sch.de  Fri Jun  5 21:03:41 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Fri, 5 Jun 2009 21:03:41 +0200
+Subject: [PATCH] b43: Fix possible unaligned u32 access
+In-Reply-To: <20090605185047.GA7361@tuxdriver.com>
+References: <200906042318.33895.mb@bu3sch.de> <200906051929.07714.mb@bu3sch.de>
+	<20090605185047.GA7361@tuxdriver.com>
+Message-ID: <200906052103.41381.mb@bu3sch.de>
+
+On Friday 05 June 2009 20:50:48 John W. Linville wrote:
+> On Fri, Jun 05, 2009 at 07:29:07PM +0200, Michael Buesch wrote:
+> > On Friday 05 June 2009 14:25:03 John W. Linville wrote:
+> > > On Thu, Jun 04, 2009 at 11:18:33PM +0200, Michael Buesch wrote:
+> > > > From: Matthieu CASTET <castet.matthieu at free.fr>
+> > > > 
+> > > > Fix possible unaligned u32 access in b43_generate_plcp_hdr().
+> > > > Unaligned data is read/write with a u32 pointer instead of using the
+> > > > packed structure. Some versions of gcc ignore the "packed" attribute, if the
+> > > > structure element is accessed through a local pointer.
+> > > > 
+> > > > Signed-off-by: Matthieu CASTET <castet.matthieu at free.fr>
+> > > > Signed-off-by: Michael Buesch <mb at bu3sch.de>
+> > > 
+> > > That seems pretty brain-dead...can you cite a source for this
+> > > information?  The patch seems like a no-op...
+> > > 
+> > > John
+> > 
+> > struct foo {
+> > 	int data;
+> > } __attribute__((packed));
+> > 
+> > struct foo foo;
+> > int *d = &foo->data;
+> > foo->data = x;	/* Works for unaligned */
+> > *d = y;		/* Does not work for unaligned */
+> 
+> Why not?
+> 
+
+Because some compilers don't carry the "packed" attribute of "data" though the "d" pointer.
+So foo->data is a "packed" access, while *d might not.
+
+-- 
+Greetings, Michael.
+
+
+From linville at tuxdriver.com  Fri Jun  5 21:08:56 2009
+From: linville at tuxdriver.com (John W. Linville)
+Date: Fri, 5 Jun 2009 15:08:56 -0400
+Subject: [PATCH] b43: Fix possible unaligned u32 access
+In-Reply-To: <20090605185307.GB7361@tuxdriver.com>
+References: <200906042318.33895.mb@bu3sch.de>
+	<20090605122503.GA2791@tuxdriver.com>
+	<1244214237.4a2933dda6634@imp.free.fr>
+	<20090605185307.GB7361@tuxdriver.com>
+Message-ID: <20090605190855.GC7361@tuxdriver.com>
+
+On Fri, Jun 05, 2009 at 02:53:07PM -0400, John W. Linville wrote:
+> On Fri, Jun 05, 2009 at 05:03:57PM +0200, castet.matthieu at free.fr wrote:
+> > Quoting "John W. Linville" <linville at tuxdriver.com>:
+> > 
+> > > On Thu, Jun 04, 2009 at 11:18:33PM +0200, Michael Buesch wrote:
+> > > > From: Matthieu CASTET <castet.matthieu at free.fr>
+> > > >
+> > > > Fix possible unaligned u32 access in b43_generate_plcp_hdr().
+> > > > Unaligned data is read/write with a u32 pointer instead of using the
+> > > > packed structure. Some versions of gcc ignore the "packed" attribute, if
+> > > the
+> > > > structure element is accessed through a local pointer.
+> > > >
+> > > > Signed-off-by: Matthieu CASTET <castet.matthieu at free.fr>
+> > > > Signed-off-by: Michael Buesch <mb at bu3sch.de>
+> > >
+> > > That seems pretty brain-dead...can you cite a source for this
+> > > information?
+> > The test I did with the attached test case in the first post.
+> 
+> Link?
+> 
+> > I don't see why gcc should propagate packed structure info to assignment.
+> > That will be impossible to handle (think of passing it to function parameter).
+> 
+> Perhaps this is obvious to you, but it isn't to me.
+
+OK, I got an explanation from Kyle McMartin that I grok...
+
+> > 
+> > > The patch seems like a no-op...
+> > At least the code produced on mips is different.
+> 
+> Then why aren't you trying to get the mips gcc guys to fix it?
+
+Still worth wondering...anyway, the patch is fine -- I just didn't
+grok the explanation.
+
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville at tuxdriver.com			might be all we have.  Be ready.
+
+
+From s.L-H at gmx.de  Mon Jun  8 21:04:57 2009
+From: s.L-H at gmx.de (Stefan Lippers-Hollmann)
+Date: Mon, 8 Jun 2009 21:04:57 +0200
+Subject: [PATCH, RFC] b43: Add fw capabilities
+In-Reply-To: <200904080211.16298.mb@bu3sch.de>
+References: <200904080211.16298.mb@bu3sch.de>
+Message-ID: <200906082105.00868.s.L-H@gmx.de>
+
+Hi
+
+It seems that the following patch [1] implementing automatic capability 
+detection for OpenFWWF (basically only disables QoS right now, hwcrypto 
+isn't available due to a missing pcm5.fw in the first place) in b43 has 
+gone missing. While it's almost too late to squeeze it into 2.6.31, it 
+would be great if it could be merged into wireless-testing and 
+subsequently 2.6.32.
+
+Successfully tested over several weeks on the following devices against
+2.6.29.x and 2.6.31-rc8-git5, using OpenFWWF 5.1 and the proprietary 
+Broadcom firmware (410.2160 (2007-05-26 15:32:10)):
+
+b43-phy0: Broadcom 4306 WLAN found (core revision 5)                                 
+b43 ssb0:0: firmware: requesting b43/ucode5.fw                                       
+b43 ssb0:0: firmware: requesting b43-open/ucode5.fw
+b43 ssb0:0: firmware: requesting b43-open/pcm5.fw
+b43 ssb0:0: firmware: requesting b43-open/b0g0initvals5.fw
+b43 ssb0:0: firmware: requesting b43-open/b0g0bsinitvals5.fw
+b43-phy0: Loading OpenSource firmware version 410.31754
+b43-phy0: Hardware crypto acceleration not supported by firmware
+b43-phy0: QoS not supported by firmware
+
+b43-phy0: Broadcom 4318 WLAN found (core revision 9)
+b43 ssb0:0: firmware: requesting b43/ucode5.fw
+b43 ssb0:0: firmware: requesting b43-open/ucode5.fw
+b43 ssb0:0: firmware: requesting b43-open/pcm5.fw
+b43 ssb0:0: firmware: requesting b43-open/b0g0initvals5.fw
+b43 ssb0:0: firmware: requesting b43-open/b0g0bsinitvals5.fw
+b43-phy0: Loading OpenSource firmware version 410.31754
+b43-phy0: Hardware crypto acceleration not supported by firmware
+b43-phy0: QoS not supported by firmware
+
+Without this patch or an explicit manual modprobe override setting qos=0, 
+the current OpenFWWF will fail to work with b43 with the following 
+(repeating) error message:
+
+b43-phy0 ERROR: MAC suspend failed
+
+
+While this patch has been acked by OpenFWWF upstream [2], [3] and was 
+intended to go into wireless-testing [4], it is still lacking a formal 
+Signed-off-by from Michael (I'm 're-'sending this patch on his behalf, as 
+suggested via IRC).
+
+The attached version of Michael's patch is (trivially) rediffed against 
+current wireless-testing and applies with minor fuzz against 2.6.30 as 
+well. Even though my own efforts too trivial to claim any kind of copyright
+on this patch, I'm proactively adding my Signed-off-by for this rediff, 
+hoping that Michael as the author will formally sign it off as well and on 
+top.
+
+Regards
+	Stefan Lippers-Hollmann
+
+[1]	From: Michael Buesch <mb at bu3sch.de>
+	Subject: [PATCH, RFC] b44: Add fw capabilities
+	Date: Wed, 8 Apr 2009 02:11:16 +0200
+	Message-Id: <200904080211.16298.mb at bu3sch.de>
+	https://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/008850.html
+[2]	https://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/008864.html
+[3]	https://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/008865.html
+[4]	https://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/008863.html
+
+--- cut ---
+From: Michael Buesch <mb at bu3sch.de>
+Subject: [PATCH, RFC] b44: Add fw capabilities
+
+ Completely untested patch to implement firmware capabilities
+ and automagic QoS-disabling.
+
+Signed-off-by: Stefan Lippers-Hollmann <s.l-h at gmx.de>
+Tested-by: Stefan Lippers-Hollmann <s.l-h at gmx.de>
+---
+ drivers/net/wireless/b43/b43.h  |   14 +++++++++
+ drivers/net/wireless/b43/dma.c  |    2 +-
+ drivers/net/wireless/b43/main.c |   56 +++++++++++++++++++++++++++++++-------
+ drivers/net/wireless/b43/main.h |    1 -
+ drivers/net/wireless/b43/pio.c  |    2 +-
+ 5 files changed, 61 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/b43.h b/drivers/net/wireless/b43/b43.h
+index 4e8ad84..61d2ec8 100644
+--- a/drivers/net/wireless/b43/b43.h
++++ b/drivers/net/wireless/b43/b43.h
+@@ -163,6 +163,7 @@ enum {
+ #define B43_SHM_SH_WLCOREREV		0x0016	/* 802.11 core revision */
+ #define B43_SHM_SH_PCTLWDPOS		0x0008
+ #define B43_SHM_SH_RXPADOFF		0x0034	/* RX Padding data offset (PIO only) */
++#define B43_SHM_SH_FWCAPA		0x0042	/* Firmware capabilities (Opensource firmware only) */
+ #define B43_SHM_SH_PHYVER		0x0050	/* PHY version */
+ #define B43_SHM_SH_PHYTYPE		0x0052	/* PHY type */
+ #define B43_SHM_SH_ANTSWAP		0x005C	/* Antenna swap threshold */
+@@ -297,6 +298,10 @@ enum {
+ #define B43_HF_MLADVW		0x001000000000ULL /* N PHY ML ADV workaround (rev >= 13 only) */
+ #define B43_HF_PR45960W		0x080000000000ULL /* PR 45960 workaround (rev >= 13 only) */
+ 
++/* Firmware capabilities field in SHM (Opensource firmware only) */
++#define B43_FWCAPA_HWCRYPTO	0x0001
++#define B43_FWCAPA_QOS		0x0002
++
+ /* MacFilter offsets. */
+ #define B43_MACFILTER_SELF		0x0000
+ #define B43_MACFILTER_BSSID		0x0003
+@@ -596,6 +601,13 @@ struct b43_wl {
+ 	/* Pointer to the ieee80211 hardware data structure */
+ 	struct ieee80211_hw *hw;
+ 
++	/* The number of queues that were registered with the mac80211 subsystem
++	 * initially. This is a backup copy of hw->queues in case hw->queues has
++	 * to be dynamically lowered at runtime (Firmware does not support QoS).
++	 * hw->queues has to be restored to the original value before unregistering
++	 * from the mac80211 subsystem. */
++	u16 mac80211_initially_registered_queues;
++
+ 	struct mutex mutex;
+ 	spinlock_t irq_lock;
+ 	/* R/W lock for data transmission.
+@@ -752,6 +764,8 @@ struct b43_wldev {
+ 	bool dfq_valid;		/* Directed frame queue valid (IBSS PS mode, ATIM) */
+ 	bool radio_hw_enable;	/* saved state of radio hardware enabled state */
+ 	bool suspend_in_progress;	/* TRUE, if we are in a suspend/resume cycle */
++	bool qos_enabled;		/* TRUE, if QoS is used. */
++	bool hwcrypto_enabled;		/* TRUE, if HW crypto acceleration is enabled. */
+ 
+ 	/* PHY/Radio device. */
+ 	struct b43_phy phy;
+diff --git a/drivers/net/wireless/b43/dma.c b/drivers/net/wireless/b43/dma.c
+index eae680b..7964cc3 100644
+--- a/drivers/net/wireless/b43/dma.c
++++ b/drivers/net/wireless/b43/dma.c
+@@ -1285,7 +1285,7 @@ static struct b43_dmaring *select_ring_by_priority(struct b43_wldev *dev,
+ {
+ 	struct b43_dmaring *ring;
+ 
+-	if (b43_modparam_qos) {
++	if (dev->qos_enabled) {
+ 		/* 0 = highest priority */
+ 		switch (queue_prio) {
+ 		default:
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index 1d3e400..a7cadc6 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -80,8 +80,8 @@ static int modparam_nohwcrypt;
+ module_param_named(nohwcrypt, modparam_nohwcrypt, int, 0444);
+ MODULE_PARM_DESC(nohwcrypt, "Disable hardware encryption.");
+ 
+-int b43_modparam_qos = 1;
+-module_param_named(qos, b43_modparam_qos, int, 0444);
++static int modparam_qos = 1;
++module_param_named(qos, modparam_qos, int, 0444);
+ MODULE_PARM_DESC(qos, "Enable QOS support (default on)");
+ 
+ static int modparam_btcoex = 1;
+@@ -538,6 +538,13 @@ void b43_hf_write(struct b43_wldev *dev, u64 value)
+ 	b43_shm_write16(dev, B43_SHM_SHARED, B43_SHM_SH_HOSTFHI, hi);
+ }
+ 
++/* Read the firmware capabilities bitmask (Opensource firmware only) */
++static u16 b43_fwcapa_read(struct b43_wldev *dev)
++{
++	B43_WARN_ON(!dev->fw.opensource);
++	return b43_shm_read16(dev, B43_SHM_SHARED, B43_SHM_SH_FWCAPA);
++}
++
+ void b43_tsf_read(struct b43_wldev *dev, u64 *tsf)
+ {
+ 	u32 low, high;
+@@ -2307,12 +2314,34 @@ static int b43_upload_microcode(struct b43_wldev *dev)
+ 	dev->fw.patch = fwpatch;
+ 	dev->fw.opensource = (fwdate == 0xFFFF);
+ 
++	/* Default to use-all-queues. */
++	dev->wl->hw->queues = dev->wl->mac80211_initially_registered_queues;
++	dev->qos_enabled = !!modparam_qos;
++	/* Default to firmware/hardware crypto acceleration. */
++	dev->hwcrypto_enabled = 1;
++
+ 	if (dev->fw.opensource) {
++		u16 fwcapa;
++
+ 		/* Patchlevel info is encoded in the "time" field. */
+ 		dev->fw.patch = fwtime;
+-		b43info(dev->wl, "Loading OpenSource firmware version %u.%u%s\n",
+-			dev->fw.rev, dev->fw.patch,
+-			dev->fw.pcm_request_failed ? " (Hardware crypto not supported)" : "");
++		b43info(dev->wl, "Loading OpenSource firmware version %u.%u\n",
++			dev->fw.rev, dev->fw.patch);
++
++		fwcapa = b43_fwcapa_read(dev);
++		if (!(fwcapa & B43_FWCAPA_HWCRYPTO) || dev->fw.pcm_request_failed) {
++			b43info(dev->wl, "Hardware crypto acceleration not supported by firmware\n");
++			/* Disable hardware crypto and fall back to software crypto. */
++			dev->hwcrypto_enabled = 0;
++		}
++		if (!(fwcapa & B43_FWCAPA_QOS)) {
++			b43info(dev->wl, "QoS not supported by firmware\n");
++			/* Disable QoS. Tweak hw->queues to 1. It will be restored before
++			 * ieee80211_unregister to make sure the networking core can
++			 * properly free possible resources. */
++			dev->wl->hw->queues = 1;
++			dev->qos_enabled = 0;
++		}
+ 	} else {
+ 		b43info(dev->wl, "Loading firmware version %u.%u "
+ 			"(20%.2i-%.2i-%.2i %.2i:%.2i:%.2i)\n",
+@@ -3627,7 +3656,7 @@ static int b43_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+ 	if (!dev || b43_status(dev) < B43_STAT_INITIALIZED)
+ 		goto out_unlock;
+ 
+-	if (dev->fw.pcm_request_failed) {
++	if (dev->fw.pcm_request_failed || !dev->hwcrypto_enabled) {
+ 		/* We don't have firmware for the crypto engine.
+ 		 * Must use software-crypto. */
+ 		err = -EOPNOTSUPP;
+@@ -4735,6 +4764,7 @@ static int b43_wireless_init(struct ssb_device *dev)
+ 		b43err(NULL, "Could not allocate ieee80211 device\n");
+ 		goto out;
+ 	}
++	wl = hw_to_b43_wl(hw);
+ 
+ 	/* fill hw info */
+ 	hw->flags = IEEE80211_HW_RX_INCLUDES_FCS |
+@@ -4748,7 +4778,8 @@ static int b43_wireless_init(struct ssb_device *dev)
+ 		BIT(NL80211_IFTYPE_WDS) |
+ 		BIT(NL80211_IFTYPE_ADHOC);
+ 
+-	hw->queues = b43_modparam_qos ? 4 : 1;
++	hw->queues = modparam_qos ? 4 : 1;
++	wl->mac80211_initially_registered_queues = hw->queues;
+ 	hw->max_rates = 2;
+ 	SET_IEEE80211_DEV(hw, dev->dev);
+ 	if (is_valid_ether_addr(sprom->et1mac))
+@@ -4756,9 +4787,7 @@ static int b43_wireless_init(struct ssb_device *dev)
+ 	else
+ 		SET_IEEE80211_PERM_ADDR(hw, sprom->il0mac);
+ 
+-	/* Get and initialize struct b43_wl */
+-	wl = hw_to_b43_wl(hw);
+-	memset(wl, 0, sizeof(*wl));
++	/* Initialize struct b43_wl */
+ 	wl->hw = hw;
+ 	spin_lock_init(&wl->irq_lock);
+ 	rwlock_init(&wl->tx_lock);
+@@ -4824,8 +4853,13 @@ static void b43_remove(struct ssb_device *dev)
+ 	cancel_work_sync(&wldev->restart_work);
+ 
+ 	B43_WARN_ON(!wl);
+-	if (wl->current_dev == wldev)
++	if (wl->current_dev == wldev) {
++		/* Restore the queues count before unregistering, because firmware detect
++		 * might have modified it. Restoring is important, so the networking
++		 * stack can properly free resources. */
++		wl->hw->queues = wl->mac80211_initially_registered_queues;
+ 		ieee80211_unregister_hw(wl->hw);
++	}
+ 
+ 	b43_one_core_detach(dev);
+ 
+diff --git a/drivers/net/wireless/b43/main.h b/drivers/net/wireless/b43/main.h
+index 40abcf5..950fb1b 100644
+--- a/drivers/net/wireless/b43/main.h
++++ b/drivers/net/wireless/b43/main.h
+@@ -39,7 +39,6 @@
+ #define PAD_BYTES(nr_bytes)		P4D_BYTES( __LINE__ , (nr_bytes))
+ 
+ 
+-extern int b43_modparam_qos;
+ extern int b43_modparam_verbose;
+ 
+ /* Logmessage verbosity levels. Update the b43_modparam_verbose helptext, if
+diff --git a/drivers/net/wireless/b43/pio.c b/drivers/net/wireless/b43/pio.c
+index 8cd9776..69138e8 100644
+--- a/drivers/net/wireless/b43/pio.c
++++ b/drivers/net/wireless/b43/pio.c
+@@ -313,7 +313,7 @@ static struct b43_pio_txqueue *select_queue_by_priority(struct b43_wldev *dev,
+ {
+ 	struct b43_pio_txqueue *q;
+ 
+-	if (b43_modparam_qos) {
++	if (dev->qos_enabled) {
+ 		/* 0 = highest priority */
+ 		switch (queue_prio) {
+ 		default:
+-- 
+1.6.3.1
+
+
+
+From hanbo00 at gmail.com  Mon Jun  8 22:47:20 2009
+From: hanbo00 at gmail.com (Bo Han)
+Date: Mon, 8 Jun 2009 16:47:20 -0400
+Subject: noise level for BCM4318 cards
+Message-ID: <d0ad1e930906081347l1069099brfc600e2a25456ff2@mail.gmail.com>
+
+Hi,
+
+When I do iwlist scan using my BCM 4318 cards, the reported noise
+level is very high, around -57 dBm.  I don't expect the card to
+measure the background noise accurately.  But this value looks
+unreasonable and it is higher than the signal strength of most of the
+data packets.  I noticed that in the driver code,
+b43_rssi_postprocess(...) is called for signal strength, but not for
+noise level.  Are they both using dBm?  How to interpret the noise
+level?
+
+PS, I also tried another card in the same room, whose reported noise
+level is around -70 dBm.
+
+Thanks,
+-Bo
+
+
+From Larry.Finger at lwfinger.net  Tue Jun  9 01:42:21 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Mon, 08 Jun 2009 18:42:21 -0500
+Subject: noise level for BCM4318 cards
+In-Reply-To: <d0ad1e930906081347l1069099brfc600e2a25456ff2@mail.gmail.com>
+References: <d0ad1e930906081347l1069099brfc600e2a25456ff2@mail.gmail.com>
+Message-ID: <4A2DA1DD.7090103@lwfinger.net>
+
+Bo Han wrote:
+> Hi,
+> 
+> When I do iwlist scan using my BCM 4318 cards, the reported noise
+> level is very high, around -57 dBm.  I don't expect the card to
+> measure the background noise accurately.  But this value looks
+> unreasonable and it is higher than the signal strength of most of the
+> data packets.  I noticed that in the driver code,
+> b43_rssi_postprocess(...) is called for signal strength, but not for
+> noise level.  Are they both using dBm?  How to interpret the noise
+> level?
+
+Yes, both are in dBm after the rssi_postprocess routine is called.
+> 
+> PS, I also tried another card in the same room, whose reported noise
+> level is around -70 dBm.
+
+On my system:
+
+lspci
+
+06:00.0 Network controller: Broadcom Corporation BCM4318 [AirForce One
+54g] 802.11g Wireless LAN Controller (rev 02)
+
+iwlist wlan0 scan
+
+Cell 01 - Address: 00:1A:70:46:BA:B1
+          Channel:1
+          Frequency:2.412 GHz (Channel 1)
+          Quality=49/70  Signal level=-61 dBm
+          Encryption key:on
+          ESSID:"lwfdjf_rad"
+          Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 18 Mb/s
+                    24 Mb/s; 36 Mb/s; 54 Mb/s
+          Bit Rates:6 Mb/s; 9 Mb/s; 12 Mb/s; 48 Mb/s
+          Mode:Master
+          Extra:tsf=000000515a64a93f
+          Extra: Last beacon: 516ms ago
+          IE: IEEE 802.11i/WPA2 Version 1
+          Group Cipher : CCMP
+          Pairwise Ciphers (1) : CCMP
+          Authentication Suites (1) : PSK
+Cell 02 - Address: 00:14:BF:0C:7E:14
+          Channel:6
+          Frequency:2.437 GHz (Channel 6)
+          Quality=30/70  Signal level=-80 dBm
+          Encryption key:on
+          ESSID:"linksys"
+          Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 18 Mb/s
+                    24 Mb/s; 36 Mb/s; 54 Mb/s
+          Bit Rates:6 Mb/s; 9 Mb/s; 12 Mb/s; 48 Mb/s
+          Mode:Master
+          Extra:tsf=000000d993312192
+          Extra: Last beacon: 380ms ago
+          IE: WPA Version 1
+              Group Cipher : TKIP
+              Pairwise Ciphers (1) : TKIP
+              Authentication Suites (1) : PSK
+
+Where is the noise level in the scan? It doesn't show up on my system.
+When I do the iwconfig command, wlan0 reports a signal of -43 dBm and
+a noise of -72 dBm when connected to the AP with ESSID "lwfdjf_rad".
+Yes that noise level is higher than the signal from the AP with ESSID
+of "linksys". You must remember that channel 1 is occupied by an AP
+about 2 m from the computer, whereas the AP on channel 6 is a lot
+further away and the noise is lower.
+
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: bcm4318
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090608/5fef67cb/attachment.ksh>
+
+From hanbo00 at gmail.com  Tue Jun  9 02:57:05 2009
+From: hanbo00 at gmail.com (Bo Han)
+Date: Mon, 8 Jun 2009 17:57:05 -0700
+Subject: noise level for BCM4318 cards
+In-Reply-To: <4A2DA1DD.7090103@lwfinger.net>
+References: <d0ad1e930906081347l1069099brfc600e2a25456ff2@mail.gmail.com>
+	<4A2DA1DD.7090103@lwfinger.net>
+Message-ID: <d0ad1e930906081757k6ac580e4o840f114c6c4b4cdf@mail.gmail.com>
+
+On Mon, Jun 8, 2009 at 4:42 PM, Larry Finger<Larry.Finger at lwfinger.net> wrote:
+> Bo Han wrote:
+>> Hi,
+>>
+>> When I do iwlist scan using my BCM 4318 cards, the reported noise
+>> level is very high, around -57 dBm.  I don't expect the card to
+>> measure the background noise accurately.  But this value looks
+>> unreasonable and it is higher than the signal strength of most of the
+>> data packets.  I noticed that in the driver code,
+>> b43_rssi_postprocess(...) is called for signal strength, but not for
+>> noise level.  Are they both using dBm?  How to interpret the noise
+>> level?
+>
+> Yes, both are in dBm after the rssi_postprocess routine is called.
+
+I am using 2.6.29-rc2.  Only the reported signal level is in dBm after
+rssi_postprocess routine is called.  b43 passes the noise level to
+mac80211 without any further processing and rssinoise_postprocess
+routine has not been used in the driver code.
+
+>>
+>> PS, I also tried another card in the same room, whose reported noise
+>> level is around -70 dBm.
+>
+> On my system:
+>
+> lspci
+>
+> 06:00.0 Network controller: Broadcom Corporation BCM4318 [AirForce One
+> 54g] 802.11g Wireless LAN Controller (rev 02)
+>
+> iwlist wlan0 scan
+>
+> Cell 01 - Address: 00:1A:70:46:BA:B1
+>          Channel:1
+>          Frequency:2.412 GHz (Channel 1)
+>          Quality=49/70  Signal level=-61 dBm
+>          Encryption key:on
+>          ESSID:"lwfdjf_rad"
+>          Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 18 Mb/s
+>                    24 Mb/s; 36 Mb/s; 54 Mb/s
+>          Bit Rates:6 Mb/s; 9 Mb/s; 12 Mb/s; 48 Mb/s
+>          Mode:Master
+>          Extra:tsf=000000515a64a93f
+>          Extra: Last beacon: 516ms ago
+>          IE: IEEE 802.11i/WPA2 Version 1
+>          Group Cipher : CCMP
+>          Pairwise Ciphers (1) : CCMP
+>          Authentication Suites (1) : PSK
+> Cell 02 - Address: 00:14:BF:0C:7E:14
+>          Channel:6
+>          Frequency:2.437 GHz (Channel 6)
+>          Quality=30/70  Signal level=-80 dBm
+>          Encryption key:on
+>          ESSID:"linksys"
+>          Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 18 Mb/s
+>                    24 Mb/s; 36 Mb/s; 54 Mb/s
+>          Bit Rates:6 Mb/s; 9 Mb/s; 12 Mb/s; 48 Mb/s
+>          Mode:Master
+>          Extra:tsf=000000d993312192
+>          Extra: Last beacon: 380ms ago
+>          IE: WPA Version 1
+>              Group Cipher : TKIP
+>              Pairwise Ciphers (1) : TKIP
+>              Authentication Suites (1) : PSK
+>
+> Where is the noise level in the scan? It doesn't show up on my system.
+> When I do the iwconfig command, wlan0 reports a signal of -43 dBm and
+> a noise of -72 dBm when connected to the AP with ESSID "lwfdjf_rad".
+> Yes that noise level is higher than the signal from the AP with ESSID
+> of "linksys". You must remember that channel 1 is occupied by an AP
+> about 2 m from the computer, whereas the AP on channel 6 is a lot
+> further away and the noise is lower.
+
+I am using wireless tools with version number 29 and the Noise level
+is reported after Signal level.  It seems to me that the noise level
+should not depend on where the AP is.  It measures the background
+noise when no packet is transmitted.
+
+Thanks,
+-Bo
+
+>
+> 00:00.0 Host bridge: ALi Corporation M1541 (rev 04)
+> 00:01.0 PCI bridge: ALi Corporation M1541 PCI to AGP Controller (rev 04)
+> 00:03.0 CardBus bridge: O2 Micro, Inc. OZ6832/6833 CardBus Controller (rev 34)
+> 00:03.1 CardBus bridge: O2 Micro, Inc. OZ6832/6833 CardBus Controller (rev 34)
+> 00:04.0 Communication controller: Rockwell International HSF 56k Data/Fax/Voice/Spkp (w/Handset) Modem (rev 01)
+> 00:07.0 ISA bridge: ALi Corporation M1533/M1535/M1543 PCI to ISA Bridge [Aladdin IV/V/V+] (rev 0a)
+> 00:0e.0 Multimedia audio controller: ESS Technology ES1969 Solo-1 Audiodrive (rev 02)
+> 00:0f.0 IDE interface: ALi Corporation M5229 IDE (rev 20)
+> 00:11.0 Bridge: ALi Corporation M7101 Power Management Controller [PMU] (rev 09)
+> 00:13.0 USB Controller: ALi Corporation USB 1.1 Controller (rev 03)
+> 01:00.0 VGA compatible controller: Silicon Motion, Inc. SM710 LynxEM (rev a3)
+> 06:00.0 Network controller: Broadcom Corporation BCM4318 [AirForce One 54g] 802.11g Wireless LAN Controller (rev 02)
+> eth1      Scan completed :
+>          Cell 01 - Address: 00:1A:70:46:BA:B1
+>                    Channel:1
+>                    Frequency:2.412 GHz (Channel 1)
+>                    Quality=49/70  Signal level=-61 dBm
+>                    Encryption key:on
+>                    ESSID:"lwfdjf_rad"
+>                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 18 Mb/s
+>                              24 Mb/s; 36 Mb/s; 54 Mb/s
+>                    Bit Rates:6 Mb/s; 9 Mb/s; 12 Mb/s; 48 Mb/s
+>                    Mode:Master
+>                    Extra:tsf=000000515a64a93f
+>                    Extra: Last beacon: 516ms ago
+>                    IE: Unknown: 000A6C7766646A665F726164
+>                    IE: Unknown: 010882848B9624B0486C
+>                    IE: Unknown: 030101
+>                    IE: Unknown: 2A0100
+>                    IE: Unknown: 2F0100
+>                    IE: IEEE 802.11i/WPA2 Version 1
+>                        Group Cipher : CCMP
+>                        Pairwise Ciphers (1) : CCMP
+>                        Authentication Suites (1) : PSK
+>                    IE: Unknown: 32048C129860
+>                    IE: Unknown: DD06001018020004
+>          Cell 02 - Address: 00:14:BF:0C:7E:14
+>                    Channel:6
+>                    Frequency:2.437 GHz (Channel 6)
+>                    Quality=30/70  Signal level=-80 dBm
+>                    Encryption key:on
+>                    ESSID:"linksys"
+>                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 18 Mb/s
+>                              24 Mb/s; 36 Mb/s; 54 Mb/s
+>                    Bit Rates:6 Mb/s; 9 Mb/s; 12 Mb/s; 48 Mb/s
+>                    Mode:Master
+>                    Extra:tsf=000000d993312192
+>                    Extra: Last beacon: 380ms ago
+>                    IE: Unknown: 00076C696E6B737973
+>                    IE: Unknown: 010882848B962430486C
+>                    IE: Unknown: 030106
+>                    IE: Unknown: 2A0104
+>                    IE: Unknown: 2F0104
+>                    IE: Unknown: 32040C121860
+>                    IE: Unknown: DD06001018020004
+>                    IE: WPA Version 1
+>                        Group Cipher : TKIP
+>                        Pairwise Ciphers (1) : TKIP
+>                        Authentication Suites (1) : PSK
+>
+>
+>
+>
+
+
+From mb at bu3sch.de  Tue Jun  9 15:54:44 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Tue, 9 Jun 2009 15:54:44 +0200
+Subject: [PATCH, RFC] b43: Add fw capabilities
+In-Reply-To: <200906082105.00868.s.L-H@gmx.de>
+References: <200904080211.16298.mb@bu3sch.de> <200906082105.00868.s.L-H@gmx.de>
+Message-ID: <200906091554.45182.mb@bu3sch.de>
+
+From: Michael Buesch <mb at bu3sch.de>
+
+> Subject: [PATCH, RFC] b44: Add fw capabilities
+> 
+>  Completely untested patch to implement firmware capabilities
+>  and automagic QoS-disabling.
+> 
+
+Add automagic feature flags, so the firmware can tell the driver
+about supported features and the driver can switch features on/off as needed.
+
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+> Signed-off-by: Stefan Lippers-Hollmann <s.l-h at gmx.de>
+> Tested-by: Stefan Lippers-Hollmann <s.l-h at gmx.de>
+> ---
+>  drivers/net/wireless/b43/b43.h  |   14 +++++++++
+>  drivers/net/wireless/b43/dma.c  |    2 +-
+>  drivers/net/wireless/b43/main.c |   56 +++++++++++++++++++++++++++++++-------
+>  drivers/net/wireless/b43/main.h |    1 -
+>  drivers/net/wireless/b43/pio.c  |    2 +-
+>  5 files changed, 61 insertions(+), 14 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/b43/b43.h b/drivers/net/wireless/b43/b43.h
+> index 4e8ad84..61d2ec8 100644
+> --- a/drivers/net/wireless/b43/b43.h
+> +++ b/drivers/net/wireless/b43/b43.h
+> @@ -163,6 +163,7 @@ enum {
+>  #define B43_SHM_SH_WLCOREREV		0x0016	/* 802.11 core revision */
+>  #define B43_SHM_SH_PCTLWDPOS		0x0008
+>  #define B43_SHM_SH_RXPADOFF		0x0034	/* RX Padding data offset (PIO only) */
+> +#define B43_SHM_SH_FWCAPA		0x0042	/* Firmware capabilities (Opensource firmware only) */
+>  #define B43_SHM_SH_PHYVER		0x0050	/* PHY version */
+>  #define B43_SHM_SH_PHYTYPE		0x0052	/* PHY type */
+>  #define B43_SHM_SH_ANTSWAP		0x005C	/* Antenna swap threshold */
+> @@ -297,6 +298,10 @@ enum {
+>  #define B43_HF_MLADVW		0x001000000000ULL /* N PHY ML ADV workaround (rev >= 13 only) */
+>  #define B43_HF_PR45960W		0x080000000000ULL /* PR 45960 workaround (rev >= 13 only) */
+>  
+> +/* Firmware capabilities field in SHM (Opensource firmware only) */
+> +#define B43_FWCAPA_HWCRYPTO	0x0001
+> +#define B43_FWCAPA_QOS		0x0002
+> +
+>  /* MacFilter offsets. */
+>  #define B43_MACFILTER_SELF		0x0000
+>  #define B43_MACFILTER_BSSID		0x0003
+> @@ -596,6 +601,13 @@ struct b43_wl {
+>  	/* Pointer to the ieee80211 hardware data structure */
+>  	struct ieee80211_hw *hw;
+>  
+> +	/* The number of queues that were registered with the mac80211 subsystem
+> +	 * initially. This is a backup copy of hw->queues in case hw->queues has
+> +	 * to be dynamically lowered at runtime (Firmware does not support QoS).
+> +	 * hw->queues has to be restored to the original value before unregistering
+> +	 * from the mac80211 subsystem. */
+> +	u16 mac80211_initially_registered_queues;
+> +
+>  	struct mutex mutex;
+>  	spinlock_t irq_lock;
+>  	/* R/W lock for data transmission.
+> @@ -752,6 +764,8 @@ struct b43_wldev {
+>  	bool dfq_valid;		/* Directed frame queue valid (IBSS PS mode, ATIM) */
+>  	bool radio_hw_enable;	/* saved state of radio hardware enabled state */
+>  	bool suspend_in_progress;	/* TRUE, if we are in a suspend/resume cycle */
+> +	bool qos_enabled;		/* TRUE, if QoS is used. */
+> +	bool hwcrypto_enabled;		/* TRUE, if HW crypto acceleration is enabled. */
+>  
+>  	/* PHY/Radio device. */
+>  	struct b43_phy phy;
+> diff --git a/drivers/net/wireless/b43/dma.c b/drivers/net/wireless/b43/dma.c
+> index eae680b..7964cc3 100644
+> --- a/drivers/net/wireless/b43/dma.c
+> +++ b/drivers/net/wireless/b43/dma.c
+> @@ -1285,7 +1285,7 @@ static struct b43_dmaring *select_ring_by_priority(struct b43_wldev *dev,
+>  {
+>  	struct b43_dmaring *ring;
+>  
+> -	if (b43_modparam_qos) {
+> +	if (dev->qos_enabled) {
+>  		/* 0 = highest priority */
+>  		switch (queue_prio) {
+>  		default:
+> diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+> index 1d3e400..a7cadc6 100644
+> --- a/drivers/net/wireless/b43/main.c
+> +++ b/drivers/net/wireless/b43/main.c
+> @@ -80,8 +80,8 @@ static int modparam_nohwcrypt;
+>  module_param_named(nohwcrypt, modparam_nohwcrypt, int, 0444);
+>  MODULE_PARM_DESC(nohwcrypt, "Disable hardware encryption.");
+>  
+> -int b43_modparam_qos = 1;
+> -module_param_named(qos, b43_modparam_qos, int, 0444);
+> +static int modparam_qos = 1;
+> +module_param_named(qos, modparam_qos, int, 0444);
+>  MODULE_PARM_DESC(qos, "Enable QOS support (default on)");
+>  
+>  static int modparam_btcoex = 1;
+> @@ -538,6 +538,13 @@ void b43_hf_write(struct b43_wldev *dev, u64 value)
+>  	b43_shm_write16(dev, B43_SHM_SHARED, B43_SHM_SH_HOSTFHI, hi);
+>  }
+>  
+> +/* Read the firmware capabilities bitmask (Opensource firmware only) */
+> +static u16 b43_fwcapa_read(struct b43_wldev *dev)
+> +{
+> +	B43_WARN_ON(!dev->fw.opensource);
+> +	return b43_shm_read16(dev, B43_SHM_SHARED, B43_SHM_SH_FWCAPA);
+> +}
+> +
+>  void b43_tsf_read(struct b43_wldev *dev, u64 *tsf)
+>  {
+>  	u32 low, high;
+> @@ -2307,12 +2314,34 @@ static int b43_upload_microcode(struct b43_wldev *dev)
+>  	dev->fw.patch = fwpatch;
+>  	dev->fw.opensource = (fwdate == 0xFFFF);
+>  
+> +	/* Default to use-all-queues. */
+> +	dev->wl->hw->queues = dev->wl->mac80211_initially_registered_queues;
+> +	dev->qos_enabled = !!modparam_qos;
+> +	/* Default to firmware/hardware crypto acceleration. */
+> +	dev->hwcrypto_enabled = 1;
+> +
+>  	if (dev->fw.opensource) {
+> +		u16 fwcapa;
+> +
+>  		/* Patchlevel info is encoded in the "time" field. */
+>  		dev->fw.patch = fwtime;
+> -		b43info(dev->wl, "Loading OpenSource firmware version %u.%u%s\n",
+> -			dev->fw.rev, dev->fw.patch,
+> -			dev->fw.pcm_request_failed ? " (Hardware crypto not supported)" : "");
+> +		b43info(dev->wl, "Loading OpenSource firmware version %u.%u\n",
+> +			dev->fw.rev, dev->fw.patch);
+> +
+> +		fwcapa = b43_fwcapa_read(dev);
+> +		if (!(fwcapa & B43_FWCAPA_HWCRYPTO) || dev->fw.pcm_request_failed) {
+> +			b43info(dev->wl, "Hardware crypto acceleration not supported by firmware\n");
+> +			/* Disable hardware crypto and fall back to software crypto. */
+> +			dev->hwcrypto_enabled = 0;
+> +		}
+> +		if (!(fwcapa & B43_FWCAPA_QOS)) {
+> +			b43info(dev->wl, "QoS not supported by firmware\n");
+> +			/* Disable QoS. Tweak hw->queues to 1. It will be restored before
+> +			 * ieee80211_unregister to make sure the networking core can
+> +			 * properly free possible resources. */
+> +			dev->wl->hw->queues = 1;
+> +			dev->qos_enabled = 0;
+> +		}
+>  	} else {
+>  		b43info(dev->wl, "Loading firmware version %u.%u "
+>  			"(20%.2i-%.2i-%.2i %.2i:%.2i:%.2i)\n",
+> @@ -3627,7 +3656,7 @@ static int b43_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+>  	if (!dev || b43_status(dev) < B43_STAT_INITIALIZED)
+>  		goto out_unlock;
+>  
+> -	if (dev->fw.pcm_request_failed) {
+> +	if (dev->fw.pcm_request_failed || !dev->hwcrypto_enabled) {
+>  		/* We don't have firmware for the crypto engine.
+>  		 * Must use software-crypto. */
+>  		err = -EOPNOTSUPP;
+> @@ -4735,6 +4764,7 @@ static int b43_wireless_init(struct ssb_device *dev)
+>  		b43err(NULL, "Could not allocate ieee80211 device\n");
+>  		goto out;
+>  	}
+> +	wl = hw_to_b43_wl(hw);
+>  
+>  	/* fill hw info */
+>  	hw->flags = IEEE80211_HW_RX_INCLUDES_FCS |
+> @@ -4748,7 +4778,8 @@ static int b43_wireless_init(struct ssb_device *dev)
+>  		BIT(NL80211_IFTYPE_WDS) |
+>  		BIT(NL80211_IFTYPE_ADHOC);
+>  
+> -	hw->queues = b43_modparam_qos ? 4 : 1;
+> +	hw->queues = modparam_qos ? 4 : 1;
+> +	wl->mac80211_initially_registered_queues = hw->queues;
+>  	hw->max_rates = 2;
+>  	SET_IEEE80211_DEV(hw, dev->dev);
+>  	if (is_valid_ether_addr(sprom->et1mac))
+> @@ -4756,9 +4787,7 @@ static int b43_wireless_init(struct ssb_device *dev)
+>  	else
+>  		SET_IEEE80211_PERM_ADDR(hw, sprom->il0mac);
+>  
+> -	/* Get and initialize struct b43_wl */
+> -	wl = hw_to_b43_wl(hw);
+> -	memset(wl, 0, sizeof(*wl));
+> +	/* Initialize struct b43_wl */
+>  	wl->hw = hw;
+>  	spin_lock_init(&wl->irq_lock);
+>  	rwlock_init(&wl->tx_lock);
+> @@ -4824,8 +4853,13 @@ static void b43_remove(struct ssb_device *dev)
+>  	cancel_work_sync(&wldev->restart_work);
+>  
+>  	B43_WARN_ON(!wl);
+> -	if (wl->current_dev == wldev)
+> +	if (wl->current_dev == wldev) {
+> +		/* Restore the queues count before unregistering, because firmware detect
+> +		 * might have modified it. Restoring is important, so the networking
+> +		 * stack can properly free resources. */
+> +		wl->hw->queues = wl->mac80211_initially_registered_queues;
+>  		ieee80211_unregister_hw(wl->hw);
+> +	}
+>  
+>  	b43_one_core_detach(dev);
+>  
+> diff --git a/drivers/net/wireless/b43/main.h b/drivers/net/wireless/b43/main.h
+> index 40abcf5..950fb1b 100644
+> --- a/drivers/net/wireless/b43/main.h
+> +++ b/drivers/net/wireless/b43/main.h
+> @@ -39,7 +39,6 @@
+>  #define PAD_BYTES(nr_bytes)		P4D_BYTES( __LINE__ , (nr_bytes))
+>  
+>  
+> -extern int b43_modparam_qos;
+>  extern int b43_modparam_verbose;
+>  
+>  /* Logmessage verbosity levels. Update the b43_modparam_verbose helptext, if
+> diff --git a/drivers/net/wireless/b43/pio.c b/drivers/net/wireless/b43/pio.c
+> index 8cd9776..69138e8 100644
+> --- a/drivers/net/wireless/b43/pio.c
+> +++ b/drivers/net/wireless/b43/pio.c
+> @@ -313,7 +313,7 @@ static struct b43_pio_txqueue *select_queue_by_priority(struct b43_wldev *dev,
+>  {
+>  	struct b43_pio_txqueue *q;
+>  
+> -	if (b43_modparam_qos) {
+> +	if (dev->qos_enabled) {
+>  		/* 0 = highest priority */
+>  		switch (queue_prio) {
+>  		default:
+
+
+
+-- 
+Greetings, Michael.
+
+
+From Larry.Finger at lwfinger.net  Tue Jun  9 16:19:33 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Tue, 09 Jun 2009 09:19:33 -0500
+Subject: [PATCH, RFC] b43: Add fw capabilities
+In-Reply-To: <200906091554.45182.mb@bu3sch.de>
+References: <200904080211.16298.mb@bu3sch.de> <200906082105.00868.s.L-H@gmx.de>
+	<200906091554.45182.mb@bu3sch.de>
+Message-ID: <4A2E6F75.5070802@lwfinger.net>
+
+Michael Buesch wrote:
+> From: Michael Buesch <mb at bu3sch.de>
+> 
+>> Subject: [PATCH, RFC] b44: Add fw capabilities
+>>
+>>  Completely untested patch to implement firmware capabilities
+>>  and automagic QoS-disabling.
+>>
+> 
+> Add automagic feature flags, so the firmware can tell the driver
+> about supported features and the driver can switch features on/off as needed.
+> 
+> Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+Tested-by: Larry Finger <Larry.Finger at lwfinger.net>
+---
+
+
+
+From facorread at gmail.com  Fri Jun 12 15:54:29 2009
+From: facorread at gmail.com (Fabio A. Correa)
+Date: Fri, 12 Jun 2009 08:54:29 -0500
+Subject: 4311 not detected at all
+Message-ID: <ec2083b20906120654j370e5bdo724a7c3b6d505a6c@mail.gmail.com>
+
+Hello there, you are a great team and I thank you for bringing this
+excellent piece of software to us. Keep the work up.
+
+Given the features that you report in the source code, I am anxious to
+give it a try under linux-2.6.30. I have been working with ndiswrapper
+in the past, because bcm43xx did not fit my needs. I have compiled the
+2.6.30 kernel tens of times with different settings for PHY, SSB and
+B43. However, PHY and SSB do not show signs of life and B43 only show
+its presentation line in the syslog.
+
+Would you please help me find a cause for this silence? Thank you very much.
+
+My laptop is a Compaq Presario V5204NR. Attachments are:
+o Archive with the system info, syslog, dmesg, ...
+o GPG Signature
+
+--
+Fabio Andr?s Correa Dur?n
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: FabioCorrea.tar.bz2
+Type: application/x-bzip2
+Size: 30039 bytes
+Desc: not available
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090612/516f00de/attachment.bin>
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: FabioCorrea.tar.bz2.gpg
+Type: application/octet-stream
+Size: 30183 bytes
+Desc: not available
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090612/516f00de/attachment.obj>
+
+From Larry.Finger at lwfinger.net  Fri Jun 12 16:34:25 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Fri, 12 Jun 2009 09:34:25 -0500
+Subject: 4311 not detected at all
+In-Reply-To: <ec2083b20906120654j370e5bdo724a7c3b6d505a6c@mail.gmail.com>
+References: <ec2083b20906120654j370e5bdo724a7c3b6d505a6c@mail.gmail.com>
+Message-ID: <4A326771.6030301@lwfinger.net>
+
+Fabio A. Correa wrote:
+> Hello there, you are a great team and I thank you for bringing this
+> excellent piece of software to us. Keep the work up.
+> 
+> Given the features that you report in the source code, I am anxious to
+> give it a try under linux-2.6.30. I have been working with ndiswrapper
+> in the past, because bcm43xx did not fit my needs. I have compiled the
+> 2.6.30 kernel tens of times with different settings for PHY, SSB and
+> B43. However, PHY and SSB do not show signs of life and B43 only show
+> its presentation line in the syslog.
+> 
+> Would you please help me find a cause for this silence? Thank you very much.
+
+There are three areas in your dmesg output that attracted my attention:
+
+ACPI: BIOS bug: multiple APIC/MADT found, using 0
+ACPI: If "acpi_apic_instance=2" works better, notify
+linux-acpi at vger.kernel.org
+
+Have you tested this boot parameter?
+
+Later there is this output:
+
+pci 0000:00:1c.0: BAR 7: can't allocate resource
+pci 0000:00:1c.0: BAR 8: can't allocate resource
+pci 0000:00:1c.1: BAR 7: can't allocate resource
+pci 0000:00:1c.1: BAR 8: can't allocate resource
+pci 0000:00:1c.2: BAR 7: can't allocate resource
+pci 0000:00:1c.2: BAR 8: can't allocate resource
+pci 0000:06:00.0: BAR 0: can't allocate resource
+
+and later:
+
+b43-pci-bridge 0000:06:00.0: device not available because of BAR 0
+[0x000000-0x003fff] collisions
+b43-pci-bridge: probe of 0000:06:00.0 failed with error -22
+
+So, the BAR problem is preventing ssb from loading, thus b43 cannot
+function. If the "acpi_apic_instance=2" option does not fix the
+problem, then you need to post this problem on the Linux Kernel
+Mailing List.
+
+The bottom line is that a BIOS error is likely the problem with BAR
+allocation on your machine. Have you checked to see if an updated one
+is available?
+
+Larry
+
+
+
+From facorread at gmail.com  Fri Jun 12 16:59:46 2009
+From: facorread at gmail.com (Fabio A. Correa)
+Date: Fri, 12 Jun 2009 09:59:46 -0500
+Subject: 4311 not detected at all
+In-Reply-To: <4A326771.6030301@lwfinger.net>
+References: <ec2083b20906120654j370e5bdo724a7c3b6d505a6c@mail.gmail.com>
+	<4A326771.6030301@lwfinger.net>
+Message-ID: <ec2083b20906120759x4a8c247eh61d1f6bdb6f194f6@mail.gmail.com>
+
+2009/6/12 Larry Finger <Larry.Finger at lwfinger.net>:
+> There are three areas in your dmesg output that attracted my attention:
+>
+> ACPI: BIOS bug: multiple APIC/MADT found, using 0
+> ACPI: If "acpi_apic_instance=2" works better, notify linux-acpi at vger.kernel.org
+>
+> Have you tested this boot parameter?
+> So, the BAR problem is preventing ssb from loading, thus b43 cannot
+> function. If the "acpi_apic_instance=2" option does not fix the
+> problem, then you need to post this problem on the Linux Kernel
+> Mailing List.
+
+I had tested this boot parameter, and it did not work better, so I did
+not notify linux-acpi at vger.kernel.org.
+
+> Later there is this output:
+>
+> pci 0000:00:1c.0: BAR 7: can't allocate resource
+> pci 0000:00:1c.0: BAR 8: can't allocate resource
+> pci 0000:00:1c.1: BAR 7: can't allocate resource
+> pci 0000:00:1c.1: BAR 8: can't allocate resource
+> pci 0000:00:1c.2: BAR 7: can't allocate resource
+> pci 0000:00:1c.2: BAR 8: can't allocate resource
+> pci 0000:06:00.0: BAR 0: can't allocate resource
+
+I am very familiar with this output, I have been getting this for
+years, related to the PCI express hardware; however ndiswrapper has no
+problem with the resource allocation or hardware. It works fine.
+
+> and later:
+>
+> b43-pci-bridge 0000:06:00.0: device not available because of BAR 0
+> [0x000000-0x003fff] collisions
+> b43-pci-bridge: probe of 0000:06:00.0 failed with error -22
+
+> The bottom line is that a BIOS error is likely the problem with BAR
+> allocation on your machine. Have you checked to see if an updated one
+> is available?
+
+Hey, I found an updated BIOS available in the HP site, obviously
+requiring Windows. I had deleted those partitions, so I will get a
+Windows hard disk/CD and try to flash it. I did not work under Wine...
+I will keep you informed.
+
+By the way, what is BAR?
+
+-- 
+Fabio Andr?s Correa Dur?n
+http://facorread.150m.com
+
+
+From Larry.Finger at lwfinger.net  Fri Jun 12 23:24:13 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Fri, 12 Jun 2009 16:24:13 -0500
+Subject: 4311 not detected at all
+In-Reply-To: <ec2083b20906120759x4a8c247eh61d1f6bdb6f194f6@mail.gmail.com>
+References: <ec2083b20906120654j370e5bdo724a7c3b6d505a6c@mail.gmail.com>	
+	<4A326771.6030301@lwfinger.net>
+	<ec2083b20906120759x4a8c247eh61d1f6bdb6f194f6@mail.gmail.com>
+Message-ID: <4A32C77D.5010102@lwfinger.net>
+
+Fabio A. Correa wrote:
+> 
+> Hey, I found an updated BIOS available in the HP site, obviously
+> requiring Windows. I had deleted those partitions, so I will get a
+> Windows hard disk/CD and try to flash it. I did not work under Wine...
+> I will keep you informed.
+> 
+> By the way, what is BAR?
+
+Base Address Register
+
+
+
+
+From Larry.Finger at lwfinger.net  Sat Jun 13 01:35:33 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Fri, 12 Jun 2009 18:35:33 -0500
+Subject: 4311 not detected at all
+In-Reply-To: <ec2083b20906120759x4a8c247eh61d1f6bdb6f194f6@mail.gmail.com>
+References: <ec2083b20906120654j370e5bdo724a7c3b6d505a6c@mail.gmail.com>	
+	<4A326771.6030301@lwfinger.net>
+	<ec2083b20906120759x4a8c247eh61d1f6bdb6f194f6@mail.gmail.com>
+Message-ID: <4A32E645.1040002@lwfinger.net>
+
+Fabio A. Correa wrote:
+> Hey, I found an updated BIOS available in the HP site, obviously
+> requiring Windows. I had deleted those partitions, so I will get a
+> Windows hard disk/CD and try to flash it. I did not work under Wine...
+> I will keep you informed.
+
+If you have access to a running Windows XP system on another computer,
+there is a way to build a Windows Live CD from which to run your BIOS
+update. Download the Bart's PE file (http://www.nu2.nu/pebuilder/) and
+install it. Run it with a Windows distribution CD mounted.
+
+If you have the Windows CD, but not access to a machine running
+Windows, the .iso can be built in a virtual machine. I used a
+VirtualBox copy of Windows XP. Unfortunately, the builder will not run
+in Wine.
+
+
+Larry
+
+
+From netrolller.3d at gmail.com  Sat Jun 13 15:44:05 2009
+From: netrolller.3d at gmail.com (=?ISO-8859-1?Q?G=E1bor_Stefanik?=)
+Date: Sat, 13 Jun 2009 15:44:05 +0200
+Subject: 4311 not detected at all
+In-Reply-To: <4A32E645.1040002@lwfinger.net>
+References: <ec2083b20906120654j370e5bdo724a7c3b6d505a6c@mail.gmail.com> 
+	<4A326771.6030301@lwfinger.net>
+	<ec2083b20906120759x4a8c247eh61d1f6bdb6f194f6@mail.gmail.com> 
+	<4A32E645.1040002@lwfinger.net>
+Message-ID: <69e28c910906130644i1b0cf636w4a912bbb5ae78d5@mail.gmail.com>
+
+On Sat, Jun 13, 2009 at 1:35 AM, Larry Finger<Larry.Finger at lwfinger.net> wrote:
+> Fabio A. Correa wrote:
+>> Hey, I found an updated BIOS available in the HP site, obviously
+>> requiring Windows. I had deleted those partitions, so I will get a
+>> Windows hard disk/CD and try to flash it. I did not work under Wine...
+>> I will keep you informed.
+>
+> If you have access to a running Windows XP system on another computer,
+> there is a way to build a Windows Live CD from which to run your BIOS
+> update. Download the Bart's PE file (http://www.nu2.nu/pebuilder/) and
+> install it. Run it with a Windows distribution CD mounted.
+>
+> If you have the Windows CD, but not access to a machine running
+> Windows, the .iso can be built in a virtual machine. I used a
+> VirtualBox copy of Windows XP. Unfortunately, the builder will not run
+> in Wine.
+
+Alternatively, you can use a Windows Vista/Windows 7 RC setup DVD as
+is, unmodified. (Use the recovery environment.)
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+
+From amonakov at gmail.com  Mon Jun 15 01:07:58 2009
+From: amonakov at gmail.com (Alexander Monakov)
+Date: Mon, 15 Jun 2009 03:07:58 +0400
+Subject: bcm4318 (asus WL-138g v2) frequent deauths
+Message-ID: <3495f40d0906141607w4ae6c741pcce7688a8d55184d@mail.gmail.com>
+
+Hi,
+
+Reading the archives I see that various problems have come up in the
+past with this Asus wi-fi card.  I think I may have a yet another
+problem (or a different view on an old one).
+
+I'm using Asus wl-138g v2 card (4318 chipset) in managed mode with a
+Cisco wireless AP.  I am able to use both ndiswrapper and b43 driver
+with open source firmware.  The ndiswrapper solution has worked fine
+for me for months; b43/openfwwf ? not quite so: it tends to
+deauthenticate seconds after associating.
+
+I can use a laptop with rt2500-based wi-fi card to monitor the channel
+while pinging some another host from bcm4318. When 4318 is driven by
+ndiswrapper, I see only icmp packets.  When using b43/openfwwf, icmp
+packet stream is often interrupted with deauth/auth/assoc sequences
+initiated by Cisco AP with reason 2 ("previous authentication no
+longer valid"). Cisco site suggests [1] this is due to high
+interference on the channel; however, since ndiswrapper-driven card
+fares just fine in the same conditions, I think somehow b43&openfwwf
+do not do just as well in radio transmission.
+
+In my rt2500/wireshark packet monitor I see RSSI value reported in
+prism headers. If that can be taken as any indication of real signal
+strength, it is definitely different for ndiswrapper/b43. For
+ndiswrapper, it is nearly the same as for Cisco-produced transmissions
+(0xfffffff6 for ndis, 0xffffffec for cisco), for b43 it is 0x18 for
+auto txpower, 0xf for txpower 10, 0xfffffff5 for txpower 1. So, lower
+txpower gets me nearer to ndiswrapper in terms of rssi reading on
+rt2500; I will need some time to determine whether it improves the
+link quality (but at least txpower 1 seems not worse than txpower 20
+or auto). Is it possible that txpower control is reversed on this
+card?
+
+Using other firmware images for b43 results in similar symptoms (I did
+not verify the exact behaviour with packet sniffer). b43 is loaded on
+smp x86_64 system with 2.6.30 vanilla kernel, also tried in pio mode
+under UP 32-bit x86 virtual machine with 2.6.30 kernel with similar
+symptoms.
+
+Any advice or suggestions will be very appreciated :)
+
+Thanks.
+
+[1] http://supportwiki.cisco.com/ViewWiki/index.php/Wireless_connections_drop,_there_is_unstable_connectivity_and_the_Previous_authentication_no_longer_valid_and_Disassociated_because_sending_station_is_leaving_(or_has_left)_BSS_error_messages_display_on_the_Wireless_ISR
+
+-- 
+Alexander Monakov
+
+
+From amonakov at gmail.com  Mon Jun 15 08:48:40 2009
+From: amonakov at gmail.com (Alexander Monakov)
+Date: Mon, 15 Jun 2009 10:48:40 +0400
+Subject: bcm4318 (asus WL-138g v2) frequent deauths
+In-Reply-To: <3495f40d0906141607w4ae6c741pcce7688a8d55184d@mail.gmail.com>
+References: <3495f40d0906141607w4ae6c741pcce7688a8d55184d@mail.gmail.com>
+Message-ID: <3495f40d0906142348y7d317c71h73904d5d33d0c127@mail.gmail.com>
+
+> I will need some time to determine whether it improves the
+> link quality (but at least txpower 1 seems not worse than txpower 20
+> or auto).
+
+Nah, testing with ftp transfers does not show any improvement or
+degradation when changing txpower. Traffic is extremely uneven: 1-2
+seconds long high throughput bursts are followed by tens of seconds of
+no ftp traffic. Btw, how does the driver decide whether it needs to
+retransfer packets (can loss of TCP ACKs be the reason for such
+behavior)?
+
+I forgot to mention that card lowers transmission rate to 1 Mbps by
+default, but still exhibits the behavior described in the first mail.
+Locking rate to 36, 48 or 54 Mbps does not seem to affect frequency of
+receiving deauth packets from AP. I also tried playing with rts and
+frag settings, to no avail.
+
+-- 
+Alexander Monakov
+
+
+From mb at bu3sch.de  Mon Jun 15 13:30:15 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Mon, 15 Jun 2009 13:30:15 +0200
+Subject: bcm4318 (asus WL-138g v2) frequent deauths
+In-Reply-To: <3495f40d0906142348y7d317c71h73904d5d33d0c127@mail.gmail.com>
+References: <3495f40d0906141607w4ae6c741pcce7688a8d55184d@mail.gmail.com>
+	<3495f40d0906142348y7d317c71h73904d5d33d0c127@mail.gmail.com>
+Message-ID: <200906151330.15492.mb@bu3sch.de>
+
+On Monday 15 June 2009 08:48:40 Alexander Monakov wrote:
+> > I will need some time to determine whether it improves the
+> > link quality (but at least txpower 1 seems not worse than txpower 20
+> > or auto).
+> 
+> Nah, testing with ftp transfers does not show any improvement or
+> degradation when changing txpower. Traffic is extremely uneven: 1-2
+> seconds long high throughput bursts are followed by tens of seconds of
+> no ftp traffic.
+
+What does iperf in UDP mode show? Does it also show these bursts?
+
+-- 
+Greetings, Michael.
+
+
+From netrolller.3d at gmail.com  Mon Jun 15 16:15:26 2009
+From: netrolller.3d at gmail.com (=?ISO-8859-1?Q?G=E1bor_Stefanik?=)
+Date: Mon, 15 Jun 2009 16:15:26 +0200
+Subject: bcm4318 (asus WL-138g v2) frequent deauths
+In-Reply-To: <3495f40d0906142348y7d317c71h73904d5d33d0c127@mail.gmail.com>
+References: <3495f40d0906141607w4ae6c741pcce7688a8d55184d@mail.gmail.com> 
+	<3495f40d0906142348y7d317c71h73904d5d33d0c127@mail.gmail.com>
+Message-ID: <69e28c910906150715x6cd8e3c6u25dfc6c6a007a76c@mail.gmail.com>
+
+On Mon, Jun 15, 2009 at 8:48 AM, Alexander Monakov<amonakov at gmail.com> wrote:
+>> I will need some time to determine whether it improves the
+>> link quality (but at least txpower 1 seems not worse than txpower 20
+>> or auto).
+>
+> Nah, testing with ftp transfers does not show any improvement or
+> degradation when changing txpower. Traffic is extremely uneven: 1-2
+> seconds long high throughput bursts are followed by tens of seconds of
+> no ftp traffic. Btw, how does the driver decide whether it needs to
+> retransfer packets (can loss of TCP ACKs be the reason for such
+> behavior)?
+>
+> I forgot to mention that card lowers transmission rate to 1 Mbps by
+> default, but still exhibits the behavior described in the first mail.
+> Locking rate to 36, 48 or 54 Mbps does not seem to affect frequency of
+> receiving deauth packets from AP. I also tried playing with rts and
+> frag settings, to no avail.
+>
+> --
+> Alexander Monakov
+> _______________________________________________
+> Bcm43xx-dev mailing list
+> Bcm43xx-dev at lists.berlios.de
+> https://lists.berlios.de/mailman/listinfo/bcm43xx-dev
+>
+
+Try using the new rt73usb for monitoring, as it gives radiotap
+headers, with signal strength in dBm, which is much more meaningful
+than the prism header's funky unit.
+
+I have the same card, and have not experienced this problem (though I
+did get PHY transmission error lockups last time I used it). It may be
+a good idea to turn on debugging in b43 to see if the disassociations
+coincide with a PHY error.
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+
+From s.L-H at gmx.de  Mon Jun 15 16:34:02 2009
+From: s.L-H at gmx.de (Stefan Lippers-Hollmann)
+Date: Mon, 15 Jun 2009 16:34:02 +0200
+Subject: bcm4318 (asus WL-138g v2) frequent deauths
+In-Reply-To: <3495f40d0906141607w4ae6c741pcce7688a8d55184d@mail.gmail.com>
+References: <3495f40d0906141607w4ae6c741pcce7688a8d55184d@mail.gmail.com>
+Message-ID: <200906151634.04779.s.L-H@gmx.de>
+
+Hi
+
+On Monday 15 June 2009, Alexander Monakov wrote:
+[...]
+> I'm using Asus wl-138g v2 card (4318 chipset) in managed mode with a
+> Cisco wireless AP.  I am able to use both ndiswrapper and b43 driver
+> with open source firmware.  The ndiswrapper solution has worked fine
+> for me for months; b43/openfwwf ? not quite so: it tends to
+> deauthenticate seconds after associating.
+[...]
+
+Are you sure that your "Asus wl-138g v2" really is a "core revision 5"
+chipset, which is all OpenFWWF claims to support yet? 
+
+At least my own Asus wl-138g v2 indentifies itself as
+	b43-phy0: Broadcom 4318 WLAN found (core revision 9)
+in dmesg and as such isn't even supposed to be covered by OpenFWWF at all, 
+yet (yes, it does work with OpenFWWF nevertheless, but with worse 
+performance and link reliability, but that's to be expected as long as 
+OpenFWWF doesn't have dedicated support for core revision 9).
+
+Regards
+	Stefan Lippers-Hollmann
+
+
+From netrolller.3d at gmail.com  Mon Jun 15 16:42:52 2009
+From: netrolller.3d at gmail.com (=?ISO-8859-1?Q?G=E1bor_Stefanik?=)
+Date: Mon, 15 Jun 2009 16:42:52 +0200
+Subject: bcm4318 (asus WL-138g v2) frequent deauths
+In-Reply-To: <200906151634.04779.s.L-H@gmx.de>
+References: <3495f40d0906141607w4ae6c741pcce7688a8d55184d@mail.gmail.com> 
+	<200906151634.04779.s.L-H@gmx.de>
+Message-ID: <69e28c910906150742qdd005ceofece265cca99c4d5@mail.gmail.com>
+
+On Mon, Jun 15, 2009 at 4:34 PM, Stefan Lippers-Hollmann<s.L-H at gmx.de> wrote:
+> Hi
+>
+> On Monday 15 June 2009, Alexander Monakov wrote:
+> [...]
+>> I'm using Asus wl-138g v2 card (4318 chipset) in managed mode with a
+>> Cisco wireless AP. ?I am able to use both ndiswrapper and b43 driver
+>> with open source firmware. ?The ndiswrapper solution has worked fine
+>> for me for months; b43/openfwwf ? not quite so: it tends to
+>> deauthenticate seconds after associating.
+> [...]
+>
+> Are you sure that your "Asus wl-138g v2" really is a "core revision 5"
+> chipset, which is all OpenFWWF claims to support yet?
+>
+> At least my own Asus wl-138g v2 indentifies itself as
+> ? ? ? ?b43-phy0: Broadcom 4318 WLAN found (core revision 9)
+> in dmesg and as such isn't even supposed to be covered by OpenFWWF at all,
+> yet (yes, it does work with OpenFWWF nevertheless, but with worse
+> performance and link reliability, but that's to be expected as long as
+> OpenFWWF doesn't have dedicated support for core revision 9).
+
+Apparently there are different revisions of the WL-138g V2, with
+different chips - I've had an R3.00 and an R3.01, both vere rev.5 4318
+cards.
+
+>
+> Regards
+> ? ? ? ?Stefan Lippers-Hollmann
+> _______________________________________________
+> Bcm43xx-dev mailing list
+> Bcm43xx-dev at lists.berlios.de
+> https://lists.berlios.de/mailman/listinfo/bcm43xx-dev
+>
+
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+
+From mkienenb at gmail.com  Mon Jun 15 20:28:37 2009
+From: mkienenb at gmail.com (Mike Kienenberger)
+Date: Mon, 15 Jun 2009 14:28:37 -0400
+Subject: success with Dell Wireless 1470 (802.11a/b/g) Dual-Band WLAN miniPCI 
+	Card (pciid: 14e4:4319)
+Message-ID: <8f985b960906151128t725a8402p2fecf4a40d5abb13@mail.gmail.com>
+
+Thank you for providing this driver.
+
+I have successfully gotten my Dell Inspiron with a B130 Dell Wireless
+1470 (802.11a/b/g) Dual-Band WLAN miniPCI Card (pciid: 14e4:4319)
+connected using WPA-PSK.
+
+I used a hybrid openSUSE 11.2/11.1 LiveDVD to boot with kernel
+2.6.30-rc6-git3-4-default.
+I then ran /usr/sbin/install_bcm43xx_firmware to install the firmware.
+I floundered about for awhile before I realized that I had failed to
+physically enable the transmitter using the keyboard toggle.  I then
+ran NetworkManager to finish the configuration.
+
+I had previously messed around with ndiswrapper unsuccessfully for a
+few days under an older kernel.
+
+Here is some information about my system since it does not appear on
+the wiki, and I don't see how to add an entry for
+http://linuxwireless.org/en/users/Devices/PCI.  If I did, it'd look
+like this:
+
+Driver	Vendor	Product 	PCI Vendor	PCI Product	PCI Subvendor 	PCI Subsystem
+
+b43 	Dell 	Dell Wireless 1470 (802.11a/b/g) Dual-Band WLAN miniPCI
+Card 	0x14e4 	0x4319 	? 	?
+
+b43|Dell|Dell Wireless 1470 (802.11a/b/g) Dual-Band WLAN miniPCI
+Card|0x14e4|0x4319|?|?
+
+dmesg output:
+===========================================
+[   89.857957] cfg80211: World regulatory domain updated:
+[   89.866308] 	(start_freq - end_freq @ bandwidth),
+(max_antenna_gain, max_eirp)
+[   89.874713] 	(2402000 KHz - 2472000 KHz @ 40000 KHz), (300 mBi, 2000 mBm)
+[   91.447801] b43-phy0: Broadcom 4318 WLAN found (core revision 9)
+[   95.844298] phy0: Selected rate control algorithm 'minstrel'
+[   95.844770] Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID: FW13 ]
+[   97.160860] rtc_cmos 00:0b: rtc core: registered rtc_cmos as rtc0
+[   97.169200] rtc0: alarms up to one day, 242 bytes nvram, hpet irqs
+[  153.786523] NET: Registered protocol family 10
+[  153.787299] lo: Disabled Privacy Extensions
+[  173.965005] mtrr: no MTRR for c0000000,10000000 found
+[  194.937755] ADDRCONF(NETDEV_UP): eth0: link is not ready
+[  195.781807] NET: Registered protocol family 17
+[  196.222974] platform microcode: firmware: requesting intel-ucode/06-0d-08
+[  196.327226] Microcode Update Driver: v2.00
+<tigran at aivazian.fsnet.co.uk>, Peter Oruba
+===========================================
+
+lspci -vv output
+-------------------------------------------------------------------------------
+02:03.0 Network controller: Broadcom Corporation BCM4311 [AirForce
+54g] 802.11a/b/g PCI Express Transceiver (rev 02)
+	Subsystem: Dell Wireless 1470 Dual Band WLAN Mini-PCI Card
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B- DisINTx-
+	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 64
+	Interrupt: pin A routed to IRQ 10
+	Region 0: Memory at dfbfe000 (32-bit, non-prefetchable) [size=8K]
+	Kernel driver in use: b43-pci-bridge
+-------------------------------------------------------------------------------
+
+
+Let me know if there's anything further I can provide to assist with
+the support for this card.
+
+Regards,
+Mike Kienenberger
+
+
+From amonakov at gmail.com  Mon Jun 15 23:30:19 2009
+From: amonakov at gmail.com (Alexander Monakov)
+Date: Tue, 16 Jun 2009 01:30:19 +0400
+Subject: bcm4318 (asus WL-138g v2) frequent deauths
+In-Reply-To: <200906151634.04779.s.L-H@gmx.de>
+References: <3495f40d0906141607w4ae6c741pcce7688a8d55184d@mail.gmail.com>
+	<200906151634.04779.s.L-H@gmx.de>
+Message-ID: <3495f40d0906151430w569bfa52sce29838428f7e3cd@mail.gmail.com>
+
+On Mon, Jun 15, 2009 at 6:34 PM, Stefan Lippers-Hollmann<s.L-H at gmx.de> wrote:
+> Hi
+>
+> On Monday 15 June 2009, Alexander Monakov wrote:
+> [...]
+>> I'm using Asus wl-138g v2 card (4318 chipset) in managed mode with a
+>> Cisco wireless AP. ?I am able to use both ndiswrapper and b43 driver
+>> with open source firmware. ?The ndiswrapper solution has worked fine
+>> for me for months; b43/openfwwf ? not quite so: it tends to
+>> deauthenticate seconds after associating.
+> [...]
+>
+> Are you sure that your "Asus wl-138g v2" really is a "core revision 5"
+> chipset, which is all OpenFWWF claims to support yet?
+>
+> At least my own Asus wl-138g v2 indentifies itself as
+> ? ? ? ?b43-phy0: Broadcom 4318 WLAN found (core revision 9)
+> in dmesg and as such isn't even supposed to be covered by OpenFWWF at all,
+> yet (yes, it does work with OpenFWWF nevertheless, but with worse
+> performance and link reliability, but that's to be expected as long as
+> OpenFWWF doesn't have dedicated support for core revision 9).
+
+Oops. My apologies. I have completely missed this fact, and my card is
+indeed rev.9 (how was I supposed to know that, anyway? I fail to find
+it on openfwwf site). I'll be happy to test openfwwf again when it's
+ready for rev.9.
+
+I have tested b43 from 2.6.30 with 4.150 firmware today, and it seems
+to be fine (it was not this good with older kernels, I swear!): there
+have not been any apparent problems when testing with iperf, but there
+still are occasional disassociations with reason 2 when downloading
+via ftp for a long time. In wireshark on bcm4318 I see that driver
+sends one probe after 2-seconds silence (no rx _and_ tx), and then
+sends deauthentication packet with reason 2 in params after two more
+seconds. The kernel log reads:
+
+... multiple PHY error messages ...
+[87262.212293] b43-phy6 ERROR: PHY transmission error
+[87265.146802] b43-phy6 debug: Wireless interface stopped
+[87265.146851] b43-phy6 debug: DMA-32 rx_ring: Used slots 2/64, Failed
+frames 0/0 = 0.0%, Average tries 0.00
+[87265.146897] b43-phy6 debug: DMA-32 tx_ring_AC_BK: Used slots 0/256,
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[87265.151290] b43-phy6 debug: DMA-32 tx_ring_AC_BE: Used slots
+172/256, Failed frames 54/109944 = 0.0%, Average tries 1.55
+[87265.157956] b43-phy6 debug: DMA-32 tx_ring_AC_VI: Used slots 0/256,
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[87265.164634] b43-phy6 debug: DMA-32 tx_ring_AC_VO: Used slots 2/256,
+Failed frames 2/18 = 11.1%, Average tries 2.16
+[87265.171290] b43-phy6 debug: DMA-32 tx_ring_mcast: Used slots 0/256,
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[87265.327966] b43-phy6: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+[87265.348001] b43-phy6 debug: Chip initialized
+[87265.348093] b43-phy6 debug: 32-bit DMA initialized
+[87265.365044] b43-phy6 debug: Wireless interface started
+[87269.142140] wlan0: no probe response from AP 00:18:74:d1:1a:c0 -
+disassociating
+
+Strangely, iw event does not register deauth packet.
+
+If I re-assign ESSID (without changing it, just iwconfig wlan0 essid
+XXX), the card reassociates, and ftp transfer continues. Why does
+automatic reassociation not work in this case? Why there was only one
+probe? What might be the reason for 'b43-phy6 debug: Wireless
+interface stopped'?
+
+And to answer Michael's question about iperf on openfwwf:
+
+> What does iperf in UDP mode show? Does it also show these bursts?
+No, the throughput is quite stable (unstable for tcp). With 4.150
+firmware, throughput is also stable for both udp and tcp.
+
+Thanks.
+
+-- 
+Alexander Monakov
+
+
+From facorread at gmail.com  Tue Jun 16 21:09:29 2009
+From: facorread at gmail.com (Fabio A. Correa)
+Date: Tue, 16 Jun 2009 14:09:29 -0500
+Subject: 4311 not detected at all
+In-Reply-To: <69e28c910906130644i1b0cf636w4a912bbb5ae78d5@mail.gmail.com>
+References: <ec2083b20906120654j370e5bdo724a7c3b6d505a6c@mail.gmail.com>
+	<4A326771.6030301@lwfinger.net>
+	<ec2083b20906120759x4a8c247eh61d1f6bdb6f194f6@mail.gmail.com>
+	<4A32E645.1040002@lwfinger.net>
+	<69e28c910906130644i1b0cf636w4a912bbb5ae78d5@mail.gmail.com>
+Message-ID: <ec2083b20906161209i5318b104w2796915059bd0a08@mail.gmail.com>
+
+After days of failure, I resorted to ndiswrapper-1.54, which installed
+without trouble.
+
+--
+Fabio Andr?s Correa Dur?n
+
+
+From mangoo at wpkg.org  Tue Jun 16 23:24:55 2009
+From: mangoo at wpkg.org (Tomasz Chmielewski)
+Date: Tue, 16 Jun 2009 23:24:55 +0200
+Subject: b43 on BCM47XX boards?
+Message-ID: <4A380DA7.7080600@wpkg.org>
+
+I'm trying to use b43 module on a BCM47XX board (ASUS WL-500gP) in AP mode.
+
+It generally works, but is not very stable: make any bigger load, and AP 
+stops to work - the clients are not able to ping it anymore, transfer 
+any packets through it etc.
+
+"iwlist wlan0 scanning" still shows the AP though, so it is at least "a 
+bit" alive.
+
+What helps, is restarting hostapd.
+
+I tried 2.6.28, 2.6.29, 2.6.30 kernels, different firmware versions, but 
+the symptoms are generally the same.
+
+Is it normal? If yes, are there any workarounds to that? Performance is 
+not that important for me; if it works stable, it would be enough.
+
+
+-- 
+Tomasz Chmielewski
+http://wpkg.org
+
+
+From zajec5polish at gmail.com  Wed Jun 17 16:04:26 2009
+From: zajec5polish at gmail.com (=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?=)
+Date: Wed, 17 Jun 2009 16:04:26 +0200
+Subject: b43 on BCM47XX boards?
+In-Reply-To: <4A380DA7.7080600@wpkg.org>
+References: <4A380DA7.7080600@wpkg.org>
+Message-ID: <14b026160906170704y7a3ea654oc65a9ed332a356b4@mail.gmail.com>
+
+2009/6/16 Tomasz Chmielewski <mangoo at wpkg.org>:
+> I'm trying to use b43 module on a BCM47XX board (ASUS WL-500gP) in AP mode.
+>
+> It generally works, but is not very stable: make any bigger load, and AP
+> stops to work - the clients are not able to ping it anymore, transfer
+> any packets through it etc.
+>
+> "iwlist wlan0 scanning" still shows the AP though, so it is at least "a
+> bit" alive.
+>
+> What helps, is restarting hostapd.
+>
+> I tried 2.6.28, 2.6.29, 2.6.30 kernels, different firmware versions, but
+> the symptoms are generally the same.
+>
+> Is it normal? If yes, are there any workarounds to that? Performance is
+> not that important for me; if it works stable, it would be enough.
+>
+>
+> --
+> Tomasz Chmielewski
+> http://wpkg.org
+
+Refering to http://oldwiki.openwrt.org/Hardware(2f)Asus.html I guess
+you're using bcm4318. It doesn't work as AP (with b43) well. Check
+this thread:
+https://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/thread.html#8833
+
+-- 
+Rafa? Mi?ecki
+
+
+From facorread at gmail.com  Thu Jun 18 03:21:13 2009
+From: facorread at gmail.com (Fabio A. Correa)
+Date: Wed, 17 Jun 2009 20:21:13 -0500
+Subject: 4311 not detected at all
+In-Reply-To: <ec2083b20906161209i5318b104w2796915059bd0a08@mail.gmail.com>
+References: <ec2083b20906120654j370e5bdo724a7c3b6d505a6c@mail.gmail.com>
+	<4A326771.6030301@lwfinger.net>
+	<ec2083b20906120759x4a8c247eh61d1f6bdb6f194f6@mail.gmail.com>
+	<4A32E645.1040002@lwfinger.net>
+	<69e28c910906130644i1b0cf636w4a912bbb5ae78d5@mail.gmail.com>
+	<ec2083b20906161209i5318b104w2796915059bd0a08@mail.gmail.com>
+Message-ID: <ec2083b20906171821x242f4139u5f0176e66fe71538@mail.gmail.com>
+
+OK, I found new data on my problem, this might shed light on some
+fix/enhancement for the driver.
+
+When the system starts, the iomem of the 4311 card is specified to be
+pci 0000:06:00.0: reg 10 32bit mmio: [0xd0000000-0xd0003fff]
+
+The iomem of 4311 cannot be allocated:
+arch/x86/pci/i386.c:173: pci 0000:06:00.0: BAR 0: can't allocate resource
+
+the next two instructions of file i386.c mean that the iomem range converts
+from 0xd0000000-0xd0003fff to 0x000000-0x003fff. Then b43-pci-bridge tries
+to allocate this iomem resource, which is invalid:
+drivers/pci/setup-res.c:290: b43-pci-bridge 0000:06:00.0: device not
+available because of BAR 0 [0x000000-0x003fff] collisions
+drivers/base/dd.c:143: b43-pci-bridge: probe of 0000:06:00.0 failed with
+error -22
+
+The 4311 card (06:00.0) is in the PCI Express port 00:1c.2, with resources
+that are reported later:
+pci 0000:00:1c.2: PCI bridge, secondary bus 0000:06
+pci 0000:00:1c.2:   MEM window: 0x88000000-0x880fffff
+
+After booting, lspci -vvv shows:
+
+00:1c.2 PCI bridge: Intel Corporation 82801G (ICH7 Family) PCI Express Port
+3 (rev 01) (prog-if 00 [Normal decode])
+        Memory behind bridge: 88000000-880fffff
+06:00.0 Network controller: Broadcom Corporation BCM4311 802.11b/g WLAN (rev
+01)
+        Region 0: Memory at 88000000 (32-bit, non-prefetchable)
+[size=16K]
+
+16K = 3fff.
+
+Well then; the b43 controller stops probing my 4311 card because the wrong
+resource is probed for.
+
+I am not sure who should I direct this message to.
+
+-- 
+Fabio Andr?s Correa Dur?n
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090617/bc6f541d/attachment.html>
+
+From peter at stuge.se  Thu Jun 18 04:10:17 2009
+From: peter at stuge.se (Peter Stuge)
+Date: Thu, 18 Jun 2009 04:10:17 +0200
+Subject: 4311 not detected at all
+In-Reply-To: <ec2083b20906120759x4a8c247eh61d1f6bdb6f194f6@mail.gmail.com>
+References: <ec2083b20906120654j370e5bdo724a7c3b6d505a6c@mail.gmail.com>
+	<4A326771.6030301@lwfinger.net>
+	<ec2083b20906120759x4a8c247eh61d1f6bdb6f194f6@mail.gmail.com>
+Message-ID: <20090618021017.19879.qmail@stuge.se>
+
+Fabio A. Correa wrote:
+> > The bottom line is that a BIOS error is likely the problem with
+> > BAR allocation on your machine. Have you checked to see if an
+> > updated one is available?
+> 
+> Hey, I found an updated BIOS available in the HP site, obviously
+> requiring Windows. I had deleted those partitions, so I will get a
+> Windows hard disk/CD and try to flash it.
+
+You may be able to use flashrom as developed by the coreboot project
+to flash your BIOS. Maybe. If not, come on IRC or the mailing list
+and we can try to help you get it to work on your laptop.
+
+http://coreboot.org/Flashrom
+http://coreboot.org/IRC
+http://coreboot.org/Mailinglist
+
+
+> By the way, what is BAR?
+
+The boot firmware (usually BIOS) assigns PCI devices an address range
+through which software can exchange data with the device. Each device
+specifies the size for it's address ranges, the firmware calculates
+how all ranges fit together, and then writes the start, or base,
+address to the respective BAR in each device.
+
+The addresses are the same as RAM addresses, which is why 32-bit
+systems can not use full 4GB of RAM. The PCI device address ranges
+will occupy the last part of memory space.
+
+Better BAR allocation algorithms could allow more usable RAM, but it
+also depends on chipset limitations.
+
+
+//Peter
+
+
+From facorread at gmail.com  Thu Jun 18 04:32:15 2009
+From: facorread at gmail.com (Fabio A. Correa)
+Date: Wed, 17 Jun 2009 21:32:15 -0500
+Subject: 4311 not detected at all
+In-Reply-To: <20090618021017.19879.qmail@stuge.se>
+References: <ec2083b20906120654j370e5bdo724a7c3b6d505a6c@mail.gmail.com>
+	<4A326771.6030301@lwfinger.net>
+	<ec2083b20906120759x4a8c247eh61d1f6bdb6f194f6@mail.gmail.com>
+	<20090618021017.19879.qmail@stuge.se>
+Message-ID: <ec2083b20906171932g401fab8fk15531459e1dc4d41@mail.gmail.com>
+
+2009/6/17 Peter Stuge <peter at stuge.se>:
+> You may be able to use flashrom as developed by the coreboot project
+> to flash your BIOS. Maybe. If not, come on IRC or the mailing list
+> and we can try to help you get it to work on your laptop.
+
+Thank you very much. I emerged it on my Gentoo laptop and the BIOS was
+detected, but:
+
+Found chipset "Intel ICH7M", enabling flash write...
+BIOS Lock Enable: disabled, BIOS Write Enable: disabled, BIOS_CNTL is
+0x0
+
+Root Complex Register Block address = 0xfed1c000
+GCS = 0xc60: BIOS Interface Lock-Down: disabled, BOOT BIOS Straps: 0x3 (LPC)
+Top Swap : not enabled
+
+The BIOS could not be read into a file, so I will not try to write it.
+Anyways, thanks for your help.
+
+-- 
+Fabio Andr?s Correa Dur?n
+
+
+From peter at stuge.se  Thu Jun 18 04:55:11 2009
+From: peter at stuge.se (Peter Stuge)
+Date: Thu, 18 Jun 2009 04:55:11 +0200
+Subject: 4311 not detected at all
+In-Reply-To: <ec2083b20906171932g401fab8fk15531459e1dc4d41@mail.gmail.com>
+References: <ec2083b20906120654j370e5bdo724a7c3b6d505a6c@mail.gmail.com>
+	<4A326771.6030301@lwfinger.net>
+	<ec2083b20906120759x4a8c247eh61d1f6bdb6f194f6@mail.gmail.com>
+	<20090618021017.19879.qmail@stuge.se>
+	<ec2083b20906171932g401fab8fk15531459e1dc4d41@mail.gmail.com>
+Message-ID: <20090618025511.27364.qmail@stuge.se>
+
+Fabio A. Correa wrote:
+> > You may be able to use flashrom as developed by the coreboot project
+> > to flash your BIOS. Maybe. If not, come on IRC or the mailing list
+> > and we can try to help you get it to work on your laptop.
+> 
+> Thank you very much. I emerged it on my Gentoo laptop and the BIOS
+> was detected, but:
+
+Please let's move this to a better discussion forum. IRC would be best
+for trying to make this work, I think it can work because the BIOS
+flashing protection that can be enabled in your chipset does not seem
+to be active.
+
+At the very least we need the full output from a run of flashrom -V,
+but let's continue the discussion either on IRC (would be best) or on
+the coreboot mailing list.
+
+Thanks!
+
+
+//Peter
+
+
+From netrolller.3d at gmail.com  Sat Jun 20 00:18:00 2009
+From: netrolller.3d at gmail.com (=?ISO-8859-1?Q?G=E1bor_Stefanik?=)
+Date: Sat, 20 Jun 2009 00:18:00 +0200
+Subject: [PATCH] b43 : remove old kidx API
+In-Reply-To: <200906192129.26438.mb@bu3sch.de>
+References: <83a869cd0906121326r554e6930td9f42d51c2ff4e22@mail.gmail.com> 
+	<83a869cd0906191217o298a4cc4u114ba6983d34c1e6@mail.gmail.com> 
+	<200906192129.26438.mb@bu3sch.de>
+Message-ID: <69e28c910906191518i3f31753at637da1ca3b1f507c@mail.gmail.com>
+
+On Fri, Jun 19, 2009 at 9:29 PM, Michael Buesch<mb at bu3sch.de> wrote:
+> On Friday 19 June 2009 21:17:04 gregor kowski wrote:
+>> On 6/12/09, gregor kowski <gregor.kowski at gmail.com> wrote:
+>> > Remove old kidx API.
+>> > This simplify the code, and fix a potential key overflow.
+>> >
+>> Michael,
+>>
+>> any comment on this ?
+>> I wait your ack to resubmit tkip hardware support.
+>
+> If you want my ack, you should probably CC me. I basically don't read the list.
+>
+
+Also, given that this is a b43-related issue, CC bcm43xx-dev at lists.berlios.de.
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+
+From Larry.Finger at lwfinger.net  Sat Jun 20 19:58:11 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Sat, 20 Jun 2009 12:58:11 -0500
+Subject: [PATCH] b43/b43legacy: Fix condition in which radio LED did not
+	initialize correctly, and remove 4 compilation warnings
+Message-ID: <4a3d2333.IHa7mZz1Wz4zGqpJ%Larry.Finger@lwfinger.net>
+
+After the recent changes in rfkill, the radio LED used by b43/b43legacy
+did not always initialize correctly.
+
+Both b43 and b43legacy used the deprecated variable radio_enabled in
+struct ieee80211_conf.
+
+Signed-off-by: Larry Finger <Larry.Finger at lwfinger.net>
+---
+
+ b43/b43.h             |    1 +
+ b43/main.c            |    7 +++++--
+ b43legacy/b43legacy.h |    1 +
+ b43legacy/main.c      |    7 +++++--
+ 4 files changed, 12 insertions(+), 4 deletions(-)
+
+John,
+
+This patch fixes a bug in 2.6.31, but it is not a severe one, and no bug
+report has been filed on it. In addition, four compilation warnings when
+building b43 and b43legacy have been fixed. You make the call on whether
+it is to be included in 2.6.31.
+
+Larry
+---
+
+ b43/b43.h             |    1 +
+ b43/main.c            |    7 +++++--
+ b43legacy/b43legacy.h |    1 +
+ b43legacy/main.c      |    7 +++++--
+ 4 files changed, 12 insertions(+), 4 deletions(-)
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c
++++ wireless-testing/drivers/net/wireless/b43/main.c
+@@ -3497,8 +3497,8 @@ static int b43_op_config(struct ieee8021
+ 	if (phy->ops->set_rx_antenna)
+ 		phy->ops->set_rx_antenna(dev, antenna);
+ 
+-	if (!!conf->radio_enabled != phy->radio_on) {
+-		if (conf->radio_enabled) {
++	if (wl->radio_enabled != phy->radio_on) {
++		if (wl->radio_enabled) {
+ 			b43_software_rfkill(dev, false);
+ 			b43info(dev->wl, "Radio turned on by software\n");
+ 			if (!dev->radio_hw_enable) {
+@@ -4339,6 +4339,7 @@ static int b43_op_start(struct ieee80211
+ 	wl->beacon0_uploaded = 0;
+ 	wl->beacon1_uploaded = 0;
+ 	wl->beacon_templates_virgin = 1;
++	wl->radio_enabled = 1;
+ 
+ 	mutex_lock(&wl->mutex);
+ 
+@@ -4378,6 +4379,7 @@ static void b43_op_stop(struct ieee80211
+ 	if (b43_status(dev) >= B43_STAT_STARTED)
+ 		b43_wireless_core_stop(dev);
+ 	b43_wireless_core_exit(dev);
++	wl->radio_enabled = 0;
+ 	mutex_unlock(&wl->mutex);
+ 
+ 	cancel_work_sync(&(wl->txpower_adjust_work));
+@@ -4560,6 +4562,7 @@ static int b43_wireless_core_attach(stru
+ 		B43_WARN_ON(1);
+ 
+ 	dev->phy.gmode = have_2ghz_phy;
++	dev->phy.radio_on = 1;
+ 	tmp = dev->phy.gmode ? B43_TMSLOW_GMODE : 0;
+ 	b43_wireless_core_reset(dev, tmp);
+ 
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h
++++ wireless-testing/drivers/net/wireless/b43/b43.h
+@@ -648,6 +648,7 @@ struct b43_wl {
+ 	u8 nr_devs;
+ 
+ 	bool radiotap_enabled;
++	bool radio_enabled;
+ 
+ 	/* The beacon we are currently using (AP or IBSS mode).
+ 	 * This beacon stuff is protected by the irq_lock. */
+Index: wireless-testing/drivers/net/wireless/b43legacy/b43legacy.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/b43legacy.h
++++ wireless-testing/drivers/net/wireless/b43legacy/b43legacy.h
+@@ -607,6 +607,7 @@ struct b43legacy_wl {
+ 	u8 nr_devs;
+ 
+ 	bool radiotap_enabled;
++	bool radio_enabled;
+ 
+ 	/* The beacon we are currently using (AP or IBSS mode).
+ 	 * This beacon stuff is protected by the irq_lock. */
+Index: wireless-testing/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-testing/drivers/net/wireless/b43legacy/main.c
+@@ -2689,8 +2689,8 @@ static int b43legacy_op_dev_config(struc
+ 	/* Antennas for RX and management frame TX. */
+ 	b43legacy_mgmtframe_txantenna(dev, antenna_tx);
+ 
+-	if (!!conf->radio_enabled != phy->radio_on) {
+-		if (conf->radio_enabled) {
++	if (wl->radio_enabled != phy->radio_on) {
++		if (wl->radio_enabled) {
+ 			b43legacy_radio_turn_on(dev);
+ 			b43legacyinfo(dev->wl, "Radio turned on by software\n");
+ 			if (!dev->radio_hw_enable)
+@@ -3441,6 +3441,7 @@ static int b43legacy_op_start(struct iee
+ 	wl->beacon0_uploaded = 0;
+ 	wl->beacon1_uploaded = 0;
+ 	wl->beacon_templates_virgin = 1;
++	wl->radio_enabled = 1;
+ 
+ 	mutex_lock(&wl->mutex);
+ 
+@@ -3479,6 +3480,7 @@ static void b43legacy_op_stop(struct iee
+ 	if (b43legacy_status(dev) >= B43legacy_STAT_STARTED)
+ 		b43legacy_wireless_core_stop(dev);
+ 	b43legacy_wireless_core_exit(dev);
++	wl->radio_enabled = 0;
+ 	mutex_unlock(&wl->mutex);
+ }
+ 
+@@ -3620,6 +3622,7 @@ static int b43legacy_wireless_core_attac
+ 		have_bphy = 1;
+ 
+ 	dev->phy.gmode = (have_gphy || have_bphy);
++	dev->phy.radio_on = 1;
+ 	tmp = dev->phy.gmode ? B43legacy_TMSLOW_GMODE : 0;
+ 	b43legacy_wireless_core_reset(dev, tmp);
+ 
+
+
+From ccmcphe at verizon.net  Tue Jun 23 21:02:42 2009
+From: ccmcphe at verizon.net (Clyde McPherson)
+Date: Tue, 23 Jun 2009 15:02:42 -0400
+Subject: New 4318 CF Card
+Message-ID: <4A4126D2.6080608@verizon.net>
+
+I just got some new 4318 CF cards in this week. They are the Summit 
+SDC-CF10AG card. In order to get these cards working in B/G mode, I had 
+to make a couple of changes to the code. Of course, I had to add the 
+PCMCIA device ids to b43/pcmcia.c, but I also had to modify the pcmcia.c 
+module in drivers/ssb, to account to the different Tuple Length in 
+SSB_PCMCIA_CIS_BFLAGS and SSB_PCMCIA_CIS_PA case statements. The tuple 
+length for the SSB_PCMCIA_CIS_PA was 10, and the tuple length for the 
+SSB_PCMCIA_CIS_BFLAGS was 5. I guess the added lengths are for the 
+80211A that is not yet supported? If you all want these values, when I 
+get to work tomorrow I'll double check them and send y'all  the values, 
+including the device ids. The card is working fine in B/G.
+
+Thanks much
+Clyde McPherson
+Tex
+
+
+
+From ccmcphe at verizon.net  Fri Jun 26 22:28:39 2009
+From: ccmcphe at verizon.net (Clyde McPherson)
+Date: Fri, 26 Jun 2009 16:28:39 -0400
+Subject: New 4318 CF Card
+In-Reply-To: <4A4126D2.6080608@verizon.net>
+References: <4A4126D2.6080608@verizon.net>
+Message-ID: <4A452F77.7020701@verizon.net>
+
+The Tuple Length I passed was correct. The PCMCIA ID's that I put into 
+b43/pcmcia.c are 0x2D0,0x476. This is for the Summit SDC-CF10AG card.
+
+Thanks again
+Clyde McPherson
+Tex
+
+
+> I just got some new 4318 CF cards in this week. They are the Summit 
+> SDC-CF10AG card. In order to get these cards working in B/G mode, I had 
+> to make a couple of changes to the code. Of course, I had to add the 
+> PCMCIA device ids to b43/pcmcia.c, but I also had to modify the pcmcia.c 
+> module in drivers/ssb, to account to the different Tuple Length in 
+> SSB_PCMCIA_CIS_BFLAGS and SSB_PCMCIA_CIS_PA case statements. The tuple 
+> length for the SSB_PCMCIA_CIS_PA was 10, and the tuple length for the 
+> SSB_PCMCIA_CIS_BFLAGS was 5. I guess the added lengths are for the 
+> 80211A that is not yet supported? If you all want these values, when I 
+> get to work tomorrow I'll double check them and send y'all  the values, 
+> including the device ids. The card is working fine in B/G.
+>
+> Thanks much
+> Clyde McPherson
+> Tex
+>
+> _______________________________________________
+> Bcm43xx-dev mailing list
+> Bcm43xx-dev at lists.berlios.de
+> https://lists.berlios.de/mailman/listinfo/bcm43xx-dev
+>
+>   
+
+
+From mb at bu3sch.de  Fri Jun 26 22:48:45 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Fri, 26 Jun 2009 22:48:45 +0200
+Subject: New 4318 CF Card
+In-Reply-To: <4A452F77.7020701@verizon.net>
+References: <4A4126D2.6080608@verizon.net> <4A452F77.7020701@verizon.net>
+Message-ID: <200906262248.45462.mb@bu3sch.de>
+
+On Friday 26 June 2009 22:28:39 Clyde McPherson wrote:
+> The Tuple Length I passed was correct. The PCMCIA ID's that I put into 
+> b43/pcmcia.c are 0x2D0,0x476. This is for the Summit SDC-CF10AG card.
+
+Can you send a patch, please?
+
+-- 
+Greetings, Michael.
+
+
+From ccmcphe at verizon.net  Sat Jun 27 23:15:44 2009
+From: ccmcphe at verizon.net (Clyde McPherson)
+Date: Sat, 27 Jun 2009 17:15:44 -0400
+Subject: New 4318 CF Card
+In-Reply-To: <200906262248.45462.mb@bu3sch.de>
+References: <4A4126D2.6080608@verizon.net> <4A452F77.7020701@verizon.net>
+	<200906262248.45462.mb@bu3sch.de>
+Message-ID: <4A468C00.5010600@verizon.net>
+
+Sure, but I don't have the current source. I have 2.6.28 source.
+
+-Tex
+
+> On Friday 26 June 2009 22:28:39 Clyde McPherson wrote:
+>   
+>> The Tuple Length I passed was correct. The PCMCIA ID's that I put into 
+>> b43/pcmcia.c are 0x2D0,0x476. This is for the Summit SDC-CF10AG card.
+>>     
+>
+> Can you send a patch, please?
+>
+>   
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090627/061cc0b3/attachment.html>
+
+From mb at bu3sch.de  Sat Jun 27 23:28:41 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Sat, 27 Jun 2009 23:28:41 +0200
+Subject: New 4318 CF Card
+In-Reply-To: <4A468C00.5010600@verizon.net>
+References: <4A4126D2.6080608@verizon.net> <200906262248.45462.mb@bu3sch.de>
+	<4A468C00.5010600@verizon.net>
+Message-ID: <200906272328.41666.mb@bu3sch.de>
+
+On Saturday 27 June 2009 23:15:44 Clyde McPherson wrote:
+> Sure, but I don't have the current source. I have 2.6.28 source.
+
+A patch against 2.6.28 should also apply to current development tip,
+as there weren't any changes. So a 2.6.28 patch is OK.
+
+-- 
+Greetings, Michael.
+
+
+From mb at bu3sch.de  Sun Jun 28 16:14:07 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Sun, 28 Jun 2009 16:14:07 +0200
+Subject: BCM4312 and phy_lp.c
+In-Reply-To: <15e53e180906280618u414f5ffcpff350453a5ebb13@mail.gmail.com>
+References: <15e53e180906280618u414f5ffcpff350453a5ebb13@mail.gmail.com>
+Message-ID: <200906281614.07633.mb@bu3sch.de>
+
+On Sunday 28 June 2009 15:18:30 Richard Hughes wrote:
+> Are you awaiting more data about the chipset, or have just run out of
+> developer time? The documentation looks pretty comprehensive, although
+> core bit of the code still need writing. Could I offer myself to fill
+> in some of the TODOs? I might need a bit of coaching to get me up to
+> speed with the device internals. Or, do you think that I would be
+> better to be more patient and wait for you to code this? I would
+> really like to get the 4312 working, rather than just replacing it
+> with an Intel chipset.
+
+I'm currently not working on it, because I have other higher priority tasks.
+The documentation should be more or less complete, so if you feel like, just
+start implementing something. Look at phy_lp.c, find a gap and implement it.
+Please do _small_ patches and submit patches _early_.
+Big patches will be rejected.
+
+> 
+> Advice welcome, and feel free to cc the bcm m/l if you like. Thanks.
+> 
+> Richard.
+> 
+> 
+
+
+
+-- 
+Greetings, Michael.
+
+
+From netrolller.3d at gmail.com  Sun Jun 28 16:34:21 2009
+From: netrolller.3d at gmail.com (=?ISO-8859-1?Q?G=E1bor_Stefanik?=)
+Date: Sun, 28 Jun 2009 16:34:21 +0200
+Subject: BCM4312 and phy_lp.c
+In-Reply-To: <200906281614.07633.mb@bu3sch.de>
+References: <15e53e180906280618u414f5ffcpff350453a5ebb13@mail.gmail.com> 
+	<200906281614.07633.mb@bu3sch.de>
+Message-ID: <69e28c910906280734j54bed330ja538c03e4277afd4@mail.gmail.com>
+
+On Sun, Jun 28, 2009 at 4:14 PM, Michael Buesch<mb at bu3sch.de> wrote:
+> On Sunday 28 June 2009 15:18:30 Richard Hughes wrote:
+>> Are you awaiting more data about the chipset, or have just run out of
+>> developer time? The documentation looks pretty comprehensive, although
+>> core bit of the code still need writing. Could I offer myself to fill
+>> in some of the TODOs? I might need a bit of coaching to get me up to
+>> speed with the device internals. Or, do you think that I would be
+>> better to be more patient and wait for you to code this? I would
+>> really like to get the 4312 working, rather than just replacing it
+>> with an Intel chipset.
+>
+> I'm currently not working on it, because I have other higher priority tasks.
+> The documentation should be more or less complete, so if you feel like, just
+> start implementing something. Look at phy_lp.c, find a gap and implement it.
+> Please do _small_ patches and submit patches _early_.
+> Big patches will be rejected.
+
+I've started working on baseband init, but I have a small problem with
+this step in the specs:
+Call mhf with arguments ( 2, 0x0800, 0x0800, 1)
+
+Is mhf implemented already for other PHYs? (If so, under what name?)
+Is it supposed to be used anywhere outside LP init?
+
+Thanks,
+G?bor
+
+
+From mb at bu3sch.de  Sun Jun 28 20:15:08 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Sun, 28 Jun 2009 20:15:08 +0200
+Subject: BCM4312 and phy_lp.c
+In-Reply-To: <15e53e180906281111u71a05e38w4179ffe621682659@mail.gmail.com>
+References: <15e53e180906280618u414f5ffcpff350453a5ebb13@mail.gmail.com>
+	<200906281614.07633.mb@bu3sch.de>
+	<15e53e180906281111u71a05e38w4179ffe621682659@mail.gmail.com>
+Message-ID: <200906282015.08464.mb@bu3sch.de>
+
+On Sunday 28 June 2009 20:11:36 Richard Hughes wrote:
+> On Sun, Jun 28, 2009 at 3:14 PM, Michael Buesch<mb at bu3sch.de> wrote:
+> > I'm currently not working on it, because I have other higher priority tasks.
+> > The documentation should be more or less complete, so if you feel like, just
+> > start implementing something. Look at phy_lp.c, find a gap and implement it.
+> > Please do _small_ patches and submit patches _early_.
+> > Big patches will be rejected.
+> 
+> Cool, of course, no problem.
+> 
+> I notice http://bcm-v4.sipsolutions.net/802.11/PHY/LP/ has "FIXME:
+> find initial values" -- is this something that can be added to the
+> wiki, or does someone have to reverse engineer the closed source
+> driver to find these values? Thanks.
+
+I'd say this is of no big issue.
+There are _lots_ of algorithms in the docs that are not implemented, yet.
+Just start with one.
+
+-- 
+Greetings, Michael.
+
+
+From hughsient at gmail.com  Sun Jun 28 20:11:36 2009
+From: hughsient at gmail.com (Richard Hughes)
+Date: Sun, 28 Jun 2009 19:11:36 +0100
+Subject: BCM4312 and phy_lp.c
+In-Reply-To: <200906281614.07633.mb@bu3sch.de>
+References: <15e53e180906280618u414f5ffcpff350453a5ebb13@mail.gmail.com>
+	<200906281614.07633.mb@bu3sch.de>
+Message-ID: <15e53e180906281111u71a05e38w4179ffe621682659@mail.gmail.com>
+
+On Sun, Jun 28, 2009 at 3:14 PM, Michael Buesch<mb at bu3sch.de> wrote:
+> I'm currently not working on it, because I have other higher priority tasks.
+> The documentation should be more or less complete, so if you feel like, just
+> start implementing something. Look at phy_lp.c, find a gap and implement it.
+> Please do _small_ patches and submit patches _early_.
+> Big patches will be rejected.
+
+Cool, of course, no problem.
+
+I notice http://bcm-v4.sipsolutions.net/802.11/PHY/LP/ has "FIXME:
+find initial values" -- is this something that can be added to the
+wiki, or does someone have to reverse engineer the closed source
+driver to find these values? Thanks.
+
+Richard.
+
+
+From Larry.Finger at lwfinger.net  Sun Jun 28 22:25:53 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Sun, 28 Jun 2009 15:25:53 -0500
+Subject: BCM4312 and phy_lp.c
+In-Reply-To: <69e28c910906280734j54bed330ja538c03e4277afd4@mail.gmail.com>
+References: <15e53e180906280618u414f5ffcpff350453a5ebb13@mail.gmail.com>
+	<200906281614.07633.mb@bu3sch.de>
+	<69e28c910906280734j54bed330ja538c03e4277afd4@mail.gmail.com>
+Message-ID: <4A47D1D1.3030303@lwfinger.net>
+
+
+G?bor Stefanik wrote:
+
+> I've started working on baseband init, but I have a small problem with
+> this step in the specs:
+> Call mhf with arguments ( 2, 0x0800, 0x0800, 1)
+> 
+> Is mhf implemented already for other PHYs? (If so, under what name?)
+> Is it supposed to be used anywhere outside LP init?
+
+The abbreviation hf stands for host flags, and there is a
+correspondence between mhf and b43_hf_{read,write}. In mhf, the first
+argument selects which of B43_SHM_SH_HOSTF{LO,MI,HI} is selected.
+Routine mhf also tries to cache the data so as to avoid writing new
+data if it is unchanged. This step is skipped in b43.
+
+Larry
+
+

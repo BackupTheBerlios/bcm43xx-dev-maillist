@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 14e4:4315 (Dell Wireless 1397) cannot find networks after use of 	b43 driver
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%2014e4%3A4315%20%28Dell%20Wireless%201397%29%20cannot%20find%20networks%20after%20use%20of%20%0A%09b43%20driver&In-Reply-To=%3C69e28c911003231537k7b156112pe7db67ea41f13133%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="007159.html">
+   <LINK REL="Next"  HREF="007161.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>14e4:4315 (Dell Wireless 1397) cannot find networks after use of 	b43 driver</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%2014e4%3A4315%20%28Dell%20Wireless%201397%29%20cannot%20find%20networks%20after%20use%20of%20%0A%09b43%20driver&In-Reply-To=%3C69e28c911003231537k7b156112pe7db67ea41f13133%40mail.gmail.com%3E"
+       TITLE="14e4:4315 (Dell Wireless 1397) cannot find networks after use of 	b43 driver">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Tue Mar 23 23:37:45 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="007159.html">14e4:4315 (Dell Wireless 1397) cannot find networks after use of 	b43 driver
+</A></li>
+        <LI>Next message: <A HREF="007161.html">14e4:4315 (Dell Wireless 1397) cannot find networks after use	of  b43 driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7160">[ date ]</a>
+              <a href="thread.html#7160">[ thread ]</a>
+              <a href="subject.html#7160">[ subject ]</a>
+              <a href="author.html#7160">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tue, Mar 23, 2010 at 11:23 PM, Chris Lopes &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">clopes at gmail.com</A>&gt; wrote:
+&gt;<i> I didn't try a &quot;cold reboot&quot; that did not involve the removal of
+</I>&gt;<i> battery and power supply, so maybe it would work.
+</I>&gt;<i>
+</I>&gt;<i> Honestly I am still perplexed (given modern hardware and software), as
+</I>&gt;<i> to why/how:
+</I>&gt;<i> 1) Hibernate and un-hibernate, regardless of what happens in between
+</I>&gt;<i> with the wireless card, could somehow result in it stopping working
+</I>&gt;<i> 2) Rebooting (warm), regardless of how the wireless card is messed up
+</I>&gt;<i> in my situation does not fix the problem
+</I>&gt;<i> 3) Cold rebooting and warm rebooting are different in any way whatsoever
+</I>&gt;<i>
+</I>&gt;<i> (all of the above involve zero changes on the hard disk during the
+</I>&gt;<i> time when the OS is not running)
+</I>&gt;<i>
+</I>&gt;<i> Is this behavior some sort of &quot;feature&quot; with unintuitive results, or
+</I>&gt;<i> is it a bug? &#160;And what is the buggy component, exactly?
+</I>&gt;<i> It seems like something that would happen with early 1990's technology.
+</I>&gt;<i>
+</I>&gt;<i> Also, are you saying that there is some sort of known problem that
+</I>&gt;<i> results in you having to &quot;recover the wireless&quot; via a cold-reboot?
+</I>&gt;<i> What is this problem and is it similar to my situation?
+</I>
+Well, the following sequence can easily happen:
+1. You boot Vista. The Broadcom official driver initializes the card
+(writing a complete register setup) with the embedded firmware.
+2. You hibernate Vista. The card is un-initialized and prepared for
+restore upon return from hibernation. Some registers are left in the
+state they were originally, to aid in quicker restore.
+3. You boot Linux. b43 finds the Broadcom card, and, seeing that it is
+un-initialized, quickly initializes it (again, overwriting all
+registers, including the ones left intact by hibernation) with your
+installed firmware. Due to a known bug, the driver misses some part of
+the initialization routine; we are working on fixing this,.
+4. With the card only partially initialized, DMA TX is broken. (On
+2.6.33, b43 works around this by falling back to PIO.)
+5. You leave Linux. b43 either doesn't uninitialize the card at all,
+or does a full uninit, in preparation for a shutdown (as opposed to
+hibernate)
+6. You restore Vista. The Broadcom driver expects the card to be in
+the state it left it during hibernation; but it is really either in
+the (broken) init state produced by Linux, or completely
+uninitialized. The driver does a resume routine, assuming the card is
+prepared for it. The result of this operation is completely undefined;
+as my college programming professor once said: &quot;even if it becomes
+self-aware and nukes the world, it is still operating correctly&quot;.
+7. You scan for wireless networks. The card is in an undefined state,
+so this obviously doesn't work!
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="007159.html">14e4:4315 (Dell Wireless 1397) cannot find networks after use of 	b43 driver
+</A></li>
+	<LI>Next message: <A HREF="007161.html">14e4:4315 (Dell Wireless 1397) cannot find networks after use	of  b43 driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7160">[ date ]</a>
+              <a href="thread.html#7160">[ thread ]</a>
+              <a href="subject.html#7160">[ subject ]</a>
+              <a href="author.html#7160">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

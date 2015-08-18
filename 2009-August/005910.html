@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Fix a few typos in the RC calibration code
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Fix%20a%20few%20typos%20in%20the%20RC%20calibration%20code&In-Reply-To=%3C200908252248.58079.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005907.html">
+   <LINK REL="Next"  HREF="005908.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Fix a few typos in the RC calibration code</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Fix%20a%20few%20typos%20in%20the%20RC%20calibration%20code&In-Reply-To=%3C200908252248.58079.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: LP-PHY: Fix a few typos in the RC calibration code">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Aug 25 22:48:56 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005907.html">[PATCH] b43: LP-PHY: Fix a few typos in the RC calibration code
+</A></li>
+        <LI>Next message: <A HREF="005908.html">[PATCH] b43: LP-PHY: Fix and simplify Qdiv roundup
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5910">[ date ]</a>
+              <a href="thread.html#5910">[ thread ]</a>
+              <a href="subject.html#5910">[ subject ]</a>
+              <a href="author.html#5910">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tuesday 25 August 2009 16:17:48 G&#225;bor Stefanik wrote:
+&gt;<i> The RC calibration code has some typos - fix them.
+</I>&gt;<i> Also, make the default channel 7, as channel 1 is still
+</I>&gt;<i> broken (only channels 7 and 8, and occasionally 9 work).
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+</I>
+ack
+
+&gt;<i> ---
+</I>&gt;<i>  drivers/net/wireless/b43/phy_lp.c |    7 ++++---
+</I>&gt;<i>  1 files changed, 4 insertions(+), 3 deletions(-)
+</I>&gt;<i> 
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> index 2d3a5d8..7e70c07 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> @@ -44,7 +44,7 @@ static inline u16 channel2freq_lp(u8 channel)
+</I>&gt;<i>  static unsigned int b43_lpphy_op_get_default_chan(struct b43_wldev *dev)
+</I>&gt;<i>  {
+</I>&gt;<i>  	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)
+</I>&gt;<i> -		return 1;
+</I>&gt;<i> +		return 7; //FIXME temporary - channel 1 is broken
+</I>&gt;<i>  	return 36;
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i> @@ -705,7 +705,7 @@ static void lpphy_set_rc_cap(struct b43_wldev *dev)
+</I>&gt;<i>  	u8 rc_cap = (lpphy-&gt;rc_cap &amp; 0x1F) &gt;&gt; 1;
+</I>&gt;<i>  
+</I>&gt;<i>  	if (dev-&gt;phy.rev == 1) //FIXME check channel 14!
+</I>&gt;<i> -		rc_cap = max_t(u8, rc_cap + 5, 15);
+</I>&gt;<i> +		rc_cap = min_t(u8, rc_cap + 5, 15);
+</I>&gt;<i>  
+</I>&gt;<i>  	b43_radio_write(dev, B2062_N_RXBB_CALIB2,
+</I>&gt;<i>  			max_t(u8, lpphy-&gt;rc_cap - 4, 0x80));
+</I>&gt;<i> @@ -1008,6 +1008,7 @@ static int lpphy_loopback(struct b43_wldev *dev)
+</I>&gt;<i>  
+</I>&gt;<i>  	b43_phy_maskset(dev, B43_LPPHY_RF_OVERRIDE_VAL_0, 0xFFFC, 0x3);
+</I>&gt;<i>  	b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_0, 0x3);
+</I>&gt;<i> +	b43_phy_set(dev, B43_LPPHY_AFE_CTL_OVR, 1);
+</I>&gt;<i>  	b43_phy_mask(dev, B43_LPPHY_AFE_CTL_OVRVAL, 0xFFFE);
+</I>&gt;<i>  	b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_0, 0x800);
+</I>&gt;<i>  	b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_VAL_0, 0x800);
+</I>&gt;<i> @@ -1213,7 +1214,7 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev *dev)
+</I>&gt;<i>  			mean_sq_pwr = ideal_pwr - normal_pwr;
+</I>&gt;<i>  			mean_sq_pwr *= mean_sq_pwr;
+</I>&gt;<i>  			inner_sum += mean_sq_pwr;
+</I>&gt;<i> -			if ((i = 128) || (inner_sum &lt; mean_sq_pwr_min)) {
+</I>&gt;<i> +			if ((i == 128) || (inner_sum &lt; mean_sq_pwr_min)) {
+</I>&gt;<i>  				lpphy-&gt;rc_cap = i;
+</I>&gt;<i>  				mean_sq_pwr_min = inner_sum;
+</I>&gt;<i>  			}
+</I>
+
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005907.html">[PATCH] b43: LP-PHY: Fix a few typos in the RC calibration code
+</A></li>
+	<LI>Next message: <A HREF="005908.html">[PATCH] b43: LP-PHY: Fix and simplify Qdiv roundup
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5910">[ date ]</a>
+              <a href="thread.html#5910">[ thread ]</a>
+              <a href="subject.html#5910">[ subject ]</a>
+              <a href="author.html#5910">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

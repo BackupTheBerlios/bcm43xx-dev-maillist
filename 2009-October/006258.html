@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Fix DMA TX bounce buffer copying
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20DMA%20TX%20bounce%20buffer%20copying&In-Reply-To=%3C4aeb1b2d.68WA7BjDMaGvZ8qT%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006257.html">
+   
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Fix DMA TX bounce buffer copying</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20DMA%20TX%20bounce%20buffer%20copying&In-Reply-To=%3C4aeb1b2d.68WA7BjDMaGvZ8qT%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43legacy: Fix DMA TX bounce buffer copying">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Oct 30 17:58:21 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006257.html">[PATCH] b43: Fix DMA TX bounce buffer copying
+</A></li>
+        
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6258">[ date ]</a>
+              <a href="thread.html#6258">[ thread ]</a>
+              <a href="subject.html#6258">[ subject ]</a>
+              <a href="author.html#6258">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This patch is adapted from the submission by Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+for a bounce-buffer copying problem with b43.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+Full testing of this patch is a problem as the bounce buffer can come into
+play only when the test machine has more than 1 GB RAM. When I coded the
+original bounce-buffer code for bcm43xx, I had such a machine, but it
+died. I tested the patch on a machine with 256 MB and it works. As it
+is a line-by-line copy of Michael's patch, it should be OK. In any case, this
+is 2.6.33 material.
+
+Larry
+---
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/dma.c
++++ wireless-testing/drivers/net/wireless/b43legacy/dma.c
+@@ -1240,8 +1240,9 @@ struct b43legacy_dmaring *parse_cookie(s
+ }
+ 
+ static int dma_tx_fragment(struct b43legacy_dmaring *ring,
+-			    struct sk_buff *skb)
++			    struct sk_buff **in_skb)
+ {
++	struct sk_buff *skb = *in_skb;
+ 	const struct b43legacy_dma_ops *ops = ring-&gt;ops;
+ 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+ 	u8 *header;
+@@ -1305,8 +1306,14 @@ static int dma_tx_fragment(struct b43leg
+ 		}
+ 
+ 		memcpy(skb_put(bounce_skb, skb-&gt;len), skb-&gt;data, skb-&gt;len);
++		memcpy(bounce_skb-&gt;cb, skb-&gt;cb, sizeof(skb-&gt;cb));
++		bounce_skb-&gt;dev = skb-&gt;dev;
++		skb_set_queue_mapping(bounce_skb, skb_get_queue_mapping(skb));
++		info = IEEE80211_SKB_CB(bounce_skb);
++
+ 		dev_kfree_skb_any(skb);
+ 		skb = bounce_skb;
++		*in_skb = bounce_skb;
+ 		meta-&gt;skb = skb;
+ 		meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+ 		if (b43legacy_dma_mapping_error(ring, meta-&gt;dmaaddr, skb-&gt;len, 1)) {
+@@ -1360,8 +1367,10 @@ int b43legacy_dma_tx(struct b43legacy_wl
+ 		     struct sk_buff *skb)
+ {
+ 	struct b43legacy_dmaring *ring;
++	struct ieee80211_hdr *hdr;
+ 	int err = 0;
+ 	unsigned long flags;
++	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+ 
+ 	ring = priority_to_txring(dev, skb_get_queue_mapping(skb));
+ 	spin_lock_irqsave(&amp;ring-&gt;lock, flags);
+@@ -1386,7 +1395,11 @@ int b43legacy_dma_tx(struct b43legacy_wl
+ 		goto out_unlock;
+ 	}
+ 
+-	err = dma_tx_fragment(ring, skb);
++	/* dma_tx_fragment might reallocate the skb, so invalidate pointers pointing
++	 * into the skb data or cb now. */
++	hdr = NULL;
++	info = NULL;
++	err = dma_tx_fragment(ring, &amp;skb);
+ 	if (unlikely(err == -ENOKEY)) {
+ 		/* Drop this packet, as we don't have the encryption key
+ 		 * anymore and must not transmit it unencrypted. */
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006257.html">[PATCH] b43: Fix DMA TX bounce buffer copying
+</A></li>
+	
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6258">[ date ]</a>
+              <a href="thread.html#6258">[ thread ]</a>
+              <a href="subject.html#6258">[ subject ]</a>
+              <a href="author.html#6258">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 fatal DMA errors
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20fatal%20DMA%20errors&In-Reply-To=%3C69e28c910910280546k3f466cb4j68a80bd69a24f378%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006253.html">
+   <LINK REL="Next"  HREF="006256.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 fatal DMA errors</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20fatal%20DMA%20errors&In-Reply-To=%3C69e28c910910280546k3f466cb4j68a80bd69a24f378%40mail.gmail.com%3E"
+       TITLE="b43 fatal DMA errors">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Wed Oct 28 13:46:38 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006253.html">b43 fatal DMA errors
+</A></li>
+        <LI>Next message: <A HREF="006256.html">[PATCH] b43: Fix DMA TX bounce buffer copying
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6255">[ date ]</a>
+              <a href="thread.html#6255">[ thread ]</a>
+              <a href="subject.html#6255">[ subject ]</a>
+              <a href="author.html#6255">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>2009/10/28 Linus Torvalds &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">torvalds at linux-foundation.org</A>&gt;:
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> On Sun, 25 Oct 2009, G&#225;bor Stefanik wrote:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Also, is there any reference to a failed channel switch in the log?
+</I>&gt;<i>
+</I>&gt;<i> I've been debugging this some more, and it looks like there are more
+</I>&gt;<i> issues at play than just the DMA problem.
+</I>&gt;<i>
+</I>&gt;<i> With the b43 driver enabled, I seem to be unable to reliably suspend and
+</I>&gt;<i> resume. Sometimes the machine just locks up hard, but sometimes I get
+</I>&gt;<i> something like this on the resume path:
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0 debug: Resuming...
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0 debug: Device resumed.
+</I>&gt;<i> &#160; &#160; &#160; &#160;...
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0: Loading firmware version 478.104 (2008-07-01 00:50:23)
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0 debug: b2062: Using crystal tab entry 19200 kHz.
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0 debug: RC calib: Failed to switch to channel 7, error = -5
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0 debug: Chip initialized
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0 debug: PIO initialized
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0 debug: QoS disabled
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0 debug: Wireless interface started
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0 debug: Adding Interface type 2
+</I>&gt;<i>
+</I>&gt;<i> and when that happens, it appears that then the _next_ suspend/resume
+</I>&gt;<i> cycle will fail with a hard lockup. And sometimes the hard lockup happens
+</I>&gt;<i> on the very first resume.
+</I>&gt;<i>
+</I>&gt;<i> But maybe that &quot;Failed to switch to channel 7&quot; error is entirely unrelated
+</I>&gt;<i> to the &quot;Locks up hard on resume&quot; problem. But the lock-up seems to be tied
+</I>&gt;<i> to the b43 driver too - the machine seems stable if I don't load that
+</I>&gt;<i> module at all.
+</I>&gt;<i>
+</I>&gt;<i> What seems a bit odd is how the b43_lpphy_op_init() seems to try to switch
+</I>&gt;<i> to channel 7 _twice_. It does:
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;...
+</I>&gt;<i> &#160; &#160; &#160; &#160;lpphy_radio_init(dev);
+</I>&gt;<i> &#160; &#160; &#160; &#160;lpphy_calibrate_rc(dev);
+</I>&gt;<i> &#160; &#160; &#160; &#160;err = b43_lpphy_op_switch_channel(dev, 7);
+</I>&gt;<i> &#160; &#160; &#160; &#160;...
+</I>&gt;<i>
+</I>&gt;<i> and that lpphy_calibrate_rc() call will already have done the channel
+</I>&gt;<i> switch for the lpphy_rev0_1_rc_calib() case. Maybe it should just switch
+</I>&gt;<i> to channel 7 unconditionally before doing the lpphy_calibrate_rc()?
+</I>
+What we do is exactly what the spec calls for - specifically, rev.2+
+cards don't switch to channel 7 during RC calibration, while rev.0/1
+SoCs can have an NVRAM variable specifying a predetermined RC-Cap
+value, in which case the actual RC calibration doesn't even run
+(though the latter is not yet implemented). However, just switching to
+channel 7 at the beginning looks saner - Larry, what do you think
+about it?
+
+&gt;<i>
+</I>&gt;<i> I dunno. I don't know the code, I don't know the hardware, the above is
+</I>&gt;<i> just a random musing based on looking at the code around that warning
+</I>&gt;<i> case.
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;Linus
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006253.html">b43 fatal DMA errors
+</A></li>
+	<LI>Next message: <A HREF="006256.html">[PATCH] b43: Fix DMA TX bounce buffer copying
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6255">[ date ]</a>
+              <a href="thread.html#6255">[ thread ]</a>
+              <a href="subject.html#6255">[ subject ]</a>
+              <a href="author.html#6255">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

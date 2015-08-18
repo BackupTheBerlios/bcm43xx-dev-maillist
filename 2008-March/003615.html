@@ -1,0 +1,151 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Don't compile N-PHY code when N-PHY is disabled
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Don%27t%20compile%20N-PHY%20code%20when%20N-PHY%20is%20disabled&In-Reply-To=%3C200803230133.58314.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003614.html">
+   <LINK REL="Next"  HREF="003616.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Don't compile N-PHY code when N-PHY is disabled</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Don%27t%20compile%20N-PHY%20code%20when%20N-PHY%20is%20disabled&In-Reply-To=%3C200803230133.58314.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Don't compile N-PHY code when N-PHY is disabled">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Mar 23 01:33:58 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003614.html">[PATCH] b43: Remove irqs_disabled() sanity checks
+</A></li>
+        <LI>Next message: <A HREF="003616.html">More on ASUS WL-138G V2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3615">[ date ]</a>
+              <a href="thread.html#3615">[ thread ]</a>
+              <a href="subject.html#3615">[ subject ]</a>
+              <a href="author.html#3615">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>There's no need to compile the N-PHY support code, when the
+N-PHY support is disabled in Kconfig.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, please apply to 2.6.26
+
+
+Index: wireless-testing/drivers/net/wireless/b43/Makefile
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/Makefile	2008-02-15 21:39:56.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/Makefile	2008-03-23 01:21:01.000000000 +0100
+@@ -1,11 +1,11 @@
+ b43-y				+= main.o
+ b43-y				+= tables.o
+-b43-y				+= tables_nphy.o
++b43-$(CONFIG_B43_NPHY)		+= tables_nphy.o
+ b43-y				+= phy.o
+-b43-y				+= nphy.o
++b43-$(CONFIG_B43_NPHY)		+= nphy.o
+ b43-y				+= sysfs.o
+ b43-y				+= xmit.o
+ b43-y				+= lo.o
+ b43-y				+= wa.o
+ b43-y				+= dma.o
+ b43-$(CONFIG_B43_RFKILL)	+= rfkill.o
+Index: wireless-testing/drivers/net/wireless/b43/nphy.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/nphy.h	2008-02-15 21:39:56.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/nphy.h	2008-03-23 01:24:54.000000000 +0100
+@@ -916,17 +916,57 @@
+ #define B2055_C2_GENSPARE2		0xE2 /* Core 2 GEN spare 2 */
+ 
+ 
+ 
+ struct b43_wldev;
+ 
++
++#ifdef CONFIG_B43_NPHY
++/* N-PHY support enabled */
++
+ int b43_phy_initn(struct b43_wldev *dev);
+ 
+ void b43_nphy_radio_turn_on(struct b43_wldev *dev);
+ void b43_nphy_radio_turn_off(struct b43_wldev *dev);
+ 
+ int b43_nphy_selectchannel(struct b43_wldev *dev, u8 channel);
+ 
+ void b43_nphy_xmitpower(struct b43_wldev *dev);
+ void b43_nphy_set_rxantenna(struct b43_wldev *dev, int antenna);
+ 
++
++#else /* CONFIG_B43_NPHY */
++/* N-PHY support disabled */
++
++
++static inline
++int b43_phy_initn(struct b43_wldev *dev)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline
++void b43_nphy_radio_turn_on(struct b43_wldev *dev)
++{
++}
++static inline
++void b43_nphy_radio_turn_off(struct b43_wldev *dev)
++{
++}
++
++static inline
++int b43_nphy_selectchannel(struct b43_wldev *dev, u8 channel)
++{
++	return -ENOSYS;
++}
++
++static inline
++void b43_nphy_xmitpower(struct b43_wldev *dev)
++{
++}
++static inline
++void b43_nphy_set_rxantenna(struct b43_wldev *dev, int antenna)
++{
++}
++
++#endif /* CONFIG_B43_NPHY */
+ #endif /* B43_NPHY_H_ */
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003614.html">[PATCH] b43: Remove irqs_disabled() sanity checks
+</A></li>
+	<LI>Next message: <A HREF="003616.html">More on ASUS WL-138G V2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3615">[ date ]</a>
+              <a href="thread.html#3615">[ thread ]</a>
+              <a href="subject.html#3615">[ subject ]</a>
+              <a href="author.html#3615">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

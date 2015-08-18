@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 2/2 V2] b43legacy: Fix locking problem
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/2%20V2%5D%20b43legacy%3A%20Fix%20locking%20problem&In-Reply-To=%3C4A0DD306.30705%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005492.html">
+   <LINK REL="Next"  HREF="005499.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 2/2 V2] b43legacy: Fix locking problem</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/2%20V2%5D%20b43legacy%3A%20Fix%20locking%20problem&In-Reply-To=%3C4A0DD306.30705%40lwfinger.net%3E"
+       TITLE="[PATCH 2/2 V2] b43legacy: Fix locking problem">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri May 15 22:39:34 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005492.html">[PATCH 1/2 V2] b43legacy: Remove unnecessary MMIO in interrupt	hotpath
+</A></li>
+        <LI>Next message: <A HREF="005499.html">[PATCH 2/2 V2] b43legacy: Fix locking problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5491">[ date ]</a>
+              <a href="thread.html#5491">[ thread ]</a>
+              <a href="subject.html#5491">[ subject ]</a>
+              <a href="author.html#5491">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Commit abb1d2bca0fc429c136747a64e675dd4d8906f36 introduced a locking
+problem in b43legacy that caused the system to freeze upon booting.
+
+Signed-off-by: Larry <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Finger at lwfinger.net</A>
+---
+
+John,
+
+This is 2.6.31 material. I hope that you do not have trouble with
+this patch. While on the road, my normal method is not available.
+
+This is resent as V2 to eliminate some patch offsets that resulted
+from the changes in V2 of patch 1.
+
+Larry
+---
+
+ main.c |   25 ++++---------------------
+ 1 file changed, 4 insertions(+), 21 deletions(-)
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-testing/drivers/net/wireless/b43legacy/main.c
+@@ -2767,29 +2767,18 @@ static void b43legacy_op_bss_info_change
+ {
+ 	struct b43legacy_wl *wl = hw_to_b43legacy_wl(hw);
+ 	struct b43legacy_wldev *dev;
+-	struct b43legacy_phy *phy;
+ 	unsigned long flags;
+
+ 	mutex_lock(&amp;wl-&gt;mutex);
+-	B43legacy_WARN_ON(wl-&gt;vif != vif);
+
+ 	dev = wl-&gt;current_dev;
+-	phy = &amp;dev-&gt;phy;
+-
+-	/* Disable IRQs while reconfiguring the device.
+-	 * This makes it possible to drop the spinlock throughout
+-	 * the reconfiguration process. */
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-	if (b43legacy_status(dev) &lt; B43legacy_STAT_STARTED) {
+-		spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
++	if (!dev || b43legacy_status(dev) &lt; B43legacy_STAT_STARTED)
+ 		goto out_unlock_mutex;
+-	}
+-	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, 0);
+
+-	if (changed &amp; BSS_CHANGED_BSSID) {
+-		spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+-		b43legacy_synchronize_irq(dev);
++	B43legacy_WARN_ON(wl-&gt;vif != vif);
+
++	if (changed &amp; BSS_CHANGED_BSSID) {
++		spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+ 		if (conf-&gt;bssid)
+ 			memcpy(wl-&gt;bssid, conf-&gt;bssid, ETH_ALEN);
+ 		else
+@@ -2827,12 +2816,6 @@ static void b43legacy_op_bss_info_change
+ 	}
+
+ 	b43legacy_mac_enable(dev);
+-
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, dev-&gt;irq_mask);
+-	/* XXX: why? */
+-	mmiowb();
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+  out_unlock_mutex:
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ }
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005492.html">[PATCH 1/2 V2] b43legacy: Remove unnecessary MMIO in interrupt	hotpath
+</A></li>
+	<LI>Next message: <A HREF="005499.html">[PATCH 2/2 V2] b43legacy: Fix locking problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5491">[ date ]</a>
+              <a href="thread.html#5491">[ thread ]</a>
+              <a href="subject.html#5491">[ subject ]</a>
+              <a href="author.html#5491">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

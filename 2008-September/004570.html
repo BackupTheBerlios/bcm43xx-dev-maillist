@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Speed enhancement for BCM4306/2
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Speed%20enhancement%20for%20BCM4306/2&In-Reply-To=%3C48C20928.10202%40wetwork.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004567.html">
+   <LINK REL="Next"  HREF="004568.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Speed enhancement for BCM4306/2</H1>
+    <B>gavron at wetwork.net</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Speed%20enhancement%20for%20BCM4306/2&In-Reply-To=%3C48C20928.10202%40wetwork.net%3E"
+       TITLE="Speed enhancement for BCM4306/2">gavron at wetwork.net
+       </A><BR>
+    <I>Sat Sep  6 06:38:00 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004567.html">Speed enhancement for BCM4306/2
+</A></li>
+        <LI>Next message: <A HREF="004568.html">Speed enhancement for BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4570">[ date ]</a>
+              <a href="thread.html#4570">[ thread ]</a>
+              <a href="subject.html#4570">[ subject ]</a>
+              <a href="author.html#4570">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Is this close? 
+
+E
+--- /tmp/phy_g.c    2008-09-05 21:06:57.000000000 -0700
++++ phy_g.c    2008-09-05 21:36:18.000000000 -0700
+@@ -2198,7 +2198,7 @@
+     else
+         b43_phy_initb6(dev);
+ 
+-    if (phy-&gt;rev &gt;= 2 || phy-&gt;gmode)
++    if (phy-&gt;rev &gt;= 2 &amp;&amp; phy-&gt;gmode)
+         b43_phy_inita(dev);
+ 
+     if (phy-&gt;rev &gt;= 2) {
+@@ -2216,9 +2216,9 @@
+     if (phy-&gt;gmode || phy-&gt;rev &gt;= 2) {
+         tmp = b43_phy_read(dev, B43_PHY_VERSION_OFDM);
+         tmp &amp;= B43_PHYVER_VERSION;
+-        if (tmp == 3 || tmp == 5) {
++        if (tmp == 4 || tmp == 5) {
+             b43_phy_write(dev, B43_PHY_OFDM(0xC2), 0x1816);
+-            b43_phy_write(dev, B43_PHY_OFDM(0xC3), 0x8006);
++            b43_phy_write(dev, B43_PHY_OFDM(0xC3), 0x8606);
+         }
+         if (tmp == 5) {
+             b43_phy_write(dev, B43_PHY_OFDM(0xCC),
+@@ -2226,7 +2226,7 @@
+                        &amp; 0x00FF) | 0x1F00);
+         }
+     }
+-    if ((phy-&gt;rev &lt;= 2 &amp;&amp; phy-&gt;gmode) || phy-&gt;rev &gt;= 2)
++    if ((phy-&gt;rev &gt;=2)
+         b43_phy_write(dev, B43_PHY_OFDM(0x7E), 0x78);
+     if (phy-&gt;radio_rev == 8) {
+         b43_phy_write(dev, B43_PHY_EXTG(0x01),
+
+
+Larry Finger wrote:
+&gt;<i> I recently found some places where the G-PHY initialization 
+</I>&gt;<i> specifications were wrong. I updated the relevant parts of the V3 
+</I>&gt;<i> specifications at <A HREF="http://bcm-specs.sipsolutions.net">http://bcm-specs.sipsolutions.net</A> - the pages for 
+</I>&gt;<i> GPHY, B6PHY and B5PHY were changed.
+</I>&gt;<i>
+</I>&gt;<i> When I prepared a patch containing these changes, the speed of the 
+</I>&gt;<i> BCM4306/2 for OFDM rates more than doubled. As an example, when 
+</I>&gt;<i> iwconfig is used to set the rate at 36M, the TX rate increased from 
+</I>&gt;<i> 6.8 to 15.8 Mb/s.
+</I>&gt;<i>
+</I>&gt;<i> Unfortunately, direct submission of my patch would violate the 
+</I>&gt;<i> clean-room rules. Michael Buesch has other things that are more 
+</I>&gt;<i> important. As a result, we need someone to look at the changes on the 
+</I>&gt;<i> web page and prepare a patch for submission. I will be happy to test 
+</I>&gt;<i> your submission.
+</I>&gt;<i>
+</I>&gt;<i> Larry
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Bcm43xx-dev mailing list
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>&gt;<i>   
+</I>
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004567.html">Speed enhancement for BCM4306/2
+</A></li>
+	<LI>Next message: <A HREF="004568.html">Speed enhancement for BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4570">[ date ]</a>
+              <a href="thread.html#4570">[ thread ]</a>
+              <a href="subject.html#4570">[ subject ]</a>
+              <a href="author.html#4570">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

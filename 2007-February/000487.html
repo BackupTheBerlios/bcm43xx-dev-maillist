@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: Fix loss of association after resume
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20loss%20of%20association%20after%20resume&In-Reply-To=%3C200702120150.59747.rjw%40sisk.pl%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000481.html">
+   <LINK REL="Next"  HREF="000488.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: Fix loss of association after resume</H1>
+    <B>Rafael J. Wysocki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20loss%20of%20association%20after%20resume&In-Reply-To=%3C200702120150.59747.rjw%40sisk.pl%3E"
+       TITLE="[PATCH] bcm43xx: Fix loss of association after resume">rjw at sisk.pl
+       </A><BR>
+    <I>Mon Feb 12 01:50:58 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000481.html">[PATCH] bcm43xx: Fix loss of association after resume
+</A></li>
+        <LI>Next message: <A HREF="000488.html">[PATCH] bcm43xx: Fix loss of association after resume
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#487">[ date ]</a>
+              <a href="thread.html#487">[ thread ]</a>
+              <a href="subject.html#487">[ subject ]</a>
+              <a href="author.html#487">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday, 11 February 2007 16:59, Larry Finger wrote:
+&gt;<i> Michael Buesch wrote:
+</I>&gt;<i> &gt; On Sunday 11 February 2007 15:02, Rafael J. Wysocki wrote:
+</I>&gt;<i> &gt;&gt; PM: Removing info for No Bus:0000:30:00.0
+</I>&gt;<i> &gt;&gt; bcm43xx: IRQ_READY timeout
+</I>&gt;<i> &gt;&gt; bcm43xx: core_up for active 802.11 core failed (-19)
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; I never tried suspend to disk with the driver.
+</I>&gt;<i> 
+</I>&gt;<i> This implies that suspend to RAM works. Is that true?
+</I>&gt;<i> 
+</I>&gt;<i> &gt; Larry, an idea why the microcode doesn't respond?
+</I>&gt;<i> 
+</I>&gt;<i> Is this code snippet supposed to keep the firmware loaded when the system is suspended?
+</I>&gt;<i> 
+</I>&gt;<i>                 bcm-&gt;firmware_norelease = 1;
+</I>&gt;<i>                 bcm43xx_free_board(bcm);
+</I>&gt;<i>                 bcm-&gt;firmware_norelease = 0;
+</I>&gt;<i> 
+</I>&gt;<i> If so, that may be the problem. What would force it to be reloaded when resuming after a suspend to
+</I>&gt;<i> disk and subsequent power off? That would certainly explain why a reload is successful. Is there a
+</I>&gt;<i> volatile location that would safely indicate that the firmware is not good? Perhaps, we need to bite
+</I>&gt;<i> the bullet and reload the firmware after every resume. The patch below should do that.
+</I>&gt;<i> 
+</I>&gt;<i> I am also working on a case where the user has troubles with a suspend to disk from Windows followed
+</I>&gt;<i> by a reboot to Linux, and warm reboots from Windows to Linux. In these cases, he gets a firmware
+</I>&gt;<i> file-format error; however, his firmware is fine from a cold boot.
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> 
+</I>&gt;<i> Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> +++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> @@ -4296,6 +4297,7 @@ static int bcm43xx_resume(struct pci_dev
+</I>&gt;<i>  		printk(KERN_ERR PFX &quot;Resume failed!\n&quot;);
+</I>&gt;<i>  		return err;
+</I>&gt;<i>  	}
+</I>&gt;<i> +	bcm43xx_request_firmware(bcm);
+</I>&gt;<i>  	netif_device_attach(net_dev);
+</I>&gt;<i> 
+</I>&gt;<i>  	dprintk(KERN_INFO PFX &quot;Device resumed.\n&quot;);
+</I>
+It doesn't help in my case.  The behavior is similar to that without the patch,
+but also with the patch it loses the association entirely.
+
+Greetings,
+Rafael
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000481.html">[PATCH] bcm43xx: Fix loss of association after resume
+</A></li>
+	<LI>Next message: <A HREF="000488.html">[PATCH] bcm43xx: Fix loss of association after resume
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#487">[ date ]</a>
+              <a href="thread.html#487">[ thread ]</a>
+              <a href="subject.html#487">[ subject ]</a>
+              <a href="author.html#487">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

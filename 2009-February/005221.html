@@ -1,0 +1,138 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Capturing FCS error frames using b43 driver
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Capturing%20FCS%20error%20frames%20using%20b43%20driver&In-Reply-To=%3C200902181115.33196.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005219.html">
+   <LINK REL="Next"  HREF="005223.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Capturing FCS error frames using b43 driver</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Capturing%20FCS%20error%20frames%20using%20b43%20driver&In-Reply-To=%3C200902181115.33196.mb%40bu3sch.de%3E"
+       TITLE="Capturing FCS error frames using b43 driver">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Feb 18 11:15:33 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005219.html">Capturing FCS error frames using b43 driver
+</A></li>
+        <LI>Next message: <A HREF="005223.html">Capturing FCS error frames using b43 driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5221">[ date ]</a>
+              <a href="thread.html#5221">[ thread ]</a>
+              <a href="subject.html#5221">[ subject ]</a>
+              <a href="author.html#5221">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Wednesday 18 February 2009 03:33:01 Francesco Gringoli wrote:
+&gt;<i> On Feb 18, 2009, at 12:23 AM, Michael Buesch wrote:
+</I>&gt;<i> 
+</I>&gt;<i> &gt; On Wednesday 18 February 2009 00:07:56 Bo Han wrote:
+</I>&gt;<i> &gt;&gt; I think I am working on the first sanity check in the driver, but  
+</I>&gt;<i> &gt;&gt; still
+</I>&gt;<i> &gt;&gt; cannot see any FCS error frames.  Is setting B43_MACCTL_KEEP_BAD  
+</I>&gt;<i> &gt;&gt; the only
+</I>&gt;<i> &gt;&gt; thing we need to do for the firmware?
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; No. I suggest you don't touch that flag anyway and change the  
+</I>&gt;<i> &gt; corresponding
+</I>&gt;<i> &gt; mac80211 filter flag. You most likely can do that through cfg80211/ 
+</I>&gt;<i> &gt; nl80211/iw.
+</I>&gt;<i> &gt; It will take care to set the b43 flag.
+</I>&gt;<i> 
+</I>&gt;<i> Michael is right, the new iw interface eases all this stuff.
+</I>&gt;<i> 
+</I>&gt;<i> There are however a few points that should be discussed
+</I>&gt;<i> 
+</I>&gt;<i> - why b43_rx(...) (in xmit.c) does not mark the status with  
+</I>&gt;<i> RX_FLAG_FAILED_FCS_CRC when the firmware reports a B43_RX_MAC_FCSERR:  
+</I>&gt;<i> IMHO this should be done to prevent mac80211 to be corrupted and crash  
+</I>&gt;<i> the pc when a _very_ noisy frame arrives
+</I>
+Well, I think the mac80211 flag was invented afterwards. Remember that b43
+was the first mac80211 driver ever and quite a few things didn't exist when
+I ported the stuff.
+
+So do you care to send a patch?
+
+Anyway, could you elaborate why you think it would _crash_? I think it shouldn't
+crash in any case.
+
+&gt;<i> - is that correct to have status.rate_idx filled by functions  
+</I>&gt;<i> b43_plcp_get_bitrate_idx_ofdm and b43_plcp_get_bitrate_idx_cck that  
+</I>&gt;<i> compute those values reading the plcp?
+</I>
+Yes I think so. This seems to be the best way to do it.
+
+&gt;<i> When a frame is ok, values are   
+</I>&gt;<i> correct and mac80211 uses them without problems. If instead the frame  
+</I>&gt;<i> is not ok, then mac80211 can warn a lot of message because values are  
+</I>&gt;<i> out of range.
+</I>
+If the PLCP header is corrupt you're completely fucked anyway.
+It is a basic and safe assumption that the PLCP header is correct.
+But it shouldn't _crash_ if it's not correct. But I think it doesn't.
+
+So if you crank up the flags to pass PLCP corrupted frames it's kind of
+expected that they are dropped somewhere in the driver, because we cannot
+trust the contents of the frame anyway.
+How do we know the PLCP length field is still correct for a corrupted PLCP?
+So we don't even know if the frame would have the correct length.
+
+&gt;<i> Should not we parse these values when FCS is bad and   
+</I>&gt;<i> sanitize them if out of range so that dmesg does not get filled with  
+</I>&gt;<i> warnings?
+</I>
+These warnings were removed some time ago. Please update your kernel.
+
+&gt;<i> Or probably there is another method to get those values,   
+</I>&gt;<i> e.g., the firmware can provide them reading from the radio instead of  
+</I>&gt;<i> computing them reading fields from the plcp?
+</I>
+I don't see why this is necessary and how it would be possible.
+
+&gt;<i> - I noticed that when in monitor mode and when set up to keep bad  
+</I>&gt;<i> frames, the radiotap header is not reporting FCS wrong for malformed  
+</I>&gt;<i> or corrupted frame as it should be, is that correct? Should not the  
+</I>&gt;<i> radiotap header be built on the status filled by first the driver then  
+</I>&gt;<i> mac80211?
+</I>
+I neither know nor care. If you do, please send patches.
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005219.html">Capturing FCS error frames using b43 driver
+</A></li>
+	<LI>Next message: <A HREF="005223.html">Capturing FCS error frames using b43 driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5221">[ date ]</a>
+              <a href="thread.html#5221">[ thread ]</a>
+              <a href="subject.html#5221">[ subject ]</a>
+              <a href="author.html#5221">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

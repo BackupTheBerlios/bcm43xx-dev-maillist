@@ -1,0 +1,4547 @@
+From lsropia at gmail.com  Sun Mar  1 06:52:15 2009
+From: lsropia at gmail.com (LS Ropia)
+Date: Sun, 1 Mar 2009 00:52:15 -0500
+Subject: LS Ropia sent you a Friend Request on Yaari
+Message-ID: <e22489dba5e769482cee4617a96b3ede@localhost.localdomain>
+
+LS Ropia wants you to join Yaari!
+
+Is LS your friend?
+
+<a href="http://yaari.com/?controller=user&action=mailregister&friend=1&sign=YaariFCA795CLX872VEU475IPA387">Yes, LS is my friend!</a> <a href="http://yaari.com/?controller=user&action=mailregister&friend=0&sign=YaariFCA795CLX872VEU475IPA387">No, LS isn't my friend.</a>
+
+Please respond or LS may think you said no :(
+
+Thanks,
+The Yaari Team
+____
+If you prefer not to receive this email tell us <a href="http://yaari.com/?controller=absn&action=addoptout&email=bcm43xx-dev at lists.berlios.de">here</a>. If you have any concerns 
+regarding the content of this message, please email abuse at yaari.com.  
+Yaari LLC, 358 Angier Ave, Atlanta, GA 30312
+
+YaariFCA795CLX872VEU475IPA387
+
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090301/b953667b/attachment.html>
+
+From mb at bu3sch.de  Mon Mar  2 23:18:37 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Mon, 2 Mar 2009 23:18:37 +0100
+Subject: [PATCH] b43: Pass more RX flags to mac80211
+Message-ID: <200903022318.37977.mb@bu3sch.de>
+
+This changes the RX handler to pass more status flags to mac80211.
+It also changes part of the drop policy, if bad frames were requested. (Note that
+currently mac80211 will throw a WARN_ON in that case. But nothing bad will happen).
+
+This also removes some obsolete unused timestamping code.
+
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+---
+
+
+John, please queue for the next feature release.
+I'll probably look into the WARN_ON issue, too, but this is not too important
+as weird things are expected to happen if user requests passing of bad frames.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/xmit.c	2009-03-02 23:14:52.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/xmit.c	2009-03-02 23:14:54.000000000 +0100
+@@ -538,8 +538,14 @@ void b43_rx(struct b43_wldev *dev, struc
+ 	chanstat = le16_to_cpu(rxhdr->channel);
+ 	phytype = chanstat & B43_RX_CHAN_PHYTYPE;
+ 
+-	if (macstat & B43_RX_MAC_FCSERR)
++	if (unlikely(macstat & B43_RX_MAC_FCSERR)) {
+ 		dev->wl->ieee_stats.dot11FCSErrorCount++;
++		status.flag |= RX_FLAG_FAILED_FCS_CRC;
++	}
++	if (unlikely(phystat0 & (B43_RX_PHYST0_PLCPHCF | B43_RX_PHYST0_PLCPFV)))
++		status.flag |= RX_FLAG_FAILED_PLCP_CRC;
++	if (phystat0 & B43_RX_PHYST0_SHORTPRMBL)
++		status.flag |= RX_FLAG_SHORTPRE;
+ 	if (macstat & B43_RX_MAC_DECERR) {
+ 		/* Decryption with the given key failed.
+ 		 * Drop the packet. We also won't be able to decrypt it with
+@@ -606,8 +612,12 @@ void b43_rx(struct b43_wldev *dev, struc
+ 						phytype == B43_PHYTYPE_A);
+ 	else
+ 		status.rate_idx = b43_plcp_get_bitrate_idx_cck(plcp);
+-	if (unlikely(status.rate_idx == -1))
+-		goto drop;
++	if (unlikely(status.rate_idx == -1)) {
++		/* PLCP seems to be corrupted.
++		 * Drop the frame, if we are not interested in corrupted frames. */
++		if (!(dev->wl->filter_flags & FIF_PLCPFAIL))
++			goto drop;
++	}
+ 	status.antenna = !!(phystat0 & B43_RX_PHYST0_ANT);
+ 
+ 	/*
+@@ -661,7 +671,6 @@ void b43_rx(struct b43_wldev *dev, struc
+ 		goto drop;
+ 	}
+ 
+-	dev->stats.last_rx = jiffies;
+ 	ieee80211_rx_irqsafe(dev->wl->hw, skb, &status);
+ 
+ 	return;
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h	2009-03-02 23:14:52.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/b43.h	2009-03-02 23:14:54.000000000 +0100
+@@ -550,9 +550,6 @@ struct b43_noise_calculation {
+ 
+ struct b43_stats {
+ 	u8 link_noise;
+-	/* Store the last TX/RX times here for updating the leds. */
+-	unsigned long last_tx;
+-	unsigned long last_rx;
+ };
+ 
+ struct b43_key {
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-03-02 23:14:52.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-03-02 23:14:54.000000000 +0100
+@@ -1425,7 +1425,6 @@ void b43_dma_handle_txstatus(struct b43_
+ 			break;
+ 		slot = next_slot(ring, slot);
+ 	}
+-	dev->stats.last_tx = jiffies;
+ 	if (ring->stopped) {
+ 		B43_WARN_ON(free_slots(ring) < TX_SLOTS_PER_FRAME);
+ 		ieee80211_wake_queue(dev->wl->hw, ring->queue_prio);
+
+-- 
+Greetings, Michael.
+
+
+From hanbo00 at gmail.com  Tue Mar  3 00:53:46 2009
+From: hanbo00 at gmail.com (Bo Han)
+Date: Mon, 2 Mar 2009 15:53:46 -0800
+Subject: [PATCH] b43: Pass more RX flags to mac80211
+In-Reply-To: <200903022318.37977.mb@bu3sch.de>
+References: <200903022318.37977.mb@bu3sch.de>
+Message-ID: <d0ad1e930903021553v77dbe1b0mc6d3c28581af68d5@mail.gmail.com>
+
+Hi Michael,
+
+After B43_MACCTL_KEEP_BAD is turned on by using iw with flags fcsfail, what
+kind of bad frames will be sent up by the firmware?  Only frames with CRC
+error marked with B43_RX_MAC_FCSERR?  Any other error frames?  I will not
+touch PLCP errors.
+
+PS, just want to confirm that WARN_ON will not freeze the kernel and it
+mainly dumps the stack, right?
+
+Thanks,
+-Bo
+
+On Mon, Mar 2, 2009 at 2:18 PM, Michael Buesch <mb at bu3sch.de> wrote:
+
+> This changes the RX handler to pass more status flags to mac80211.
+> It also changes part of the drop policy, if bad frames were requested.
+> (Note that
+> currently mac80211 will throw a WARN_ON in that case. But nothing bad will
+> happen).
+>
+> This also removes some obsolete unused timestamping code.
+>
+> Signed-off-by: Michael Buesch <mb at bu3sch.de>
+>
+> ---
+>
+>
+> John, please queue for the next feature release.
+> I'll probably look into the WARN_ON issue, too, but this is not too
+> important
+> as weird things are expected to happen if user requests passing of bad
+> frames.
+>
+>
+> Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/wireless/b43/xmit.c       2009-03-02
+> 23:14:52.000000000 +0100
+> +++ wireless-testing/drivers/net/wireless/b43/xmit.c    2009-03-02
+> 23:14:54.000000000 +0100
+> @@ -538,8 +538,14 @@ void b43_rx(struct b43_wldev *dev, struc
+>        chanstat = le16_to_cpu(rxhdr->channel);
+>        phytype = chanstat & B43_RX_CHAN_PHYTYPE;
+>
+> -       if (macstat & B43_RX_MAC_FCSERR)
+> +       if (unlikely(macstat & B43_RX_MAC_FCSERR)) {
+>                dev->wl->ieee_stats.dot11FCSErrorCount++;
+> +               status.flag |= RX_FLAG_FAILED_FCS_CRC;
+> +       }
+> +       if (unlikely(phystat0 & (B43_RX_PHYST0_PLCPHCF |
+> B43_RX_PHYST0_PLCPFV)))
+> +               status.flag |= RX_FLAG_FAILED_PLCP_CRC;
+> +       if (phystat0 & B43_RX_PHYST0_SHORTPRMBL)
+> +               status.flag |= RX_FLAG_SHORTPRE;
+>        if (macstat & B43_RX_MAC_DECERR) {
+>                /* Decryption with the given key failed.
+>                 * Drop the packet. We also won't be able to decrypt it with
+> @@ -606,8 +612,12 @@ void b43_rx(struct b43_wldev *dev, struc
+>                                                phytype == B43_PHYTYPE_A);
+>        else
+>                status.rate_idx = b43_plcp_get_bitrate_idx_cck(plcp);
+> -       if (unlikely(status.rate_idx == -1))
+> -               goto drop;
+> +       if (unlikely(status.rate_idx == -1)) {
+> +               /* PLCP seems to be corrupted.
+> +                * Drop the frame, if we are not interested in corrupted
+> frames. */
+> +               if (!(dev->wl->filter_flags & FIF_PLCPFAIL))
+> +                       goto drop;
+> +       }
+>        status.antenna = !!(phystat0 & B43_RX_PHYST0_ANT);
+>
+>        /*
+> @@ -661,7 +671,6 @@ void b43_rx(struct b43_wldev *dev, struc
+>                goto drop;
+>        }
+>
+> -       dev->stats.last_rx = jiffies;
+>        ieee80211_rx_irqsafe(dev->wl->hw, skb, &status);
+>
+>        return;
+> Index: wireless-testing/drivers/net/wireless/b43/b43.h
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/wireless/b43/b43.h        2009-03-02
+> 23:14:52.000000000 +0100
+> +++ wireless-testing/drivers/net/wireless/b43/b43.h     2009-03-02
+> 23:14:54.000000000 +0100
+> @@ -550,9 +550,6 @@ struct b43_noise_calculation {
+>
+>  struct b43_stats {
+>        u8 link_noise;
+> -       /* Store the last TX/RX times here for updating the leds. */
+> -       unsigned long last_tx;
+> -       unsigned long last_rx;
+>  };
+>
+>  struct b43_key {
+> Index: wireless-testing/drivers/net/wireless/b43/dma.c
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/wireless/b43/dma.c        2009-03-02
+> 23:14:52.000000000 +0100
+> +++ wireless-testing/drivers/net/wireless/b43/dma.c     2009-03-02
+> 23:14:54.000000000 +0100
+> @@ -1425,7 +1425,6 @@ void b43_dma_handle_txstatus(struct b43_
+>                        break;
+>                slot = next_slot(ring, slot);
+>        }
+> -       dev->stats.last_tx = jiffies;
+>        if (ring->stopped) {
+>                B43_WARN_ON(free_slots(ring) < TX_SLOTS_PER_FRAME);
+>                ieee80211_wake_queue(dev->wl->hw, ring->queue_prio);
+>
+> --
+> Greetings, Michael.
+> _______________________________________________
+> Bcm43xx-dev mailing list
+> Bcm43xx-dev at lists.berlios.de
+> https://lists.berlios.de/mailman/listinfo/bcm43xx-dev
+>
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090302/8a6b048e/attachment.html>
+
+From hanbo00 at gmail.com  Tue Mar  3 14:27:30 2009
+From: hanbo00 at gmail.com (Bo Han)
+Date: Tue, 3 Mar 2009 08:27:30 -0500
+Subject: [PATCH] b43: Pass more RX flags to mac80211
+In-Reply-To: <200903022318.37977.mb@bu3sch.de>
+References: <200903022318.37977.mb@bu3sch.de>
+Message-ID: <d0ad1e930903030527u27c13defp15db0e253d68a580@mail.gmail.com>
+
+Hi Michael,
+
+After I applied the patch you provided below, the system is still frozen
+after I turn on the fcsfail flag.  If it is possible, could you please test
+on your systems?
+
+Thanks,
+-Bo
+
+On Mon, Mar 2, 2009 at 5:18 PM, Michael Buesch <mb at bu3sch.de> wrote:
+
+> This changes the RX handler to pass more status flags to mac80211.
+> It also changes part of the drop policy, if bad frames were requested.
+> (Note that
+> currently mac80211 will throw a WARN_ON in that case. But nothing bad will
+> happen).
+>
+> This also removes some obsolete unused timestamping code.
+>
+> Signed-off-by: Michael Buesch <mb at bu3sch.de>
+>
+> ---
+>
+>
+> John, please queue for the next feature release.
+> I'll probably look into the WARN_ON issue, too, but this is not too
+> important
+> as weird things are expected to happen if user requests passing of bad
+> frames.
+>
+>
+> Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/wireless/b43/xmit.c       2009-03-02
+> 23:14:52.000000000 +0100
+> +++ wireless-testing/drivers/net/wireless/b43/xmit.c    2009-03-02
+> 23:14:54.000000000 +0100
+> @@ -538,8 +538,14 @@ void b43_rx(struct b43_wldev *dev, struc
+>        chanstat = le16_to_cpu(rxhdr->channel);
+>        phytype = chanstat & B43_RX_CHAN_PHYTYPE;
+>
+> -       if (macstat & B43_RX_MAC_FCSERR)
+> +       if (unlikely(macstat & B43_RX_MAC_FCSERR)) {
+>                dev->wl->ieee_stats.dot11FCSErrorCount++;
+> +               status.flag |= RX_FLAG_FAILED_FCS_CRC;
+> +       }
+> +       if (unlikely(phystat0 & (B43_RX_PHYST0_PLCPHCF |
+> B43_RX_PHYST0_PLCPFV)))
+> +               status.flag |= RX_FLAG_FAILED_PLCP_CRC;
+> +       if (phystat0 & B43_RX_PHYST0_SHORTPRMBL)
+> +               status.flag |= RX_FLAG_SHORTPRE;
+>        if (macstat & B43_RX_MAC_DECERR) {
+>                /* Decryption with the given key failed.
+>                 * Drop the packet. We also won't be able to decrypt it with
+> @@ -606,8 +612,12 @@ void b43_rx(struct b43_wldev *dev, struc
+>                                                phytype == B43_PHYTYPE_A);
+>        else
+>                status.rate_idx = b43_plcp_get_bitrate_idx_cck(plcp);
+> -       if (unlikely(status.rate_idx == -1))
+> -               goto drop;
+> +       if (unlikely(status.rate_idx == -1)) {
+> +               /* PLCP seems to be corrupted.
+> +                * Drop the frame, if we are not interested in corrupted
+> frames. */
+> +               if (!(dev->wl->filter_flags & FIF_PLCPFAIL))
+> +                       goto drop;
+> +       }
+>        status.antenna = !!(phystat0 & B43_RX_PHYST0_ANT);
+>
+>        /*
+> @@ -661,7 +671,6 @@ void b43_rx(struct b43_wldev *dev, struc
+>                goto drop;
+>        }
+>
+> -       dev->stats.last_rx = jiffies;
+>        ieee80211_rx_irqsafe(dev->wl->hw, skb, &status);
+>
+>        return;
+> Index: wireless-testing/drivers/net/wireless/b43/b43.h
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/wireless/b43/b43.h        2009-03-02
+> 23:14:52.000000000 +0100
+> +++ wireless-testing/drivers/net/wireless/b43/b43.h     2009-03-02
+> 23:14:54.000000000 +0100
+> @@ -550,9 +550,6 @@ struct b43_noise_calculation {
+>
+>  struct b43_stats {
+>        u8 link_noise;
+> -       /* Store the last TX/RX times here for updating the leds. */
+> -       unsigned long last_tx;
+> -       unsigned long last_rx;
+>  };
+>
+>  struct b43_key {
+> Index: wireless-testing/drivers/net/wireless/b43/dma.c
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/wireless/b43/dma.c        2009-03-02
+> 23:14:52.000000000 +0100
+> +++ wireless-testing/drivers/net/wireless/b43/dma.c     2009-03-02
+> 23:14:54.000000000 +0100
+> @@ -1425,7 +1425,6 @@ void b43_dma_handle_txstatus(struct b43_
+>                        break;
+>                slot = next_slot(ring, slot);
+>        }
+> -       dev->stats.last_tx = jiffies;
+>        if (ring->stopped) {
+>                B43_WARN_ON(free_slots(ring) < TX_SLOTS_PER_FRAME);
+>                ieee80211_wake_queue(dev->wl->hw, ring->queue_prio);
+>
+> --
+> Greetings, Michael.
+> _______________________________________________
+> Bcm43xx-dev mailing list
+> Bcm43xx-dev at lists.berlios.de
+> https://lists.berlios.de/mailman/listinfo/bcm43xx-dev
+>
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090303/d2b9bb3f/attachment.html>
+
+From mb at bu3sch.de  Tue Mar  3 14:34:45 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Tue, 3 Mar 2009 14:34:45 +0100
+Subject: [PATCH] b43: Pass more RX flags to mac80211
+In-Reply-To: <d0ad1e930903030527u27c13defp15db0e253d68a580@mail.gmail.com>
+References: <200903022318.37977.mb@bu3sch.de>
+	<d0ad1e930903030527u27c13defp15db0e253d68a580@mail.gmail.com>
+Message-ID: <200903031434.45359.mb@bu3sch.de>
+
+On Tuesday 03 March 2009 14:27:30 Bo Han wrote:
+> Hi Michael,
+> 
+> After I applied the patch you provided below, the system is still frozen
+> after I turn on the fcsfail flag.  If it is possible, could you please test
+> on your systems?
+
+The patch is not supposed to fix your freezes. Please remove your patches and fix the freeze yourself.
+
+-- 
+Greetings, Michael.
+
+
+From hanbo00 at gmail.com  Tue Mar  3 14:41:08 2009
+From: hanbo00 at gmail.com (Bo Han)
+Date: Tue, 3 Mar 2009 08:41:08 -0500
+Subject: PCI adapters do not work for rate control and high bit rates
+Message-ID: <d0ad1e930903030541t60eb56c4m1cd728fa75d1d770@mail.gmail.com>
+
+Hi,
+
+I am having troubles when using ASUS WL-138G V2 Wireless LAN PCI Adapters.
+I am using ad-hoc mode and kernel version 2.6.28.7.  There is no rate
+control for these cards.  When I set the bit rate to auto, they always use 1
+Mbps (they are very close to each other, around 1 meter).  Also when two PCI
+cards talk with each other, they do not support bit rates 48 and 54 Mbps.
+The link quality for 36 Mbps is very good.  When I ping from one to another,
+most of the time, no packets can get through.  Sometimes, I can get two ICMP
+responses.  They can use these rates for ACK frames when talking with an AP,
+which means the modulation is there, but not works well for data packet?.
+
+I also attached the output of dmesg and lspci below.
+
+Thanks,
+-Bo
+
+*******************************************************************************************
+
+output of dmesg:
+
+[  443.929045] b43-phy0: Broadcom 4318 WLAN found
+[  443.939533] cfg80211: Regulatory domain changed to country: US
+[  443.939542]     (start_freq - end_freq @ bandwidth), (max_antenna_gain,
+max_eirp)
+[  443.939548]     (2402000 KHz - 2472000 KHz @ 40000 KHz), (300 mBi, 2700
+mBm)
+[  443.939553]     (5170000 KHz - 5250000 KHz @ 40000 KHz), (300 mBi, 1700
+mBm)
+[  443.939558]     (5250000 KHz - 5330000 KHz @ 40000 KHz), (300 mBi, 2000
+mBm)
+[  443.939563]     (5490000 KHz - 5710000 KHz @ 40000 KHz), (300 mBi, 2000
+mBm)
+[  443.939568]     (5735000 KHz - 5835000 KHz @ 40000 KHz), (300 mBi, 3000
+mBm)
+[  443.972021] b43-phy0 debug: Found PHY: Analog 3, Type 2, Revision 7
+[  443.972048] b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050,
+Revision 8
+[  444.013508] phy0: Selected rate control algorithm 'pid'
+[  444.014981] Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID:
+FW13 ]
+[  444.180267] input: b43-phy0 as /class/input/input6
+[  444.272050] b43 ssb0:0: firmware: requesting b43/ucode5.fw
+[  444.283513] b43 ssb0:0: firmware: requesting b43/pcm5.fw
+[  444.325147] b43 ssb0:0: firmware: requesting b43/b0g0initvals5.fw
+[  444.350355] b43 ssb0:0: firmware: requesting b43/b0g0bsinitvals5.fw
+[  444.484033] b43-phy0: Loading firmware version 410.2160 (2007-05-26
+15:32:10)
+[  444.504040] b43-phy0 debug: Chip initialized
+[  444.504461] b43-phy0 debug: 32-bit DMA initialized
+[  444.524509] Registered led device: b43-phy0::tx
+[  444.524553] Registered led device: b43-phy0::rx
+[  444.524587] Registered led device: b43-phy0::assoc
+[  444.524622] Registered led device: b43-phy0::radio
+[  444.524655] b43-phy0 debug: Wireless interface started
+
+output of lspic:
+
+00:13.0 Network controller: Broadcom Corporation BCM4318 [AirForce One 54g]
+802.11g Wireless LAN Controller (rev 02)
+    Subsystem: ASUSTeK Computer Inc. Device 100f
+    Flags: bus master, fast devsel, latency 32, IRQ 18
+    Memory at dd800000 (32-bit, non-prefetchable) [size=8K]
+    Kernel driver in use: b43-pci-bridge
+    Kernel modules: ssb
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090303/37c7a41f/attachment.html>
+
+From henning at loca.net  Tue Mar  3 14:30:39 2009
+From: henning at loca.net (Henning Holtschneider)
+Date: Tue, 3 Mar 2009 14:30:39 +0100
+Subject: unsupported PHY on BCM5354
+Message-ID: <75F20AD3-03D8-47A3-A2AD-77703467225D@loca.net>
+
+Hello everybody,
+
+I'm trying to use the b43 driver on a Broadcom 5354 SoC platform  
+running OpenWRT SVN Trunk (Linux kernel 2.6.28.7). When loading the  
+driver, I get:
+
+b43-phy0: Broadcom 5354 WLAN found (core revision 13)
+b43-phy0 ERROR: FOUND UNSUPPORTED PHY (Analog 6, Type 5, Revision 0)
+b43: probe of ssb0:3 failed with error -122
+Broadcom 43xx driver loaded [ Features: PLR, Firmware-ID: FW13 ]
+
+Is the BCM5354 device supported at all? If it is, what can I do to get  
+further than "UNSUPPORTED PHY"?
+
+Best regards,
+Henning Holtschneider
+--
+LocaNet oHG - http://www.loca.net
+Lindemannstrasse 81, D-44137 Dortmund
+tel +49 231 91596-25, fax +49 231 91596-55
+sip 25 at voip.loca.net
+
+Registergericht Amtsgericht Dortmund HRA 14208
+Gesch?ftsf?hrer Sven Haufe, Henning Holtschneider
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: PGP.sig
+Type: application/pgp-signature
+Size: 194 bytes
+Desc: Signierter Teil der Nachricht
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090303/3bd282bd/attachment.pgp>
+
+From david at identd.dyndns.org  Tue Mar  3 15:27:38 2009
+From: david at identd.dyndns.org (David Ellingsworth)
+Date: Tue, 3 Mar 2009 09:27:38 -0500
+Subject: Cardbus wireless cards
+In-Reply-To: <1233666319.3957.1.camel@johannes.local>
+References: <1233666319.3957.1.camel@johannes.local>
+Message-ID: <30353c3d0903030627g5c5323f8l88e551a8b43a066a@mail.gmail.com>
+
+On Tue, Feb 3, 2009 at 8:05 AM, Johannes Berg <johannes at sipsolutions.net> wrote:
+> Hi,
+>
+> Some of you know that I got a new laptop, and it doesn't have a cardbus
+> slot any more. I still have my powerbook, and it's still working fine,
+> but I'm not using it any more, it hasn't even booted in a month. I could
+> test on my powerbook, but given my regular time budget it seems unlikely
+> that I ever will.
+>
+> Hence, I'm offering my collection of cardbus/pcmcia wireless test cards
+> to anyone I can afford shipping to.
+>
+> * Broadcom PCMCIA (not cardbus, in cardbus slot adapter)
+> ?requires external single antenna (u.fl, have one if I can find it)
+> * Airgo-based Belkin F5D8010 ("true MIMO")
+> * rt61pci (Conceptronic)
+> * Broadcom 11n (4321)
+> * acx111 based card (D-Link AirPlus XTreme G+)
+>
+> I also have a Broadcom 11g (4306 I think, might be 4318) PCI card
+> somewhere that I will most likely never again have a use for.
+>
+> johannes
+>
+
+I'm interested in the PCI card if it's still available.
+
+Regards,
+
+David Ellingsworth
+
+
+From illth at gmx.de  Tue Mar  3 16:32:54 2009
+From: illth at gmx.de (Thomas Ilnseher)
+Date: Tue, 03 Mar 2009 16:32:54 +0100
+Subject: unsupported PHY on BCM5354
+In-Reply-To: <75F20AD3-03D8-47A3-A2AD-77703467225D@loca.net>
+References: <75F20AD3-03D8-47A3-A2AD-77703467225D@loca.net>
+Message-ID: <1236094374.5580.28.camel@pcmik05.zmk.uni-kl.de>
+
+Am Dienstag, den 03.03.2009, 14:30 +0100 schrieb Henning Holtschneider:
+> Hello everybody,
+> 
+> I'm trying to use the b43 driver on a Broadcom 5354 SoC platform  
+> running OpenWRT SVN Trunk (Linux kernel 2.6.28.7). When loading the  
+> driver, I get:
+> 
+> b43-phy0: Broadcom 5354 WLAN found (core revision 13)
+> b43-phy0 ERROR: FOUND UNSUPPORTED PHY (Analog 6, Type 5, Revision 0)
+> b43: probe of ssb0:3 failed with error -122
+> Broadcom 43xx driver loaded [ Features: PLR, Firmware-ID: FW13 ]
+> 
+> Is the BCM5354 device supported at all?
+No. This SoC uses an LP Phy. Support is not ready yet. The reverse
+engineering is done, thou.
+>  If it is, what can I do to get  
+> further than "UNSUPPORTED PHY"?
+Implement Support for LP PHYs. I Think Michael Buesch is adding support
+for those phys right now. You should ask him how you can help him.
+> 
+> Best regards,
+> Henning Holtschneider
+> --
+> LocaNet oHG - http://www.loca.net
+> Lindemannstrasse 81, D-44137 Dortmund
+> tel +49 231 91596-25, fax +49 231 91596-55
+> sip 25 at voip.loca.net
+> 
+> Registergericht Amtsgericht Dortmund HRA 14208
+> Gesch?ftsf?hrer Sven Haufe, Henning Holtschneider
+> 
+> _______________________________________________
+> Bcm43xx-dev mailing list
+> Bcm43xx-dev at lists.berlios.de
+> https://lists.berlios.de/mailman/listinfo/bcm43xx-dev
+
+
+
+From Larry.Finger at lwfinger.net  Tue Mar  3 17:35:40 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Tue, 03 Mar 2009 10:35:40 -0600
+Subject: PCI adapters do not work for rate control and high bit rates
+In-Reply-To: <d0ad1e930903030541t60eb56c4m1cd728fa75d1d770@mail.gmail.com>
+References: <d0ad1e930903030541t60eb56c4m1cd728fa75d1d770@mail.gmail.com>
+Message-ID: <49AD5C5C.4000806@lwfinger.net>
+
+My 4318 does rate control perfectly well, as do the rest of my BCM43XX devices.
+Your problems are not general.
+
+Larry
+
+
+From coomac at gmail.com  Tue Mar  3 23:08:02 2009
+From: coomac at gmail.com (Nkoli)
+Date: Tue, 3 Mar 2009 17:08:02 -0500
+Subject: Searching the mailing list
+Message-ID: <e67787dd0903031408s554773a7pb1cee051b271ae47@mail.gmail.com>
+
+I'm having problems getting a laptop with a bcm4306 card to work on my
+open wireless network using b43legacy with openSUSE 11.1. I know the
+issue with bcm4306 has been discussed multiple times already. There
+used to be a site like gmane.org that one could visit to search the
+mailing list archives, but I can no longer find it. How do I go about
+searching through the list nowadays? Can anyone point me in the right
+direction? Thanks.
+
+
+Nkoli
+
+
+From netrolller.3d at gmail.com  Tue Mar  3 23:51:44 2009
+From: netrolller.3d at gmail.com (=?ISO-8859-1?Q?G=E1bor_Stefanik?=)
+Date: Tue, 3 Mar 2009 23:51:44 +0100
+Subject: PCI adapters do not work for rate control and high bit rates
+In-Reply-To: <d0ad1e930903030541t60eb56c4m1cd728fa75d1d770@mail.gmail.com>
+References: <d0ad1e930903030541t60eb56c4m1cd728fa75d1d770@mail.gmail.com>
+Message-ID: <69e28c910903031451p1347177bl4ff31be60924a0af@mail.gmail.com>
+
+On Tue, Mar 3, 2009 at 2:41 PM, Bo Han <hanbo00 at gmail.com> wrote:
+> Hi,
+>
+> I am having troubles when using ASUS WL-138G V2 Wireless LAN PCI Adapters.
+> I am using ad-hoc mode and kernel version 2.6.28.7.? There is no rate
+> control for these cards.? When I set the bit rate to auto, they always use 1
+> Mbps (they are very close to each other, around 1 meter).? Also when two PCI
+> cards talk with each other, they do not support bit rates 48 and 54 Mbps.
+> The link quality for 36 Mbps is very good.? When I ping from one to another,
+> most of the time, no packets can get through.? Sometimes, I can get two ICMP
+> responses.? They can use these rates for ACK frames when talking with an AP,
+> which means the modulation is there, but not works well for data packet?.
+>
+> I also attached the output of dmesg and lspci below.
+>
+> Thanks,
+> -Bo
+>
+> *******************************************************************************************
+>
+> output of dmesg:
+>
+> [? 443.929045] b43-phy0: Broadcom 4318 WLAN found
+> [? 443.939533] cfg80211: Regulatory domain changed to country: US
+> [? 443.939542] ??? (start_freq - end_freq @ bandwidth), (max_antenna_gain,
+> max_eirp)
+> [? 443.939548] ??? (2402000 KHz - 2472000 KHz @ 40000 KHz), (300 mBi, 2700
+> mBm)
+> [? 443.939553] ??? (5170000 KHz - 5250000 KHz @ 40000 KHz), (300 mBi, 1700
+> mBm)
+> [? 443.939558] ??? (5250000 KHz - 5330000 KHz @ 40000 KHz), (300 mBi, 2000
+> mBm)
+> [? 443.939563] ??? (5490000 KHz - 5710000 KHz @ 40000 KHz), (300 mBi, 2000
+> mBm)
+> [? 443.939568] ??? (5735000 KHz - 5835000 KHz @ 40000 KHz), (300 mBi, 3000
+> mBm)
+> [? 443.972021] b43-phy0 debug: Found PHY: Analog 3, Type 2, Revision 7
+> [? 443.972048] b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050,
+> Revision 8
+> [? 444.013508] phy0: Selected rate control algorithm 'pid'
+> [? 444.014981] Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID:
+> FW13 ]
+> [? 444.180267] input: b43-phy0 as /class/input/input6
+> [? 444.272050] b43 ssb0:0: firmware: requesting b43/ucode5.fw
+> [? 444.283513] b43 ssb0:0: firmware: requesting b43/pcm5.fw
+> [? 444.325147] b43 ssb0:0: firmware: requesting b43/b0g0initvals5.fw
+> [? 444.350355] b43 ssb0:0: firmware: requesting b43/b0g0bsinitvals5.fw
+> [? 444.484033] b43-phy0: Loading firmware version 410.2160 (2007-05-26
+> 15:32:10)
+> [? 444.504040] b43-phy0 debug: Chip initialized
+> [? 444.504461] b43-phy0 debug: 32-bit DMA initialized
+> [? 444.524509] Registered led device: b43-phy0::tx
+> [? 444.524553] Registered led device: b43-phy0::rx
+> [? 444.524587] Registered led device: b43-phy0::assoc
+> [? 444.524622] Registered led device: b43-phy0::radio
+> [? 444.524655] b43-phy0 debug: Wireless interface started
+>
+> output of lspic:
+>
+> 00:13.0 Network controller: Broadcom Corporation BCM4318 [AirForce One 54g]
+> 802.11g Wireless LAN Controller (rev 02)
+> ??? Subsystem: ASUSTeK Computer Inc. Device 100f
+> ??? Flags: bus master, fast devsel, latency 32, IRQ 18
+> ??? Memory at dd800000 (32-bit, non-prefetchable) [size=8K]
+> ??? Kernel driver in use: b43-pci-bridge
+> ??? Kernel modules: ssb
+>
+>
+> _______________________________________________
+> Bcm43xx-dev mailing list
+> Bcm43xx-dev at lists.berlios.de
+> https://lists.berlios.de/mailman/listinfo/bcm43xx-dev
+>
+>
+
+A distance of ~1m is actually too close, it can result in antenna
+saturation. Try reducing the TX power of the cards.
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+
+From zajec5polish at gmail.com  Wed Mar  4 06:35:03 2009
+From: zajec5polish at gmail.com (=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?=)
+Date: Wed, 4 Mar 2009 06:35:03 +0100
+Subject: Searching the mailing list
+In-Reply-To: <e67787dd0903031408s554773a7pb1cee051b271ae47@mail.gmail.com>
+References: <e67787dd0903031408s554773a7pb1cee051b271ae47@mail.gmail.com>
+Message-ID: <14b026160903032135n56744747qd2eda8ada9eff704@mail.gmail.com>
+
+2009/3/3 Nkoli <coomac at gmail.com>:
+> I'm having problems getting a laptop with a bcm4306 card to work on my
+> open wireless network using b43legacy with openSUSE 11.1. I know the
+> issue with bcm4306 has been discussed multiple times already. There
+> used to be a site like gmane.org that one could visit to search the
+> mailing list archives, but I can no longer find it. How do I go about
+> searching through the list nowadays? Can anyone point me in the right
+> direction? Thanks.
+
+I suggest Google:
+
+bcm4306 site:https://lists.berlios.de/pipermail/bcm43xx-dev/
+
+-- 
+Rafa? Mi?ecki
+
+
+From mb at bu3sch.de  Wed Mar  4 16:41:10 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Wed, 4 Mar 2009 16:41:10 +0100
+Subject: [PATCH] b43: Fix compilation for devices without PCI core
+Message-ID: <200903041641.11302.mb@bu3sch.de>
+
+This fixes compilation, if the PCI core is disabled.
+
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+---
+
+John, I think this is only needed for the next feature release, as the patch
+that broke that was only merged for next, afaik.
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2009-03-04 16:35:07.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/main.c	2009-03-04 16:36:08.000000000 +0100
+@@ -4176,15 +4176,17 @@ static int b43_wireless_core_init(struct
+ 			hf |= B43_HF_4318TSSI;
+ 		if (phy->radio_rev < 6)
+ 			hf |= B43_HF_VCORECALC;
+ 	}
+ 	if (sprom->boardflags_lo & B43_BFL_XTAL_NOSLOW)
+ 		hf |= B43_HF_DSCRQ; /* Disable slowclock requests from ucode. */
++#ifdef CONFIG_SSB_DRIVER_PCICORE
+ 	if ((bus->bustype == SSB_BUSTYPE_PCI) &&
+ 	    (bus->pcicore.dev->id.revision <= 10))
+ 		hf |= B43_HF_PCISCW; /* PCI slow clock workaround. */
++#endif
+ 	hf &= ~B43_HF_SKCFPUP;
+ 	b43_hf_write(dev, hf);
+ 
+ 	b43_set_retry_limits(dev, B43_DEFAULT_SHORT_RETRY_LIMIT,
+ 			     B43_DEFAULT_LONG_RETRY_LIMIT);
+ 	b43_shm_write16(dev, B43_SHM_SHARED, B43_SHM_SH_SFFBLIM, 3);
+
+-- 
+Greetings, Michael.
+
+
+From mtcstle at yahoo.com  Sun Mar  8 20:09:57 2009
+From: mtcstle at yahoo.com (John Mountcastle)
+Date: Sun, 8 Mar 2009 12:09:57 -0700 (PDT)
+Subject: new  shopping new life
+Message-ID: <807548.80638.qm@web65404.mail.ac4.yahoo.com>
+
+Dear friend,
+I would like to introduce a really good company that mainly do the electornic products trade.
+Now the company is doing promotion,all of it's products are sold nearly as same as their cost.
+It redeners the best service to customers,it provide you original products which is
+good quality,and what's more,the pricewill give you a big surprise!
+It is realy a good opportunity for doing shopping.Just grasp the opportunity,or there will be no more than that!
+The web address: www.bvncn.com
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090308/78096c05/attachment.html>
+
+From ronanpaixao at yahoo.com.br  Sun Mar  8 21:15:08 2009
+From: ronanpaixao at yahoo.com.br (Ronan =?ISO-8859-1?Q?Paix=E3o?=)
+Date: Sun, 08 Mar 2009 17:15:08 -0300
+Subject: BCM4315
+Message-ID: <1236543308.10455.6.camel@tachion>
+
+Hi,
+I've just bought a Dell Vostro 1310 laptop which appears to include a
+BCM4315 chipset:
+
+$ lspci|grep Broad
+06:00.0 Network controller: Broadcom Corporation BCM4312 802.11b/g (rev
+01)
+
+$ lspci -n|grep 43
+06:00.0 0280: 14e4:4315 (rev 01)
+
+$ uname -a
+Linux tachion 2.6.27-11-generic #1 SMP Thu Jan 29 19:24:39 UTC 2009 i686
+GNU/Linux
+
+
+Obviously even their device strings Broadcom can mess up.
+
+Anyway, currently I'm having many kernel panics (which don't generate
+logs) and I suspect the culprit is the wl driver that I have to use
+(supplied by Ubuntu 8.10) in order to get the card running.
+
+The b43 driver doesn't appear to support my card, but I have no idea on
+how to code drivers. Can I be of any help for someone who knows?
+
+Ronan
+
+
+
+From gavron at wetwork.net  Sun Mar  8 21:21:33 2009
+From: gavron at wetwork.net (gavron at wetwork.net)
+Date: Sun, 08 Mar 2009 13:21:33 -0700
+Subject: BCM4315
+In-Reply-To: <1236543308.10455.6.camel@tachion>
+References: <1236543308.10455.6.camel@tachion>
+Message-ID: <49B428CD.4050200@wetwork.net>
+
+The b43 team has come up with the specs but hasn't yet coded the driver 
+to support that one.
+
+In the meantime check out www.myehud.com/mini9.  It includes links on 
+building wl from source, and patching it for 2.6.28 / 2.6.29 as appropriate.
+The from-source version is a TAD more reliable than the pure-binary that 
+Ubuntu Intrepid (8.10) ships with.
+
+Ehud
+
+Ronan Paix?o wrote:
+> Hi,
+> I've just bought a Dell Vostro 1310 laptop which appears to include a
+> BCM4315 chipset:
+>
+> $ lspci|grep Broad
+> 06:00.0 Network controller: Broadcom Corporation BCM4312 802.11b/g (rev
+> 01)
+>
+> $ lspci -n|grep 43
+> 06:00.0 0280: 14e4:4315 (rev 01)
+>
+> $ uname -a
+> Linux tachion 2.6.27-11-generic #1 SMP Thu Jan 29 19:24:39 UTC 2009 i686
+> GNU/Linux
+>
+>
+> Obviously even their device strings Broadcom can mess up.
+>
+> Anyway, currently I'm having many kernel panics (which don't generate
+> logs) and I suspect the culprit is the wl driver that I have to use
+> (supplied by Ubuntu 8.10) in order to get the card running.
+>
+> The b43 driver doesn't appear to support my card, but I have no idea on
+> how to code drivers. Can I be of any help for someone who knows?
+>
+> Ronan
+>
+> _______________________________________________
+> Bcm43xx-dev mailing list
+> Bcm43xx-dev at lists.berlios.de
+> https://lists.berlios.de/mailman/listinfo/bcm43xx-dev
+>   
+
+-- 
+Legal Disclaimer that you are now contractually bound to under all laws with no recourse:
+http://attrition.org/security/rants/z/disclaimers.html
+
+
+
+From mtcstle at yahoo.com  Mon Mar  9 22:34:31 2009
+From: mtcstle at yahoo.com (John Mountcastle)
+Date: Mon, 9 Mar 2009 14:34:31 -0700 (PDT)
+Subject: nuisance email
+Message-ID: <937374.46617.qm@web65416.mail.ac4.yahoo.com>
+
+You probably recieved one or more emails that seemed to come from me, since yesterday afternoon. A spam bot got into my mail account and has sent out quite a few messages. One of them suggests a shopping site that seems too good to be true, it likely is.
+
+I had nothing to do with these messages and I'm sorry you've been troubled.
+
+Regards,
+
+John
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090309/78d95e6a/attachment.html>
+
+From wkevils at gmail.com  Tue Mar 10 12:41:03 2009
+From: wkevils at gmail.com (Kevin Wilson)
+Date: Tue, 10 Mar 2009 13:41:03 +0200
+Subject: ACK in the bcm driver
+Message-ID: <55c333c0903100441w72555fb0oa50f1023690e22f2@mail.gmail.com>
+
+Hello,
+  I just wonder: where is the code for sending ACK packets
+(acknowledgments) is in the bcm driver?
+I could not find usage IEEE80211_STYPE_ACK anywhere in the driver (and
+also not in the mac80211 stack). Is it done in firmware ?
+
+Rgs,
+Kevin
+
+
+From mb at bu3sch.de  Tue Mar 10 12:52:40 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Tue, 10 Mar 2009 12:52:40 +0100
+Subject: ACK in the bcm driver
+In-Reply-To: <55c333c0903100441w72555fb0oa50f1023690e22f2@mail.gmail.com>
+References: <55c333c0903100441w72555fb0oa50f1023690e22f2@mail.gmail.com>
+Message-ID: <200903101252.40866.mb@bu3sch.de>
+
+On Tuesday 10 March 2009 12:41:03 Kevin Wilson wrote:
+> Is it done in firmware ?
+
+Yes. It's impossible to get ACK timings correct from within a kernel driver.
+
+-- 
+Greetings, Michael.
+
+
+From s.L-H at gmx.de  Sun Mar 15 22:27:13 2009
+From: s.L-H at gmx.de (Stefan Lippers-Hollmann)
+Date: Sun, 15 Mar 2009 22:27:13 +0100
+Subject: [PATCH 1/1] ath5k: fix hw rate index condition
+In-Reply-To: <1231338965-796-1-git-send-email-jirislaby@gmail.com>
+References: <1231336282-22283-1-git-send-email-jirislaby@gmail.com>
+	<1231338965-796-1-git-send-email-jirislaby@gmail.com>
+Message-ID: <200903152227.16676.s.L-H@gmx.de>
+
+Hi
+
+On Mittwoch, 7. Januar 2009, Jiri Slaby wrote:
+> On 01/07/2009 02:51 PM, Jiri Slaby wrote:
+> > Dhaval Giani wrote:
+> >> I see this on current git. Not sure how to reproduce it, has happened on
+> >> two random occasions. At both times, I was not connected to a wireless
+> >> network, but to wired networks.
+> >>
+> >> ------------[ cut here ]------------
+> >> WARNING: at net/mac80211/rx.c:2234 __ieee80211_rx+0x7f/0x559
+> >> ...
+> >> Call Trace:
+> >>  [<f80d4192>] __ieee80211_rx+0x7f/0x559 [mac80211]
+> >>  [<f80a19f4>] ath5k_tasklet_rx+0x4f7/0x53b [ath5k]
+> >> ...
+> > 
+> > Hmm, maybe ath5k is culprit. Could you apply the attached patch and
+> > use the kernel till the problem appears again?
+
+It seems as if this problem wouldn't be restricted to ath5k, I just 
+triggered something very similar on b43 and 2.6.29-rc8-git1 (i386, hard 
+preemption):
+
+b43-phy0: Broadcom 4306 WLAN found (core revision 5)
+wmaster0 (b43): not using net_device_ops yet
+phy0: Selected rate control algorithm 'minstrel'
+wlan0 (b43): not using net_device_ops yet
+Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID: FW13 ]
+udev: renamed network interface wlan0 to wlan1
+[...]
+input: b43-phy0 as /devices/virtual/input/input8
+b43 ssb0:0: firmware: requesting b43/ucode5.fw
+b43 ssb0:0: firmware: requesting b43/pcm5.fw
+b43 ssb0:0: firmware: requesting b43/b0g0initvals5.fw
+b43 ssb0:0: firmware: requesting b43/b0g0bsinitvals5.fw
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0: Radio turned on by software
+[...]
+ADDRCONF(NETDEV_UP): wlan1: link is not ready
+wlan1: authenticate with AP 00:15:f2:7e:9b:7d
+wlan1: authenticated
+wlan1: associate with AP 00:15:f2:7e:9b:7d
+wlan1: RX AssocResp from 00:15:f2:7e:9b:7d (capab=0x411 status=0 aid=2)
+wlan1: associated
+ADDRCONF(NETDEV_CHANGE): wlan1: link becomes ready
+[...]
+wlan1: no IPv6 routers present
+b43-phy0 ERROR: PHY transmission error
+b43-phy0 ERROR: PHY transmission error
+
+[ lots of these, likely to be caused by minstrel being a little too 
+  optimistic about the possible wlan rates (it was more conservative in 
+  2.6.28 and didn't happen there); the distance between both stations is 
+  on the upper end ]
+
+b43-phy0 ERROR: PHY transmission error
+__ratelimit: 9 callbacks suppressed
+b43-phy0 ERROR: PHY transmission error
+b43-phy0 ERROR: PHY transmission error
+------------[ cut here ]------------
+WARNING: at net/mac80211/rx.c:2234 __ieee80211_rx+0xa2/0x6a0 [mac80211]()
+Hardware name: Amilo D-Series
+Modules linked in: ppdev lp aes_i586 aes_generic ipv6 af_packet rfkill_input arc4 ecb b43 rfkill rng_core mac80211 cfg80211 led_class input_polldev ssb joydev pcmcia snd_via82xx gameport snd_ac97_codec ac97_bus snd_pcm_oss snd_mixer_oss snd_pcm snd_timer snd_page_alloc snd_mpu401_uart snd_rawmidi snd_seq_device i2c_viapro serio_raw snd i2c_core pcspkr psmouse evdev soundcore via686a via_agp shpchp yenta_socket rsrc_nonstatic pcmcia_core pci_hotplug rtc_cmos battery rtc_core rtc_lib parport_pc parport ac button ext3 jbd mbcache sg sr_mod cdrom sd_mod ata_generic pata_acpi pata_via uhci_hcd ehci_hcd floppy firewire_ohci libata tulip firewire_core crc_itu_t usbcore scsi_mod thermal processor fan
+Pid: 0, comm: swapper Not tainted 2.6.29-rc8-sidux-686 #1
+Call Trace:
+ [<c01319d7>] warn_slowpath+0x87/0xe0
+ [<d00523b7>] op32_set_current_rxslot+0x27/0x40 [b43]
+ [<d0052d93>] b43_dma_rx+0x193/0x420 [b43]
+ [<c0124fc3>] __wake_up_common+0x43/0x70
+ [<cfffcc62>] __ieee80211_rx+0xa2/0x6a0 [mac80211]
+ [<c011e9a5>] default_spin_lock_flags+0x5/0x10
+ [<c03a3f2e>] _spin_lock_irqsave+0x3e/0x60
+ [<cffeb337>] ieee80211_tasklet_handler+0x107/0x130 [mac80211]
+ [<c013692c>] tasklet_action+0x6c/0xf0
+ [<c0137147>] __do_softirq+0x87/0x140
+ [<c011e9a5>] default_spin_lock_flags+0x5/0x10
+ [<c03a3f2e>] _spin_lock_irqsave+0x3e/0x60
+ [<c0137255>] do_softirq+0x55/0x60
+ [<c0137495>] irq_exit+0x75/0x90
+ [<c0106378>] do_IRQ+0x48/0x90
+ [<c0104527>] common_interrupt+0x27/0x2c
+ [<cf8372e4>] acpi_idle_enter_simple+0x17a/0x1f4 [processor]
+ [<c02fd3bf>] cpuidle_idle_call+0x6f/0xc0
+ [<c0102de6>] cpu_idle+0x66/0xa0
+---[ end trace c754f566bbe5ac47 ]---
+------------[ cut here ]------------
+WARNING: at net/mac80211/rx.c:2234 __ieee80211_rx+0xa2/0x6a0 [mac80211]()
+Hardware name: Amilo D-Series
+Modules linked in: ppdev lp aes_i586 aes_generic ipv6 af_packet rfkill_input arc4 ecb b43 rfkill rng_core mac80211 cfg80211 led_class input_polldev ssb joydev pcmcia snd_via82xx gameport snd_ac97_codec ac97_bus snd_pcm_oss snd_mixer_oss snd_pcm snd_timer snd_page_alloc snd_mpu401_uart snd_rawmidi snd_seq_device i2c_viapro serio_raw snd i2c_core pcspkr psmouse evdev soundcore via686a via_agp shpchp yenta_socket rsrc_nonstatic pcmcia_core pci_hotplug rtc_cmos battery rtc_core rtc_lib parport_pc parport ac button ext3 jbd mbcache sg sr_mod cdrom sd_mod ata_generic pata_acpi pata_via uhci_hcd ehci_hcd floppy firewire_ohci libata tulip firewire_core crc_itu_t usbcore scsi_mod thermal processor fan
+Pid: 0, comm: swapper Tainted: G        W  2.6.29-rc8-sidux-686 #1
+Call Trace:
+ [<c01319d7>] warn_slowpath+0x87/0xe0
+ [<d00523b7>] op32_set_current_rxslot+0x27/0x40 [b43]
+ [<d0052d93>] b43_dma_rx+0x193/0x420 [b43]
+ [<d0055f15>] b43_led_turn_off+0x55/0x90 [b43]
+ [<cfffcc62>] __ieee80211_rx+0xa2/0x6a0 [mac80211]
+ [<c011e9a5>] default_spin_lock_flags+0x5/0x10
+ [<c03a3f2e>] _spin_lock_irqsave+0x3e/0x60
+ [<cffeb337>] ieee80211_tasklet_handler+0x107/0x130 [mac80211]
+ [<c013692c>] tasklet_action+0x6c/0xf0
+ [<c0137147>] __do_softirq+0x87/0x140
+ [<c011e9a5>] default_spin_lock_flags+0x5/0x10
+ [<c03a3f2e>] _spin_lock_irqsave+0x3e/0x60
+ [<c0137255>] do_softirq+0x55/0x60
+ [<c0137495>] irq_exit+0x75/0x90
+ [<c0106378>] do_IRQ+0x48/0x90
+ [<c0104527>] common_interrupt+0x27/0x2c
+ [<cf8372e4>] acpi_idle_enter_simple+0x17a/0x1f4 [processor]
+ [<c02fd3bf>] cpuidle_idle_call+0x6f/0xc0
+ [<c0102de6>] cpu_idle+0x66/0xa0
+---[ end trace c754f566bbe5ac48 ]---
+------------[ cut here ]------------
+WARNING: at net/mac80211/rx.c:2234 __ieee80211_rx+0xa2/0x6a0 [mac80211]()
+Hardware name: Amilo D-Series
+Modules linked in: ppdev lp aes_i586 aes_generic ipv6 af_packet rfkill_input arc4 ecb b43 rfkill rng_core mac80211 cfg80211 led_class input_polldev ssb joydev pcmcia snd_via82xx gameport snd_ac97_codec ac97_bus snd_pcm_oss snd_mixer_oss snd_pcm snd_timer snd_page_alloc snd_mpu401_uart snd_rawmidi snd_seq_device i2c_viapro serio_raw snd i2c_core pcspkr psmouse evdev soundcore via686a via_agp shpchp yenta_socket rsrc_nonstatic pcmcia_core pci_hotplug rtc_cmos battery rtc_core rtc_lib parport_pc parport ac button ext3 jbd mbcache sg sr_mod cdrom sd_mod ata_generic pata_acpi pata_via uhci_hcd ehci_hcd floppy firewire_ohci libata tulip firewire_core crc_itu_t usbcore scsi_mod thermal processor fan
+Pid: 1873, comm: kjournald Tainted: G        W  2.6.29-rc8-sidux-686 #1
+Call Trace:
+ [<c01319d7>] warn_slowpath+0x87/0xe0
+ [<d00523b7>] op32_set_current_rxslot+0x27/0x40 [b43]
+ [<d0052d93>] b43_dma_rx+0x193/0x420 [b43]
+ [<cfffcc62>] __ieee80211_rx+0xa2/0x6a0 [mac80211]
+ [<c011e9a5>] default_spin_lock_flags+0x5/0x10
+ [<c03a3f2e>] _spin_lock_irqsave+0x3e/0x60
+ [<cffeb337>] ieee80211_tasklet_handler+0x107/0x130 [mac80211]
+ [<c013692c>] tasklet_action+0x6c/0xf0
+ [<c0137147>] __do_softirq+0x87/0x140
+ [<c011e9a5>] default_spin_lock_flags+0x5/0x10
+ [<c03a3f2e>] _spin_lock_irqsave+0x3e/0x60
+ [<c0137255>] do_softirq+0x55/0x60
+ [<c0137495>] irq_exit+0x75/0x90
+ [<c0106378>] do_IRQ+0x48/0x90
+ [<c01d3f44>] generic_block_bmap+0x54/0x70
+ [<c0104527>] common_interrupt+0x27/0x2c
+ [<cfbf723c>] __journal_file_buffer+0xdc/0x1d0 [jbd]
+ [<cfbf7397>] journal_file_buffer+0x67/0xc0 [jbd]
+ [<cfbfe102>] journal_write_metadata_buffer+0x1e2/0x3dc [jbd]
+ [<cfbf9e26>] journal_commit_transaction+0x806/0x1120 [jbd]
+ [<c013bcc7>] lock_timer_base+0x27/0x60
+ [<cfbfd82c>] kjournald+0xac/0x1f0 [jbd]
+ [<c01464b0>] autoremove_wake_function+0x0/0x50
+ [<cfbfd780>] kjournald+0x0/0x1f0 [jbd]
+ [<c01460e9>] kthread+0x39/0x70
+ [<c01460b0>] kthread+0x0/0x70
+ [<c0104793>] kernel_thread_helper+0x7/0x14
+---[ end trace c754f566bbe5ac49 ]---
+__ratelimit: 21 callbacks suppressed
+b43-phy0 ERROR: PHY transmission error
+[...]
+
+Sometimes even the firmware crashes and gets reloaded continously.
+
+wlan1     IEEE 802.11bg  ESSID:"soyuz"
+          Mode:Managed  Frequency:2.422 GHz  Access Point: 00:15:F2:7E:9B:7D
+          Bit Rate=18 Mb/s   Tx-Power=20 dBm
+          Retry min limit:7   RTS thr:off   Fragment thr=2352 B
+          Encryption key:<wpa2psk> [3]   Security mode:open
+          Power Management:off
+          Link Quality=53/100  Signal level:-75 dBm  Noise level=-65 dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+Setting a fixed wlan rate (like 11M) seems to avoid this problem.
+
+> I don't think this will print anything, the rate won't be 32, it's rather
+> too high. Could you apply also the appended debug one?
+
+I will apply this patch and give it some more testing tomorrow evening, 
+this problem is almost 100% reproducable for me at the end of my router's
+range and doesn't happen in closer proximity.
+
+> ---
+>  net/mac80211/rx.c |    6 ++++--
+>  1 files changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+> index 7175ae8..5e17e57 100644
+> --- a/net/mac80211/rx.c
+> +++ b/net/mac80211/rx.c
+> @@ -2230,8 +2230,10 @@ void __ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb,
+>  		 * MCS aware. */
+>  		rate = &sband->bitrates[sband->n_bitrates - 1];
+>  	} else {
+> -		if (WARN_ON(status->rate_idx < 0 ||
+> -			    status->rate_idx >= sband->n_bitrates))
+> +		if (WARN(status->rate_idx < 0 ||
+> +			    status->rate_idx >= sband->n_bitrates,
+> +			    "RATE=%u, BAND=%x\n", status->rate_idx,
+> +			    sband->n_bitrates))
+>  			return;
+>  		rate = &sband->bitrates[status->rate_idx];
+>  	}
+
+Regards
+	Stefan Lippers-Hollmann
+
+
+From mb at bu3sch.de  Sun Mar 15 22:35:15 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Sun, 15 Mar 2009 22:35:15 +0100
+Subject: [PATCH 1/1] ath5k: fix hw rate index condition
+In-Reply-To: <200903152227.16676.s.L-H@gmx.de>
+References: <1231336282-22283-1-git-send-email-jirislaby@gmail.com>
+	<1231338965-796-1-git-send-email-jirislaby@gmail.com>
+	<200903152227.16676.s.L-H@gmx.de>
+Message-ID: <200903152235.15914.mb@bu3sch.de>
+
+On Sunday 15 March 2009 22:27:13 Stefan Lippers-Hollmann wrote:
+> Hi
+> 
+> On Mittwoch, 7. Januar 2009, Jiri Slaby wrote:
+> > On 01/07/2009 02:51 PM, Jiri Slaby wrote:
+> > > Dhaval Giani wrote:
+> > >> I see this on current git. Not sure how to reproduce it, has happened on
+> > >> two random occasions. At both times, I was not connected to a wireless
+> > >> network, but to wired networks.
+> > >>
+> > >> ------------[ cut here ]------------
+> > >> WARNING: at net/mac80211/rx.c:2234 __ieee80211_rx+0x7f/0x559
+
+I also see this triggering frequently on b43.
+I'm not quite sure why it happens.
+
+> Sometimes even the firmware crashes and gets reloaded continously.
+
+Nah, that's most likely a separate bug.
+
+-- 
+Greetings, Michael.
+
+
+From david at identd.dyndns.org  Mon Mar 16 15:34:19 2009
+From: david at identd.dyndns.org (David Ellingsworth)
+Date: Mon, 16 Mar 2009 10:34:19 -0400
+Subject: b43 AP Support
+Message-ID: <30353c3d0903160734g6949dd22g59fac05b63fd338d@mail.gmail.com>
+
+I'm looking for a PCI based wireless card to add to my Linux router in
+order to setup a wireless access point. I'm currently considering the
+use of a b43 based card, but
+http://www.linuxwireless.org/en/users/Drivers/b43 indicates that AP
+mode is blocked by proper support in mac80211 and hostapd. Is this
+still the case? If not, which versions of the kernel and hostapd
+include the proper support? I already own a b43legacy device, and
+would like to attempt to configure it as an AP before committing to
+buy another b43 based PCI card.
+
+Regards,
+
+David Ellingsworth
+
+
+From Larry.Finger at lwfinger.net  Mon Mar 16 15:53:03 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Mon, 16 Mar 2009 09:53:03 -0500
+Subject: b43 AP Support
+In-Reply-To: <30353c3d0903160734g6949dd22g59fac05b63fd338d@mail.gmail.com>
+References: <30353c3d0903160734g6949dd22g59fac05b63fd338d@mail.gmail.com>
+Message-ID: <49BE67CF.9010408@lwfinger.net>
+
+David Ellingsworth wrote:
+> I'm looking for a PCI based wireless card to add to my Linux router in
+> order to setup a wireless access point. I'm currently considering the
+> use of a b43 based card, but
+> http://www.linuxwireless.org/en/users/Drivers/b43 indicates that AP
+> mode is blocked by proper support in mac80211 and hostapd. Is this
+> still the case? If not, which versions of the kernel and hostapd
+> include the proper support? I already own a b43legacy device, and
+> would like to attempt to configure it as an AP before committing to
+> buy another b43 based PCI card.
+
+Obviously, the wiki needs to be updated.
+
+My BCM4306/2 PCMCIA card that uses b43legacy as the driver supports AP mode
+using the driver from wireless-testing (or compat-wireless) and the current
+hostapd (0.6.8). The minimum is nl80211 in the kernel and support for it in hostapd.
+
+I'm just getting started with testing AP mode, but I think any supported BCM43XX
+should work as an AP.
+
+Larry
+
+
+From mb at bu3sch.de  Mon Mar 16 16:02:46 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Mon, 16 Mar 2009 16:02:46 +0100
+Subject: b43 AP Support
+In-Reply-To: <49BE67CF.9010408@lwfinger.net>
+References: <30353c3d0903160734g6949dd22g59fac05b63fd338d@mail.gmail.com>
+	<49BE67CF.9010408@lwfinger.net>
+Message-ID: <200903161602.46539.mb@bu3sch.de>
+
+On Monday 16 March 2009 15:53:03 Larry Finger wrote:
+> David Ellingsworth wrote:
+> > I'm looking for a PCI based wireless card to add to my Linux router in
+> > order to setup a wireless access point. I'm currently considering the
+> > use of a b43 based card, but
+> > http://www.linuxwireless.org/en/users/Drivers/b43 indicates that AP
+> > mode is blocked by proper support in mac80211 and hostapd. Is this
+> > still the case? If not, which versions of the kernel and hostapd
+> > include the proper support? I already own a b43legacy device, and
+> > would like to attempt to configure it as an AP before committing to
+> > buy another b43 based PCI card.
+> 
+> Obviously, the wiki needs to be updated.
+> 
+> My BCM4306/2 PCMCIA card that uses b43legacy as the driver supports AP mode
+> using the driver from wireless-testing (or compat-wireless) and the current
+> hostapd (0.6.8). The minimum is nl80211 in the kernel and support for it in hostapd.
+
+Did you check if it does actually work correctly? Especially beaconing.
+There were lots of changes to b43's beaconing, which were not ported to legacy.
+
+> I'm just getting started with testing AP mode, but I think any supported BCM43XX
+> should work as an AP.
+
+b43 works in AP mode.
+However, keep in mind that challenged cards, that don't work well in STA mode, don't
+work better in AP mode either. So if your card works well in STA mode with good
+throughput, you won't experience any problems in AP mode.
+
+I am running a 4318 in AP mode. This works, but I don't recommend it due to the
+high-tx-rate problems of the 4318.
+Older 4306 devices should work fine, however.
+
+But if I were to _buy_ a new card for AP mode, I'd go with atheros or something like that...
+
+-- 
+Greetings, Michael.
+
+
+From Larry.Finger at lwfinger.net  Mon Mar 16 16:23:51 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Mon, 16 Mar 2009 10:23:51 -0500
+Subject: b43 AP Support
+In-Reply-To: <200903161602.46539.mb@bu3sch.de>
+References: <30353c3d0903160734g6949dd22g59fac05b63fd338d@mail.gmail.com>
+	<49BE67CF.9010408@lwfinger.net> <200903161602.46539.mb@bu3sch.de>
+Message-ID: <49BE6F07.7020903@lwfinger.net>
+
+Michael Buesch wrote:
+> 
+> Did you check if it does actually work correctly? Especially beaconing.
+> There were lots of changes to b43's beaconing, which were not ported to legacy.
+
+I should probably look at porting those changes.
+
+My test AP showed up in a scan and I could authenticate and associate using
+WPA1. I wasn't running DHCP so I couldn't get an IP and test actual traffic over
+the link, but it seemed to be working.
+
+Larry
+
+
+From mb at bu3sch.de  Mon Mar 16 16:45:53 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Mon, 16 Mar 2009 16:45:53 +0100
+Subject: b43 AP Support
+In-Reply-To: <49BE6F07.7020903@lwfinger.net>
+References: <30353c3d0903160734g6949dd22g59fac05b63fd338d@mail.gmail.com>
+	<200903161602.46539.mb@bu3sch.de> <49BE6F07.7020903@lwfinger.net>
+Message-ID: <200903161645.54115.mb@bu3sch.de>
+
+On Monday 16 March 2009 16:23:51 Larry Finger wrote:
+> Michael Buesch wrote:
+> > 
+> > Did you check if it does actually work correctly? Especially beaconing.
+> > There were lots of changes to b43's beaconing, which were not ported to legacy.
+> 
+> I should probably look at porting those changes.
+> 
+> My test AP showed up in a scan and I could authenticate and associate using
+> WPA1. I wasn't running DHCP so I couldn't get an IP and test actual traffic over
+> the link, but it seemed to be working.
+
+There were a few important changes made to the beaconing code that fix beacon update,
+TIM update and other important stuff. The device worked more or less in AP mode
+without these changes, but broke in certain circumstances like PS. (And it also
+violated the IEEE 802.11, of course).
+The complete code should probably be simply ported over to legacy.
+
+-- 
+Greetings, Michael.
+
+
+From david at identd.dyndns.org  Mon Mar 16 18:20:18 2009
+From: david at identd.dyndns.org (David Ellingsworth)
+Date: Mon, 16 Mar 2009 13:20:18 -0400
+Subject: b43 AP Support
+In-Reply-To: <200903161645.54115.mb@bu3sch.de>
+References: <30353c3d0903160734g6949dd22g59fac05b63fd338d@mail.gmail.com>
+	<200903161602.46539.mb@bu3sch.de> <49BE6F07.7020903@lwfinger.net>
+	<200903161645.54115.mb@bu3sch.de>
+Message-ID: <30353c3d0903161020p216287a5x8c69e0e2bcba8171@mail.gmail.com>
+
+On Mon, Mar 16, 2009 at 11:45 AM, Michael Buesch <mb at bu3sch.de> wrote:
+> On Monday 16 March 2009 16:23:51 Larry Finger wrote:
+>> Michael Buesch wrote:
+>> >
+>> > Did you check if it does actually work correctly? Especially beaconing.
+>> > There were lots of changes to b43's beaconing, which were not ported to legacy.
+>>
+>> I should probably look at porting those changes.
+>>
+>> My test AP showed up in a scan and I could authenticate and associate using
+>> WPA1. I wasn't running DHCP so I couldn't get an IP and test actual traffic over
+>> the link, but it seemed to be working.
+>
+> There were a few important changes made to the beaconing code that fix beacon update,
+> TIM update and other important stuff. The device worked more or less in AP mode
+> without these changes, but broke in certain circumstances like PS. (And it also
+> violated the IEEE 802.11, of course).
+> The complete code should probably be simply ported over to legacy.
+>
+> --
+> Greetings, Michael.
+>
+
+Thank you all for the helpful information... Once the weekend comes
+around again, I'll take a look a trying to get something working. I'm
+willing to help test and port the necessary changes to legacy as well.
+
+Regards,
+
+David Ellingsworth
+
+
+From Larry.Finger at lwfinger.net  Mon Mar 16 19:24:54 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Mon, 16 Mar 2009 13:24:54 -0500
+Subject: b43 AP Support
+In-Reply-To: <30353c3d0903161020p216287a5x8c69e0e2bcba8171@mail.gmail.com>
+References: <30353c3d0903160734g6949dd22g59fac05b63fd338d@mail.gmail.com>	
+	<200903161602.46539.mb@bu3sch.de> <49BE6F07.7020903@lwfinger.net>	
+	<200903161645.54115.mb@bu3sch.de>
+	<30353c3d0903161020p216287a5x8c69e0e2bcba8171@mail.gmail.com>
+Message-ID: <49BE9976.3070500@lwfinger.net>
+
+David Ellingsworth wrote:
+> 
+> Thank you all for the helpful information... Once the weekend comes
+> around again, I'll take a look a trying to get something working. I'm
+> willing to help test and port the necessary changes to legacy as well.
+
+I found 2 patches that I think are the ones Michael mentioned. They are ported
+enough to compile and I will start testing fairly soon. Once I'm convinced that
+they work, I'll post them as an RFT item. I welcome your testing.
+
+Larry
+
+
+
+From mb at bu3sch.de  Mon Mar 16 19:34:59 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Mon, 16 Mar 2009 19:34:59 +0100
+Subject: b43 AP Support
+In-Reply-To: <30353c3d0903161020p216287a5x8c69e0e2bcba8171@mail.gmail.com>
+References: <30353c3d0903160734g6949dd22g59fac05b63fd338d@mail.gmail.com>
+	<200903161645.54115.mb@bu3sch.de>
+	<30353c3d0903161020p216287a5x8c69e0e2bcba8171@mail.gmail.com>
+Message-ID: <200903161934.59518.mb@bu3sch.de>
+
+On Monday 16 March 2009 18:20:18 David Ellingsworth wrote:
+> Thank you all for the helpful information... Once the weekend comes
+> around again, I'll take a look a trying to get something working.
+
+I just took a good'ol WRT54Gv2.2 (rev7 wireless core) and put latest OpenWRT
+trunk on it. It works pretty well. I get a net throughput of about 14MBit.
+That's not the best throughput in the whole world, but I for instance can
+live with that.
+
+-- 
+Greetings, Michael.
+
+
+From f.middleton at apogeect.com  Wed Mar 18 03:57:42 2009
+From: f.middleton at apogeect.com (Frank Middleton)
+Date: Tue, 17 Mar 2009 22:57:42 -0400
+Subject: Fedora Problem
+Message-ID: <49C06326.7070604@apogeect.com>
+
+Before submitting this to bugzilla.redhat.com, I hope you won't
+mind my asking your advice here. I just returned from a round trip
+to Florida, and thanks to your hard work I was able to use WiFi
+everywhere I went, and I can't thank you enough.
+
+However, upon my return I decided to catch up on all the updates
+and now my FC10 installation is up to date. However, WiFi doesn't
+work any more, or to be exact, dhcp doesn't. I have a d-link router
+that does both wired and wireless, and my laptop can connect either
+way. dhclient eth0 works fine, dhclient wlan0 doesn't. However, I
+can manually assign an IP address to wlan0, edit the routing tables
+and /etc/resolv.conf, and WiFi works just fine.
+
+The router is configured to use a specific IP address for eth0 and
+a different one for wlan0, using their MAC addresses as a index.
+
+I asked about this on the Fedora networking forum and only got a reply
+from someone else having a similar problem. So my questions are:
+
+Is this a problem with dhclient, wpa_supplicant, or b43 (or something
+else)? Can you suggest a way to troubleshoot this? I can see nothing at
+all unusual in any logs and I won't clog up your inbox with dumps unless
+you ask for them. Here's all I ever get from dhclient
+
+# dhclient -v -d wlan0
+Internet Systems Consortium DHCP Client 4.0.0
+Copyright 2004-2007 Internet Systems Consortium.
+All rights reserved.
+For info, please visit http://www.isc.org/sw/dhcp/
+
+Listening on LPF/wlan0/00:90:96:7b:45:f1
+Sending on   LPF/wlan0/00:90:96:7b:45:f1
+Sending on   Socket/fallback
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 8
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 12
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 15
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 19
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 7
+No DHCPOFFERS received.
+No working leases in persistent database - sleeping.
+etc...
+
+The current kernel: 2.6.27.19-170.2.35.fc10.x86_64
+
+There are several other WiFi devices on this network getting good
+responses from dhcp, so I don't think it is the router, and there are
+no other APs for miles. Any insights would be much appreciated, and
+thanks for your time.
+
+-- Frank
+
+
+
+
+From david at identd.dyndns.org  Wed Mar 18 14:05:03 2009
+From: david at identd.dyndns.org (David Ellingsworth)
+Date: Wed, 18 Mar 2009 09:05:03 -0400
+Subject: Fedora Problem
+In-Reply-To: <49C06326.7070604@apogeect.com>
+References: <49C06326.7070604@apogeect.com>
+Message-ID: <30353c3d0903180605r6037f20l37c09f725326e68c@mail.gmail.com>
+
+On Tue, Mar 17, 2009 at 10:57 PM, Frank Middleton
+<f.middleton at apogeect.com> wrote:
+> Before submitting this to bugzilla.redhat.com, I hope you won't
+> mind my asking your advice here. I just returned from a round trip
+> to Florida, and thanks to your hard work I was able to use WiFi
+> everywhere I went, and I can't thank you enough.
+>
+> However, upon my return I decided to catch up on all the updates
+> and now my FC10 installation is up to date. However, WiFi doesn't
+> work any more, or to be exact, dhcp doesn't. I have a d-link router
+> that does both wired and wireless, and my laptop can connect either
+> way. dhclient eth0 works fine, dhclient wlan0 doesn't. However, I
+> can manually assign an IP address to wlan0, edit the routing tables
+> and /etc/resolv.conf, and WiFi works just fine.
+>
+> The router is configured to use a specific IP address for eth0 and
+> a different one for wlan0, using their MAC addresses as a index.
+>
+> I asked about this on the Fedora networking forum and only got a reply
+> from someone else having a similar problem. So my questions are:
+>
+> Is this a problem with dhclient, wpa_supplicant, or b43 (or something
+> else)? Can you suggest a way to troubleshoot this? I can see nothing at
+> all unusual in any logs and I won't clog up your inbox with dumps unless
+> you ask for them. Here's all I ever get from dhclient
+>
+> # dhclient -v -d wlan0
+> Internet Systems Consortium DHCP Client 4.0.0
+> Copyright 2004-2007 Internet Systems Consortium.
+> All rights reserved.
+> For info, please visit http://www.isc.org/sw/dhcp/
+>
+> Listening on LPF/wlan0/00:90:96:7b:45:f1
+> Sending on ? LPF/wlan0/00:90:96:7b:45:f1
+> Sending on ? Socket/fallback
+> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 8
+> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 12
+> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 15
+> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 19
+> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 7
+> No DHCPOFFERS received.
+> No working leases in persistent database - sleeping.
+> etc...
+>
+> The current kernel: 2.6.27.19-170.2.35.fc10.x86_64
+>
+> There are several other WiFi devices on this network getting good
+> responses from dhcp, so I don't think it is the router, and there are
+> no other APs for miles. Any insights would be much appreciated, and
+> thanks for your time.
+>
+> -- Frank
+
+Frank,
+
+I had a similar problem not too long ago. From what I understand, the
+problem is due to the malformed behavior of dhclient. Rather than
+merely reconfiguring the device, dhclient takes the interface down and
+then brings it back up again. From my experience this can lead to a
+situation where an ip address can not be obtained. A work around for
+this problem can be achieved by using dhcpcd rather than dhclient for
+obtaining ip addresses from a dchp server. In my case, merely
+installing dhcpcd was enough as all my distribution's network scripts
+preferred it over dhclient, ymmv.
+
+Regards,
+
+David Ellingsworth
+
+
+From mb at bu3sch.de  Thu Mar 19 19:27:21 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 19 Mar 2009 19:27:21 +0100
+Subject: [PATCH] b43: Mask PHY TX error interrupt, if not debugging
+Message-ID: <200903191927.21868.mb@bu3sch.de>
+
+This masks the PHY TX error interrupt, if debugging is disabled.
+
+Currently we have a bug somewhere which triggers this interrupt once
+in a while. (Depends on the network noise/quality). While this is nonfatal,
+it scares the hell out of users and we frequently receive bugreports
+that incorrectly identify this error message as the reason.
+
+There's another problem with this. The PHY TX error interrupt is protected
+with a watchdog that will restart the device if it keeps triggering very often.
+This is used to fix interrupt storms from completely broken devices.
+
+However, this watchdog might trigger in completely normal operation.
+If the TX capacity of the card is saturated, the likeliness of the watchdog
+triggering increases, as more TX errors occur. The current threshold
+for the watchdog is 1000 errors in 15 seconds.
+
+This patch adds a workaround for the issue by just enabling the interrupt
+if debugging is disabled (by Kconfig or by modparam).
+
+This has the downside that real fatal PHY TX errors are not caught anymore.
+But this is nonfatal due to the following reasons:
+* If the card is not able to transmit anymore, MLME will notice anyway.
+* I did _never_ see a real fatal PHY TX error in a mainline b43 driver.
+* It does _not_ result in interrupt storms or something like that.
+  It will simply result in a stalled card. It can be debugged by enabling
+  the debugging module parameter.
+
+Signed-off-by: Michael Buesch <mb at bu3sch>
+
+---
+
+I wonder how much placebo "PHY TX error was fixed and my card performs great again"
+we will get. :D
+
+!!! DISTRIBUTIONS !!!
+Disable CONFIG_B43_DEBUG!
+There is absolutely _no_ reason to enable it on a release kernel.
+There were valid reasons in the past, but there are none left anymore.
+So please _disable_ this option now, if you didn't do this already,
+because with CONFIG_B43_DEBUG enabled the PHY TX errors will still show.
+
+
+
+John, please merge this for the next feature release.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2009-03-19 17:27:39.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/main.c	2009-03-19 18:53:16.000000000 +0100
+@@ -3990,12 +3990,14 @@ static void setup_struct_wldev_for_init(
+ 	setup_struct_phy_for_init(dev, &dev->phy);
+ 
+ 	/* IRQ related flags */
+ 	dev->irq_reason = 0;
+ 	memset(dev->dma_reason, 0, sizeof(dev->dma_reason));
+ 	dev->irq_savedstate = B43_IRQ_MASKTEMPLATE;
++	if (b43_modparam_verbose < B43_VERBOSITY_DEBUG)
++		dev->irq_savedstate &= ~B43_IRQ_PHY_TXERR;
+ 
+ 	dev->mac_suspended = 1;
+ 
+ 	/* Noise calculation context */
+ 	memset(&dev->noisecalc, 0, sizeof(dev->noisecalc));
+ }
+
+-- 
+Greetings, Michael.
+
+
+From mb at bu3sch.de  Thu Mar 19 19:32:18 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 19 Mar 2009 19:32:18 +0100
+Subject: [PATCH] b43: Mask PHY TX error interrupt, if not debugging
+In-Reply-To: <200903191927.21868.mb@bu3sch.de>
+References: <200903191927.21868.mb@bu3sch.de>
+Message-ID: <200903191932.18874.mb@bu3sch.de>
+
+On Thursday 19 March 2009 19:27:21 Michael Buesch wrote:
+> This patch adds a workaround for the issue by just enabling the interrupt
+> if debugging is disabled (by Kconfig or by modparam).
+
+Of course I meant "just disabling the interrupt"
+
+-- 
+Greetings, Michael.
+
+
+From francesco.gringoli at ing.unibs.it  Thu Mar 19 20:00:45 2009
+From: francesco.gringoli at ing.unibs.it (Francesco Gringoli)
+Date: Thu, 19 Mar 2009 20:00:45 +0100
+Subject: [PATCH] b43: Mask PHY TX error interrupt, if not debugging
+In-Reply-To: <200903191927.21868.mb@bu3sch.de>
+References: <200903191927.21868.mb@bu3sch.de>
+Message-ID: <2CE6D71C-6DB5-41F2-8FFD-C013DC2B9AF6@ing.unibs.it>
+
+On Mar 19, 2009, at 7:27 PM, Michael Buesch wrote:
+
+> This masks the PHY TX error interrupt, if debugging is disabled.
+>
+> Currently we have a bug somewhere which triggers this interrupt once
+> in a while. (Depends on the network noise/quality). While this is  
+> nonfatal,
+Michael,
+
+some time ago I begin seeing several of these errors, never seen  
+before on one of my host, with both proprietary and open firmwares. As  
+I never noticed those errors before, I wondered if they could be due  
+to some strange frame received by air, something like a frame encoded  
+in CCK but with a broken field that caused the firmware to ack back a  
+frame whose first byte (encoding) didn't match the following inside  
+the plcp. That was obviously not the case, indeed those errors were  
+not even happening on tx tries and surprisingly they were happening  
+also on devices configured in monitor mode.
+
+I finally remembered that the day before starting observing errors, I  
+changed the minipci to pci adapter inside that host, maintaining the  
+same cable and antenna set. Removing the broken adapter stopped PHY  
+errors.
+
+After this debug session I have some notes
+- PHY error IRQs are not triggered by the firmware (both open and  
+proprietary) by writing to the IRQ registers
+- these strange PHY errors are not due to tx tries, they happen also  
+with devices were the tx code has been cut away
+- PHY errors are triggered by the hardware when the number of bytes  
+requested for transmission do not match the tx information stored in  
+the first four bytes of the plcp, this happens for both frames sent by  
+b43 through dma and frames composed by the firmware. If everything is  
+consistent I never see errors on platforms not affected by noise (as  
+my old VIA or the broken minipci to pci adapter).
+
+I would say this noise directly affects the irq line, or it triggers  
+the serializer to send out a packet with completely wrong radio/plcp/ 
+mac configuration that causes a PHY tx error.
+
+Cheers,
+-FG
+>
+> it scares the hell out of users and we frequently receive bugreports
+> that incorrectly identify this error message as the reason.
+>
+> There's another problem with this. The PHY TX error interrupt is  
+> protected
+> with a watchdog that will restart the device if it keeps triggering  
+> very often.
+> This is used to fix interrupt storms from completely broken devices.
+>
+> However, this watchdog might trigger in completely normal operation.
+> If the TX capacity of the card is saturated, the likeliness of the  
+> watchdog
+> triggering increases, as more TX errors occur. The current threshold
+> for the watchdog is 1000 errors in 15 seconds.
+>
+> This patch adds a workaround for the issue by just enabling the  
+> interrupt
+> if debugging is disabled (by Kconfig or by modparam).
+>
+> This has the downside that real fatal PHY TX errors are not caught  
+> anymore.
+> But this is nonfatal due to the following reasons:
+> * If the card is not able to transmit anymore, MLME will notice  
+> anyway.
+> * I did _never_ see a real fatal PHY TX error in a mainline b43  
+> driver.
+> * It does _not_ result in interrupt storms or something like that.
+>  It will simply result in a stalled card. It can be debugged by  
+> enabling
+>  the debugging module parameter.
+>
+> Signed-off-by: Michael Buesch <mb at bu3sch>
+>
+> ---
+>
+> I wonder how much placebo "PHY TX error was fixed and my card  
+> performs great again"
+> we will get. :D
+>
+> !!! DISTRIBUTIONS !!!
+> Disable CONFIG_B43_DEBUG!
+> There is absolutely _no_ reason to enable it on a release kernel.
+> There were valid reasons in the past, but there are none left anymore.
+> So please _disable_ this option now, if you didn't do this already,
+> because with CONFIG_B43_DEBUG enabled the PHY TX errors will still  
+> show.
+>
+>
+>
+> John, please merge this for the next feature release.
+>
+>
+> Index: wireless-testing/drivers/net/wireless/b43/main.c
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/wireless/b43/main.c	2009-03-19  
+> 17:27:39.000000000 +0100
+> +++ wireless-testing/drivers/net/wireless/b43/main.c	2009-03-19  
+> 18:53:16.000000000 +0100
+> @@ -3990,12 +3990,14 @@ static void setup_struct_wldev_for_init(
+> 	setup_struct_phy_for_init(dev, &dev->phy);
+>
+> 	/* IRQ related flags */
+> 	dev->irq_reason = 0;
+> 	memset(dev->dma_reason, 0, sizeof(dev->dma_reason));
+> 	dev->irq_savedstate = B43_IRQ_MASKTEMPLATE;
+> +	if (b43_modparam_verbose < B43_VERBOSITY_DEBUG)
+> +		dev->irq_savedstate &= ~B43_IRQ_PHY_TXERR;
+>
+> 	dev->mac_suspended = 1;
+>
+> 	/* Noise calculation context */
+> 	memset(&dev->noisecalc, 0, sizeof(dev->noisecalc));
+> }
+>
+> -- 
+> Greetings, Michael.
+> _______________________________________________
+> Bcm43xx-dev mailing list
+> Bcm43xx-dev at lists.berlios.de
+> https://lists.berlios.de/mailman/listinfo/bcm43xx-dev
+
+-------
+
+Francesco Gringoli, PhD - Assistant Professor
+Dept. of Electrical Engineering for Automation
+University of Brescia
+via Branze, 38
+25123 Brescia
+ITALY
+
+Ph:  ++39.030.3715843
+FAX: ++39.030.380014
+WWW: http://www.ing.unibs.it/~gringoli
+
+
+
+
+
+
+From mb at bu3sch.de  Thu Mar 19 20:13:44 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 19 Mar 2009 20:13:44 +0100
+Subject: [PATCH] b43: Mask PHY TX error interrupt, if not debugging
+In-Reply-To: <2CE6D71C-6DB5-41F2-8FFD-C013DC2B9AF6@ing.unibs.it>
+References: <200903191927.21868.mb@bu3sch.de>
+	<2CE6D71C-6DB5-41F2-8FFD-C013DC2B9AF6@ing.unibs.it>
+Message-ID: <200903192013.44903.mb@bu3sch.de>
+
+On Thursday 19 March 2009 20:00:45 Francesco Gringoli wrote:
+> some time ago I begin seeing several of these errors, never seen  
+> before on one of my host, with both proprietary and open firmwares. As  
+> I never noticed those errors before, I wondered if they could be due  
+> to some strange frame received by air, something like a frame encoded  
+> in CCK but with a broken field that caused the firmware to ack back a  
+> frame whose first byte (encoding) didn't match the following inside  
+> the plcp. That was obviously not the case, indeed those errors were  
+> not even happening on tx tries and surprisingly they were happening  
+> also on devices configured in monitor mode.
+
+Well, they _are_ triggered by things going on in the WM. But I think
+they are a lot lower level than MAC or PLCP. I think it is related to
+the raw modulation.
+
+In the end, I'm pretty sure this is some misconfiguration of some very
+low level PHY part. Too bad we don't know about a debugging register
+to get more information on _what_ part does trigger the error.
+
+> I finally remembered that the day before starting observing errors, I  
+> changed the minipci to pci adapter inside that host, maintaining the  
+> same cable and antenna set. Removing the broken adapter stopped PHY  
+> errors.
+
+Yeah well. This confirms my thoughts.
+There are other ways to voluntarily trigger the errors. For example
+try covering the antennae with your bare hands. Try to move the
+device to a place with extremely bad signal (Iron beams between them).
+Try to move the transceivers very close (20cm) together, so basic rf rules are violated.
+
+This are all pretty reliable ways to trigger these errors.
+
+> After this debug session I have some notes
+> - PHY error IRQs are not triggered by the firmware (both open and  
+> proprietary) by writing to the IRQ registers
+
+Right. I don't think it's really related to what firmware is running.
+It may be the case that some firmware might encourage the errors by some
+special timing in code operations, but the firmware does not trigger them.
+
+> - these strange PHY errors are not due to tx tries, they happen also  
+> with devices were the tx code has been cut away
+
+Well, I did not see that, so I cannot really comment on this.
+I never saw them in monitor mode.
+
+> - PHY errors are triggered by the hardware when the number of bytes  
+> requested for transmission do not match the tx information stored in  
+> the first four bytes of the plcp, this happens for both frames sent by  
+> b43 through dma and frames composed by the firmware. If everything is  
+
+This is correct and known behavior. But this is _not_ what is happening here.
+
+> consistent I never see errors on platforms not affected by noise (as  
+> my old VIA or the broken minipci to pci adapter).
+
+Yes, less noise = less errors. That's clearly the case.
+
+> I would say this noise directly affects the irq line, or it triggers  
+> the serializer to send out a packet with completely wrong radio/plcp/ 
+> mac configuration that causes a PHY tx error.
+
+I don't think it triggers the IRQ line. I'd rather think that some sensitivity
+threshold is configured incorrectly, so the PHY will trigger the errors on
+completely valid stuff.
+
+So now this is your turn: Which one? :D
+
+-- 
+Greetings, Michael.
+
+
+From francesco.gringoli at ing.unibs.it  Thu Mar 19 20:56:52 2009
+From: francesco.gringoli at ing.unibs.it (Francesco Gringoli)
+Date: Thu, 19 Mar 2009 20:56:52 +0100
+Subject: [PATCH] b43: Mask PHY TX error interrupt, if not debugging
+In-Reply-To: <200903192013.44903.mb@bu3sch.de>
+References: <200903191927.21868.mb@bu3sch.de>
+	<2CE6D71C-6DB5-41F2-8FFD-C013DC2B9AF6@ing.unibs.it>
+	<200903192013.44903.mb@bu3sch.de>
+Message-ID: <35D36C55-6CB3-443C-A916-D5771B68DD9A@ing.unibs.it>
+
+
+On Mar 19, 2009, at 8:13 PM, Michael Buesch wrote:
+
+> On Thursday 19 March 2009 20:00:45 Francesco Gringoli wrote:
+>>
+>
+> Yeah well. This confirms my thoughts.
+> There are other ways to voluntarily trigger the errors. For example
+> try covering the antennae with your bare hands. Try to move the
+> device to a place with extremely bad signal (Iron beams between them).
+> Try to move the transceivers very close (20cm) together, so basic rf  
+> rules are violated.
+>
+> This are all pretty reliable ways to trigger these errors.
+Cool! I will give it a try.
+
+>> - these strange PHY errors are not due to tx tries, they happen also
+>> with devices were the tx code has been cut away
+>
+> Well, I did not see that, so I cannot really comment on this.
+> I never saw them in monitor mode.
+It was the reason that made me lose a lot of time in putting traps  
+into the firmware to understand if we were forgetting something in  
+configuring devices to run in monitor mode. Well, we are not: the tx  
+code is never crossed. But PHY errors are triggered the same.
+
+>> I would say this noise directly affects the irq line, or it triggers
+>> the serializer to send out a packet with completely wrong radio/plcp/
+>> mac configuration that causes a PHY tx error.
+>
+> I don't think it triggers the IRQ line. I'd rather think that some  
+> sensitivity
+> threshold is configured incorrectly, so the PHY will trigger the  
+> errors on
+> completely valid stuff.
+
+I would agree with you, but there is this bizarre issue with PHY  
+errors in monitoring mode that makes me thinking about what we call  
+PHY errors. I would say they are not only due to transmission, they  
+are general PHY errors, could they be? One last test I could try, is  
+to put again the broken minipci to pci adapter in one pci slot and put  
+on the next slot the adapter that does not trigger these errors. If  
+the interference caused by the broken adapter induces the wifi boards  
+on top of it in errors, it should induce the same error on the board  
+mounted on the right adapter.
+
+Cheers,
+-FG
+
+>
+>
+> So now this is your turn: Which one? :D
+>
+> -- 
+> Greetings, Michael.
+
+-------
+
+Francesco Gringoli, PhD - Assistant Professor
+Dept. of Electrical Engineering for Automation
+University of Brescia
+via Branze, 38
+25123 Brescia
+ITALY
+
+Ph:  ++39.030.3715843
+FAX: ++39.030.380014
+WWW: http://www.ing.unibs.it/~gringoli
+
+
+
+
+
+
+From mb at bu3sch.de  Thu Mar 19 21:10:08 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 19 Mar 2009 21:10:08 +0100
+Subject: [PATCH] b43: Mask PHY TX error interrupt, if not debugging
+In-Reply-To: <35D36C55-6CB3-443C-A916-D5771B68DD9A@ing.unibs.it>
+References: <200903191927.21868.mb@bu3sch.de> <200903192013.44903.mb@bu3sch.de>
+	<35D36C55-6CB3-443C-A916-D5771B68DD9A@ing.unibs.it>
+Message-ID: <200903192110.08437.mb@bu3sch.de>
+
+On Thursday 19 March 2009 20:56:52 Francesco Gringoli wrote:
+> I would agree with you, but there is this bizarre issue with PHY  
+> errors in monitoring mode that makes me thinking about what we call  
+> PHY errors. I would say they are not only due to transmission, they  
+> are general PHY errors, could they be? One last test I could try, is  
+
+No the interrupt indicates a PHY TX error.
+This name is from the broadcom headers, so we can trust that it's correct.
+
+As I said, I never saw the error with the proprietary firmware in monitor mode.
+If you know a way how to trigger them, please tell me.
+
+> to put again the broken minipci to pci adapter in one pci slot and put  
+> on the next slot the adapter that does not trigger these errors. If  
+> the interference caused by the broken adapter induces the wifi boards  
+> on top of it in errors, it should induce the same error on the board  
+> mounted on the right adapter.
+
+Well, the question is what can we learn from this test? ;)
+What we really need is a way to find out which part of the PHY triggers
+this error. We have a dozen of methods to trigger the error. But we _still_
+do not know the lowlevel PHY conditions that result in an error.
+
+Probably somebody with lots of time should randomly go through the code
+and set various PHY thresholds to big/small values. Maybe that'll point us into
+some direction. The problem is that the code basically is undocumented and we
+only write blob values to the registers. So from reading the code you won't even
+know where these values are written. But the specs give some useful hints. ;)
+
+-- 
+Greetings, Michael.
+
+
+From francesco.gringoli at ing.unibs.it  Thu Mar 19 21:15:40 2009
+From: francesco.gringoli at ing.unibs.it (Francesco Gringoli)
+Date: Thu, 19 Mar 2009 21:15:40 +0100
+Subject: [PATCH] b43: Mask PHY TX error interrupt, if not debugging
+In-Reply-To: <200903192110.08437.mb@bu3sch.de>
+References: <200903191927.21868.mb@bu3sch.de> <200903192013.44903.mb@bu3sch.de>
+	<35D36C55-6CB3-443C-A916-D5771B68DD9A@ing.unibs.it>
+	<200903192110.08437.mb@bu3sch.de>
+Message-ID: <487FC78C-36A2-4353-ACB2-F924B09D231A@ing.unibs.it>
+
+
+On Mar 19, 2009, at 9:10 PM, Michael Buesch wrote:
+
+> On Thursday 19 March 2009 20:56:52 Francesco Gringoli wrote:
+>> I would agree with you, but there is this bizarre issue with PHY
+>> errors in monitoring mode that makes me thinking about what we call
+>> PHY errors. I would say they are not only due to transmission, they
+>> are general PHY errors, could they be? One last test I could try, is
+>
+> No the interrupt indicates a PHY TX error.
+> This name is from the broadcom headers, so we can trust that it's  
+> correct.
+>
+> As I said, I never saw the error with the proprietary firmware in  
+> monitor mode.
+> If you know a way how to trigger them, please tell me.
+It should be pretty easy, if you can observe these errors in sta mode  
+(for instance with the cool method you told me before), you should see  
+the same errors also in monitor mode, that is what was happening with  
+my two adapters mounted on the same pci raiser (one with four minipci  
+slots, unfortunately broken as when I use it I see PHY errors).
+
+Cheers,
+-FG
+
+
+From Larry.Finger at lwfinger.net  Thu Mar 19 21:53:49 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Thu, 19 Mar 2009 15:53:49 -0500
+Subject: [PATCH] b43: Mask PHY TX error interrupt, if not debugging
+In-Reply-To: <200903192110.08437.mb@bu3sch.de>
+References: <200903191927.21868.mb@bu3sch.de> <200903192013.44903.mb@bu3sch.de>
+	<35D36C55-6CB3-443C-A916-D5771B68DD9A@ing.unibs.it>
+	<200903192110.08437.mb@bu3sch.de>
+Message-ID: <49C2B0DD.2080209@lwfinger.net>
+
+Michael Buesch wrote:
+> 
+> The problem is that the code basically is undocumented and we
+> only write blob values to the registers. So from reading the code you won't even
+> know where these values are written. But the specs give some useful hints. ;)
+
+I might be able to help with the last part. Not everything that I know has been
+put into the specs. I welcome questions.
+
+Larry
+
+
+From mb at bu3sch.de  Fri Mar 20 16:43:20 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Fri, 20 Mar 2009 16:43:20 +0100
+Subject: [PATCH] ssb: remove EXPERIMENTAL dependencies.
+Message-ID: <200903201643.20500.mb@bu3sch.de>
+
+ssb is not experimental anymore.
+
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+---
+
+John, please queue for the next feature release.
+
+
+Index: wireless-testing/drivers/ssb/Kconfig
+===================================================================
+--- wireless-testing.orig/drivers/ssb/Kconfig	2009-03-20 16:40:14.000000000 +0100
++++ wireless-testing/drivers/ssb/Kconfig	2009-03-20 16:40:59.000000000 +0100
+@@ -53,11 +53,11 @@ config SSB_B43_PCI_BRIDGE
+ 
+ config SSB_PCMCIAHOST_POSSIBLE
+ 	bool
+-	depends on SSB && (PCMCIA = y || PCMCIA = SSB) && EXPERIMENTAL
++	depends on SSB && (PCMCIA = y || PCMCIA = SSB)
+ 	default y
+ 
+ config SSB_PCMCIAHOST
+-	bool "Support for SSB on PCMCIA-bus host (EXPERIMENTAL)"
++	bool "Support for SSB on PCMCIA-bus host"
+ 	depends on SSB_PCMCIAHOST_POSSIBLE
+ 	select SSB_SPROM
+ 	help
+@@ -107,14 +107,14 @@ config SSB_DRIVER_PCICORE
+ 	  If unsure, say Y
+ 
+ config SSB_PCICORE_HOSTMODE
+-	bool "Hostmode support for SSB PCI core (EXPERIMENTAL)"
+-	depends on SSB_DRIVER_PCICORE && SSB_DRIVER_MIPS && EXPERIMENTAL
++	bool "Hostmode support for SSB PCI core"
++	depends on SSB_DRIVER_PCICORE && SSB_DRIVER_MIPS
+ 	help
+ 	  PCIcore hostmode operation (external PCI bus).
+ 
+ config SSB_DRIVER_MIPS
+-	bool "SSB Broadcom MIPS core driver (EXPERIMENTAL)"
+-	depends on SSB && MIPS && EXPERIMENTAL
++	bool "SSB Broadcom MIPS core driver"
++	depends on SSB && MIPS
+ 	select SSB_SERIAL
+ 	help
+ 	  Driver for the Sonics Silicon Backplane attached
+@@ -129,8 +129,8 @@ config SSB_EMBEDDED
+ 	default y
+ 
+ config SSB_DRIVER_EXTIF
+-	bool "SSB Broadcom EXTIF core driver (EXPERIMENTAL)"
+-	depends on SSB_DRIVER_MIPS && EXPERIMENTAL
++	bool "SSB Broadcom EXTIF core driver"
++	depends on SSB_DRIVER_MIPS
+ 	help
+ 	  Driver for the Sonics Silicon Backplane attached
+ 	  Broadcom EXTIF core.
+
+-- 
+Greetings, Michael.
+
+
+From toaster888 at googlemail.com  Sat Mar 21 16:15:51 2009
+From: toaster888 at googlemail.com (Jan S.)
+Date: Sat, 21 Mar 2009 16:15:51 +0100
+Subject: bcm4328-Status
+Message-ID: <edaf0a1f0903210815l7385f9d7jb287c5fe9c7965b5@mail.gmail.com>
+
+I'm using an bcm4328. Is there any update on support or an driver
+which I could test?
+
+P.S.: Sry, for my bad english.
+
+
+Thanks,
+Jan
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090321/c191aa9b/attachment.html>
+
+From Larry.Finger at lwfinger.net  Sat Mar 21 16:34:21 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Sat, 21 Mar 2009 10:34:21 -0500
+Subject: bcm4328-Status
+In-Reply-To: <edaf0a1f0903210815l7385f9d7jb287c5fe9c7965b5@mail.gmail.com>
+References: <edaf0a1f0903210815l7385f9d7jb287c5fe9c7965b5@mail.gmail.com>
+Message-ID: <49C508FD.2000501@lwfinger.net>
+
+Jan S. wrote:
+> I'm using an bcm4328. Is there any update on support or an driver which I could test?
+> 
+> P.S.: Sry, for my bad english.
+
+The reverse engineering is not yet complete for any of the devices with an N
+PHY. Even after that is done, the code will have to be written. AFAIK, Michael
+plans on working on LP PHY code before N PHY code as the RE is essentially
+complete for the 4315 ID's.
+
+Larry
+
+
+
+From navalorenx at gmail.com  Sun Mar 22 17:32:35 2009
+From: navalorenx at gmail.com (Lorenzo Nava)
+Date: Sun, 22 Mar 2009 17:32:35 +0100
+Subject: [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+Message-ID: <5446E751-938C-4A3C-9F78-DAF3C4B4BE4A@gmail.com>
+
+This patch fixes the return type of b43_plcp_get_bitrate_idx_ofdm. If  
+the plcp contains an error, the function return value is 255 instead  
+of -1, and the packet was not dropped. This causes a warning in  
+__ieee80211_rx function because rate idx is out of range.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/xmit.c	2009-03-22  
+17:25:19.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/xmit.c	2009-03-22  
+17:25:40.000000000 +0100
+@@ -50,7 +50,7 @@
+  }
+
+  /* Extract the bitrate index out of an OFDM PLCP header. */
+-static u8 b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp,  
+bool aphy)
++static int b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp,  
+bool aphy)
+  {
+  	int base = aphy ? 0 : 4;
+
+
+From mb at bu3sch.de  Sun Mar 22 17:34:00 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Sun, 22 Mar 2009 17:34:00 +0100
+Subject: [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+In-Reply-To: <5446E751-938C-4A3C-9F78-DAF3C4B4BE4A@gmail.com>
+References: <5446E751-938C-4A3C-9F78-DAF3C4B4BE4A@gmail.com>
+Message-ID: <200903221734.00903.mb@bu3sch.de>
+
+On Sunday 22 March 2009 17:32:35 Lorenzo Nava wrote:
+> This patch fixes the return type of b43_plcp_get_bitrate_idx_ofdm. If  
+> the plcp contains an error, the function return value is 255 instead  
+> of -1, and the packet was not dropped. This causes a warning in  
+> __ieee80211_rx function because rate idx is out of range.
+
+Hm, nice catch. This should be causing the RX path warnings.
+
+Can you send a non-mangled version?
+
+> 
+> 
+> Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/wireless/b43/xmit.c	2009-03-22  
+> 17:25:19.000000000 +0100
+> +++ wireless-testing/drivers/net/wireless/b43/xmit.c	2009-03-22  
+> 17:25:40.000000000 +0100
+> @@ -50,7 +50,7 @@
+>   }
+> 
+>   /* Extract the bitrate index out of an OFDM PLCP header. */
+> -static u8 b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp,  
+> bool aphy)
+> +static int b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp,  
+> bool aphy)
+>   {
+>   	int base = aphy ? 0 : 4;
+> 
+> 
+
+
+
+-- 
+Greetings, Michael.
+
+
+From navalorenx at gmail.com  Sun Mar 22 17:45:58 2009
+From: navalorenx at gmail.com (Lorenzo Nava)
+Date: Sun, 22 Mar 2009 17:45:58 +0100
+Subject: [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+In-Reply-To: <200903221734.00903.mb@bu3sch.de>
+References: <5446E751-938C-4A3C-9F78-DAF3C4B4BE4A@gmail.com>
+	<200903221734.00903.mb@bu3sch.de>
+Message-ID: <0386E2DB-6981-4C78-8D03-8D6F58422398@gmail.com>
+
+Hi Michael,
+
+what do you mean with "non-mangled" version?
+
+I also noticed that most of the plcp rate errors seem due to an  
+incorrect padding value passed by the firmware. The plcp looks correct  
+but improperly shifted. Any ideas about that?
+
+cheers
+
+Lorenzo.
+
+On Mar 22, 2009, at 5:34 PM, Michael Buesch wrote:
+
+> On Sunday 22 March 2009 17:32:35 Lorenzo Nava wrote:
+>> This patch fixes the return type of b43_plcp_get_bitrate_idx_ofdm. If
+>> the plcp contains an error, the function return value is 255 instead
+>> of -1, and the packet was not dropped. This causes a warning in
+>> __ieee80211_rx function because rate idx is out of range.
+>
+> Hm, nice catch. This should be causing the RX path warnings.
+>
+> Can you send a non-mangled version?
+>
+>>
+>>
+>> Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+>> ===================================================================
+>> --- wireless-testing.orig/drivers/net/wireless/b43/xmit.c	2009-03-22
+>> 17:25:19.000000000 +0100
+>> +++ wireless-testing/drivers/net/wireless/b43/xmit.c	2009-03-22
+>> 17:25:40.000000000 +0100
+>> @@ -50,7 +50,7 @@
+>>  }
+>>
+>>  /* Extract the bitrate index out of an OFDM PLCP header. */
+>> -static u8 b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp,
+>> bool aphy)
+>> +static int b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp,
+>> bool aphy)
+>>  {
+>>  	int base = aphy ? 0 : 4;
+>>
+>>
+>
+>
+>
+> -- 
+> Greetings, Michael.
+
+
+
+From mb at bu3sch.de  Sun Mar 22 17:54:41 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Sun, 22 Mar 2009 17:54:41 +0100
+Subject: [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+In-Reply-To: <0386E2DB-6981-4C78-8D03-8D6F58422398@gmail.com>
+References: <5446E751-938C-4A3C-9F78-DAF3C4B4BE4A@gmail.com>
+	<200903221734.00903.mb@bu3sch.de>
+	<0386E2DB-6981-4C78-8D03-8D6F58422398@gmail.com>
+Message-ID: <200903221754.41232.mb@bu3sch.de>
+
+On Sunday 22 March 2009 17:45:58 Lorenzo Nava wrote:
+> Hi Michael,
+> 
+> what do you mean with "non-mangled" version?
+
+The patch is line wrapped. Fix your email client settings.
+
+> I also noticed that most of the plcp rate errors seem due to an  
+> incorrect padding value passed by the firmware. The plcp looks correct  
+> but improperly shifted. Any ideas about that? 
+
+yeah, well. I don't think it's a padding and I don't think that the firmware
+adds it. It's a non-power-of-two and odd number of bytes most of the time.
+I think it's simply a silicon bug in the DMA engine.
+
+-- 
+Greetings, Michael.
+
+
+From navalorenx at gmail.com  Sun Mar 22 18:07:28 2009
+From: navalorenx at gmail.com (Lorenzo Nava)
+Date: Sun, 22 Mar 2009 18:07:28 +0100
+Subject: [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+Message-ID: <5B517F91-CFB2-4455-AFE8-BF2F783A7922@gmail.com>
+
+I hope it is ok.
+
+Reported-by: Lorenzo Nava
+Signed-off-by: Lorenzo Nava <navalorenx at gmail.com>
+
+Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/xmit.c	2009-03-22  
+17:25:19.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/xmit.c	2009-03-22  
+17:25:40.000000000 +0100
+@@ -50,7 +50,7 @@
+}
+
+/* Extract the bitrate index out of an OFDM PLCP header. */
+-static u8 b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp,  
+bool aphy)
++static int b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp,  
+bool aphy)
+{
+	int base = aphy ? 0 : 4;
+
+
+From mb at bu3sch.de  Sun Mar 22 18:16:42 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Sun, 22 Mar 2009 18:16:42 +0100
+Subject: [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+In-Reply-To: <5B517F91-CFB2-4455-AFE8-BF2F783A7922@gmail.com>
+References: <5B517F91-CFB2-4455-AFE8-BF2F783A7922@gmail.com>
+Message-ID: <200903221816.42998.mb@bu3sch.de>
+
+On Sunday 22 March 2009 18:07:28 Lorenzo Nava wrote:
+> I hope it is ok.
+> 
+> Reported-by: Lorenzo Nava
+> Signed-off-by: Lorenzo Nava <navalorenx at gmail.com>
+> 
+> Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/wireless/b43/xmit.c	2009-03-22  
+> 17:25:19.000000000 +0100
+> +++ wireless-testing/drivers/net/wireless/b43/xmit.c	2009-03-22  
+> 17:25:40.000000000 +0100
+> @@ -50,7 +50,7 @@
+> }
+> 
+> /* Extract the bitrate index out of an OFDM PLCP header. */
+> -static u8 b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp,  
+> bool aphy)
+> +static int b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp,  
+> bool aphy)
+^^^^^^^^^^^^
+
+no
+
+> {
+> 	int base = aphy ? 0 : 4;
+> 
+> 
+
+
+
+-- 
+Greetings, Michael.
+
+
+From navalorenx at gmail.com  Sun Mar 22 19:00:38 2009
+From: navalorenx at gmail.com (Lorenzo Nava)
+Date: Sun, 22 Mar 2009 19:00:38 +0100
+Subject: [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+Message-ID: <41960ccf0903221100k34df5872y81693e5ed5c2529a@mail.gmail.com>
+
+Once again...
+
+Reported-by: Lorenzo Nava
+Signed-off-by: Lorenzo Nava <navalorenx at gmail.com>
+
+Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/xmit.c
+2009-03-22 17:25:19.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/xmit.c    2009-03-22
+17:25:40.000000000 +0100
+@@ -50,7 +50,7 @@
+}
+
+/* Extract the bitrate index out of an OFDM PLCP header. */
+-static u8 b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp, bool aphy)
++static int b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp, bool aphy)
+{
+       int base = aphy ? 0 : 4;
+
+
+From mb at bu3sch.de  Sun Mar 22 19:11:04 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Sun, 22 Mar 2009 19:11:04 +0100
+Subject: [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+In-Reply-To: <41960ccf0903221100k34df5872y81693e5ed5c2529a@mail.gmail.com>
+References: <41960ccf0903221100k34df5872y81693e5ed5c2529a@mail.gmail.com>
+Message-ID: <200903221911.04309.mb@bu3sch.de>
+
+On Sunday 22 March 2009 19:00:38 Lorenzo Nava wrote:
+> Once again...
+
+
+The patch still is whitespace damaged.
+mb at homer:~/develop/git/wireless-testing$ patch -p1 --dry-run <x.patch 
+patching file drivers/net/wireless/b43/xmit.c
+patch: **** malformed patch at line 52: }
+
+
+But I'll recreate the patch locally to shorten this up ;)
+
+
+> Reported-by: Lorenzo Nava
+> Signed-off-by: Lorenzo Nava <navalorenx at gmail.com>
+> 
+> Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/wireless/b43/xmit.c
+> 2009-03-22 17:25:19.000000000 +0100
+> +++ wireless-testing/drivers/net/wireless/b43/xmit.c    2009-03-22
+> 17:25:40.000000000 +0100
+> @@ -50,7 +50,7 @@
+> }
+> 
+> /* Extract the bitrate index out of an OFDM PLCP header. */
+> -static u8 b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp, bool aphy)
+> +static int b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp, bool aphy)
+> {
+>        int base = aphy ? 0 : 4;
+> 
+> 
+
+
+
+-- 
+Greetings, Michael.
+
+
+From mb at bu3sch.de  Sun Mar 22 19:15:41 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Sun, 22 Mar 2009 19:15:41 +0100
+Subject: [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+Message-ID: <200903221915.41488.mb@bu3sch.de>
+
+From: Lorenzo Nava <navalorenx at gmail.com>
+
+This patch fixes the return type of b43_plcp_get_bitrate_idx_ofdm. If  
+the plcp contains an error, the function return value is 255 instead  
+of -1, and the packet was not dropped. This causes a warning in  
+__ieee80211_rx function because rate idx is out of range.
+
+Cc: stable at kernel.org
+Signed-off-by: Lorenzo Nava <navalorenx at gmail.com>
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+---
+
+John, please queue as a bugfix to the current kernel.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/xmit.c	2009-03-22 19:12:57.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/xmit.c	2009-03-22 19:13:12.000000000 +0100
+@@ -50,7 +50,7 @@ static int b43_plcp_get_bitrate_idx_cck(
+ }
+ 
+ /* Extract the bitrate index out of an OFDM PLCP header. */
+-static u8 b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp, bool aphy)
++static int b43_plcp_get_bitrate_idx_ofdm(struct b43_plcp_hdr6 *plcp, bool aphy)
+ {
+ 	int base = aphy ? 0 : 4;
+ 
+
+-- 
+Greetings, Michael.
+
+
+From Larry.Finger at lwfinger.net  Sun Mar 22 19:18:58 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Sun, 22 Mar 2009 13:18:58 -0500
+Subject: [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+In-Reply-To: <41960ccf0903221100k34df5872y81693e5ed5c2529a@mail.gmail.com>
+References: <41960ccf0903221100k34df5872y81693e5ed5c2529a@mail.gmail.com>
+Message-ID: <49C68112.7090001@lwfinger.net>
+
+Lorenzo Nava wrote:
+> Once again...
+> 
+> Reported-by: Lorenzo Nava
+> Signed-off-by: Lorenzo Nava <navalorenx at gmail.com>
+Cc: Stable <stable at kernel.org>  [2.6.28, 2.6.27]
+
+Sorry to join this party late, but the line above should be added as this bug
+goes back at least to 2.6.27 and should be applied to stable. I didn't check any
+further.
+
+
+Larry
+
+
+
+
+
+From s.L-H at gmx.de  Mon Mar 23 01:45:58 2009
+From: s.L-H at gmx.de (Stefan Lippers-Hollmann)
+Date: Mon, 23 Mar 2009 01:45:58 +0100
+Subject: [PATCH 1/1] ath5k: fix hw rate index condition
+In-Reply-To: <200903152227.16676.s.L-H@gmx.de>
+References: <1231336282-22283-1-git-send-email-jirislaby@gmail.com>
+	<1231338965-796-1-git-send-email-jirislaby@gmail.com>
+	<200903152227.16676.s.L-H@gmx.de>
+Message-ID: <200903230146.02071.s.L-H@gmx.de>
+
+Hi
+
+On Sonntag, 15. M?rz 2009, Stefan Lippers-Hollmann wrote:
+> Hi
+> 
+> On Mittwoch, 7. Januar 2009, Jiri Slaby wrote:
+> > On 01/07/2009 02:51 PM, Jiri Slaby wrote:
+> > > Dhaval Giani wrote:
+> > >> I see this on current git. Not sure how to reproduce it, has happened on
+> > >> two random occasions. At both times, I was not connected to a wireless
+> > >> network, but to wired networks.
+> > >>
+> > >> ------------[ cut here ]------------
+> > >> WARNING: at net/mac80211/rx.c:2234 __ieee80211_rx+0x7f/0x559
+> > >> ...
+> > >> Call Trace:
+> > >>  [<f80d4192>] __ieee80211_rx+0x7f/0x559 [mac80211]
+> > >>  [<f80a19f4>] ath5k_tasklet_rx+0x4f7/0x53b [ath5k]
+> > >> ...
+> > > 
+> > > Hmm, maybe ath5k is culprit. Could you apply the attached patch and
+> > > use the kernel till the problem appears again?
+> 
+> It seems as if this problem wouldn't be restricted to ath5k, I just 
+> triggered something very similar on b43 and 2.6.29-rc8-git1 (i386, hard 
+> preemption):
+> 
+> b43-phy0: Broadcom 4306 WLAN found (core revision 5)
+[...]
+> wlan1: no IPv6 routers present
+> b43-phy0 ERROR: PHY transmission error
+> b43-phy0 ERROR: PHY transmission error
+> 
+> [ lots of these, likely to be caused by minstrel being a little too 
+>   optimistic about the possible wlan rates (it was more conservative in 
+>   2.6.28 and didn't happen there); the distance between both stations is 
+>   on the upper end ]
+> 
+> b43-phy0 ERROR: PHY transmission error
+> __ratelimit: 9 callbacks suppressed
+> b43-phy0 ERROR: PHY transmission error
+> b43-phy0 ERROR: PHY transmission error
+> ------------[ cut here ]------------
+> WARNING: at net/mac80211/rx.c:2234 __ieee80211_rx+0xa2/0x6a0 [mac80211]()
+> Hardware name: Amilo D-Series
+> Modules linked in: ppdev lp aes_i586 aes_generic ipv6 af_packet rfkill_input arc4 ecb b43 rfkill rng_core mac80211 cfg80211 led_class input_polldev ssb joydev pcmcia snd_via82xx gameport snd_ac97_codec ac97_bus snd_pcm_oss snd_mixer_oss snd_pcm snd_timer snd_page_alloc snd_mpu401_uart snd_rawmidi snd_seq_device i2c_viapro serio_raw snd i2c_core pcspkr psmouse evdev soundcore via686a via_agp shpchp yenta_socket rsrc_nonstatic pcmcia_core pci_hotplug rtc_cmos battery rtc_core rtc_lib parport_pc parport ac button ext3 jbd mbcache sg sr_mod cdrom sd_mod ata_generic pata_acpi pata_via uhci_hcd ehci_hcd floppy firewire_ohci libata tulip firewire_core crc_itu_t usbcore scsi_mod thermal processor fan
+> Pid: 0, comm: swapper Not tainted 2.6.29-rc8-sidux-686 #1
+> Call Trace:
+>  [<c01319d7>] warn_slowpath+0x87/0xe0
+>  [<d00523b7>] op32_set_current_rxslot+0x27/0x40 [b43]
+>  [<d0052d93>] b43_dma_rx+0x193/0x420 [b43]
+>  [<c0124fc3>] __wake_up_common+0x43/0x70
+>  [<cfffcc62>] __ieee80211_rx+0xa2/0x6a0 [mac80211]
+>  [<c011e9a5>] default_spin_lock_flags+0x5/0x10
+>  [<c03a3f2e>] _spin_lock_irqsave+0x3e/0x60
+>  [<cffeb337>] ieee80211_tasklet_handler+0x107/0x130 [mac80211]
+>  [<c013692c>] tasklet_action+0x6c/0xf0
+>  [<c0137147>] __do_softirq+0x87/0x140
+>  [<c011e9a5>] default_spin_lock_flags+0x5/0x10
+>  [<c03a3f2e>] _spin_lock_irqsave+0x3e/0x60
+>  [<c0137255>] do_softirq+0x55/0x60
+>  [<c0137495>] irq_exit+0x75/0x90
+>  [<c0106378>] do_IRQ+0x48/0x90
+>  [<c0104527>] common_interrupt+0x27/0x2c
+>  [<cf8372e4>] acpi_idle_enter_simple+0x17a/0x1f4 [processor]
+>  [<c02fd3bf>] cpuidle_idle_call+0x6f/0xc0
+>  [<c0102de6>] cpu_idle+0x66/0xa0
+> ---[ end trace c754f566bbe5ac47 ]---
+[...]
+> Sometimes even the firmware crashes and gets reloaded continously.
+[...]
+> Setting a fixed wlan rate (like 11M) seems to avoid this problem.
+> 
+> > I don't think this will print anything, the rate won't be 32, it's rather
+> > too high. Could you apply also the appended debug one?
+> 
+> I will apply this patch and give it some more testing tomorrow evening, 
+> this problem is almost 100% reproducable for me at the end of my router's
+> range and doesn't happen in closer proximity.
+[...]
+
+Sorry for the late response, but I've been unexpectedly away from my 
+BCM4306 system until today.
+
+Thanks to the following (not yet mainline) patches by Michael Buesch and 
+Lorenzo Nava on top of 2.6.29-rc8-git5, these problems seem to be "fixed" 
+(well, the PHY errors are basically just hidden, but as they don't 
+trigger the firmware watchdog anymore, it's much less of a problem and 
+isn't actually a user visible problem anymore).
+
+[PATCH] b43: Mask PHY TX error interrupt, if not debugging
+	http://marc.info/?l=linux-wireless&m=123748731831778&w=2
+
+[PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+	http://marc.info/?l=linux-wireless&m=123774585529189&w=2
+
+
+Confirming the patch descriptions, Jiri Slaby's debugging patch did reveal 
+a signedness problem of the return value of in 
+b43_plcp_get_bitrate_idx_ofdm(), which has been fixed by the patch above:
+
+[ this trace happened *without* "b43: fix b43_plcp_get_bitrate_idx_ofdm 
+  return type", and only "b43: Mask PHY TX error interrupt, if not 
+  debugging" applied on top of 2.6.29-rc8-git5 ]
+------------[ cut here ]------------
+WARNING: at net/mac80211/rx.c:2236 __ieee80211_rx+0xab/0x6b0 [mac80211]()
+Hardware name: Amilo D-Series
+RATE=255, BAND=c
+Modules linked in: ppdev lp aes_i586 aes_generic ipv6 af_packet rfkill_input arc4 ecb b43 rfkill rng_core mac80211 cfg80211 led_class input_polldev ssb joydev snd_via82xx gameport snd_ac97_codec ac97_bus snd_pcm_oss snd_mixer_oss pcmcia snd_pcm snd_timer snd_page_alloc snd_mpu401_uart snd_rawmidi i2c_viapro serio_raw snd_seq_device pcspkr i2c_core psmouse snd evdev soundcore via686a shpchp yenta_socket rsrc_nonstatic pcmcia_core via_agp pci_hotplug rtc_cmos parport_pc battery rtc_core rtc_lib parport ac button ext3 jbd mbcache sg sr_mod cdrom sd_mod ata_generic pata_acpi pata_via uhci_hcd ehci_hcd floppy firewire_ohci libata tulip firewire_core crc_itu_t usbcore scsi_mod thermal processor fan
+Pid: 0, comm: swapper Not tainted 2.6.29-rc8-sidux-686 #1
+Call Trace:
+ [<c0131a67>] warn_slowpath+0x87/0xe0
+ [<d002d377>] op32_set_current_rxslot+0x27/0x40 [b43]
+ [<d002dd53>] b43_dma_rx+0x193/0x420 [b43]
+ [<c01ae229>] add_partial+0x19/0x70
+ [<cfcd834f>] ieee80211_tasklet_handler+0x11f/0x130 [mac80211]
+ [<c03a4195>] _spin_unlock+0x5/0x20
+ [<cfce9c6b>] __ieee80211_rx+0xab/0x6b0 [mac80211]
+ [<c011ea35>] default_spin_lock_flags+0x5/0x10
+ [<c03a3d7e>] _spin_lock_irqsave+0x3e/0x60
+ [<cfcd8337>] ieee80211_tasklet_handler+0x107/0x130 [mac80211]
+ [<c01369bc>] tasklet_action+0x6c/0xf0
+ [<c01371d7>] __do_softirq+0x87/0x140
+ [<c011ea35>] default_spin_lock_flags+0x5/0x10
+ [<c03a3d7e>] _spin_lock_irqsave+0x3e/0x60
+ [<c01372e5>] do_softirq+0x55/0x60
+ [<c0137525>] irq_exit+0x75/0x90
+ [<c0106378>] do_IRQ+0x48/0x90
+ [<c0104527>] common_interrupt+0x27/0x2c
+ [<cf8372cb>] acpi_idle_enter_simple+0x17a/0x1f4 [processor]
+ [<c02fcfcf>] cpuidle_idle_call+0x6f/0xc0
+ [<c0102de6>] cpu_idle+0x66/0xa0
+---[ end trace ba8601a4d52a20d2 ]---
+------------[ cut here ]------------		
+
+So far (after 2.9 GB continuous kernel tarball downloads from a local 
+mirror) b43 seems to be fine again:
+
+wlan1     IEEE 802.11bg  ESSID:"gemini"
+          Mode:Managed  Frequency:2.412 GHz  Access Point: 00:21:27:FF:51:A8
+          Bit Rate=54 Mb/s   Tx-Power=20 dBm
+          Retry min limit:7   RTS thr:off   Fragment thr=2352 B
+          Power Management:off
+          Link Quality=54/100  Signal level:-82 dBm  Noise level=-69 dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+wlan1     Link encap:Ethernet  HWaddr 00:0f:66:d8:67:ca
+          inet addr:192.168.0.70  Bcast:192.168.0.255  Mask:255.255.255.0
+          inet6 addr: fe80::20f:66ff:fed8:67ca/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:2090104 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:1082081 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:3146865411 (2.9 GiB)  TX bytes:93054386 (88.7 MiB)
+
+Fetched 83.2MB in 1min18s (1058kB/s)
+[...]
+Fetched 83.2MB in 1min1s (1362kB/s)
+
+Thank you and sorry about the late response.
+
+Regards
+	Stefan Lippers-Hollmann
+
+
+Post scriptum: I'm not able to trigger this trace with ath5k/ AR2425.
+-- 
+> >  net/mac80211/rx.c |    6 ++++--
+> >  1 files changed, 4 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+> > index 7175ae8..5e17e57 100644
+> > --- a/net/mac80211/rx.c
+> > +++ b/net/mac80211/rx.c
+> > @@ -2230,8 +2230,10 @@ void __ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb,
+> >  		 * MCS aware. */
+> >  		rate = &sband->bitrates[sband->n_bitrates - 1];
+> >  	} else {
+> > -		if (WARN_ON(status->rate_idx < 0 ||
+> > -			    status->rate_idx >= sband->n_bitrates))
+> > +		if (WARN(status->rate_idx < 0 ||
+> > +			    status->rate_idx >= sband->n_bitrates,
+> > +			    "RATE=%u, BAND=%x\n", status->rate_idx,
+> > +			    sband->n_bitrates))
+> >  			return;
+> >  		rate = &sband->bitrates[status->rate_idx];
+> >  	}
+
+
+From mtcstle at yahoo.com  Mon Mar 23 03:20:53 2009
+From: mtcstle at yahoo.com (mtcstle at yahoo.com)
+Date: Mon, 23 Mar 2009 02:20:53 +0000
+Subject: I need some help stabalizing b43 for a 4306
+Message-ID: <427602477-1237774932-cardhu_decombobulator_blackberry.rim.net-1698641226-@bxe1265.bisx.prod.on.blackberry>
+
+Well, after raging at the wind for three weeks, I've taken your advice., found a mini-PCI Intel Pro Wireless 2200, and popped it in, in place of the BCM4306. Once I found out where to find the firmware, I was in business  
+
+Thanks for the help, you guys. 
+
+John
+------Original Message------
+From: Michael Buesch
+Sender: 
+To: Larry Finger
+Cc: John Mountcastle
+Cc: bcm43xx-dev at lists.berlios.de
+Sent: Feb 28, 2009 15:57
+Subject: Re: I need some help stabaizing b43 for a 4306
+
+On Saturday 28 February 2009 21:07:41 Larry Finger wrote:
+> > One more question and i hope you don't mind, it's off topic but it's related to my quest. I hadven't done any C programming in 10 years but when I used to do a lot of it, if I patche a source file and ran 'make', it figured out what needed to be done and just recompiled and liknked the changed bits. Over the last week, every time I changed phy_g.c, make calmly repied, 'nothing to be done.'  What am I forgetting?
+> 
+> That would indicate that your Makefile doesn't have a dependency on phy_g.c.
+
+No dependencies don't work in compat wireless. You need to make clean first.
+
+-- 
+Greetings, Michael.
+
+
+Sent via BlackBerry by AT&T
+
+From wrxzzj at gmail.com  Tue Mar 24 08:06:04 2009
+From: wrxzzj at gmail.com (RuXu W.)
+Date: Tue, 24 Mar 2009 15:06:04 +0800
+Subject: b43 make kernel 2.6.29 crashed, help!
+Message-ID: <737c90be0903240006q2066c53bl1ce50eadd45e893b@mail.gmail.com>
+
+I use b43 with mac80211, kernel 2.6.29,  with firmware from broadcom 4.150.x.x
+All is work properly when load and up , but after I try to make
+associate with AP, kernel run into panic.
+
+what should I do to fix this problem,  should I replace firmware with
+open firmware ?
+
+My wireless card is broadcom 4318
+
+-- 
+Best Regards?
+                                               RuXu W.
+
+
+From yoann71 at msn.com  Tue Mar 24 09:47:20 2009
+From: yoann71 at msn.com (yoann)
+Date: Tue, 24 Mar 2009 09:47:20 +0100
+Subject: MSI PC54G
+Message-ID: <BAY113-W19E15F6D6ECDCED3695263B4930@phx.gbl>
+
+
+Hi, this cards works with the b43 driver. But I have added this line 
+"{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4306) },"
+in the file b43_pci_bridge.c (in linux-source/drivers/ssb)
+
+Here my lspci -vnn :
+
+00:09.0 Network controller [0280]: Broadcom Corporation BCM4307 Ethernet Controller [14e4:4306] (rev 03)
+    Subsystem: Broadcom Corporation BCM4307 Ethernet Controller [14e4:4306]
+    Flags: bus master, fast devsel, latency 32, IRQ 10
+    Memory at d7000000 (32-bit, non-prefetchable) [size=8K]
+    Kernel driver in use: b43-pci-bridge
+    Kernel modules: ssb
+
+
+_________________________________________________________________
+Vous voulez savoir ce que vous pouvez faire avec le nouveau Windows Live?? Lancez-vous !
+http://www.microsoft.com/windows/windowslive/default.aspx
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090324/42980269/attachment.html>
+
+From mb at bu3sch.de  Tue Mar 24 10:36:48 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Tue, 24 Mar 2009 10:36:48 +0100
+Subject: [PATCH] b43: Add BCM4307 PCI-ID
+Message-ID: <200903241036.48652.mb@bu3sch.de>
+
+00:09.0 Network controller [0280]: Broadcom Corporation BCM4307 Ethernet Controller [14e4:4306] (rev 03)
+    Subsystem: Broadcom Corporation BCM4307 Ethernet Controller [14e4:4306]
+    Flags: bus master, fast devsel, latency 32, IRQ 10
+    Memory at d7000000 (32-bit, non-prefetchable) [size=8K]
+    Kernel driver in use: b43-pci-bridge
+    Kernel modules: ssb
+
+Reported-by: yoann <yoann71 at msn.com>
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+---
+
+Index: wireless-testing/drivers/ssb/b43_pci_bridge.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/b43_pci_bridge.c	2009-03-24 10:34:43.000000000 +0100
++++ wireless-testing/drivers/ssb/b43_pci_bridge.c	2009-03-24 10:34:56.000000000 +0100
+@@ -18,6 +18,7 @@
+ 
+ static const struct pci_device_id b43_pci_bridge_tbl[] = {
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4301) },
++	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4306) },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4307) },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4311) },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4312) },
+
+-- 
+Greetings, Michael.
+
+
+From david at identd.dyndns.org  Tue Mar 24 13:11:52 2009
+From: david at identd.dyndns.org (David Ellingsworth)
+Date: Tue, 24 Mar 2009 07:11:52 -0500
+Subject: b43 make kernel 2.6.29 crashed, help!
+In-Reply-To: <737c90be0903240006q2066c53bl1ce50eadd45e893b@mail.gmail.com>
+References: <737c90be0903240006q2066c53bl1ce50eadd45e893b@mail.gmail.com>
+Message-ID: <30353c3d0903240511l2adc9512r4c91de1f12299d77@mail.gmail.com>
+
+On Tue, Mar 24, 2009 at 2:06 AM, RuXu W. <wrxzzj at gmail.com> wrote:
+> I use b43 with mac80211, kernel 2.6.29,  with firmware from broadcom 4.150.x.x
+> All is work properly when load and up , but after I try to make
+> associate with AP, kernel run into panic.
+>
+> what should I do to fix this problem,  should I replace firmware with
+> open firmware ?
+>
+> My wireless card is broadcom 4318
+>
+> --
+> Best Regards?
+>                                               RuXu W.
+
+Without the stack trace printed during the crash.. there's not much we
+can do to correct the issue. If it happens again, please take a
+picture of your screen or type all of the stack trace into another
+computer and then send it to the list. At the moment, we currently
+can't even confirm if it's related to b43.
+
+Regards,
+
+David Ellingsworth
+
+
+From wrxzzj at gmail.com  Tue Mar 24 14:24:45 2009
+From: wrxzzj at gmail.com (RuXu W.)
+Date: Tue, 24 Mar 2009 21:24:45 +0800
+Subject: b43 make kernel 2.6.29 crashed, help!
+In-Reply-To: <30353c3d0903240511l2adc9512r4c91de1f12299d77@mail.gmail.com>
+References: <737c90be0903240006q2066c53bl1ce50eadd45e893b@mail.gmail.com>
+	<30353c3d0903240511l2adc9512r4c91de1f12299d77@mail.gmail.com>
+Message-ID: <737c90be0903240624t21d8a94ua477ddc0f8d4cd4@mail.gmail.com>
+
+when I back to 2.6.28.8 , all is right.
+2.6.29 is more unstable for bcm4318 card.
+
+attach is my dmesg output.
+
+
+2009/3/24 David Ellingsworth <david at identd.dyndns.org>:
+> On Tue, Mar 24, 2009 at 2:06 AM, RuXu W. <wrxzzj at gmail.com> wrote:
+>> I use b43 with mac80211, kernel 2.6.29, ?with firmware from broadcom 4.150.x.x
+>> All is work properly when load and up , but after I try to make
+>> associate with AP, kernel run into panic.
+>>
+>> what should I do to fix this problem, ?should I replace firmware with
+>> open firmware ?
+>>
+>> My wireless card is broadcom 4318
+>>
+>> --
+>> Best Regards?
+>> ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? RuXu W.
+>
+> Without the stack trace printed during the crash.. there's not much we
+> can do to correct the issue. If it happens again, please take a
+> picture of your screen or type all of the stack trace into another
+> computer and then send it to the list. At the moment, we currently
+> can't even confirm if it's related to b43.
+>
+> Regards,
+>
+> David Ellingsworth
+>
+
+
+
+-- 
+Best Regards?
+                                               RuXu W.
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: debug
+Type: application/octet-stream
+Size: 17529 bytes
+Desc: not available
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090324/719cc2a9/attachment.obj>
+
+From Larry.Finger at lwfinger.net  Tue Mar 24 15:55:50 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Tue, 24 Mar 2009 09:55:50 -0500
+Subject: b43 make kernel 2.6.29 crashed, help!
+In-Reply-To: <737c90be0903240006q2066c53bl1ce50eadd45e893b@mail.gmail.com>
+References: <737c90be0903240006q2066c53bl1ce50eadd45e893b@mail.gmail.com>
+Message-ID: <49C8F476.5070500@lwfinger.net>
+
+RuXu W. wrote:
+> I use b43 with mac80211, kernel 2.6.29,  with firmware from broadcom 4.150.x.x
+> All is work properly when load and up , but after I try to make
+> associate with AP, kernel run into panic.
+> 
+> what should I do to fix this problem,  should I replace firmware with
+> open firmware ?
+> 
+> My wireless card is broadcom 4318
+
+I built and ran 2.6.29 for about 12 hours with no problems. It was tested with
+RTL8187B and with the old-style BCM4312 802.11a/b/g card.
+
+It is very unlikely that a firmware problem could crash Linux. As reported
+earlier, you need to report info about the crash.
+
+Was this a vanilla 2.6.29? If you added compat-wireless from yesterday to it,
+you may have been hit by the faulty patch entitled "mac80211: remove mixed-cell
+and userspace MLME code".
+
+Larry
+
+
+From francesco.gringoli at ing.unibs.it  Tue Mar 24 19:57:33 2009
+From: francesco.gringoli at ing.unibs.it (Francesco Gringoli)
+Date: Tue, 24 Mar 2009 19:57:33 +0100
+Subject: [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+In-Reply-To: <49C68112.7090001@lwfinger.net>
+References: <41960ccf0903221100k34df5872y81693e5ed5c2529a@mail.gmail.com>
+	<49C68112.7090001@lwfinger.net>
+Message-ID: <EA519788-B815-4A09-8E45-FF431720DE24@ing.unibs.it>
+
+On Mar 22, 2009, at 7:18 PM, Larry Finger wrote:
+
+> Lorenzo Nava wrote:
+>> Once again...
+>>
+>> Reported-by: Lorenzo Nava
+>> Signed-off-by: Lorenzo Nava <navalorenx at gmail.com>
+> Cc: Stable <stable at kernel.org>  [2.6.28, 2.6.27]
+>
+> Sorry to join this party late, but the line above should be added as  
+> this bug
+> goes back at least to 2.6.27 and should be applied to stable. I  
+> didn't check any
+> further.
+>
+>
+> Larry
+>
+Larry, Michael,
+
+I checked within the firmware to understand what happens when the  
+rate_idx is not successfully resolved. First of all, this never  
+happens with FCS good frames, at least in my experiments. When FCS is  
+wrong, instead, I noticed that padding could be set to 2 by the  
+firmware (by setting bit 0x20 of SPR_RXE_FIFOCTL1) even if it is not  
+necessary, e.g., an error forces both from_ds and to_ds bits to 1, so  
+the firmware thinks the frame is a WDS one, while it is not. This  
+wrong setting, however, is not responsible for the wrong rate_idx.
+
+When a frame is wrong, in fact, we can face two scenarios:
+
+A)- some modulated symbols were not correctly decoded but the packet  
+is preserved (of course its content is wrong)
+B)- what we think is a frame in the rx buffer is not a frame but it is  
+a halved frame (reception stopped before packet ended), or it is a mix  
+of multiple frames on the air
+
+In the first scenario the length of the frame (basically, the  
+SPR_RXE_FRAMELEN value that was used by the firmware to push the frame  
+to the host) is consistent with the length reported inside the plcp,  
+that is always correct (the plcp) as it is protected on its own and we  
+do discard plcp bad frames. In this case I _NEVER_ experienced a  
+mismatch between the padding advertised by the firmware with that I  
+computed by checking the first eight bytes as said before.
+
+In the second case, instead, I saw that sometimes the reported padding  
+is wrong, e.g., a pad = 2 is reported while the plcp begins on the  
+first byte, or viceversa.
+
+The conclusion is that Michael is right, there is a bug in the rx  
+engine, and this bug causes a mis-alignment of the frame pushed  
+through the dma, although this issue is limited to wrong frames of  
+type B.
+
+The bad thing is that sometimes a bad alignment is not resolved in a  
+rate_idx = -1 as the first byte of the plcp (which is not actually the  
+first since the pad was wrong) is mistakenly resolved to a valid  
+encoding. This case can be funny since the determined speed could be  
+wrong.
+
+Cheers,
+-FG
+
+>
+>
+> _______________________________________________
+> Bcm43xx-dev mailing list
+> Bcm43xx-dev at lists.berlios.de
+> https://lists.berlios.de/mailman/listinfo/bcm43xx-dev
+
+-------
+
+Francesco Gringoli, PhD - Assistant Professor
+Dept. of Electrical Engineering for Automation
+University of Brescia
+via Branze, 38
+25123 Brescia
+ITALY
+
+Ph:  ++39.030.3715843
+FAX: ++39.030.380014
+WWW: http://www.ing.unibs.it/~gringoli
+
+
+
+
+
+
+From mb at bu3sch.de  Thu Mar 26 17:44:37 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 26 Mar 2009 17:44:37 +0100
+Subject: [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+In-Reply-To: <EA519788-B815-4A09-8E45-FF431720DE24@ing.unibs.it>
+References: <41960ccf0903221100k34df5872y81693e5ed5c2529a@mail.gmail.com>
+	<49C68112.7090001@lwfinger.net>
+	<EA519788-B815-4A09-8E45-FF431720DE24@ing.unibs.it>
+Message-ID: <200903261744.37968.mb@bu3sch.de>
+
+On Tuesday 24 March 2009 19:57:33 Francesco Gringoli wrote:
+> The bad thing is that sometimes a bad alignment is not resolved in a  
+> rate_idx = -1 as the first byte of the plcp (which is not actually the  
+> first since the pad was wrong) is mistakenly resolved to a valid  
+> encoding.
+
+I think this case is extremely rare and this is nothing we need to worry about.
+A checksum is no guarantee either that the frame really is not corrupt. So
+we already live with the assumption that there may be a bad frame of one
+million or something like that.
+
+> This case can be funny since the determined speed could be   
+> wrong.
+
+I don't understand what "determined speed" means.
+
+-- 
+Greetings, Michael.
+
+
+From mb at bu3sch.de  Thu Mar 26 17:46:48 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 26 Mar 2009 17:46:48 +0100
+Subject: b43 make kernel 2.6.29 crashed, help!
+In-Reply-To: <737c90be0903240624t21d8a94ua477ddc0f8d4cd4@mail.gmail.com>
+References: <737c90be0903240006q2066c53bl1ce50eadd45e893b@mail.gmail.com>
+	<30353c3d0903240511l2adc9512r4c91de1f12299d77@mail.gmail.com>
+	<737c90be0903240624t21d8a94ua477ddc0f8d4cd4@mail.gmail.com>
+Message-ID: <200903261746.48640.mb@bu3sch.de>
+
+On Tuesday 24 March 2009 14:24:45 RuXu W. wrote:
+> when I back to 2.6.28.8 , all is right.
+> 2.6.29 is more unstable for bcm4318 card.
+
+Please check your hardware:
+
+b43-pci-bridge 0001:10:12.0: enabling device (0004 -> 0006)
+Machine check in kernel mode.
+Caused by (from SRR1=149030): Transfer error ack signal
+Oops: Machine check, sig: 7 [#1]
+PowerMac
+Modules linked in: ssb(+) rng_core mac80211 cfg80211 loop snd_aoa_codec_tas snd_aoa_fabric_layout snd_aoa snd_aoa_i2sbus snd_pcm snd_page_alloc snd_seq snd_timer snd_seq_device evdev snd soundcore i2c_powermac ide_cd_mod cdrom snd_aoa_soundbus ehci_hcd appletouch uninorth_agp agpgart [last unloaded: btusb]
+NIP: e2390f18 LR: e23911f4 CTR: c002291c
+REGS: df253bb0 TRAP: 0200   Not tainted  (2.6.29)
+MSR: 00149030 <EE,ME,IR,DR>  CR: 22000482  XER: 20000000
+TASK = dfa68610[1323] 'modprobe' THREAD: df252000
+GPR00: e23911f4 df253c60 dfa68610 00000000 00000090 00000080 00000004 df253c08 
+GPR08: c03e5000 00000ffc 00000000 08006b80 df844800 10020390 100e0000 100df49c 
+GPR16: 100b54c0 100df49c 100ddd20 100ffc28 100b5340 100fefc8 00000000 00000000 
+GPR24: 100ee008 e2390000 e2391efc e2397be8 00000000 00000000 e23a0000 df8a6c00 
+NIP [e2390f18] ssb_bus_scan+0x74/0x558 [ssb]
+LR [e23911f4] ssb_bus_scan+0x350/0x558 [ssb]
+Call Trace:
+[df253c60] [e23911f4] ssb_bus_scan+0x350/0x558 [ssb] (unreliable)
+[df253c90] [e23909bc] ssb_bus_register+0x10c/0x218 [ssb]
+[df253d10] [e2390b70] ssb_bus_pcibus_register+0x40/0x74 [ssb]
+[df253d20] [e2392954] ssb_pcihost_probe+0xb0/0xe0 [ssb]
+[df253d40] [c0161550] local_pci_probe+0x24/0x34
+[df253d50] [c0161e50] pci_device_probe+0x84/0xa8
+[df253d80] [c01c98b0] driver_probe_device+0xb4/0x1e8
+[df253da0] [c01c9a88] __driver_attach+0xa4/0xa8
+[df253dc0] [c01c905c] bus_for_each_dev+0x5c/0xa4
+[df253df0] [c01c96cc] driver_attach+0x24/0x34
+[df253e00] [c01c89c0] bus_add_driver+0x1d4/0x248
+[df253e30] [c01c9cfc] driver_register+0x70/0x158
+[df253e50] [c0162100] __pci_register_driver+0x4c/0xac
+[df253e70] [e2392780] ssb_pcihost_register+0x50/0x60 [ssb]
+[df253e80] [e239a0d0] b43_pci_ssb_bridge_init+0x18/0xa8 [ssb]
+[df253e90] [e239a074] ssb_modinit+0x74/0xb8 [ssb]
+[df253eb0] [c0003c58] do_one_initcall+0x34/0x1b8
+[df253f20] [c005b5b8] sys_init_module+0xb4/0x1b4
+[df253f40] [c0015a34] ret_from_syscall+0x0/0x38
+--- Exception: c01 at 0xff63044
+    LR = 0x10003c80
+Instruction dump:
+813f0010 93df0000 2f890001 419e02f4 69290002 817f0000 3129ffff 7d294910 
+55290028 39290ffc 7c0004ac 7d6b4c2c <0c0b0000> 4c00012c 71608ff0 39200000 
+---[ end trace 0c10a35a4c3e97ab ]---
+
+
+-- 
+Greetings, Michael.
+
+
+From francesco.gringoli at ing.unibs.it  Thu Mar 26 20:42:29 2009
+From: francesco.gringoli at ing.unibs.it (Francesco Gringoli)
+Date: Thu, 26 Mar 2009 20:42:29 +0100
+Subject: [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+In-Reply-To: <200903261744.37968.mb@bu3sch.de>
+References: <41960ccf0903221100k34df5872y81693e5ed5c2529a@mail.gmail.com>
+	<49C68112.7090001@lwfinger.net>
+	<EA519788-B815-4A09-8E45-FF431720DE24@ing.unibs.it>
+	<200903261744.37968.mb@bu3sch.de>
+Message-ID: <3F73F990-A5B7-496C-A4E9-1BDC2ABA4997@ing.unibs.it>
+
+On Mar 26, 2009, at 5:44 PM, Michael Buesch wrote:
+
+> On Tuesday 24 March 2009 19:57:33 Francesco Gringoli wrote:
+>> The bad thing is that sometimes a bad alignment is not resolved in a
+>> rate_idx = -1 as the first byte of the plcp (which is not actually  
+>> the
+>> first since the pad was wrong) is mistakenly resolved to a valid
+>> encoding.
+>
+> I think this case is extremely rare and this is nothing we need to  
+> worry about.
+> A checksum is no guarantee either that the frame really is not  
+> corrupt. So
+> we already live with the assumption that there may be a bad frame of  
+> one
+> million or something like that.
+Hi Michael,
+
+I spent more time debugging this issue. I found something interesting:  
+when we ask the firmware to pass corrupted frames, it can happen  
+(actually it happens frequently if traffic is high) that the firmware  
+detects something was received even if the internal rx buffer is  
+completely empty while SPR_RXE_FRAMELEN is > 0. In this case, the  
+firmware jumps to push_frame_into_fifo anyway and raises a rx irq. The  
+kernel handles this dma event and b43 thinks that a frame has been  
+received, instead the dma buffer is filled with random data (sometimes  
+with data of a previous packet), at the end a skb with something that  
+was not a packet is passed to mac80211. This happens with both  
+original and open firmwares.
+
+I wrote this patch so that b43 can understand if something was  
+actually transferred during the dma event: basically, it always fills  
+the plcp part of the dma buffer with impossible data, so if this  
+impossible data is still there after dma event this means that nothing  
+was transferred. This avoid fake packets to be feed into the rx queue  
+(e.g., for those interested in capturing corrupted frames).
+
+Cheers,
+-FG
+
+Signed-off-by: Francesco Gringoli <francesco.gringoli at ing.unibs.it>
+
+Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- drivers/net/wireless/b43/dma.c      2009-03-26 19:31:37.000000000  
++0100
++++ drivers/net/wireless/b43/dma.c      2009-03-26 20:08:34.000000000  
++0100
+@@ -568,6 +568,7 @@
+         skb = __dev_alloc_skb(ring->rx_buffersize, gfp_flags);
+         if (unlikely(!skb))
+                 return -ENOMEM;
++       memset(skb->data + ring->frameoffset, 0xff, 8);
+         dmaaddr = map_descbuffer(ring, skb->data, ring- 
+ >rx_buffersize, 0);
+         if (b43_dma_mapping_error(ring, dmaaddr, ring->rx_buffersize,  
+0)) {
+                 /* ugh. try to realloc in zone_dma */
+@@ -578,6 +579,7 @@
+                 skb = __dev_alloc_skb(ring->rx_buffersize, gfp_flags);
+                 if (unlikely(!skb))
+                         return -ENOMEM;
++               memset(skb->data + ring->frameoffset, 0xff, 8);
+                 dmaaddr = map_descbuffer(ring, skb->data,
+                                          ring->rx_buffersize, 0);
+                 if (b43_dma_mapping_error(ring, dmaaddr, ring- 
+ >rx_buffersize, 0)) {
+--- drivers/net/wireless/b43/xmit.c     2009-03-26 19:41:53.000000000  
++0100
++++ drivers/net/wireless/b43/xmit.c     2009-03-26 20:08:16.000000000  
++0100
+@@ -527,6 +527,7 @@
+         u16 chanid;
+         u16 phytype;
+         int padding;
++       u8 *plcp_check;
+
+         memset(&status, 0, sizeof(status));
+
+@@ -560,6 +561,17 @@
+                 goto drop;
+         }
+         plcp = (struct b43_plcp_hdr6 *)(skb->data + padding);
++       plcp_check = (u8*) plcp;
++       if(plcp_check[0] == 0xff &&
++               plcp_check[1] == 0xff &&
++               plcp_check[2] == 0xff &&
++               plcp_check[3] == 0xff &&
++               plcp_check[4] == 0xff &&
++               plcp_check[5] == 0xff) {
++               b43dbg(dev->wl, "RX: no packet received?\n");
++               goto drop;
++       }
++
+         skb_pull(skb, sizeof(struct b43_plcp_hdr6) + padding);
+         /* The skb contains the Wireless Header + payload data now */
+         if (unlikely(skb->len < (2 + 2 + 6 /*minimum hdr */  +  
+FCS_LEN))) {
+
+
+
+From mb at bu3sch.de  Thu Mar 26 21:02:55 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 26 Mar 2009 21:02:55 +0100
+Subject: [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+In-Reply-To: <3F73F990-A5B7-496C-A4E9-1BDC2ABA4997@ing.unibs.it>
+References: <41960ccf0903221100k34df5872y81693e5ed5c2529a@mail.gmail.com>
+	<200903261744.37968.mb@bu3sch.de>
+	<3F73F990-A5B7-496C-A4E9-1BDC2ABA4997@ing.unibs.it>
+Message-ID: <200903262102.56227.mb@bu3sch.de>
+
+On Thursday 26 March 2009 20:42:29 Francesco Gringoli wrote:
+> I spent more time debugging this issue. I found something interesting:  
+> when we ask the firmware to pass corrupted frames, it can happen  
+> (actually it happens frequently if traffic is high) that the firmware  
+> detects something was received even if the internal rx buffer is  
+> completely empty while SPR_RXE_FRAMELEN is > 0. In this case, the  
+> firmware jumps to push_frame_into_fifo anyway and raises a rx irq. The  
+> kernel handles this dma event and b43 thinks that a frame has been  
+> received, instead the dma buffer is filled with random data (sometimes  
+> with data of a previous packet), at the end a skb with something that  
+> was not a packet is passed to mac80211. This happens with both  
+> original and open firmwares.
+> 
+> I wrote this patch so that b43 can understand if something was  
+> actually transferred during the dma event: basically, it always fills  
+> the plcp part of the dma buffer with impossible data, so if this  
+> impossible data is still there after dma event this means that nothing  
+> was transferred. This avoid fake packets to be feed into the rx queue  
+> (e.g., for those interested in capturing corrupted frames).
+
+Yes this is an interesting idea and a rather cheap workaround.
+I think I will implement slightly different, however.
+
+> Cheers,
+> -FG
+> 
+> Signed-off-by: Francesco Gringoli <francesco.gringoli at ing.unibs.it>
+> 
+> Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+> ===================================================================
+> --- drivers/net/wireless/b43/dma.c      2009-03-26 19:31:37.000000000  
+> +0100
+> +++ drivers/net/wireless/b43/dma.c      2009-03-26 20:08:34.000000000  
+> +0100
+> @@ -568,6 +568,7 @@
+>          skb = __dev_alloc_skb(ring->rx_buffersize, gfp_flags);
+>          if (unlikely(!skb))
+>                  return -ENOMEM;
+> +       memset(skb->data + ring->frameoffset, 0xff, 8);
+>          dmaaddr = map_descbuffer(ring, skb->data, ring- 
+>  >rx_buffersize, 0);
+>          if (b43_dma_mapping_error(ring, dmaaddr, ring->rx_buffersize,  
+> 0)) {
+>                  /* ugh. try to realloc in zone_dma */
+> @@ -578,6 +579,7 @@
+>                  skb = __dev_alloc_skb(ring->rx_buffersize, gfp_flags);
+>                  if (unlikely(!skb))
+>                          return -ENOMEM;
+> +               memset(skb->data + ring->frameoffset, 0xff, 8);
+>                  dmaaddr = map_descbuffer(ring, skb->data,
+>                                           ring->rx_buffersize, 0);
+>                  if (b43_dma_mapping_error(ring, dmaaddr, ring- 
+>  >rx_buffersize, 0)) {
+> --- drivers/net/wireless/b43/xmit.c     2009-03-26 19:41:53.000000000  
+> +0100
+> +++ drivers/net/wireless/b43/xmit.c     2009-03-26 20:08:16.000000000  
+> +0100
+> @@ -527,6 +527,7 @@
+>          u16 chanid;
+>          u16 phytype;
+>          int padding;
+> +       u8 *plcp_check;
+> 
+>          memset(&status, 0, sizeof(status));
+> 
+> @@ -560,6 +561,17 @@
+>                  goto drop;
+>          }
+>          plcp = (struct b43_plcp_hdr6 *)(skb->data + padding);
+> +       plcp_check = (u8*) plcp;
+> +       if(plcp_check[0] == 0xff &&
+> +               plcp_check[1] == 0xff &&
+> +               plcp_check[2] == 0xff &&
+> +               plcp_check[3] == 0xff &&
+> +               plcp_check[4] == 0xff &&
+> +               plcp_check[5] == 0xff) {
+> +               b43dbg(dev->wl, "RX: no packet received?\n");
+> +               goto drop;
+> +       }
+> +
+>          skb_pull(skb, sizeof(struct b43_plcp_hdr6) + padding);
+>          /* The skb contains the Wireless Header + payload data now */
+>          if (unlikely(skb->len < (2 + 2 + 6 /*minimum hdr */  +  
+> FCS_LEN))) {
+> 
+> 
+> 
+
+
+
+-- 
+Greetings, Michael.
+
+
+From mb at bu3sch.de  Fri Mar 27 22:51:58 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Fri, 27 Mar 2009 22:51:58 +0100
+Subject: [PATCH] b43: Poison RX buffers
+Message-ID: <200903272251.58384.mb@bu3sch.de>
+
+This patch adds poisoning and sanity checking to the RX DMA buffers.
+This is used for protection against buggy hardware/firmware that raises
+RX interrupts without doing an actual DMA transfer.
+
+This mechanism protects against rare "bad packets" (due to uninitialized skb data)
+and rare kernel crashes due to uninitialized RX headers.
+
+The poison is selected to not match on valid frames and to be cheap for checking.
+
+The poison check mechanism _might_ trigger incorrectly, if we are voluntarily
+receiving frames with bad PLCP headers. However, this is nonfatal, because the
+chance of such a match is basically zero and in case it happens it just results
+in dropping the packet.
+Bad-PLCP RX defaults to off, and you should leave it off unless you want to listen
+to the latest news broadcasted by your microwave oven.
+
+This patch also moves the initialization of the RX-header "length" field in front of
+the mapping of the DMA buffer. The CPU should not touch the buffer after we mapped it.
+
+Cc: stable at kernel.org
+Reported-by: Francesco Gringoli <francesco.gringoli at ing.unibs.it>
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+---
+
+Francesco, please stresstest this.
+John, please queue as bugfix.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-03-27 12:29:57.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-03-27 22:22:21.000000000 +0100
+@@ -555,11 +555,32 @@ address_error:
+ 	return 1;
+ }
+ 
++static bool b43_rx_buffer_is_poisoned(struct b43_dmaring *ring, struct sk_buff *skb)
++{
++	unsigned char *f = skb->data + ring->frameoffset;
++
++	return ((f[0] & f[1] & f[2] & f[3] & f[4] & f[5] & f[6] & f[7]) == 0xFF);
++}
++
++static void b43_poison_rx_buffer(struct b43_dmaring *ring, struct sk_buff *skb)
++{
++	struct b43_rxhdr_fw4 *rxhdr;
++	unsigned char *frame;
++
++	/* This poisons the RX buffer to detect DMA failures. */
++
++	rxhdr = (struct b43_rxhdr_fw4 *)(skb->data);
++	rxhdr->frame_len = 0;
++
++	B43_WARN_ON(ring->rx_buffersize < ring->frameoffset + sizeof(struct b43_plcp_hdr6) + 2);
++	frame = skb->data + ring->frameoffset;
++	memset(frame, 0xFF, sizeof(struct b43_plcp_hdr6) + 2 /* padding */);
++}
++
+ static int setup_rx_descbuffer(struct b43_dmaring *ring,
+ 			       struct b43_dmadesc_generic *desc,
+ 			       struct b43_dmadesc_meta *meta, gfp_t gfp_flags)
+ {
+-	struct b43_rxhdr_fw4 *rxhdr;
+ 	dma_addr_t dmaaddr;
+ 	struct sk_buff *skb;
+ 
+@@ -568,6 +589,7 @@ static int setup_rx_descbuffer(struct b4
+ 	skb = __dev_alloc_skb(ring->rx_buffersize, gfp_flags);
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
++	b43_poison_rx_buffer(ring, skb);
+ 	dmaaddr = map_descbuffer(ring, skb->data, ring->rx_buffersize, 0);
+ 	if (b43_dma_mapping_error(ring, dmaaddr, ring->rx_buffersize, 0)) {
+ 		/* ugh. try to realloc in zone_dma */
+@@ -578,6 +600,7 @@ static int setup_rx_descbuffer(struct b4
+ 		skb = __dev_alloc_skb(ring->rx_buffersize, gfp_flags);
+ 		if (unlikely(!skb))
+ 			return -ENOMEM;
++		b43_poison_rx_buffer(ring, skb);
+ 		dmaaddr = map_descbuffer(ring, skb->data,
+ 					 ring->rx_buffersize, 0);
+ 		if (b43_dma_mapping_error(ring, dmaaddr, ring->rx_buffersize, 0)) {
+@@ -592,9 +615,6 @@ static int setup_rx_descbuffer(struct b4
+ 	ring->ops->fill_descriptor(ring, desc, dmaaddr,
+ 				   ring->rx_buffersize, 0, 0, 0);
+ 
+-	rxhdr = (struct b43_rxhdr_fw4 *)(skb->data);
+-	rxhdr->frame_len = 0;
+-
+ 	return 0;
+ }
+ 
+@@ -1489,6 +1509,15 @@ static void dma_rx(struct b43_dmaring *r
+ 			goto drop;
+ 		}
+ 	}
++	if (unlikely(b43_rx_buffer_is_poisoned(ring, skb))) {
++		/* Something went wrong with the DMA.
++		 * The device did not touch the buffer and did not overwrite the poison. */
++		b43dbg(ring->dev->wl, "DMA RX: Dropping poisoned buffer.\n");
++		/* recycle the descriptor buffer. */
++		sync_descbuffer_for_device(ring, meta->dmaaddr,
++					   ring->rx_buffersize);
++		goto drop;
++	}
+ 	if (unlikely(len > ring->rx_buffersize)) {
+ 		/* The data did not fit into one descriptor buffer
+ 		 * and is split over multiple buffers.
+
+
+-- 
+Greetings, Michael.
+
+
+From mb at bu3sch.de  Sat Mar 28 00:41:25 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Sat, 28 Mar 2009 00:41:25 +0100
+Subject: [PATCH] b43: Refresh RX poison on buffer recycling
+Message-ID: <200903280041.25265.mb@bu3sch.de>
+
+The RX buffer poison needs to be refreshed, if we recycle an RX buffer,
+because it might be (partially) overwritten by some DMA operations.
+
+Cc: stable at kernel.org
+Cc: Francesco Gringoli <francesco.gringoli at ing.unibs.it>
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+---
+
+Francesco, please stresstest this on top of the other patch that adds poisoning.
+John, please queue as bugfix.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-03-27 23:15:36.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-03-27 23:30:17.000000000 +0100
+@@ -1503,20 +1503,16 @@ static void dma_rx(struct b43_dmaring *r
+ 			len = le16_to_cpu(rxhdr->frame_len);
+ 		} while (len == 0 && i++ < 5);
+ 		if (unlikely(len == 0)) {
+-			/* recycle the descriptor buffer. */
+-			sync_descbuffer_for_device(ring, meta->dmaaddr,
+-						   ring->rx_buffersize);
+-			goto drop;
++			dmaaddr = meta->dmaaddr;
++			goto drop_recycle_buffer;
+ 		}
+ 	}
+ 	if (unlikely(b43_rx_buffer_is_poisoned(ring, skb))) {
+ 		/* Something went wrong with the DMA.
+ 		 * The device did not touch the buffer and did not overwrite the poison. */
+ 		b43dbg(ring->dev->wl, "DMA RX: Dropping poisoned buffer.\n");
+-		/* recycle the descriptor buffer. */
+-		sync_descbuffer_for_device(ring, meta->dmaaddr,
+-					   ring->rx_buffersize);
+-		goto drop;
++		dmaaddr = meta->dmaaddr;
++		goto drop_recycle_buffer;
+ 	}
+ 	if (unlikely(len > ring->rx_buffersize)) {
+ 		/* The data did not fit into one descriptor buffer
+@@ -1530,6 +1526,7 @@ static void dma_rx(struct b43_dmaring *r
+ 		while (1) {
+ 			desc = ops->idx2desc(ring, *slot, &meta);
+ 			/* recycle the descriptor buffer. */
++			b43_poison_rx_buffer(ring, meta->skb);
+ 			sync_descbuffer_for_device(ring, meta->dmaaddr,
+ 						   ring->rx_buffersize);
+ 			*slot = next_slot(ring, *slot);
+@@ -1548,8 +1545,7 @@ static void dma_rx(struct b43_dmaring *r
+ 	err = setup_rx_descbuffer(ring, desc, meta, GFP_ATOMIC);
+ 	if (unlikely(err)) {
+ 		b43dbg(ring->dev->wl, "DMA RX: setup_rx_descbuffer() failed\n");
+-		sync_descbuffer_for_device(ring, dmaaddr, ring->rx_buffersize);
+-		goto drop;
++		goto drop_recycle_buffer;
+ 	}
+ 
+ 	unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize, 0);
+@@ -1559,6 +1555,11 @@ static void dma_rx(struct b43_dmaring *r
+ 	b43_rx(ring->dev, skb, rxhdr);
+ drop:
+ 	return;
++
++drop_recycle_buffer:
++	/* Poison and recycle the RX buffer. */
++	b43_poison_rx_buffer(ring, skb);
++	sync_descbuffer_for_device(ring, dmaaddr, ring->rx_buffersize);
+ }
+ 
+ void b43_dma_rx(struct b43_dmaring *ring)
+
+-- 
+Greetings, Michael.
+
+
+From francesco.gringoli at ing.unibs.it  Sat Mar 28 00:49:12 2009
+From: francesco.gringoli at ing.unibs.it (Francesco Gringoli)
+Date: Sat, 28 Mar 2009 00:49:12 +0100
+Subject: [PATCH] b43: Poison RX buffers
+In-Reply-To: <200903272251.58384.mb@bu3sch.de>
+References: <200903272251.58384.mb@bu3sch.de>
+Message-ID: <85B6DF3D-A3AF-4783-8A5C-793A6C57B287@ing.unibs.it>
+
+On Mar 27, 2009, at 10:51 PM, Michael Buesch wrote:
+
+> This patch adds poisoning and sanity checking to the RX DMA buffers.
+> This is used for protection against buggy hardware/firmware that  
+> raises
+> RX interrupts without doing an actual DMA transfer.
+>
+> This mechanism protects against rare "bad packets" (due to  
+> uninitialized skb data)
+> and rare kernel crashes due to uninitialized RX headers.
+>
+>
+> Francesco, please stresstest this.
+Hi Michael,
+
+thank you for the patch, I will test it ASAP. Before testing, however,  
+I would like to have a feedback about sanity checking directly the  
+rxhdr. Two reasons: 1) also with the patch I sent you yesterday, I  
+continued to observe kernel freezing with FCSFAIL set 2) I fear that  
+when dma_rx is triggered with such dma events, also the content of  
+rxhdr can be broken. In particular if the rxhdr->len reports an  
+incredible long frame, dma_rx could begin recycling too many skbs. I  
+was reported (by Bo) that when this happens, kernel would likely freeze.
+
+I did several tests with the open firmware and I found that the  
+maximum framelength that can be observed within firmware space is  
+0x1005 (with plcp). SPR_RXE_FRAMELEN _NEVER_ reports a value greater  
+than this (independently of FCSFAIL, I sampled its value in several  
+parts of the ucode). This does not surprise me as this should be the  
+maximum length possible, at least for OFDM frames (length is encoded  
+inside plcp in a twelve bits field that takes to 0xfff plus 6 bytes  
+from the plcp gives 0x1005). Given this hypothesis, however, we should  
+never observe any frame longer than 0x1005 in dma_rx as the rxhdr->len  
+field is always written by ucode before push_frame_into_fifo by  
+copying the value of SPR_RXE_FRAMELEN. Observing a greater value means  
+that what we think to be a frame sent the ucode, is nothing more than  
+random memory. So we could poison the rxhdr and verify in dma_rx that  
+it is still poisoned, in that case we could simply exit. How do you  
+think?
+
+Cheers,
+-FG
+
+>
+> John, please queue as bugfix.
+>
+>
+> Index: wireless-testing/drivers/net/wireless/b43/dma.c
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-03-27  
+> 12:29:57.000000000 +0100
+> +++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-03-27  
+> 22:22:21.000000000 +0100
+> @@ -555,11 +555,32 @@ address_error:
+> 	return 1;
+> }
+>
+> +static bool b43_rx_buffer_is_poisoned(struct b43_dmaring *ring,  
+> struct sk_buff *skb)
+> +{
+> +	unsigned char *f = skb->data + ring->frameoffset;
+> +
+> +	return ((f[0] & f[1] & f[2] & f[3] & f[4] & f[5] & f[6] & f[7]) ==  
+> 0xFF);
+> +}
+> +
+> +static void b43_poison_rx_buffer(struct b43_dmaring *ring, struct  
+> sk_buff *skb)
+> +{
+> +	struct b43_rxhdr_fw4 *rxhdr;
+> +	unsigned char *frame;
+> +
+> +	/* This poisons the RX buffer to detect DMA failures. */
+> +
+> +	rxhdr = (struct b43_rxhdr_fw4 *)(skb->data);
+> +	rxhdr->frame_len = 0;
+> +
+> +	B43_WARN_ON(ring->rx_buffersize < ring->frameoffset +  
+> sizeof(struct b43_plcp_hdr6) + 2);
+> +	frame = skb->data + ring->frameoffset;
+> +	memset(frame, 0xFF, sizeof(struct b43_plcp_hdr6) + 2 /* padding */);
+> +}
+> +
+> static int setup_rx_descbuffer(struct b43_dmaring *ring,
+> 			       struct b43_dmadesc_generic *desc,
+> 			       struct b43_dmadesc_meta *meta, gfp_t gfp_flags)
+> {
+> -	struct b43_rxhdr_fw4 *rxhdr;
+> 	dma_addr_t dmaaddr;
+> 	struct sk_buff *skb;
+>
+> @@ -568,6 +589,7 @@ static int setup_rx_descbuffer(struct b4
+> 	skb = __dev_alloc_skb(ring->rx_buffersize, gfp_flags);
+> 	if (unlikely(!skb))
+> 		return -ENOMEM;
+> +	b43_poison_rx_buffer(ring, skb);
+> 	dmaaddr = map_descbuffer(ring, skb->data, ring->rx_buffersize, 0);
+> 	if (b43_dma_mapping_error(ring, dmaaddr, ring->rx_buffersize, 0)) {
+> 		/* ugh. try to realloc in zone_dma */
+> @@ -578,6 +600,7 @@ static int setup_rx_descbuffer(struct b4
+> 		skb = __dev_alloc_skb(ring->rx_buffersize, gfp_flags);
+> 		if (unlikely(!skb))
+> 			return -ENOMEM;
+> +		b43_poison_rx_buffer(ring, skb);
+> 		dmaaddr = map_descbuffer(ring, skb->data,
+> 					 ring->rx_buffersize, 0);
+> 		if (b43_dma_mapping_error(ring, dmaaddr, ring->rx_buffersize, 0)) {
+> @@ -592,9 +615,6 @@ static int setup_rx_descbuffer(struct b4
+> 	ring->ops->fill_descriptor(ring, desc, dmaaddr,
+> 				   ring->rx_buffersize, 0, 0, 0);
+>
+> -	rxhdr = (struct b43_rxhdr_fw4 *)(skb->data);
+> -	rxhdr->frame_len = 0;
+> -
+> 	return 0;
+> }
+>
+> @@ -1489,6 +1509,15 @@ static void dma_rx(struct b43_dmaring *r
+> 			goto drop;
+> 		}
+> 	}
+> +	if (unlikely(b43_rx_buffer_is_poisoned(ring, skb))) {
+> +		/* Something went wrong with the DMA.
+> +		 * The device did not touch the buffer and did not overwrite the  
+> poison. */
+> +		b43dbg(ring->dev->wl, "DMA RX: Dropping poisoned buffer.\n");
+> +		/* recycle the descriptor buffer. */
+> +		sync_descbuffer_for_device(ring, meta->dmaaddr,
+> +					   ring->rx_buffersize);
+> +		goto drop;
+> +	}
+> 	if (unlikely(len > ring->rx_buffersize)) {
+> 		/* The data did not fit into one descriptor buffer
+> 		 * and is split over multiple buffers.
+>
+>
+> -- 
+> Greetings, Michael.
+
+-------
+
+Francesco Gringoli, PhD - Assistant Professor
+Dept. of Electrical Engineering for Automation
+University of Brescia
+via Branze, 38
+25123 Brescia
+ITALY
+
+Ph:  ++39.030.3715843
+FAX: ++39.030.380014
+WWW: http://www.ing.unibs.it/~gringoli
+
+
+
+
+
+
+From mb at bu3sch.de  Sat Mar 28 00:53:08 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Sat, 28 Mar 2009 00:53:08 +0100
+Subject: [PATCH] b43: Poison RX buffers
+In-Reply-To: <85B6DF3D-A3AF-4783-8A5C-793A6C57B287@ing.unibs.it>
+References: <200903272251.58384.mb@bu3sch.de>
+	<85B6DF3D-A3AF-4783-8A5C-793A6C57B287@ing.unibs.it>
+Message-ID: <200903280053.08552.mb@bu3sch.de>
+
+On Saturday 28 March 2009 00:49:12 Francesco Gringoli wrote:
+> On Mar 27, 2009, at 10:51 PM, Michael Buesch wrote:
+> 
+> > This patch adds poisoning and sanity checking to the RX DMA buffers.
+> > This is used for protection against buggy hardware/firmware that  
+> > raises
+> > RX interrupts without doing an actual DMA transfer.
+> >
+> > This mechanism protects against rare "bad packets" (due to  
+> > uninitialized skb data)
+> > and rare kernel crashes due to uninitialized RX headers.
+> >
+> >
+> > Francesco, please stresstest this.
+> Hi Michael,
+> 
+> thank you for the patch, I will test it ASAP. Before testing, however,  
+> I would like to have a feedback about sanity checking directly the  
+> rxhdr. Two reasons: 1) also with the patch I sent you yesterday, I  
+> continued to observe kernel freezing with FCSFAIL set 2) I fear that  
+> when dma_rx is triggered with such dma events, also the content of  
+> rxhdr can be broken. In particular if the rxhdr->len reports an  
+> incredible long frame, dma_rx could begin recycling too many skbs. I  
+> was reported (by Bo) that when this happens, kernel would likely freeze.
+
+This should be fixed by this patch as well.
+
+> I did several tests with the open firmware and I found that the  
+> maximum framelength that can be observed within firmware space is  
+> 0x1005 (with plcp). SPR_RXE_FRAMELEN _NEVER_ reports a value greater  
+> than this (independently of FCSFAIL, I sampled its value in several  
+> parts of the ucode). This does not surprise me as this should be the  
+> maximum length possible, at least for OFDM frames (length is encoded  
+> inside plcp in a twelve bits field that takes to 0xfff plus 6 bytes  
+> from the plcp gives 0x1005). Given this hypothesis, however, we should  
+> never observe any frame longer than 0x1005 in dma_rx as the rxhdr->len  
+> field is always written by ucode before push_frame_into_fifo by  
+> copying the value of SPR_RXE_FRAMELEN. Observing a greater value means  
+> that what we think to be a frame sent the ucode, is nothing more than  
+> random memory. So we could poison the rxhdr and verify in dma_rx that  
+> it is still poisoned, in that case we could simply exit. How do you  
+> think?
+
+We already did that, but slightly incorrectly. Should be fixed by the patch
+and the other one I just sent.
+
+-- 
+Greetings, Michael.
+
+
+From francesco.gringoli at ing.unibs.it  Sat Mar 28 01:01:16 2009
+From: francesco.gringoli at ing.unibs.it (Francesco Gringoli)
+Date: Sat, 28 Mar 2009 01:01:16 +0100
+Subject: [PATCH] b43: Poison RX buffers
+In-Reply-To: <200903280053.08552.mb@bu3sch.de>
+References: <200903272251.58384.mb@bu3sch.de>
+	<85B6DF3D-A3AF-4783-8A5C-793A6C57B287@ing.unibs.it>
+	<200903280053.08552.mb@bu3sch.de>
+Message-ID: <7070AB62-D0D5-4C77-8F56-AF56B2315AB2@ing.unibs.it>
+
+
+On Mar 28, 2009, at 12:53 AM, Michael Buesch wrote:
+
+> On Saturday 28 March 2009 00:49:12 Francesco Gringoli wrote:
+>> On Mar 27, 2009, at 10:51 PM, Michael Buesch wrote:
+>>
+>>> This patch adds poisoning and sanity checking to the RX DMA buffers.
+>>> This is used for protection against buggy hardware/firmware that
+>>> raises
+>>> RX interrupts without doing an actual DMA transfer.
+>>>
+>>> This mechanism protects against rare "bad packets" (due to
+>>> uninitialized skb data)
+>>> and rare kernel crashes due to uninitialized RX headers.
+>>>
+>>>
+>>> Francesco, please stresstest this.
+>> Hi Michael,
+>>
+>> thank you for the patch, I will test it ASAP. Before testing,  
+>> however,
+>> I would like to have a feedback about sanity checking directly the
+>> rxhdr. Two reasons: 1) also with the patch I sent you yesterday, I
+>> continued to observe kernel freezing with FCSFAIL set 2) I fear that
+>> when dma_rx is triggered with such dma events, also the content of
+>> rxhdr can be broken. In particular if the rxhdr->len reports an
+>> incredible long frame, dma_rx could begin recycling too many skbs. I
+>> was reported (by Bo) that when this happens, kernel would likely  
+>> freeze.
+>
+> This should be fixed by this patch as well.
+Yes you are right :-) sorry. Testing tomorrow, pc is crashed in my  
+office now. I'll let you know.
+
+Cheers,
+-FG
+
+
+
+From mb at bu3sch.de  Sun Mar 29 13:19:31 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Sun, 29 Mar 2009 13:19:31 +0200
+Subject: [PATCH] b43: Do not "select" HW_RANDOM
+Message-ID: <200903291319.31484.mb@bu3sch.de>
+
+Auto-depend on HW_RANDOM, rather than "select"ing it.
+This way the user has the choice to enable or disable HWRNG support.
+
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+---
+
+John, please queue for the next feature release.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/Kconfig
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/Kconfig	2009-03-29 13:08:19.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/Kconfig	2009-03-29 13:08:21.000000000 +0200
+@@ -3,7 +3,6 @@ config B43
+ 	depends on SSB_POSSIBLE && MAC80211 && WLAN_80211 && HAS_DMA
+ 	select SSB
+ 	select FW_LOADER
+-	select HW_RANDOM
+ 	---help---
+ 	  b43 is a driver for the Broadcom 43xx series wireless devices.
+ 
+@@ -106,6 +105,13 @@ config B43_RFKILL
+ 	depends on B43 && (RFKILL = y || RFKILL = B43) && RFKILL_INPUT && (INPUT_POLLDEV = y || INPUT_POLLDEV = B43)
+ 	default y
+ 
++# This config option automatically enables b43 HW-RNG support,
++# if the HW-RNG core is enabled.
++config B43_HWRNG
++	bool
++	depends on B43 && (HW_RANDOM = y || HW_RANDOM = B43)
++	default y
++
+ config B43_DEBUG
+ 	bool "Broadcom 43xx debugging"
+ 	depends on B43
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h	2009-03-29 13:08:19.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/b43.h	2009-03-29 13:08:21.000000000 +0200
+@@ -625,9 +625,11 @@ struct b43_wl {
+ 	/* Stats about the wireless interface */
+ 	struct ieee80211_low_level_stats ieee_stats;
+ 
++#ifdef CONFIG_B43_HWRNG
+ 	struct hwrng rng;
+-	u8 rng_initialized;
++	bool rng_initialized;
+ 	char rng_name[30 + 1];
++#endif /* CONFIG_B43_HWRNG */
+ 
+ 	/* The RF-kill button */
+ 	struct b43_rfkill rfkill;
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2009-03-29 13:08:19.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2009-03-29 13:09:40.000000000 +0200
+@@ -2980,6 +2980,7 @@ static void b43_security_init(struct b43
+ 	b43_clear_keys(dev);
+ }
+ 
++#ifdef CONFIG_B43_HWRNG
+ static int b43_rng_read(struct hwrng *rng, u32 *data)
+ {
+ 	struct b43_wl *wl = (struct b43_wl *)rng->priv;
+@@ -2995,17 +2996,21 @@ static int b43_rng_read(struct hwrng *rn
+ 
+ 	return (sizeof(u16));
+ }
++#endif /* CONFIG_B43_HWRNG */
+ 
+ static void b43_rng_exit(struct b43_wl *wl)
+ {
++#ifdef CONFIG_B43_HWRNG
+ 	if (wl->rng_initialized)
+ 		hwrng_unregister(&wl->rng);
++#endif /* CONFIG_B43_HWRNG */
+ }
+ 
+ static int b43_rng_init(struct b43_wl *wl)
+ {
+-	int err;
++	int err = 0;
+ 
++#ifdef CONFIG_B43_HWRNG
+ 	snprintf(wl->rng_name, ARRAY_SIZE(wl->rng_name),
+ 		 "%s_%s", KBUILD_MODNAME, wiphy_name(wl->hw->wiphy));
+ 	wl->rng.name = wl->rng_name;
+@@ -3018,6 +3023,7 @@ static int b43_rng_init(struct b43_wl *w
+ 		b43err(wl, "Failed to register the random "
+ 		       "number generator (%d)\n", err);
+ 	}
++#endif /* CONFIG_B43_HWRNG */
+ 
+ 	return err;
+ }
+
+-- 
+Greetings, Michael.
+
+
+From johannes at sipsolutions.net  Sun Mar 29 20:19:31 2009
+From: johannes at sipsolutions.net (Johannes Berg)
+Date: Sun, 29 Mar 2009 20:19:31 +0200
+Subject: [RFC] b43: rework rfkill code
+In-Reply-To: <1228927898.19553.164.camel@violet.holtmann.net>
+	(sfid-20081210_175153_795919_88125CBB)
+References: <20081210150935.GA10927@srcf.ucam.org>
+	(sfid-20081210_160955_698729_A777A57C)
+	<1228922997.15837.6.camel@johannes.berg>
+	<1228927898.19553.164.camel@violet.holtmann.net>
+	(sfid-20081210_175153_795919_88125CBB)
+Message-ID: <1238350771.24972.11.camel@johannes.local>
+
+Marcel,
+
+> > We're going to have to integrate rfkill with mac80211, but nobody cares.
+> 
+> if you figured out on how to do it the best way, then let me know,
+> because I have to do the same thing for Bluetooth.
+
+I've now rewritten rfkill [beep] to [beep] -- the plan for mac80211 now
+is to have _it_ register the rfkill struct, and let the driver only
+provide the hard-block state (or a function to poll it where necessary),
+and handle everything else via the regular config call in mac80211 with
+radio_enabled. Then mac80211 can also react on unblock by reassociating
+or whatever.
+
+johannes
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 836 bytes
+Desc: This is a digitally signed message part
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090329/e3635c1a/attachment.pgp>
+
+From Larry.Finger at lwfinger.net  Mon Mar 30 03:50:47 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Sun, 29 Mar 2009 20:50:47 -0500
+Subject: [PATCH] b43legacy: Do not select HW_RANDOM
+Message-ID: <49d02577.Hcf9JT1rjzxhf7CH%Larry.Finger@lwfinger.net>
+
+Auto-depend on HW_RANDOM, rather than "select"ing it.
+This way the user has the choice to enable or disable HWRNG support.
+
+Signed-off-by: Larry Finger <Larry.Finger at lwfinger.net>
+---
+
+John, please queue for 2.6.31.
+
+
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/Kconfig
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/Kconfig
++++ wireless-testing/drivers/net/wireless/b43legacy/Kconfig
+@@ -3,7 +3,6 @@ config B43LEGACY
+ 	depends on SSB_POSSIBLE && MAC80211 && WLAN_80211 && HAS_DMA
+ 	select SSB
+ 	select FW_LOADER
+-	select HW_RANDOM
+ 	---help---
+ 	  b43legacy is a driver for 802.11b devices from Broadcom (BCM4301 and
+ 	  BCM4303) and early model 802.11g chips (BCM4306 Ver. 2) used in the
+@@ -51,6 +50,13 @@ config B43LEGACY_RFKILL
+ 	depends on B43LEGACY && (RFKILL = y || RFKILL = B43LEGACY) && RFKILL_INPUT && (INPUT_POLLDEV = y || INPUT_POLLDEV = B43LEGACY)
+ 	default y
+ 
++# This config option automatically enables b43 HW-RNG support,
++# if the HW-RNG core is enabled.
++config B43legacy_HWRNG
++	bool
++	depends on B43legacy && (HW_RANDOM = y || HW_RANDOM = B43legacy)
++	default y
++
+ config B43LEGACY_DEBUG
+ 	bool "Broadcom 43xx-legacy debugging"
+ 	depends on B43LEGACY
+
+
+From mb at bu3sch.de  Mon Mar 30 11:51:18 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Mon, 30 Mar 2009 11:51:18 +0200
+Subject: [PATCH] b43legacy: Do not select HW_RANDOM
+In-Reply-To: <49d02577.Hcf9JT1rjzxhf7CH%Larry.Finger@lwfinger.net>
+References: <49d02577.Hcf9JT1rjzxhf7CH%Larry.Finger@lwfinger.net>
+Message-ID: <200903301151.19140.mb@bu3sch.de>
+
+On Monday 30 March 2009 03:50:47 Larry Finger wrote:
+> Auto-depend on HW_RANDOM, rather than "select"ing it.
+> This way the user has the choice to enable or disable HWRNG support.
+> 
+> Signed-off-by: Larry Finger <Larry.Finger at lwfinger.net>
+> ---
+> 
+> John, please queue for 2.6.31.
+> 
+> 
+> 
+> Index: wireless-testing/drivers/net/wireless/b43legacy/Kconfig
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/wireless/b43legacy/Kconfig
+> +++ wireless-testing/drivers/net/wireless/b43legacy/Kconfig
+> @@ -3,7 +3,6 @@ config B43LEGACY
+>  	depends on SSB_POSSIBLE && MAC80211 && WLAN_80211 && HAS_DMA
+>  	select SSB
+>  	select FW_LOADER
+> -	select HW_RANDOM
+>  	---help---
+>  	  b43legacy is a driver for 802.11b devices from Broadcom (BCM4301 and
+>  	  BCM4303) and early model 802.11g chips (BCM4306 Ver. 2) used in the
+> @@ -51,6 +50,13 @@ config B43LEGACY_RFKILL
+>  	depends on B43LEGACY && (RFKILL = y || RFKILL = B43LEGACY) && RFKILL_INPUT && (INPUT_POLLDEV = y || INPUT_POLLDEV = B43LEGACY)
+>  	default y
+>  
+> +# This config option automatically enables b43 HW-RNG support,
+> +# if the HW-RNG core is enabled.
+> +config B43legacy_HWRNG
+> +	bool
+> +	depends on B43legacy && (HW_RANDOM = y || HW_RANDOM = B43legacy)
+> +	default y
+> +
+>  config B43LEGACY_DEBUG
+>  	bool "Broadcom 43xx-legacy debugging"
+>  	depends on B43LEGACY
+> 
+> 
+
+You also need to add #ifdefs to the code, don't you?
+
+-- 
+Greetings, Michael.
+
+
+From mb at bu3sch.de  Mon Mar 30 22:53:25 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Mon, 30 Mar 2009 22:53:25 +0200
+Subject: [PATCH V2] b43legacy: Do not select HW_RANDOM
+In-Reply-To: <49d0e498.VVNw6/FIi1OemoLq%Larry.Finger@lwfinger.net>
+References: <49d0e498.VVNw6/FIi1OemoLq%Larry.Finger@lwfinger.net>
+Message-ID: <200903302253.25710.mb@bu3sch.de>
+
+On Monday 30 March 2009 17:26:16 Larry Finger wrote:
+> Auto-depend on HW_RANDOM, rather than "select"ing it.
+> This way the user has the choice to enable or disable HWRNG support.
+> 
+> Signed-off-by: Larry Finger <Larry.Finger at lwfinger.net>
+> ---
+> 
+> John, please queue for 2.6.31.
+> 
+> 
+> 
+> Index: wireless-testing/drivers/net/wireless/b43legacy/Kconfig
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/wireless/b43legacy/Kconfig
+> +++ wireless-testing/drivers/net/wireless/b43legacy/Kconfig
+> @@ -3,7 +3,6 @@ config B43LEGACY
+>  	depends on SSB_POSSIBLE && MAC80211 && WLAN_80211 && HAS_DMA
+>  	select SSB
+>  	select FW_LOADER
+> -	select HW_RANDOM
+>  	---help---
+>  	  b43legacy is a driver for 802.11b devices from Broadcom (BCM4301 and
+>  	  BCM4303) and early model 802.11g chips (BCM4306 Ver. 2) used in the
+> @@ -51,6 +50,13 @@ config B43LEGACY_RFKILL
+>  	depends on B43LEGACY && (RFKILL = y || RFKILL = B43LEGACY) && RFKILL_INPUT && (INPUT_POLLDEV = y || INPUT_POLLDEV = B43LEGACY)
+>  	default y
+>  
+> +# This config option automatically enables b43 HW-RNG support,
+> +# if the HW-RNG core is enabled.
+> +config B43legacy_HWRNG
+> +	bool
+> +	depends on B43legacy && (HW_RANDOM = y || HW_RANDOM = B43legacy)
+
+It seems like the symbol is B43LEGACY (uppercase).
+Can you also change the new symbol to B43LEGACY_HWRNG, just for consistency with
+all other symbols?
+
+> +	default y
+> +
+
+
+-- 
+Greetings, Michael.
+
+
+From francesco.gringoli at ing.unibs.it  Mon Mar 30 23:35:34 2009
+From: francesco.gringoli at ing.unibs.it (Francesco Gringoli)
+Date: Mon, 30 Mar 2009 23:35:34 +0200
+Subject: [PATCH] b43: Refresh RX poison on buffer recycling
+In-Reply-To: <200903280041.25265.mb@bu3sch.de>
+References: <200903280041.25265.mb@bu3sch.de>
+Message-ID: <C0D59D9C-FC8A-4C79-B777-AF2F166D9711@ing.unibs.it>
+
+
+On Mar 28, 2009, at 12:41 AM, Michael Buesch wrote:
+
+> The RX buffer poison needs to be refreshed, if we recycle an RX  
+> buffer,
+> because it might be (partially) overwritten by some DMA operations.
+>
+> Cc: stable at kernel.org
+> Cc: Francesco Gringoli <francesco.gringoli at ing.unibs.it>
+> Signed-off-by: Michael Buesch <mb at bu3sch.de>
+>
+> ---
+>
+> Francesco, please stresstest this on top of the other patch that  
+> adds poisoning.
+Hi Michael,
+
+great work! No more crashes with the two patches. I will continue  
+stress testing anyway but it seems stable.
+
+I have one more question: the hardware seems to allow frames that are  
+longer than 2352 bytes. If we monitor the firmware during receiving we  
+get up to 0x1005 bytes long frames. When such frames arrives, the  
+kernel drops them as the "The data did not fit into one descriptor  
+buffer and is split over multiple buffers." I tried to increase  
+B43_DMA0_RX_BUFFERSIZE up to 0x1006 but I get problems with dma and  
+the driver keeps restarting the hardware forever. What is wrong with  
+increasing this value above IEEE80211_MAX_FRAME_LEN?
+
+Many thanks,
+Cheers
+-FG
+
+
+>
+> John, please queue as bugfix.
+>
+>
+> Index: wireless-testing/drivers/net/wireless/b43/dma.c
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-03-27  
+> 23:15:36.000000000 +0100
+> +++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-03-27  
+> 23:30:17.000000000 +0100
+> @@ -1503,20 +1503,16 @@ static void dma_rx(struct b43_dmaring *r
+> 			len = le16_to_cpu(rxhdr->frame_len);
+> 		} while (len == 0 && i++ < 5);
+> 		if (unlikely(len == 0)) {
+> -			/* recycle the descriptor buffer. */
+> -			sync_descbuffer_for_device(ring, meta->dmaaddr,
+> -						   ring->rx_buffersize);
+> -			goto drop;
+> +			dmaaddr = meta->dmaaddr;
+> +			goto drop_recycle_buffer;
+> 		}
+> 	}
+> 	if (unlikely(b43_rx_buffer_is_poisoned(ring, skb))) {
+> 		/* Something went wrong with the DMA.
+> 		 * The device did not touch the buffer and did not overwrite the  
+> poison. */
+> 		b43dbg(ring->dev->wl, "DMA RX: Dropping poisoned buffer.\n");
+> -		/* recycle the descriptor buffer. */
+> -		sync_descbuffer_for_device(ring, meta->dmaaddr,
+> -					   ring->rx_buffersize);
+> -		goto drop;
+> +		dmaaddr = meta->dmaaddr;
+> +		goto drop_recycle_buffer;
+> 	}
+> 	if (unlikely(len > ring->rx_buffersize)) {
+> 		/* The data did not fit into one descriptor buffer
+> @@ -1530,6 +1526,7 @@ static void dma_rx(struct b43_dmaring *r
+> 		while (1) {
+> 			desc = ops->idx2desc(ring, *slot, &meta);
+> 			/* recycle the descriptor buffer. */
+> +			b43_poison_rx_buffer(ring, meta->skb);
+> 			sync_descbuffer_for_device(ring, meta->dmaaddr,
+> 						   ring->rx_buffersize);
+> 			*slot = next_slot(ring, *slot);
+> @@ -1548,8 +1545,7 @@ static void dma_rx(struct b43_dmaring *r
+> 	err = setup_rx_descbuffer(ring, desc, meta, GFP_ATOMIC);
+> 	if (unlikely(err)) {
+> 		b43dbg(ring->dev->wl, "DMA RX: setup_rx_descbuffer() failed\n");
+> -		sync_descbuffer_for_device(ring, dmaaddr, ring->rx_buffersize);
+> -		goto drop;
+> +		goto drop_recycle_buffer;
+> 	}
+>
+> 	unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize, 0);
+> @@ -1559,6 +1555,11 @@ static void dma_rx(struct b43_dmaring *r
+> 	b43_rx(ring->dev, skb, rxhdr);
+> drop:
+> 	return;
+> +
+> +drop_recycle_buffer:
+> +	/* Poison and recycle the RX buffer. */
+> +	b43_poison_rx_buffer(ring, skb);
+> +	sync_descbuffer_for_device(ring, dmaaddr, ring->rx_buffersize);
+> }
+>
+> void b43_dma_rx(struct b43_dmaring *ring)
+>
+> -- 
+> Greetings, Michael.
+
+-------
+
+Francesco Gringoli, PhD - Assistant Professor
+Dept. of Electrical Engineering for Automation
+University of Brescia
+via Branze, 38
+25123 Brescia
+ITALY
+
+Ph:  ++39.030.3715843
+FAX: ++39.030.380014
+WWW: http://www.ing.unibs.it/~gringoli
+
+
+
+
+
+
+From mb at bu3sch.de  Mon Mar 30 23:50:58 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Mon, 30 Mar 2009 23:50:58 +0200
+Subject: [PATCH] b43: Refresh RX poison on buffer recycling
+In-Reply-To: <C0D59D9C-FC8A-4C79-B777-AF2F166D9711@ing.unibs.it>
+References: <200903280041.25265.mb@bu3sch.de>
+	<C0D59D9C-FC8A-4C79-B777-AF2F166D9711@ing.unibs.it>
+Message-ID: <200903302350.58971.mb@bu3sch.de>
+
+On Monday 30 March 2009 23:35:34 Francesco Gringoli wrote:
+> I have one more question: the hardware seems to allow frames that are  
+> longer than 2352 bytes. If we monitor the firmware during receiving we  
+> get up to 0x1005 bytes long frames. When such frames arrives, the  
+> kernel drops them as the "The data did not fit into one descriptor  
+> buffer and is split over multiple buffers." I tried to increase  
+> B43_DMA0_RX_BUFFERSIZE up to 0x1006 but I get problems with dma and  
+> the driver keeps restarting the hardware forever. What is wrong with  
+> increasing this value above IEEE80211_MAX_FRAME_LEN?
+
+Well... First thing is that I think the hardware wasn't ever
+tested with frames >IEEE80211_MAX_FRAME_LEN. So there might be silicon bugs.
+
+The maximum number of bytes one descriptor can carry is 8191 bytes (not including
+RX headers and padding. That's 30 bytes).
+
+Third thing is that the buffer must not cross a page boundary. So that is
+4096 bytes on most machines. So in practice the 4096 bytes boundary (minus 30 bytes
+for headers/padding) is upper bound for B43_DMA0_RX_BUFFERSIZE.
+
+-- 
+Greetings, Michael.
+
+
+From Larry.Finger at lwfinger.net  Mon Mar 30 17:26:16 2009
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Mon, 30 Mar 2009 10:26:16 -0500
+Subject: [PATCH V2] b43legacy: Do not select HW_RANDOM
+Message-ID: <49d0e498.VVNw6/FIi1OemoLq%Larry.Finger@lwfinger.net>
+
+Auto-depend on HW_RANDOM, rather than "select"ing it.
+This way the user has the choice to enable or disable HWRNG support.
+
+Signed-off-by: Larry Finger <Larry.Finger at lwfinger.net>
+---
+
+John, please queue for 2.6.31.
+
+
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/Kconfig
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/Kconfig
++++ wireless-testing/drivers/net/wireless/b43legacy/Kconfig
+@@ -3,7 +3,6 @@ config B43LEGACY
+ 	depends on SSB_POSSIBLE && MAC80211 && WLAN_80211 && HAS_DMA
+ 	select SSB
+ 	select FW_LOADER
+-	select HW_RANDOM
+ 	---help---
+ 	  b43legacy is a driver for 802.11b devices from Broadcom (BCM4301 and
+ 	  BCM4303) and early model 802.11g chips (BCM4306 Ver. 2) used in the
+@@ -51,6 +50,13 @@ config B43LEGACY_RFKILL
+ 	depends on B43LEGACY && (RFKILL = y || RFKILL = B43LEGACY) && RFKILL_INPUT && (INPUT_POLLDEV = y || INPUT_POLLDEV = B43LEGACY)
+ 	default y
+ 
++# This config option automatically enables b43 HW-RNG support,
++# if the HW-RNG core is enabled.
++config B43legacy_HWRNG
++	bool
++	depends on B43legacy && (HW_RANDOM = y || HW_RANDOM = B43legacy)
++	default y
++
+ config B43LEGACY_DEBUG
+ 	bool "Broadcom 43xx-legacy debugging"
+ 	depends on B43LEGACY
+Index: wireless-testing/drivers/net/wireless/b43legacy/b43legacy.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/b43legacy.h
++++ wireless-testing/drivers/net/wireless/b43legacy/b43legacy.h
+@@ -596,9 +596,11 @@ struct b43legacy_wl {
+ 	/* Stats about the wireless interface */
+ 	struct ieee80211_low_level_stats ieee_stats;
+ 
++#ifdef CONFIG_B43legacy_RNG
+ 	struct hwrng rng;
+ 	u8 rng_initialized;
+ 	char rng_name[30 + 1];
++#endif
+ 
+ 	/* The RF-kill button */
+ 	struct b43legacy_rfkill rfkill;
+Index: wireless-testing/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-testing/drivers/net/wireless/b43legacy/main.c
+@@ -2394,6 +2394,7 @@ static void b43legacy_security_init(stru
+ 				  dev->max_nr_keys - 8);
+ }
+ 
++#ifdef CONFIG_B43legacy_HWRNG
+ static int b43legacy_rng_read(struct hwrng *rng, u32 *data)
+ {
+ 	struct b43legacy_wl *wl = (struct b43legacy_wl *)rng->priv;
+@@ -2409,17 +2410,21 @@ static int b43legacy_rng_read(struct hwr
+ 
+ 	return (sizeof(u16));
+ }
++#endif
+ 
+ static void b43legacy_rng_exit(struct b43legacy_wl *wl)
+ {
++#ifdef CONFIG_B43legacy_HWRNG
+ 	if (wl->rng_initialized)
+ 		hwrng_unregister(&wl->rng);
++#endif
+ }
+ 
+ static int b43legacy_rng_init(struct b43legacy_wl *wl)
+ {
+-	int err;
++	int err = 0;
+ 
++#ifdef CONFIG_B43legacy_HWRNG
+ 	snprintf(wl->rng_name, ARRAY_SIZE(wl->rng_name),
+ 		 "%s_%s", KBUILD_MODNAME, wiphy_name(wl->hw->wiphy));
+ 	wl->rng.name = wl->rng_name;
+@@ -2433,6 +2438,7 @@ static int b43legacy_rng_init(struct b43
+ 		       "number generator (%d)\n", err);
+ 	}
+ 
++#endif
+ 	return err;
+ }
+ 
+
+
+From mb at bu3sch.de  Tue Mar 31 12:27:32 2009
+From: mb at bu3sch.de (Michael Buesch)
+Date: Tue, 31 Mar 2009 12:27:32 +0200
+Subject: [PATCH] b43: Do radio lock assertion in software
+Message-ID: <200903311227.32684.mb@bu3sch.de>
+
+The assertion of the lock-bit in the hardware register is unreliable,
+because there are devices with quirks that will randomly set the bit.
+
+Do the assertion in software, only.
+
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+---
+
+John, please queue this bugfix.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/phy_common.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_common.c	2009-03-31 12:03:22.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy_common.c	2009-03-31 12:08:00.000000000 +0200
+@@ -131,12 +131,16 @@ void b43_radio_lock(struct b43_wldev *de
+ {
+ 	u32 macctl;
+ 
++#if B43_DEBUG
++	B43_WARN_ON(dev->phy.radio_locked);
++	dev->phy.radio_locked = 1;
++#endif
++
+ 	macctl = b43_read32(dev, B43_MMIO_MACCTL);
+-	B43_WARN_ON(macctl & B43_MACCTL_RADIOLOCK);
+ 	macctl |= B43_MACCTL_RADIOLOCK;
+ 	b43_write32(dev, B43_MMIO_MACCTL, macctl);
+-	/* Commit the write and wait for the device
+-	 * to exit any radio register access. */
++	/* Commit the write and wait for the firmware
++	 * to finish any radio register access. */
+ 	b43_read32(dev, B43_MMIO_MACCTL);
+ 	udelay(10);
+ }
+@@ -145,11 +149,15 @@ void b43_radio_unlock(struct b43_wldev *
+ {
+ 	u32 macctl;
+ 
++#if B43_DEBUG
++	B43_WARN_ON(!dev->phy.radio_locked);
++	dev->phy.radio_locked = 0;
++#endif
++
+ 	/* Commit any write */
+ 	b43_read16(dev, B43_MMIO_PHY_VER);
+ 	/* unlock */
+ 	macctl = b43_read32(dev, B43_MMIO_MACCTL);
+-	B43_WARN_ON(!(macctl & B43_MACCTL_RADIOLOCK));
+ 	macctl &= ~B43_MACCTL_RADIOLOCK;
+ 	b43_write32(dev, B43_MMIO_MACCTL, macctl);
+ }
+Index: wireless-testing/drivers/net/wireless/b43/phy_common.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_common.h	2009-03-31 12:02:58.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy_common.h	2009-03-31 12:05:54.000000000 +0200
+@@ -245,8 +245,10 @@ struct b43_phy {
+ 	atomic_t txerr_cnt;
+ 
+ #ifdef CONFIG_B43_DEBUG
+-	/* PHY registers locked by b43_phy_lock()? */
++	/* PHY registers locked (w.r.t. firmware) */
+ 	bool phy_locked;
++	/* Radio registers locked (w.r.t. firmware) */
++	bool radio_locked;
+ #endif /* B43_DEBUG */
+ };
+ 
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2009-03-31 12:12:53.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2009-03-31 12:14:45.000000000 +0200
+@@ -3980,6 +3980,11 @@ static void setup_struct_phy_for_init(st
+ 	phy->next_txpwr_check_time = jiffies;
+ 	/* PHY TX errors counter. */
+ 	atomic_set(&phy->txerr_cnt, B43_PHY_TX_BADNESS_LIMIT);
++
++#if B43_DEBUG
++	phy->phy_locked = 0;
++	phy->radio_locked = 0;
++#endif
+ }
+ 
+ static void setup_struct_wldev_for_init(struct b43_wldev *dev)
+
+-- 
+Greetings, Michael.
+
+

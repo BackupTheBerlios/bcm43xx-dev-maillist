@@ -1,0 +1,223 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 2/4] mac80211: Convert mac80211 to new statistics variable	names
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/4%5D%20mac80211%3A%20Convert%20mac80211%20to%20new%20statistics%20variable%0A%09names&In-Reply-To=%3C462119ef.lAQ%2BTavshbt8KWl2%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001081.html">
+   <LINK REL="Next"  HREF="001077.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 2/4] mac80211: Convert mac80211 to new statistics variable	names</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/4%5D%20mac80211%3A%20Convert%20mac80211%20to%20new%20statistics%20variable%0A%09names&In-Reply-To=%3C462119ef.lAQ%2BTavshbt8KWl2%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH 2/4] mac80211: Convert mac80211 to new statistics variable	names">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Apr 14 20:14:07 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001081.html">[PATCH 1/4] Mac80211: Add new names for statistics variables
+</A></li>
+        <LI>Next message: <A HREF="001077.html">[PATCH 3/4] mac80211 - drivers: Convert drivers that use mac80211 to	new statistics variable names
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1076">[ date ]</a>
+              <a href="thread.html#1076">[ thread ]</a>
+              <a href="subject.html#1076">[ subject ]</a>
+              <a href="author.html#1076">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Patch 2/4: Convert mac80211 routines to use the new stats variable names.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: wireless-dev/net/mac80211/ieee80211.c
+===================================================================
+--- wireless-dev.orig/net/mac80211/ieee80211.c
++++ wireless-dev/net/mac80211/ieee80211.c
+@@ -2854,7 +2854,7 @@ ieee80211_fill_frame_info(struct ieee802
+ 		fi-&gt;antenna = htonl(status-&gt;antenna);
+ 		fi-&gt;priority = 0xffffffff; /* no clue */
+ 		fi-&gt;ssi_type = htonl(ieee80211_ssi_raw);
+-		fi-&gt;ssi_signal = htonl(status-&gt;ssi);
++		fi-&gt;ssi_signal = htonl(status-&gt;level);
+ 		fi-&gt;ssi_noise = 0x00000000;
+ 		fi-&gt;encoding = 0;
+ 	} else {
+@@ -3501,10 +3501,10 @@ ieee80211_rx_h_sta_process(struct ieee80
+ 
+ 	sta-&gt;rx_fragments++;
+ 	sta-&gt;rx_bytes += rx-&gt;skb-&gt;len;
+-	sta-&gt;last_rssi = (sta-&gt;last_rssi * 15 +
+-			  rx-&gt;u.rx.status-&gt;ssi) / 16;
+-	sta-&gt;last_signal = (sta-&gt;last_signal * 15 +
+-			    rx-&gt;u.rx.status-&gt;signal) / 16;
++	sta-&gt;last_level = (sta-&gt;last_level * 15 +
++			  rx-&gt;u.rx.status-&gt;level) / 16;
++	sta-&gt;last_qual = (sta-&gt;last_qual * 15 +
++			    rx-&gt;u.rx.status-&gt;qual) / 16;
+ 	sta-&gt;last_noise = (sta-&gt;last_noise * 15 +
+ 			   rx-&gt;u.rx.status-&gt;noise) / 16;
+ 
+@@ -4800,13 +4800,13 @@ int ieee80211_register_hw(struct ieee802
+ 
+ 	local-&gt;hw.conf.beacon_int = 1000;
+ 
+-	local-&gt;wstats_flags |= local-&gt;hw.max_rssi ?
++	local-&gt;wstats_flags |= local-&gt;hw.max_level ?
+ 			       IW_QUAL_LEVEL_UPDATED : IW_QUAL_LEVEL_INVALID;
+-	local-&gt;wstats_flags |= local-&gt;hw.max_signal ?
++	local-&gt;wstats_flags |= local-&gt;hw.max_qual ?
+ 			       IW_QUAL_QUAL_UPDATED : IW_QUAL_QUAL_INVALID;
+ 	local-&gt;wstats_flags |= local-&gt;hw.max_noise ?
+ 			       IW_QUAL_NOISE_UPDATED : IW_QUAL_NOISE_INVALID;
+-	if (local-&gt;hw.max_rssi &lt; 0 || local-&gt;hw.max_noise &lt; 0)
++	if (local-&gt;hw.max_level &lt; 0 || local-&gt;hw.max_noise &lt; 0)
+ 		local-&gt;wstats_flags |= IW_QUAL_DBM;
+ 
+ 	result = sta_info_start(local);
+Index: wireless-dev/net/mac80211/ieee80211_sta.c
+===================================================================
+--- wireless-dev.orig/net/mac80211/ieee80211_sta.c
++++ wireless-dev/net/mac80211/ieee80211_sta.c
+@@ -1219,8 +1219,8 @@ static void ieee80211_rx_mgmt_assoc_resp
+ 		}
+ 		bss = ieee80211_rx_bss_get(dev, ifsta-&gt;bssid);
+ 		if (bss) {
+-			sta-&gt;last_rssi = bss-&gt;rssi;
+-			sta-&gt;last_signal = bss-&gt;signal;
++			sta-&gt;last_level = bss-&gt;level;
++			sta-&gt;last_qual = bss-&gt;qual;
+ 			sta-&gt;last_noise = bss-&gt;noise;
+ 			ieee80211_rx_bss_put(dev, bss);
+ 		}
+@@ -1641,8 +1641,8 @@ static void ieee80211_rx_bss_info(struct
+ 	}
+ 	bss-&gt;timestamp = timestamp;
+ 	bss-&gt;last_update = jiffies;
+-	bss-&gt;rssi = rx_status-&gt;ssi;
+-	bss-&gt;signal = rx_status-&gt;signal;
++	bss-&gt;level = rx_status-&gt;level;
++	bss-&gt;qual = rx_status-&gt;qual;
+ 	bss-&gt;noise = rx_status-&gt;noise;
+ 	if (!beacon)
+ 		bss-&gt;probe_resp++;
+@@ -2219,7 +2219,7 @@ static int ieee80211_sta_config_auth(str
+ 	struct ieee80211_local *local = wdev_priv(dev-&gt;ieee80211_ptr);
+ 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+ 	struct ieee80211_sta_bss *bss, *selected = NULL;
+-	int top_rssi = 0, freq;
++	int top_level = 0, freq;
+ 
+ 	if (!ifsta-&gt;auto_channel_sel &amp;&amp; !ifsta-&gt;auto_bssid_sel &amp;&amp;
+ 	    !ifsta-&gt;auto_ssid_sel) {
+@@ -2249,9 +2249,9 @@ static int ieee80211_sta_config_auth(str
+ 		    !ieee80211_sta_match_ssid(ifsta, bss-&gt;ssid, bss-&gt;ssid_len))
+ 			continue;
+ 
+-		if (top_rssi &lt; bss-&gt;rssi) {
++		if (top_level &lt; bss-&gt;level) {
+ 			selected = bss;
+-			top_rssi = bss-&gt;rssi;
++			top_level = bss-&gt;level;
+ 		}
+ 	}
+ 	if (selected)
+@@ -2981,8 +2981,8 @@ ieee80211_sta_scan_result(struct net_dev
+ 
+ 	memset(&amp;iwe, 0, sizeof(iwe));
+ 	iwe.cmd = IWEVQUAL;
+-	iwe.u.qual.qual = bss-&gt;signal;
+-	iwe.u.qual.level = bss-&gt;rssi;
++	iwe.u.qual.qual = bss-&gt;qual;
++	iwe.u.qual.level = bss-&gt;level;
+ 	iwe.u.qual.noise = bss-&gt;noise;
+ 	iwe.u.qual.updated = local-&gt;wstats_flags;
+ 	current_ev = iwe_stream_add_event(current_ev, end_buf, &amp;iwe,
+Index: wireless-dev/net/mac80211/ieee80211_ioctl.c
+===================================================================
+--- wireless-dev.orig/net/mac80211/ieee80211_ioctl.c
++++ wireless-dev/net/mac80211/ieee80211_ioctl.c
+@@ -443,7 +443,7 @@ static int ieee80211_ioctl_get_info_sta(
+ 		skb_queue_len(&amp;sta-&gt;ps_tx_buf);
+ 	param-&gt;u.get_info_sta.tx_retry_failed = sta-&gt;tx_retry_failed;
+ 	param-&gt;u.get_info_sta.tx_retry_count = sta-&gt;tx_retry_count;
+-	param-&gt;u.get_info_sta.last_rssi = sta-&gt;last_rssi;
++	param-&gt;u.get_info_sta.last_rssi = sta-&gt;last_level;
+ 	param-&gt;u.get_info_sta.last_ack_rssi = sta-&gt;last_ack_rssi[2];
+ 
+ 	sta_info_put(sta);
+@@ -1590,12 +1590,12 @@ static int ieee80211_ioctl_giwrange(stru
+ 	range-&gt;num_encoding_sizes = 2;
+ 	range-&gt;max_encoding_tokens = NUM_DEFAULT_KEYS;
+ 
+-	range-&gt;max_qual.qual = local-&gt;hw.max_signal;
++	range-&gt;max_qual.qual = local-&gt;hw.max_qual;
+ 	range-&gt;max_qual.level = local-&gt;hw.max_rssi;
+ 	range-&gt;max_qual.noise = local-&gt;hw.max_noise;
+ 	range-&gt;max_qual.updated = local-&gt;wstats_flags;
+ 
+-	range-&gt;avg_qual.qual = local-&gt;hw.max_signal/2;
++	range-&gt;avg_qual.qual = local-&gt;hw.max_qual/2;
+ 	range-&gt;avg_qual.level = 0;
+ 	range-&gt;avg_qual.noise = 0;
+ 	range-&gt;avg_qual.updated = local-&gt;wstats_flags;
+@@ -3091,8 +3091,8 @@ static struct iw_statistics *ieee80211_g
+ 		wstats-&gt;qual.noise = 0;
+ 		wstats-&gt;qual.updated = IW_QUAL_ALL_INVALID;
+ 	} else {
+-		wstats-&gt;qual.level = sta-&gt;last_rssi;
+-		wstats-&gt;qual.qual = sta-&gt;last_signal;
++		wstats-&gt;qual.level = sta-&gt;last_level;
++		wstats-&gt;qual.qual = sta-&gt;last_qual;
+ 		wstats-&gt;qual.noise = sta-&gt;last_noise;
+ 		wstats-&gt;qual.updated = local-&gt;wstats_flags;
+ 		sta_info_put(sta);
+Index: wireless-dev/net/mac80211/debugfs_sta.c
+===================================================================
+--- wireless-dev.orig/net/mac80211/debugfs_sta.c
++++ wireless-dev/net/mac80211/debugfs_sta.c
+@@ -76,8 +76,8 @@ STA_FILE(txrate, txrate, RATE);
+ STA_FILE(last_txrate, last_txrate, RATE);
+ STA_FILE(tx_retry_failed, tx_retry_failed, LU);
+ STA_FILE(tx_retry_count, tx_retry_count, LU);
+-STA_FILE(last_rssi, last_rssi, D);
+-STA_FILE(last_signal, last_signal, D);
++STA_FILE(last_level, last_level, D);
++STA_FILE(last_qual, last_qual, D);
+ STA_FILE(last_noise, last_noise, D);
+ STA_FILE(channel_use, channel_use, D);
+ STA_FILE(wep_weak_iv_count, wep_weak_iv_count, D);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001081.html">[PATCH 1/4] Mac80211: Add new names for statistics variables
+</A></li>
+	<LI>Next message: <A HREF="001077.html">[PATCH 3/4] mac80211 - drivers: Convert drivers that use mac80211 to	new statistics variable names
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1076">[ date ]</a>
+              <a href="thread.html#1076">[ thread ]</a>
+              <a href="subject.html#1076">[ subject ]</a>
+              <a href="author.html#1076">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

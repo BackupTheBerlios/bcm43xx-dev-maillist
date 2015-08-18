@@ -1,0 +1,210 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Implement reading band SPROM
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Implement%20reading%20band%20SPROM&In-Reply-To=%3C4A81CAB4.1090002%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005748.html">
+   <LINK REL="Next"  HREF="005751.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Implement reading band SPROM</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Implement%20reading%20band%20SPROM&In-Reply-To=%3C4A81CAB4.1090002%40gmail.com%3E"
+       TITLE="[PATCH] b43: LP-PHY: Implement reading band SPROM">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Tue Aug 11 21:47:00 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005748.html">[PATCH] b43: Fix a typo in the sync_stx routine
+</A></li>
+        <LI>Next message: <A HREF="005751.html">[PATCH] b43: Implement RC calibration for rev.2+ LP PHYs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5750">[ date ]</a>
+              <a href="thread.html#5750">[ thread ]</a>
+              <a href="subject.html#5750">[ subject ]</a>
+              <a href="author.html#5750">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Some of the new variables in b43_phy_lp appear to be dead code in
+the vendor driver; they will be removed if they remain unused when
+LP-PHY implementation is finished.
+
+Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+---
+Changes from RFC:
+-Fixed &lt;&lt; vs. &gt;&gt;= confusion.
+-Read RX power offset which I missed in the RFC.
+-Corrected the names of the tx_max_rate vars in b43_phy_lp.
+
+ phy_lp.c |   85 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ phy_lp.h |   16 +++++++++++
+ 2 files changed, 100 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+index 43272a8..c40b8a0 100644
+--- a/drivers/net/wireless/b43/phy_lp.c
++++ b/drivers/net/wireless/b43/phy_lp.c
+@@ -59,6 +59,89 @@ static void b43_lpphy_op_free(struct b43_wldev *dev)
+ 	dev-&gt;phy.lp = NULL;
+ }
+ 
++static void lpphy_read_band_sprom(struct b43_wldev *dev)
++{
++	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
++	struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
++	u16 cckpo, maxpwr;
++	u32 ofdmpo;
++	int i;
++
++	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
++		lpphy-&gt;tx_isolation_med_band = bus-&gt;sprom.tri2g;
++		lpphy-&gt;bx_arch = bus-&gt;sprom.bxa2g;
++		lpphy-&gt;rx_pwr_offset = bus-&gt;sprom.rxpo2g;
++		lpphy-&gt;rssi_vf = bus-&gt;sprom.rssismf2g;
++		lpphy-&gt;rssi_vc = bus-&gt;sprom.rssismc2g;
++		lpphy-&gt;rssi_gs = bus-&gt;sprom.rssisav2g;
++		lpphy-&gt;txpa[0] = bus-&gt;sprom.pa0b0;
++		lpphy-&gt;txpa[1] = bus-&gt;sprom.pa0b1;
++		lpphy-&gt;txpa[2] = bus-&gt;sprom.pa0b2;
++		maxpwr = bus-&gt;sprom.maxpwr_bg;
++		lpphy-&gt;max_tx_pwr_med_band = maxpwr;
++		cckpo = bus-&gt;sprom.cck2gpo;
++		ofdmpo = bus-&gt;sprom.ofdm2gpo;
++		if (cckpo) {
++			for (i = 0; i &lt; 4; i++) {
++				lpphy-&gt;tx_max_rate[i] =
++					maxpwr - (ofdmpo &amp; 0xF) * 2;
++				ofdmpo &gt;&gt;= 4;
++			}
++			ofdmpo = bus-&gt;sprom.ofdm2gpo;
++			for (i = 4; i &lt; 15; i++) {
++				lpphy-&gt;tx_max_rate[i] =
++					maxpwr - (ofdmpo &amp; 0xF) * 2;
++				ofdmpo &gt;&gt;= 4;
++			}
++		} else {
++			ofdmpo &amp;= 0xFF;
++			for (i = 0; i &lt; 4; i++)
++				lpphy-&gt;tx_max_rate[i] = maxpwr;
++			for (i = 4; i &lt; 15; i++)
++				lpphy-&gt;tx_max_rate[i] = maxpwr - ofdmpo;
++		}
++	} else { /* 5GHz */
++		lpphy-&gt;tx_isolation_low_band = bus-&gt;sprom.tri5gl;
++		lpphy-&gt;tx_isolation_med_band = bus-&gt;sprom.tri5g;
++		lpphy-&gt;tx_isolation_hi_band = bus-&gt;sprom.tri5gh;
++		lpphy-&gt;bx_arch = bus-&gt;sprom.bxa5g;
++		lpphy-&gt;rx_pwr_offset = bus-&gt;sprom.rxpo5g;
++		lpphy-&gt;rssi_vf = bus-&gt;sprom.rssismf5g;
++		lpphy-&gt;rssi_vc = bus-&gt;sprom.rssismc5g;
++		lpphy-&gt;rssi_gs = bus-&gt;sprom.rssisav5g;
++		lpphy-&gt;txpa[0] = bus-&gt;sprom.pa1b0;
++		lpphy-&gt;txpa[1] = bus-&gt;sprom.pa1b1;
++		lpphy-&gt;txpa[2] = bus-&gt;sprom.pa1b2;
++		lpphy-&gt;txpal[0] = bus-&gt;sprom.pa1lob0;
++		lpphy-&gt;txpal[1] = bus-&gt;sprom.pa1lob1;
++		lpphy-&gt;txpal[2] = bus-&gt;sprom.pa1lob2;
++		lpphy-&gt;txpah[0] = bus-&gt;sprom.pa1hib0;
++		lpphy-&gt;txpah[1] = bus-&gt;sprom.pa1hib1;
++		lpphy-&gt;txpah[2] = bus-&gt;sprom.pa1hib2;
++		maxpwr = bus-&gt;sprom.maxpwr_al;
++		ofdmpo = bus-&gt;sprom.ofdm5glpo;
++		lpphy-&gt;max_tx_pwr_low_band = maxpwr;
++		for (i = 4; i &lt; 12; i++) {
++			lpphy-&gt;tx_max_ratel[i] = maxpwr - (ofdmpo &amp; 0xF) * 2;
++			ofdmpo &gt;&gt;= 4;
++		}
++		maxpwr = bus-&gt;sprom.maxpwr_a;
++		ofdmpo = bus-&gt;sprom.ofdm5gpo;
++		lpphy-&gt;max_tx_pwr_med_band = maxpwr;
++		for (i = 4; i &lt; 12; i++) {
++			lpphy-&gt;tx_max_rate[i] = maxpwr - (ofdmpo &amp; 0xF) * 2;
++			ofdmpo &gt;&gt;= 4;
++		}
++		maxpwr = bus-&gt;sprom.maxpwr_ah;
++		ofdmpo = bus-&gt;sprom.ofdm5ghpo;
++		lpphy-&gt;max_tx_pwr_hi_band = maxpwr;
++		for (i = 4; i &lt; 12; i++) {
++			lpphy-&gt;tx_max_rateh[i] = maxpwr - (ofdmpo &amp; 0xF) * 2;
++			ofdmpo &gt;&gt;= 4;
++		}
++	}
++}
++
+ static void lpphy_adjust_gain_table(struct b43_wldev *dev)
+ {
+ 	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+@@ -694,7 +777,7 @@ static void lpphy_tx_pctl_init(struct b43_wldev *dev)
+ 
+ static int b43_lpphy_op_init(struct b43_wldev *dev)
+ {
+-	/* TODO: band SPROM */
++	lpphy_read_band_sprom(dev); //FIXME should this be in prepare_structs?
+ 	lpphy_baseband_init(dev);
+ 	lpphy_radio_init(dev);
+ 	//TODO calibrate RC
+diff --git a/drivers/net/wireless/b43/phy_lp.h b/drivers/net/wireless/b43/phy_lp.h
+index 13d89ea..0461d5b 100644
+--- a/drivers/net/wireless/b43/phy_lp.h
++++ b/drivers/net/wireless/b43/phy_lp.h
+@@ -831,6 +831,22 @@ struct b43_phy_lp {
+ 	/* Transmit isolation high band */
+ 	u8 tx_isolation_hi_band; /* FIXME initial value? */
+ 
++	/* Max transmit power medium band */
++	u16 max_tx_pwr_med_band;
++	/* Max transmit power low band */
++	u16 max_tx_pwr_low_band;
++	/* Max transmit power high band */
++	u16 max_tx_pwr_hi_band;
++
++	/* FIXME What are these used for? */
++	/* FIXME Is 15 the correct array size? */
++	u16 tx_max_rate[15];
++	u16 tx_max_ratel[15];
++	u16 tx_max_rateh[15];
++
++	/* Transmit power arrays */
++	s16 txpa[3], txpal[3], txpah[3];
++
+ 	/* Receive power offset */
+ 	u8 rx_pwr_offset; /* FIXME initial value? */
+ 
+-- 
+1.6.2.4
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005748.html">[PATCH] b43: Fix a typo in the sync_stx routine
+</A></li>
+	<LI>Next message: <A HREF="005751.html">[PATCH] b43: Implement RC calibration for rev.2+ LP PHYs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5750">[ date ]</a>
+              <a href="thread.html#5750">[ thread ]</a>
+              <a href="subject.html#5750">[ subject ]</a>
+              <a href="author.html#5750">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

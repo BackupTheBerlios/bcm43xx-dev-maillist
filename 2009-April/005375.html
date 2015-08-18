@@ -1,0 +1,260 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Refresh RX poison on buffer recycling
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Refresh%20RX%20poison%20on%20buffer%20recycling&In-Reply-To=%3C200904052058.00856.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005374.html">
+   <LINK REL="Next"  HREF="005376.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Refresh RX poison on buffer recycling</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Refresh%20RX%20poison%20on%20buffer%20recycling&In-Reply-To=%3C200904052058.00856.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Refresh RX poison on buffer recycling">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Apr  5 20:58:00 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005374.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+        <LI>Next message: <A HREF="005376.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5375">[ date ]</a>
+              <a href="thread.html#5375">[ thread ]</a>
+              <a href="subject.html#5375">[ subject ]</a>
+              <a href="author.html#5375">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday 05 April 2009 20:01:22 Francesco Gringoli wrote:
+&gt;<i> On Mar 30, 2009, at 11:35 PM, Francesco Gringoli wrote:
+</I>&gt;<i> 
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; On Mar 28, 2009, at 12:41 AM, Michael Buesch wrote:
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;&gt; The RX buffer poison needs to be refreshed, if we recycle an RX
+</I>&gt;<i> &gt;&gt; buffer,
+</I>&gt;<i> &gt;&gt; because it might be (partially) overwritten by some DMA operations.
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; Cc: <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stable at kernel.org</A>
+</I>&gt;<i> &gt;&gt; Cc: Francesco Gringoli &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">francesco.gringoli at ing.unibs.it</A>&gt;
+</I>&gt;<i> &gt;&gt; Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; ---
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; Francesco, please stresstest this on top of the other patch that
+</I>&gt;<i> &gt;&gt; adds poisoning.
+</I>&gt;<i> &gt; Hi Michael,
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; great work! No more crashes with the two patches. I will continue
+</I>&gt;<i> &gt; stress testing anyway but it seems stable.
+</I>&gt;<i> Hi Michael,
+</I>&gt;<i> 
+</I>&gt;<i> I run the patched kernel for some time and, though it is stable and  
+</I>&gt;<i> never crashes, there are still (few) some strange rx events. I will  
+</I>&gt;<i> refer to them as Wrong Frame Type I, Type II, and III. Please note  
+</I>&gt;<i> however, that we can observe them ONLY when the FCSFAIL bit is set in  
+</I>&gt;<i> the mac_ctrl_high (at least in my setup).
+</I>&gt;<i> 
+</I>&gt;<i> - Type I: plcp length mismatch
+</I>&gt;<i> These frames have a plcp that seems to be correct (I mean, the first  
+</I>&gt;<i> two bytes appear to be taken from a valid plcp), the padding reported  
+</I>&gt;<i> by the firmware in this cases is correct too (e.g. the padding always  
+</I>&gt;<i> point to the byte where the valid plcp seems to start). HOWEVER, the  
+</I>&gt;<i> length of such frames is different than the length encoded in their  
+</I>&gt;<i> plcp. In all these frames the B43_RX_MAC_FCSERR bit is not set, though  
+</I>&gt;<i> these frames will fail a crc check. We should check the plcp matches  
+</I>&gt;<i> the skb length and manually set the RX_FLAG_FAILED_FCS_CRC bit in the  
+</I>&gt;<i> status field so that mac80211 will skip these frames.
+</I>&gt;<i> 
+</I>&gt;<i> - Type II: fcs is wrong
+</I>&gt;<i> These frames have a correct plcp that matches their skb length. Their  
+</I>&gt;<i> FCS however is wrong! but the B43_RX_MAC_FCSERR is not set. Again we  
+</I>&gt;<i> should manually set the RX_FLAG_FAILED_FCS_CRC bit in the status field  
+</I>&gt;<i> so that mac80211 will skip these frames. I believe that these frames  
+</I>&gt;<i> are nothing more than Type I but the broken length collided with their  
+</I>&gt;<i> actual length.
+</I>&gt;<i> 
+</I>&gt;<i> - Type III: plcp is not a... plcp
+</I>&gt;<i> These frames have a plcp that is not a plcp, in the sense that the  
+</I>&gt;<i> first two bytes (with both padding 0 or 2) does not represent any  
+</I>&gt;<i> possible plcp.
+</I>&gt;<i> 
+</I>&gt;<i> I attach a patch to correctly set the RX_FLAG_FAILED_FCS_CRC bit in  
+</I>&gt;<i> the status field on such situations so that such frames are not passed  
+</I>&gt;<i> to the upper layers.
+</I>&gt;<i> 
+</I>&gt;<i> Cheers,
+</I>&gt;<i> -FG
+</I>
+I think this really is completely getting overengineered by now.
+
+I'm not going to apply such a patch unless you tell me why it's needed.
+Having such an incredible mechanism for an absolute corner case that happens
+once in a billion frames but doesn't harm anybody is not really acceptable.
+
+If you have FCSFAIL set, you're expected to receive crap. It's as simple as that.
+If you don't want crap, don't set the bit.
+
+
+&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- drivers/net/wireless/b43/xmit.c	2009-03-26 19:41:53.000000000 +0100
+</I>&gt;<i> +++ drivers/net/wireless/b43/xmit.c	2009-03-27 20:55:31.000000000 +0100
+</I>&gt;<i> @@ -27,6 +27,7 @@
+</I>&gt;<i> 
+</I>&gt;<i>   */
+</I>&gt;<i> 
+</I>&gt;<i> +#include &lt;linux/crc32.h&gt;
+</I>&gt;<i>   #include &quot;xmit.h&quot;
+</I>&gt;<i>   #include &quot;phy_common.h&quot;
+</I>&gt;<i>   #include &quot;dma.h&quot;
+</I>&gt;<i> @@ -560,6 +562,67 @@
+</I>&gt;<i>   		goto drop;
+</I>&gt;<i>   	}
+</I>&gt;<i>   	plcp = (struct b43_plcp_hdr6 *)(skb-&gt;data + padding);
+</I>&gt;<i> +
+</I>&gt;<i> +	if ((dev-&gt;wl-&gt;filter_flags &amp; FIF_FCSFAIL) &amp;&amp; !(macstat &amp;  
+</I>&gt;<i> B43_RX_MAC_FCSERR)) {
+</I>&gt;<i> +		int mismatch = 0;
+</I>&gt;<i> +		int skb_len = skb-&gt;len - 6 - padding;
+</I>&gt;<i> +		u8* plcp_data = (u8*) plcp;
+</I>&gt;<i> +		if (phystat0 &amp; B43_RX_PHYST0_OFDM) {
+</I>&gt;<i> +			int pkt_len = plcp_data[0] |
+</I>&gt;<i> +				plcp_data[1] &lt;&lt;  8 |
+</I>&gt;<i> +				plcp_data[2] &lt;&lt; 16 |
+</I>&gt;<i> +				plcp_data[3] &lt;&lt; 24;
+</I>&gt;<i> +			pkt_len &gt;&gt;= 5;
+</I>&gt;<i> +			pkt_len &amp;= 0xFFF;
+</I>&gt;<i> +			if(pkt_len != skb_len) {
+</I>&gt;<i> +				mismatch = 1;
+</I>&gt;<i> +			}
+</I>&gt;<i> +		}
+</I>&gt;<i> +		else {
+</I>&gt;<i> +			int speed;
+</I>&gt;<i> +			int len1 = (plcp_data[3] &lt;&lt; 8) | plcp_data[2];
+</I>&gt;<i> +			int len2;
+</I>&gt;<i> +			switch(plcp_data[0]) {
+</I>&gt;<i> +			case 0x0A:
+</I>&gt;<i> +				speed = 2;
+</I>&gt;<i> +				break;
+</I>&gt;<i> +			case 0x14:
+</I>&gt;<i> +				speed = 4;
+</I>&gt;<i> +				break;
+</I>&gt;<i> +			case 0x37:
+</I>&gt;<i> +				speed = 11;
+</I>&gt;<i> +				break;
+</I>&gt;<i> +			case 0x6E:
+</I>&gt;<i> +				speed = 22;
+</I>&gt;<i> +				break;
+</I>&gt;<i> +			default:
+</I>&gt;<i> +				speed = 1;
+</I>&gt;<i> +				break;
+</I>&gt;<i> +			}
+</I>&gt;<i> +			len2 = skb_len * 16 / speed;
+</I>&gt;<i> +			if((skb_len * 16 % speed) &gt; 0)
+</I>&gt;<i> +				len2++;
+</I>&gt;<i> +
+</I>&gt;<i> +			if(len1 != len2) {
+</I>&gt;<i> +				mismatch = 1;
+</I>&gt;<i> +			}
+</I>&gt;<i> +		}
+</I>&gt;<i> +		if(mismatch) {
+</I>&gt;<i> +			dev-&gt;wl-&gt;ieee_stats.dot11FCSErrorCount++;
+</I>&gt;<i> +			macstat |= B43_RX_MAC_FCSERR;
+</I>&gt;<i> +			status.flag |= RX_FLAG_FAILED_FCS_CRC;
+</I>&gt;<i> +			plcp_data = (u8*) (struct b43_plcp_hdr6 *)(skb-&gt;data);
+</I>&gt;<i> +			b43dbg(dev-&gt;wl, &quot;RX: padding or plcp mismatch, setting FCSFAIL and  
+</I>&gt;<i> keeping frame (&quot; \
+</I>&gt;<i> +				&quot;%02X %02X %02X %02X padding = %d, len = %d)\n&quot;,
+</I>&gt;<i> +				plcp_data[0],
+</I>&gt;<i> +				plcp_data[1],
+</I>&gt;<i> +				plcp_data[2],
+</I>&gt;<i> +				plcp_data[3],
+</I>&gt;<i> +				padding,
+</I>&gt;<i> +				skb-&gt;len);
+</I>&gt;<i> +		}
+</I>&gt;<i> +        }
+</I>&gt;<i> +
+</I>&gt;<i>   	skb_pull(skb, sizeof(struct b43_plcp_hdr6) + padding);
+</I>&gt;<i>   	/* The skb contains the Wireless Header + payload data now */
+</I>&gt;<i>   	if (unlikely(skb-&gt;len &lt; (2 + 2 + 6 /*minimum hdr */  + FCS_LEN))) {
+</I>&gt;<i> @@ -569,6 +648,23 @@
+</I>&gt;<i>   	wlhdr = (struct ieee80211_hdr *)(skb-&gt;data);
+</I>&gt;<i>   	fctl = wlhdr-&gt;frame_control;
+</I>&gt;<i> 
+</I>&gt;<i> +	/* if we keep bad frames we should compute again the FCS as fw can  
+</I>&gt;<i> skip marking */
+</I>&gt;<i> +        if ((dev-&gt;wl-&gt;filter_flags &amp; FIF_FCSFAIL) &amp;&amp; !(macstat &amp;  
+</I>&gt;<i> B43_RX_MAC_FCSERR)) {
+</I>&gt;<i> +		u32 fcs1, fcs2;
+</I>&gt;<i> +		u8* fcs_ptr = skb-&gt;data + skb-&gt;len - FCS_LEN;
+</I>&gt;<i> +		fcs1 = fcs_ptr[0] |
+</I>&gt;<i> +			fcs_ptr[1] &lt;&lt; 8  |
+</I>&gt;<i> +			fcs_ptr[2] &lt;&lt; 16 |
+</I>&gt;<i> +			fcs_ptr[3] &lt;&lt; 24;
+</I>&gt;<i> +		fcs2 = ~ether_crc_le(skb-&gt;len - FCS_LEN, skb-&gt;data);
+</I>&gt;<i> +		if(fcs1 != fcs2) {
+</I>&gt;<i> +			b43dbg(dev-&gt;wl, &quot;RX: FCS wrong not reported, setting FCSFAIL and  
+</I>&gt;<i> keeping\n&quot;);
+</I>&gt;<i> +			macstat |= B43_RX_MAC_FCSERR;
+</I>&gt;<i> +			dev-&gt;wl-&gt;ieee_stats.dot11FCSErrorCount++;
+</I>&gt;<i> +			status.flag |= RX_FLAG_FAILED_FCS_CRC;
+</I>&gt;<i> +		}
+</I>&gt;<i> +	}
+</I>&gt;<i> +
+</I>&gt;<i>   	if (macstat &amp; B43_RX_MAC_DEC) {
+</I>&gt;<i>   		unsigned int keyidx;
+</I>&gt;<i>   		int wlhdr_len;
+</I>&gt;<i> @@ -617,6 +721,10 @@
+</I>&gt;<i>   		 * Drop the frame, if we are not interested in corrupted frames. */
+</I>&gt;<i>   		if (!(dev-&gt;wl-&gt;filter_flags &amp; FIF_PLCPFAIL))
+</I>&gt;<i>   			goto drop;
+</I>&gt;<i> +		else {
+</I>&gt;<i> +			b43dbg(dev-&gt;wl, &quot;RX: PLCP corrupted, discarding\n&quot;);
+</I>&gt;<i> +			goto drop;
+</I>&gt;<i> +		}
+</I>&gt;<i>   	}
+</I>&gt;<i>   	status.antenna = !!(phystat0 &amp; B43_RX_PHYST0_ANT);
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005374.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+	<LI>Next message: <A HREF="005376.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5375">[ date ]</a>
+              <a href="thread.html#5375">[ thread ]</a>
+              <a href="subject.html#5375">[ subject ]</a>
+              <a href="author.html#5375">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

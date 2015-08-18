@@ -1,0 +1,282 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43, ssb and tx1000z laptop
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%2C%20ssb%20and%20tx1000z%20laptop&In-Reply-To=%3C4388f4180802022010u6d9797a1ub7d7aee35bef17dd%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003339.html">
+   <LINK REL="Next"  HREF="003341.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43, ssb and tx1000z laptop</H1>
+    <B>Emiliano Moscato</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%2C%20ssb%20and%20tx1000z%20laptop&In-Reply-To=%3C4388f4180802022010u6d9797a1ub7d7aee35bef17dd%40mail.gmail.com%3E"
+       TITLE="b43, ssb and tx1000z laptop">moski666 at gmail.com
+       </A><BR>
+    <I>Sun Feb  3 05:10:18 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003339.html">Problems with BCM4318 (Wireless LAN PCI Adapter WL-138G V)
+</A></li>
+        <LI>Next message: <A HREF="003341.html">b43, ssb and tx1000z laptop
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3340">[ date ]</a>
+              <a href="thread.html#3340">[ thread ]</a>
+              <a href="subject.html#3340">[ subject ]</a>
+              <a href="author.html#3340">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi,
+
+I spent the whole day trying to get b43 driver working in my hp tx1000z with
+Kubuntu-64 Hardy (kernel 2.6.24).
+I followed:
+<A HREF="http://linuxwireless.org/en/users/Drivers/b43">http://linuxwireless.org/en/users/Drivers/b43</A> (for b43 and kernel 2.6.24)
+and this thread:
+<A HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/006590.html">http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/006590.html</A>
+
+It was working with ndiswrapper. The only way I got b43 working was
+blacklisting b43, ssb and ohci_hcd, unloading ndiswrapper and loading b43.
+Any other way I get the following error: when trying 'modprobe b43', it ends
+smoothly, but network is not working, and when I look at dmesg I found:
+
+[   57.005286] ACPI: PCI Interrupt Link [LK1E] enabled at IRQ 11
+[   57.005344] ACPI: PCI Interrupt 0000:03:00.0[A] -&gt; Link [LK1E] -&gt; GSI 11
+(level, low) -&gt; IRQ 11
+[   57.005484] PCI: Setting latency timer of device 0000:03:00.0 to 64
+[   57.062445] WARNING: at /build/buildd/linux-2.6.24/drivers/ssb/main.c:883
+ssb_tmslow_reject_bitmask()
+[   57.062515] Pid: 4296, comm: modprobe Tainted: P        2.6.24-5-generic#1
+[   57.062568]
+[   57.062568] Call Trace:
+[   57.062682]  [&lt;ffffffff888af8ca&gt;]
+:<i>ssb:ssb_tmslow_reject_bitmask+0x4a/0x60
+</I>[   57.062739]  [&lt;ffffffff888b0316&gt;] :ssb:ssb_device_is_enabled+0x16/0x50
+[   57.062797]  [&lt;ffffffff888b2731&gt;] :ssb:ssb_pcicore_init+0x21/0x70
+[   57.062853]  [&lt;ffffffff888af656&gt;]
+:<i>ssb:ssb_attach_queued_buses+0x106/0x2d0
+</I>[   57.062916]  [&lt;ffffffff888b1250&gt;] :ssb:ssb_pci_get_invariants+0x0/0x2d0
+[   57.062972]  [&lt;ffffffff888afd0e&gt;] :ssb:ssb_bus_register+0x17e/0x200
+[   57.063041]  [&lt;ffffffff888afe22&gt;] :ssb:ssb_bus_pcibus_register+0x32/0x60
+[   57.063098]  [&lt;ffffffff888b1cdd&gt;] :ssb:ssb_pcihost_probe+0x7d/0xc0
+[   57.063156]  [&lt;ffffffff80358278&gt;] pci_device_probe+0xf8/0x170
+[   57.063214]  [&lt;ffffffff803b8d7c&gt;] driver_probe_device+0x9c/0x1b0
+[   57.063270]  [&lt;ffffffff803b9049&gt;] __driver_attach+0xc9/0xd0
+[   57.063323]  [&lt;ffffffff803b8f80&gt;] __driver_attach+0x0/0xd0
+[   57.063376]  [&lt;ffffffff803b7fbd&gt;] bus_for_each_dev+0x4d/0x80
+[   57.063434]  [&lt;ffffffff803b83cc&gt;] bus_add_driver+0xac/0x220
+[   57.063489]  [&lt;ffffffff803584f9&gt;] __pci_register_driver+0x69/0xb0
+[   57.063546]  [&lt;ffffffff8805d052&gt;] :ssb:ssb_modinit+0x52/0x80
+[   57.063601]  [&lt;ffffffff80263a3e&gt;] sys_init_module+0x18e/0x1a90
+[   57.063671]  [&lt;ffffffff803b85f0&gt;] bus_register+0x0/0x270
+[   57.063731]  [&lt;ffffffff8020c37e&gt;] system_call+0x7e/0x83
+[   57.063791]
+[   57.063890] ssb: Sonics Silicon Backplane found on PCI device 0000:03:
+00.0
+
+You have at the end the specs of my system. I hope you'll guess something.
+Thanks in advance for any pointing :)
+
+Emiliano
+
+PS: I forgot to paste ifconfig. It just show lo and eth0 devices. iwconfig
+is not finding any wireless extension. Of course eth0 is my wired interface.
+
+
+Specs:
+
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at evo</A>:/home/moski# uname -a
+Linux evo 2.6.24-5-generic #1 SMP Thu Jan 24 19:29:14 UTC 2008 x86_64
+GNU/Linux
+
+kernel params:
+root=UUID=9583bd5f-00f4-4f1f-9420-899a4e4e3a18 ro doscsi acpi_osi=&quot;!Linux&quot;
+acpi_os_name=&quot;Windows 2006&quot; acpi_irq_balance noapic
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at evo</A>:/home/moski# lshw -C network
+  *-network
+       description: Network controller
+       product: BCM94311MCG wlan mini-PCI
+       vendor: Broadcom Corporation
+       physical id: 0
+       bus info: <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">pci at 0000</A>:03:00.0
+       version: 02
+       width: 64 bits
+       clock: 33MHz
+       capabilities: pm msi pciexpress bus_master cap_list
+       configuration: driver=b43-pci-bridge latency=0 module=ssb
+
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at evo</A>:/home/moski# lspci -vv
+03:00.0 Network controller: Broadcom Corporation BCM94311MCG wlan mini-PCI
+(rev 02)
+        Subsystem: Hewlett-Packard Company Unknown device 1374
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B-
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort-
+&lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+        Latency: 0, Cache Line Size: 64 bytes
+        Interrupt: pin A routed to IRQ 11
+        Region 0: Memory at c8000000 (64-bit, non-prefetchable) [size=16K]
+        Capabilities: [40] Power Management version 3
+                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA
+PME(D0-,D1-,D2-,D3hot-,D3cold-)
+                Status: D0 PME-Enable- DSel=0 DScale=2 PME-
+        Capabilities: [58] Vendor Specific Information
+        Capabilities: [e8] Message Signalled Interrupts: Mask- 64bit+
+Queue=0/0 Enable-
+                Address: 0000000000000000  Data: 0000
+        Capabilities: [d0] Express Endpoint IRQ 0
+                Device: Supported: MaxPayload 128 bytes, PhantFunc 0,
+ExtTag+
+                Device: Latency L0s &lt;4us, L1 unlimited
+                Device: AtnBtn- AtnInd- PwrInd-
+                Device: Errors: Correctable- Non-Fatal- Fatal- Unsupported-
+                Device: RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
+                Device: MaxPayload 128 bytes, MaxReadReq 128 bytes
+                Link: Supported Speed 2.5Gb/s, Width x1, ASPM L0s, Port 0
+                Link: Latency L0s &lt;4us, L1 &lt;64us
+                Link: ASPM Disabled RCB 64 bytes CommClk- ExtSynch-
+                Link: Speed 2.5Gb/s, Width x1
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at evo</A>:/home/moski# lsmod
+Module                  Size  Used by
+rfcomm                 47392  2
+l2cap                  28800  13 rfcomm
+bluetooth              66436  4 rfcomm,l2cap
+ppdev                  11400  0
+ipv6                  311848  14
+powernow_k8            16608  1
+cpufreq_powersave       3200  0
+cpufreq_userspace       6180  0
+cpufreq_stats           8416  0
+cpufreq_conservative    10632  0
+cpufreq_ondemand       11152  1
+freq_table              6464  3 powernow_k8,cpufreq_stats,cpufreq_ondemand
+container               6656  0
+bay                     8064  0
+dock                   12960  1 bay
+sbs                    17808  0
+sbshc                   8960  1 sbs
+ext2                   80400  1
+aes_x86_64             26920  0
+dm_crypt               16776  0
+dm_mod                 70904  1 dm_crypt
+b43                   126120  0
+ssb                    37252  1 b43
+rfkill                 10128  1 b43
+mac80211              192664  1 b43
+cfg80211               17680  1 mac80211
+led_class               7176  1 b43
+input_polldev           6928  1 b43
+parport_pc             41128  0
+lp                     14916  0
+parport                44300  3 ppdev,parport_pc,lp
+joydev                 15488  0
+uvcvideo               52100  0
+usbtouchscreen         13316  0
+compat_ioctl32         11136  1 uvcvideo
+videodev               30720  1 uvcvideo
+v4l1_compat            15492  2 uvcvideo,videodev
+v4l2_common            21888  3 uvcvideo,compat_ioctl32,videodev
+snd_hda_intel         379304  1
+snd_pcm_oss            47488  0
+snd_mixer_oss          20096  1 snd_pcm_oss
+snd_pcm                94344  2 snd_hda_intel,snd_pcm_oss
+snd_seq_dummy           5508  0
+snd_seq_oss            36736  0
+snd_seq_midi           10880  0
+snd_rawmidi            29824  1 snd_seq_midi
+snd_seq_midi_event     10112  2 snd_seq_oss,snd_seq_midi
+serio_raw               9092  0
+video                  23316  0
+output                  5632  1 video
+snd_seq                62112  6
+snd_seq_dummy,snd_seq_oss,snd_seq_midi,snd_seq_midi_event
+psmouse                46236  0
+snd_timer              27400  2 snd_pcm,snd_seq
+snd_seq_device         10388  5
+snd_seq_dummy,snd_seq_oss,snd_seq_midi,snd_rawmidi,snd_seq
+nvidia               5663220  32
+battery                16776  0
+i2c_nforce2             8320  0
+button                 10912  0
+ac                      8328  0
+snd                    69416  11
+snd_hda_intel,snd_pcm_oss,snd_mixer_oss,snd_pcm,snd_seq_oss,snd_rawmidi,snd_seq,snd_timer,snd_seq_device
+k8temp                  7680  0
+evdev                  14976  8
+i2c_core               28544  2 nvidia,i2c_nforce2
+shpchp                 38172  0
+pci_hotplug            34608  1 shpchp
+soundcore              10400  1 snd
+snd_page_alloc         12560  2 snd_hda_intel,snd_pcm
+pcspkr                  4736  0
+ext3                  149264  2
+jbd                    57000  1 ext3
+mbcache                11392  2 ext2,ext3
+sg                     41880  0
+sr_mod                 20132  0
+cdrom                  41512  1 sr_mod
+sd_mod                 33280  5
+amd74xx                11672  0 [permanent]
+ide_core              136344  1 amd74xx
+ata_generic             9988  0
+pata_acpi               9856  0
+usbhid                 35168  0
+hid                    44608  1 usbhid
+sata_nv                31624  4
+pata_amd               16772  0
+libata                176304  4 ata_generic,pata_acpi,sata_nv,pata_amd
+scsi_mod              178488  4 sg,sr_mod,sd_mod,libata
+forcedeth              55564  0
+ehci_hcd               40972  0
+usbcore               169392  5 uvcvideo,usbtouchscreen,usbhid,ehci_hcd
+thermal                19744  0
+processor              41192  2 powernow_k8,thermal
+fan                     6536  0
+fuse                   56112  1
+
+
+
+
+
+-- 
+mOsKi
+&quot;No hay nada que uno haga mal , lo que hay es poco vino.&quot; Autor Anonimo
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080202/c858557b/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080202/c858557b/attachment.html</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003339.html">Problems with BCM4318 (Wireless LAN PCI Adapter WL-138G V)
+</A></li>
+	<LI>Next message: <A HREF="003341.html">b43, ssb and tx1000z laptop
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3340">[ date ]</a>
+              <a href="thread.html#3340">[ thread ]</a>
+              <a href="subject.html#3340">[ subject ]</a>
+              <a href="author.html#3340">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,108 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Bug 9414] Not work light of button-led with module b43 in chipset	broadcom 4318
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BBug%209414%5D%20Not%20work%20light%20of%20button-led%20with%20module%20b43%20in%20chipset%0A%09broadcom%204318&In-Reply-To=%3C474C6305.6050500%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002929.html">
+   <LINK REL="Next"  HREF="002926.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Bug 9414] Not work light of button-led with module b43 in chipset	broadcom 4318</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BBug%209414%5D%20Not%20work%20light%20of%20button-led%20with%20module%20b43%20in%20chipset%0A%09broadcom%204318&In-Reply-To=%3C474C6305.6050500%40lwfinger.net%3E"
+       TITLE="[Bug 9414] Not work light of button-led with module b43 in chipset	broadcom 4318">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Tue Nov 27 19:33:41 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002929.html">Patch available to use BCM4311/2 with mainline kernels
+</A></li>
+        <LI>Next message: <A HREF="002926.html">[Bug 9414] Not work light of button-led with module b43 in	chipset broadcom 4318
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2925">[ date ]</a>
+              <a href="thread.html#2925">[ thread ]</a>
+              <a href="subject.html#2925">[ subject ]</a>
+              <a href="author.html#2925">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Ivo van Doorn wrote:
+&gt;<i> Hi,
+</I>&gt;<i> 
+</I>&gt;&gt;&gt;<i> On Monday 26 November 2007 23:15:53 Larry Finger wrote:
+</I>&gt;&gt;&gt;&gt;<i> Based on the code in the rtx200 directories that has a call to input_allocate_device() that was not
+</I>&gt;&gt;&gt;&gt;<i> present in b43, I made a modification to drivers/net/wireless/b43/rfkill.c as follows:
+</I>&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i> Index: wireless-2.6/drivers/net/wireless/b43/rfkill.c
+</I>&gt;&gt;&gt;&gt;<i> ===================================================================
+</I>&gt;&gt;&gt;&gt;<i> --- wireless-2.6.orig/drivers/net/wireless/b43/rfkill.c
+</I>&gt;&gt;&gt;&gt;<i> +++ wireless-2.6/drivers/net/wireless/b43/rfkill.c
+</I>&gt;&gt;&gt;&gt;<i> @@ -133,6 +133,16 @@ void b43_rfkill_init(struct b43_wldev *d
+</I>&gt;&gt;&gt;&gt;<i>  	rfk-&gt;poll_dev-&gt;poll = b43_rfkill_poll;
+</I>&gt;&gt;&gt;&gt;<i>  	rfk-&gt;poll_dev-&gt;poll_interval = 1000; /* msecs */
+</I>&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i> +	rfk-&gt;poll_dev-&gt;input = input_allocate_device();
+</I>&gt;&gt;&gt;&gt;<i> +	if (!rfk-&gt;poll_dev-&gt;input)
+</I>&gt;&gt;&gt;&gt;<i> +		goto err_free_polldev;
+</I>&gt;&gt;&gt;&gt;<i> +
+</I>&gt;&gt;&gt;&gt;<i> +	rfk-&gt;poll_dev-&gt;input-&gt;name = rfk-&gt;name;
+</I>&gt;&gt;&gt;&gt;<i> +	rfk-&gt;poll_dev-&gt;input-&gt;id.bustype = BUS_HOST;
+</I>&gt;&gt;&gt;&gt;<i> +	rfk-&gt;poll_dev-&gt;input-&gt;id.vendor = dev-&gt;dev-&gt;bus-&gt;boardinfo.vendor;
+</I>&gt;&gt;&gt;&gt;<i> +	rfk-&gt;poll_dev-&gt;input-&gt;evbit[0] = BIT(EV_KEY);
+</I>&gt;&gt;&gt;&gt;<i> +	set_bit(KEY_WLAN, rfk-&gt;poll_dev-&gt;input-&gt;keybit);
+</I>&gt;&gt;&gt;&gt;<i> +
+</I>&gt;&gt;&gt;<i> Ehm, you saw a few lines above that we do
+</I>&gt;&gt;&gt;<i> input_allocate_polled_device()?
+</I>&gt;&gt;<i> I had not investigated the details of input_allocate_polled_device(). The part that was missing in
+</I>&gt;&gt;<i> b43 is the initialization of the rfk-&gt;poll_dev-&gt;input data. I will be posting a patch/hack that
+</I>&gt;&gt;<i> restores the LED behavior that we had before the rfkill code went in.
+</I>&gt;<i> 
+</I>&gt;<i> The concept of input_allocate_polled_device() was misintepretet by me as well,
+</I>&gt;<i> but when allocating the polled device, you also must allocate a input device seperately
+</I>&gt;<i> and make sure the poll_dev-&gt;input pointer is initialized. Otherwise the polled dev registration
+</I>&gt;<i> will fail.
+</I>
+My testing shows that the separate input_allocate_device call is not needed - only the
+initialization is required.
+&gt;<i> 
+</I>&gt;&gt;<i> BTW, there is a bug in rt2x00rfkill.c.
+</I>&gt;<i> 
+</I>&gt;<i> Where?
+</I>
+It is not a bug as much as redundant code. I posted a patch to clean up the code, which went to the
+wireless mailing list and to rt2400-dev. Sorry, I forgot to include you.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002929.html">Patch available to use BCM4311/2 with mainline kernels
+</A></li>
+	<LI>Next message: <A HREF="002926.html">[Bug 9414] Not work light of button-led with module b43 in	chipset broadcom 4318
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2925">[ date ]</a>
+              <a href="thread.html#2925">[ thread ]</a>
+              <a href="subject.html#2925">[ subject ]</a>
+              <a href="author.html#2925">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

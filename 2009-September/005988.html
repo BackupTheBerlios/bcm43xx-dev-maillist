@@ -1,0 +1,96 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix sparse warning in hw-tkip code
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20sparse%20warning%20in%20hw-tkip%20code&In-Reply-To=%3C200909061618.58584.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005987.html">
+   <LINK REL="Next"  HREF="005989.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix sparse warning in hw-tkip code</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20sparse%20warning%20in%20hw-tkip%20code&In-Reply-To=%3C200909061618.58584.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix sparse warning in hw-tkip code">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Sep  6 16:18:58 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005987.html">[PATCH] b43: Really disable QoS, if requested
+</A></li>
+        <LI>Next message: <A HREF="005989.html">[COMPAT PATCH] b43: Threaded interrupts wrapper
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5988">[ date ]</a>
+              <a href="thread.html#5988">[ thread ]</a>
+              <a href="subject.html#5988">[ subject ]</a>
+              <a href="author.html#5988">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes a sparse warning in the hardware-TKIP code:
+
+drivers/net/wireless/b43/xmit.c:272:18: warning: incorrect type in assignment (different base types)
+drivers/net/wireless/b43/xmit.c:272:18:    expected unsigned short [unsigned] [short] &lt;noident&gt;
+drivers/net/wireless/b43/xmit.c:272:18:    got restricted unsigned short [usertype] &lt;noident&gt;
+
+The code should work correctly with and without this patch applied.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+
+Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/xmit.c	2009-09-06 16:10:22.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/xmit.c	2009-09-06 16:17:08.000000000 +0200
+@@ -267,11 +267,11 @@ int b43_generate_txhdr(struct b43_wldev 
+ 			 */
+ 			ieee80211_get_tkip_key(info-&gt;control.hw_key, skb_frag,
+ 					IEEE80211_TKIP_P1_KEY, (u8*)phase1key);
+-			/* phase1key is in host endian */
+-			for (i = 0; i &lt; 5; i++)
+-				phase1key[i] = cpu_to_le16(phase1key[i]);
+-
+-			memcpy(txhdr-&gt;iv, phase1key, 10);
++			/* phase1key is in host endian. Copy to little-endian txhdr-&gt;iv. */
++			for (i = 0; i &lt; 5; i++) {
++				txhdr-&gt;iv[i * 2 + 0] = phase1key[i];
++				txhdr-&gt;iv[i * 2 + 1] = phase1key[i] &gt;&gt; 8;
++			}
+ 			/* iv16 */
+ 			memcpy(txhdr-&gt;iv + 10, ((u8 *) wlhdr) + wlhdr_len, 3);
+ 		} else {
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005987.html">[PATCH] b43: Really disable QoS, if requested
+</A></li>
+	<LI>Next message: <A HREF="005989.html">[COMPAT PATCH] b43: Threaded interrupts wrapper
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5988">[ date ]</a>
+              <a href="thread.html#5988">[ thread ]</a>
+              <a href="subject.html#5988">[ subject ]</a>
+              <a href="author.html#5988">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

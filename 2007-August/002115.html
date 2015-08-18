@@ -1,0 +1,116 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] mac80211: fix software decryption with b43legacy
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20mac80211%3A%20fix%20software%20decryption%20with%20b43legacy&In-Reply-To=%3C46C752FE.4030706%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002133.html">
+   <LINK REL="Next"  HREF="002135.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] mac80211: fix software decryption with b43legacy</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20mac80211%3A%20fix%20software%20decryption%20with%20b43legacy&In-Reply-To=%3C46C752FE.4030706%40lwfinger.net%3E"
+       TITLE="[RFC] mac80211: fix software decryption with b43legacy">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Sat Aug 18 22:13:50 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002133.html">b43 and knetworkmanager
+</A></li>
+        <LI>Next message: <A HREF="002135.html">[RFC] mac80211: fix software decryption with b43legacy
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2115">[ date ]</a>
+              <a href="thread.html#2115">[ thread ]</a>
+              <a href="subject.html#2115">[ subject ]</a>
+              <a href="author.html#2115">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I have added the lists to this message.
+
+I got b43legacy up and running with the software decryption modifications. It started OK with 
+WPA-PSK TKIP encryption, but soon thereafter, I got this message:
+
+eth1: No ProbeResp from current AP 00:1a:70:46:ba:b1 - assume out of range
+
+I don't know why this happened. I didn't move away from the AP, or do anything that should have 
+caused loss of a probe response; however, immediately after that, I got this GPF:
+
+general protection fault: 0000 [1] SMP
+CPU 0
+Modules linked in: nfs af_packet snd_pcm_oss snd_mixer_oss snd_seq snd_seq_device vboxdrv
+cpufreq_conservative cpufreq_ondemand cpufreq_userspace cpufreq_powersave powernow_k8 freq_table
+thermal processor button battery ac nls_utf8 ntfs loop dm_mod nfsd exportfs lockd nfs_acl
+auth_rpcgss sunrpc snd_hda_intel rc80211_simple snd_pcm snd_timer ohci_hcd snd ohci1394 ehci_hcd
+ieee1394 soundcore b43legacy sdhci usbcore mmc_core mac80211 cfg80211 ide_cd cdrom forcedeth
+snd_page_alloc i2c_nforce2 ssb ext3 mbcache jbd sg edd fan sata_nv libata amd74xx sd_mod scsi_mod
+ide_disk ide_core
+Pid: 2087, comm: b43legacy Not tainted 2.6.23-rc3-Ldev-gf5a42059-dirty #13
+RIP: 0010:[&lt;ffffffff803fe191&gt;]  [&lt;ffffffff803fe191&gt;] __mutex_unlock_slowpath+0x6b/0x13a
+RSP: 0018:ffff810056bd9b30  EFLAGS: 00010016
+RAX: 0000000000007b64 RBX: ffff81005825e978 RCX: 0000000000000003
+RDX: ffff810037f3d080 RSI: 0000000000000008 RDI: 6b6b6b6b6b6b6ba3
+RBP: ffff810056bd9b50 R08: 0000000000000000 R09: ffff81005825e978
+R10: ffff810056bd9b80 R11: ffff810037f3d080 R12: 6b6b6b6b6b6b6ba3
+R13: 0000000000000246 R14: 6b6b6b6b6b6b6bab R15: ffff8100580564c0
+FS:  00002b4afda060b0(0000) GS:ffffffff80539000(0000) knlGS:00000000f479eb90
+CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
+CR2: 00000000f4e88bd0 CR3: 0000000057aa2000 CR4: 00000000000006e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process b43legacy (pid: 2087, threadinfo ffff810056bd8000, task ffff810037f3d080)
+Stack:  ffff81005825e978 ffff81005825c2f0 ffff8100580564c0 ffff81005825c2f0
+  ffff810056bd9b60 ffffffff803fe269 ffff810056bd9b80 ffffffff8814d704
+  ffff81005825c2f0 ffff810058056640 ffff810056bd9bb0 ffffffff8813cd4f
+Call Trace:
+  [&lt;ffffffff803fe269&gt;] mutex_unlock+0x9/0xb
+  [&lt;ffffffff8814d704&gt;] :mac80211:ieee80211_key_free+0x33/0x37
+  [&lt;ffffffff8813cd4f&gt;] :mac80211:sta_info_free+0x92/0xae
+  [&lt;ffffffff881427dc&gt;] :mac80211:ieee80211_associated+0x100/0x1ec
+  [&lt;ffffffff88143646&gt;] :mac80211:ieee80211_sta_work+0x0/0x182e
+
+The rest of the call trace is available if needed. The crash occurred when ieee80211_key_free was
+trying to unlock the mutex key_idx. I added printk's to dump the pointer to sdata at the point where 
+that mutex is initialized and where the key is freed. The mutex that errs was inited.
+
+Note: For this run, I did not have a set_key callback routine defined. I also tried it with a 
+callback routine that immediately returns -ENOSPC. It didn't make any difference.
+
+Please let me know what further debug info you need.
+
+Larry
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002133.html">b43 and knetworkmanager
+</A></li>
+	<LI>Next message: <A HREF="002135.html">[RFC] mac80211: fix software decryption with b43legacy
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2115">[ date ]</a>
+              <a href="thread.html#2115">[ thread ]</a>
+              <a href="subject.html#2115">[ subject ]</a>
+              <a href="author.html#2115">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,220 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix HW key clearing.
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20HW%20key%20clearing.&In-Reply-To=%3C200709041514.23773.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002303.html">
+   <LINK REL="Next"  HREF="002292.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix HW key clearing.</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20HW%20key%20clearing.&In-Reply-To=%3C200709041514.23773.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix HW key clearing.">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Sep  4 15:14:23 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002303.html">mostly reverse engineered r4 microcode
+</A></li>
+        <LI>Next message: <A HREF="002292.html">[PATCH] b43: Add debugfs file to dump microcode registers
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2291">[ date ]</a>
+              <a href="thread.html#2291">[ thread ]</a>
+              <a href="subject.html#2291">[ subject ]</a>
+              <a href="author.html#2291">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes clearing of the HW keys.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+Index: wireless-dev/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43/main.c	2007-08-31 15:37:00.000000000 +0200
++++ wireless-dev/drivers/net/wireless/b43/main.c	2007-08-31 16:01:34.000000000 +0200
+@@ -727,7 +727,7 @@ static void key_write(struct b43_wldev *
+ 
+ static void keymac_write(struct b43_wldev *dev, u8 index, const u8 * addr)
+ {
+-	u32 addrtmp[2];
++	u32 addrtmp[2] = { 0, 0, };
+ 	u8 per_sta_keys_start = 8;
+ 
+ 	if (b43_new_kidx_api(dev))
+@@ -741,12 +741,14 @@ static void keymac_write(struct b43_wlde
+ 	 */
+ 	index -= per_sta_keys_start;
+ 
+-	addrtmp[0] = addr[0];
+-	addrtmp[0] |= ((u32) (addr[1]) &lt;&lt; 8);
+-	addrtmp[0] |= ((u32) (addr[2]) &lt;&lt; 16);
+-	addrtmp[0] |= ((u32) (addr[3]) &lt;&lt; 24);
+-	addrtmp[1] = addr[4];
+-	addrtmp[1] |= ((u32) (addr[5]) &lt;&lt; 8);
++	if (addr) {
++		addrtmp[0] = addr[0];
++		addrtmp[0] |= ((u32) (addr[1]) &lt;&lt; 8);
++		addrtmp[0] |= ((u32) (addr[2]) &lt;&lt; 16);
++		addrtmp[0] |= ((u32) (addr[3]) &lt;&lt; 24);
++		addrtmp[1] = addr[4];
++		addrtmp[1] |= ((u32) (addr[5]) &lt;&lt; 8);
++	}
+ 
+ 	if (dev-&gt;dev-&gt;id.revision &gt;= 5) {
+ 		/* Receive match transmitter address mechanism */
+@@ -776,7 +778,7 @@ static void do_key_write(struct b43_wlde
+ 			 u8 index, u8 algorithm,
+ 			 const u8 * key, size_t key_len, const u8 * mac_addr)
+ {
+-	u8 buf[B43_SEC_KEYSIZE];
++	u8 buf[B43_SEC_KEYSIZE] = { 0, };
+ 	u8 per_sta_keys_start = 8;
+ 
+ 	if (b43_new_kidx_api(dev))
+@@ -785,10 +787,10 @@ static void do_key_write(struct b43_wlde
+ 	B43_WARN_ON(index &gt;= dev-&gt;max_nr_keys);
+ 	B43_WARN_ON(key_len &gt; B43_SEC_KEYSIZE);
+ 
+-	memset(buf, 0, sizeof(buf));
+ 	if (index &gt;= per_sta_keys_start)
+-		keymac_write(dev, index, buf);	/* First zero out mac. */
+-	memcpy(buf, key, key_len);
++		keymac_write(dev, index, NULL);	/* First zero out mac. */
++	if (key)
++		memcpy(buf, key, key_len);
+ 	key_write(dev, index, algorithm, buf);
+ 	if (index &gt;= per_sta_keys_start)
+ 		keymac_write(dev, index, mac_addr);
+@@ -804,10 +806,13 @@ static int b43_key_write(struct b43_wlde
+ {
+ 	int i;
+ 	int sta_keys_start;
+-	bool removal = 0;
+ 
+ 	if (key_len &gt; B43_SEC_KEYSIZE)
+ 		return -EINVAL;
++	for (i = 0; i &lt; dev-&gt;max_nr_keys; i++) {
++		/* Check that we don't already have this key. */
++		B43_WARN_ON(dev-&gt;key[i].keyconf == keyconf);
++	}
+ 	if (index &lt; 0) {
+ 		/* Either pairwise key or address is 00:00:00:00:00:00
+ 		 * for transmit-only keys. Search the index. */
+@@ -816,24 +821,13 @@ static int b43_key_write(struct b43_wlde
+ 		else
+ 			sta_keys_start = 8;
+ 		for (i = sta_keys_start; i &lt; dev-&gt;max_nr_keys; i++) {
+-			if (dev-&gt;key[i].keyconf == keyconf) {
+-				/* we already have this key so we must be
+-				 * in removal (there is no update) */
+-				removal = 1;
++			if (!dev-&gt;key[i].keyconf) {
++				/* found empty */
+ 				index = i;
+ 				break;
+ 			}
+ 		}
+ 		if (index &lt; 0) {
+-			for (i = sta_keys_start; i &lt; dev-&gt;max_nr_keys; i++) {
+-				if (!dev-&gt;key[i].keyconf) {
+-					/* found empty */
+-					index = i;
+-					break;
+-				}
+-			}
+-		}
+-		if (index &lt; 0) {
+ 			b43err(dev-&gt;wl, &quot;Out of hardware key memory\n&quot;);
+ 			return -ENOSPC;
+ 		}
+@@ -847,22 +841,32 @@ static int b43_key_write(struct b43_wlde
+ 		do_key_write(dev, index + 4, algorithm, key, key_len, NULL);
+ 	}
+ 	keyconf-&gt;hw_key_idx = index;
+-	dev-&gt;key[index].keyconf = removal ? NULL : keyconf;
++	dev-&gt;key[index].keyconf = keyconf;
++
++	return 0;
++}
++
++static int b43_key_clear(struct b43_wldev *dev, int index)
++{
++	if (B43_WARN_ON((index &lt; 0) || (index &gt;= dev-&gt;max_nr_keys)))
++		return -EINVAL;
++	do_key_write(dev, index, B43_SEC_ALGO_NONE,
++		     NULL, B43_SEC_KEYSIZE, NULL);
++	if ((index &lt;= 3) &amp;&amp; !b43_new_kidx_api(dev)) {
++		do_key_write(dev, index + 4, B43_SEC_ALGO_NONE,
++			     NULL, B43_SEC_KEYSIZE, NULL);
++	}
++	dev-&gt;key[index].keyconf = NULL;
+ 
+ 	return 0;
+ }
+ 
+ static void b43_clear_keys(struct b43_wldev *dev)
+ {
+-	static const u8 zero[B43_SEC_KEYSIZE] = { 0 };
+-	unsigned int i;
++	int i;
+ 
+-	BUILD_BUG_ON(B43_SEC_KEYSIZE &lt; ETH_ALEN);
+-	for (i = 0; i &lt; dev-&gt;max_nr_keys; i++) {
+-		do_key_write(dev, i, B43_SEC_ALGO_NONE,
+-			     zero, B43_SEC_KEYSIZE, zero);
+-		dev-&gt;key[i].keyconf = NULL;
+-	}
++	for (i = 0; i &lt; dev-&gt;max_nr_keys; i++)
++		b43_key_clear(dev, i);
+ }
+ 
+ void b43_power_saving_ctl_bits(struct b43_wldev *dev, unsigned int ps_flags)
+@@ -2962,12 +2966,7 @@ static int b43_dev_set_key(struct ieee80
+ 		}
+ 		break;
+ 	case DISABLE_KEY: {
+-		static const u8 zero[B43_SEC_KEYSIZE] = { 0 };
+-
+-		algorithm = B43_SEC_ALGO_NONE;
+-		err = b43_key_write(dev, index, algorithm,
+-				    zero, B43_SEC_KEYSIZE,
+-				    NULL, key);
++		err = b43_key_clear(dev, key-&gt;hw_key_idx);
+ 		if (err)
+ 			goto out_unlock;
+ 		break;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002303.html">mostly reverse engineered r4 microcode
+</A></li>
+	<LI>Next message: <A HREF="002292.html">[PATCH] b43: Add debugfs file to dump microcode registers
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2291">[ date ]</a>
+              <a href="thread.html#2291">[ thread ]</a>
+              <a href="subject.html#2291">[ subject ]</a>
+              <a href="author.html#2291">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

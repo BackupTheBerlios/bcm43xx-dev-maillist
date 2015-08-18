@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ieee80211-crypt%3A%20Make%20some%20TKIP%20and%20CCMP%20error%20logging%0A%09conditional%20on%20IEEE80211_DEBUG_DROP&In-Reply-To=%3C4623C561.4030201%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001101.html">
+   <LINK REL="Next"  HREF="001105.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ieee80211-crypt%3A%20Make%20some%20TKIP%20and%20CCMP%20error%20logging%0A%09conditional%20on%20IEEE80211_DEBUG_DROP&In-Reply-To=%3C4623C561.4030201%40lwfinger.net%3E"
+       TITLE="[PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Mon Apr 16 20:50:09 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001101.html">[PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP
+</A></li>
+        <LI>Next message: <A HREF="001105.html">[PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1102">[ date ]</a>
+              <a href="thread.html#1102">[ thread ]</a>
+              <a href="subject.html#1102">[ subject ]</a>
+              <a href="author.html#1102">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Andreas Schwab wrote:
+&gt;<i> 
+</I>&gt;<i> This is causing an undefined refrence to ieee80211_debug_level with
+</I>&gt;<i> CONFIG_IEEE80211_DEBUG=y and CONFIG_IEEE80211_CRYPT_CCMP=m and/or
+</I>&gt;<i> CONFIG_IEEE80211_CRYPT_TKIP=m.
+</I>&gt;<i> 
+</I>&gt;<i> WARNING: &quot;ieee80211_debug_level&quot; [net/ieee80211/ieee80211_crypt_tkip.ko] undefined!
+</I>&gt;<i> WARNING: &quot;ieee80211_debug_level&quot; [net/ieee80211/ieee80211_crypt_ccmp.ko] undefined!
+</I>&gt;<i> 
+</I>&gt;<i> Andreas.
+</I>
+The missing symbol was not exported by ieee80211_module.c. Sorry for not testing enough. The fix is 
+as follows:
+
+Index: wireless-2.6/net/ieee80211/ieee80211_module.c
+===================================================================
+--- wireless-2.6.orig/net/ieee80211/ieee80211_module.c
++++ wireless-2.6/net/ieee80211/ieee80211_module.c
+@@ -229,6 +229,7 @@ void free_ieee80211(struct net_device *d
+
+  static int debug = 0;
+  u32 ieee80211_debug_level = 0;
++EXPORT_SYMBOL_GPL(ieee80211_debug_level);
+  static struct proc_dir_entry *ieee80211_proc = NULL;
+
+  static int show_debug_level(char *page, char **start, off_t offset,
+
+
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: missing_debug
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070416/1c1c950e/attachment.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070416/1c1c950e/attachment.ksh</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001101.html">[PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP
+</A></li>
+	<LI>Next message: <A HREF="001105.html">[PATCH] ieee80211-crypt: Make some TKIP and CCMP error logging	conditional on IEEE80211_DEBUG_DROP
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1102">[ date ]</a>
+              <a href="thread.html#1102">[ thread ]</a>
+              <a href="subject.html#1102">[ subject ]</a>
+              <a href="author.html#1102">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

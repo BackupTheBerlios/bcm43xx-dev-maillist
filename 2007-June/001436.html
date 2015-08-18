@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> New debugging framework in bcm43xx-mac80211
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20New%20debugging%20framework%20in%20bcm43xx-mac80211&In-Reply-To=%3C200706220044.48540.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001446.html">
+   <LINK REL="Next"  HREF="001439.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>New debugging framework in bcm43xx-mac80211</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20New%20debugging%20framework%20in%20bcm43xx-mac80211&In-Reply-To=%3C200706220044.48540.mb%40bu3sch.de%3E"
+       TITLE="New debugging framework in bcm43xx-mac80211">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jun 22 00:44:48 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001446.html">BCM4309 with bcm43xx-mac80211 and WPA
+</A></li>
+        <LI>Next message: <A HREF="001439.html">[bcm43xx-users] 4311 still not receiving
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1436">[ date ]</a>
+              <a href="thread.html#1436">[ thread ]</a>
+              <a href="subject.html#1436">[ subject ]</a>
+              <a href="author.html#1436">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi Larry,
+
+I just wanted to notify you that I am building
+up a new dynamic debugging framework in bcm43xx-mac80211.
+Debugging in the driver is a mess, because you don't
+get enough useful information out of the driver.
+
+My approach is to add boolean debugfs files to dynamically
+enable verbose (and/or expensive) debugging techniques at
+runtime, so one can easily track down problems without
+modifying kernel code.
+
+Currently my framework includes debugging features to debug
+the DMA-ring-overflow, the TX power adjustment and some
+periodic work debugging.
+The periodic work and TXpower debugging is probably also
+useful to you. The pwork debugging allows you do completely
+stop pwork or to run it faster (every 50msec, instead of
+every 1sec). This should help in tracking down races or
+things like that. We had that in the past...
+
+Here's the patch which adds the pwork debugging, so you
+get a clue what I'm talking about. The main new function
+is bcm43xx_debug(), which is used to check if a debugging
+feature is enabled. Compiles to 0 for nondebug-builds.
+<A HREF="http://bu3sch.de/gitweb?p=wireless-dev.git;a=commitdiff;h=402e3940d5e4d4f715ff434197c6b911e09317fc">http://bu3sch.de/gitweb?p=wireless-dev.git;a=commitdiff;h=402e3940d5e4d4f715ff434197c6b911e09317fc</A>
+
+If you have an idea for a place where we should add a
+dynamic debugging feature, please tell me (and/or submit
+a patch).
+Adding a new dyndebug-feature is easy. Just add it to the enum
+in bcm43xx_debug.h and use the add_dyn_dbg() macro in
+bcm43xx_debug.c to create the file. (the file is removed
+automagically). And of course check for the flag somewhere
+in the code with bcm43xx_debug() ;) .
+
+Have fun.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001446.html">BCM4309 with bcm43xx-mac80211 and WPA
+</A></li>
+	<LI>Next message: <A HREF="001439.html">[bcm43xx-users] 4311 still not receiving
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1436">[ date ]</a>
+              <a href="thread.html#1436">[ thread ]</a>
+              <a href="subject.html#1436">[ subject ]</a>
+              <a href="author.html#1436">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC V2] ssb: Allow reading of 440-byte SPROM that is not rev 4
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%20V2%5D%20ssb%3A%20Allow%20reading%20of%20440-byte%20SPROM%20that%20is%20not%20rev%204&In-Reply-To=%3C48096cde./8jZEldPFuvowh8A%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003889.html">
+   <LINK REL="Next"  HREF="003883.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC V2] ssb: Allow reading of 440-byte SPROM that is not rev 4</H1>
+    <B>Larry.Finger at lwfinger.net</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%20V2%5D%20ssb%3A%20Allow%20reading%20of%20440-byte%20SPROM%20that%20is%20not%20rev%204&In-Reply-To=%3C48096cde./8jZEldPFuvowh8A%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[RFC V2] ssb: Allow reading of 440-byte SPROM that is not rev 4">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Apr 19 05:54:06 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003889.html">[PATCH] ssb: Fix case where low-order board flags are unset
+</A></li>
+        <LI>Next message: <A HREF="003883.html">[RFC V2] ssb: Allow reading of 440-byte SPROM that is not rev 4
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3880">[ date ]</a>
+              <a href="thread.html#3880">[ thread ]</a>
+              <a href="subject.html#3880">[ subject ]</a>
+              <a href="author.html#3880">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The current code checks for the special signature that signifies
+a revision 4 SPROM. A rev. 8 SPROM with a 440-byte length has been
+found, but any special code for it is unknown. The the check should
+be relaxed. With this patch, if the CRC is incorrect for a 256-byte
+SPROM, the code will immediately check for a 440-byte SPROM. If there
+is still a CRC error, the size is set to 440 bytes, which allows dumping
+of most of any 512-byte SPROM if/when one is encountered.
+
+The code has also been modified to test for cases where the CRC check
+results in a false positive, but the revision number is wrong.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+
+
+Index: wireless-testing/drivers/ssb/pci.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/pci.c
++++ wireless-testing/drivers/ssb/pci.c
+@@ -497,6 +497,7 @@ static int ssb_pci_sprom_get(struct ssb_
+ {
+ 	int err = -ENOMEM;
+ 	u16 *buf;
++	u16 revision;
+ 
+ 	buf = kcalloc(SSB_SPROMSIZE_WORDS_R123, sizeof(u16), GFP_KERNEL);
+ 	if (!buf)
+@@ -504,19 +505,32 @@ static int ssb_pci_sprom_get(struct ssb_
+ 	bus-&gt;sprom_size = SSB_SPROMSIZE_WORDS_R123;
+ 	sprom_do_read(bus, buf);
+ 	err = sprom_check_crc(buf, bus-&gt;sprom_size);
+-	if (err) {
+-		/* check for rev 4 sprom - has special signature */
+-		if (buf[32] == 0x5372) {
+-			kfree(buf);
+-			buf = kcalloc(SSB_SPROMSIZE_WORDS_R4, sizeof(u16),
+-				      GFP_KERNEL);
+-			if (!buf)
+-				goto out;
+-			bus-&gt;sprom_size = SSB_SPROMSIZE_WORDS_R4;
+-			sprom_do_read(bus, buf);
+-			err = sprom_check_crc(buf, bus-&gt;sprom_size);
++	if (!err) {
++		/* crc is OK - make sure we should be expecting 256 bytes */
++		revision = buf[SSB_SPROMSIZE_WORDS_R123 - 1] &amp; 0x00FF;
++		if (revision &gt; 3) {
++			ssb_printk(KERN_WARNING PFX &quot;Warning: SPROM CRC&quot;
++				   &quot; and revision are inconsistent\n&quot;);
++			goto sprom_440;
+ 		}
+-		if (err)
++	} else {
++		/* try for a 440 byte SPROM - revision 4 and higher */
++sprom_440:
++		kfree(buf);
++		buf = kcalloc(SSB_SPROMSIZE_WORDS_R4, sizeof(u16),
++			      GFP_KERNEL);
++		if (!buf)
++			goto out;
++		bus-&gt;sprom_size = SSB_SPROMSIZE_WORDS_R4;
++		sprom_do_read(bus, buf);
++		err = sprom_check_crc(buf, bus-&gt;sprom_size);
++		if (!err) {
++			/* crc is OK - Are we expecting 440 bytes? */
++			revision = buf[SSB_SPROMSIZE_WORDS_R4 - 1] &amp; 0x00FF;
++			if (revision &lt; 4 || revision == 0xFF)
++				ssb_printk(KERN_WARNING PFX &quot;Warning: SPROM CRC&quot;
++					   &quot; and revision are inconsistent\n&quot;);
++		} else
+ 			ssb_printk(KERN_WARNING PFX &quot;WARNING: Invalid&quot;
+ 				   &quot; SPROM CRC (corrupt SPROM)\n&quot;);
+ 	}
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003889.html">[PATCH] ssb: Fix case where low-order board flags are unset
+</A></li>
+	<LI>Next message: <A HREF="003883.html">[RFC V2] ssb: Allow reading of 440-byte SPROM that is not rev 4
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3880">[ date ]</a>
+              <a href="thread.html#3880">[ thread ]</a>
+              <a href="subject.html#3880">[ subject ]</a>
+              <a href="author.html#3880">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb: Put host pointers into a union
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Put%20host%20pointers%20into%20a%20union&In-Reply-To=%3C200910092032.10324.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006162.html">
+   <LINK REL="Next"  HREF="006164.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb: Put host pointers into a union</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Put%20host%20pointers%20into%20a%20union&In-Reply-To=%3C200910092032.10324.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] ssb: Put host pointers into a union">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Oct  9 20:32:10 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006162.html">[PATCH] b43/legacy: Fix usage of host_pci pointer
+</A></li>
+        <LI>Next message: <A HREF="006164.html">[PATCH] b43: Optimize PIO scratchbuffer usage
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6163">[ date ]</a>
+              <a href="thread.html#6163">[ thread ]</a>
+              <a href="subject.html#6163">[ subject ]</a>
+              <a href="author.html#6163">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This slightly shrinks the structure.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+Index: wireless-testing/drivers/ssb/driver_pcicore.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/driver_pcicore.c	2008-07-20 12:09:34.000000000 +0200
++++ wireless-testing/drivers/ssb/driver_pcicore.c	2009-10-09 19:01:59.000000000 +0200
+@@ -551,13 +551,13 @@ int ssb_pcicore_dev_irqvecs_enable(struc
+ 	might_sleep_if(pdev-&gt;id.coreid != SSB_DEV_PCI);
+ 
+ 	/* Enable interrupts for this device. */
+-	if (bus-&gt;host_pci &amp;&amp;
+-	    ((pdev-&gt;id.revision &gt;= 6) || (pdev-&gt;id.coreid == SSB_DEV_PCIE))) {
++	if ((pdev-&gt;id.revision &gt;= 6) || (pdev-&gt;id.coreid == SSB_DEV_PCIE)) {
+ 		u32 coremask;
+ 
+ 		/* Calculate the &quot;coremask&quot; for the device. */
+ 		coremask = (1 &lt;&lt; dev-&gt;core_index);
+ 
++		SSB_WARN_ON(bus-&gt;bustype != SSB_BUSTYPE_PCI);
+ 		err = pci_read_config_dword(bus-&gt;host_pci, SSB_PCI_IRQMASK, &amp;tmp);
+ 		if (err)
+ 			goto out;
+Index: wireless-testing/include/linux/ssb/ssb.h
+===================================================================
+--- wireless-testing.orig/include/linux/ssb/ssb.h	2009-09-11 21:27:27.000000000 +0200
++++ wireless-testing/include/linux/ssb/ssb.h	2009-10-09 19:10:42.000000000 +0200
+@@ -269,7 +269,8 @@ struct ssb_bus {
+ 
+ 	const struct ssb_bus_ops *ops;
+ 
+-	/* The core in the basic address register window. (PCI bus only) */
++	/* The core currently mapped into the MMIO window.
++	 * Not valid on all host-buses. So don't use outside of SSB. */
+ 	struct ssb_device *mapped_device;
+ 	union {
+ 		/* Currently mapped PCMCIA segment. (bustype == SSB_BUSTYPE_PCMCIA only) */
+@@ -281,14 +282,17 @@ struct ssb_bus {
+ 	 * On PCMCIA-host busses this is used to protect the whole MMIO access. */
+ 	spinlock_t bar_lock;
+ 
+-	/* The bus this backplane is running on. */
++	/* The host-bus this backplane is running on. */
+ 	enum ssb_bustype bustype;
+-	/* Pointer to the PCI bus (only valid if bustype == SSB_BUSTYPE_PCI). */
+-	struct pci_dev *host_pci;
+-	/* Pointer to the PCMCIA device (only if bustype == SSB_BUSTYPE_PCMCIA). */
+-	struct pcmcia_device *host_pcmcia;
+-	/* Pointer to the SDIO device (only if bustype == SSB_BUSTYPE_SDIO). */
+-	struct sdio_func *host_sdio;
++	/* Pointers to the host-bus. Check bustype before using any of these pointers. */
++	union {
++		/* Pointer to the PCI bus (only valid if bustype == SSB_BUSTYPE_PCI). */
++		struct pci_dev *host_pci;
++		/* Pointer to the PCMCIA device (only if bustype == SSB_BUSTYPE_PCMCIA). */
++		struct pcmcia_device *host_pcmcia;
++		/* Pointer to the SDIO device (only if bustype == SSB_BUSTYPE_SDIO). */
++		struct sdio_func *host_sdio;
++	};
+ 
+ 	/* See enum ssb_quirks */
+ 	unsigned int quirks;
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006162.html">[PATCH] b43/legacy: Fix usage of host_pci pointer
+</A></li>
+	<LI>Next message: <A HREF="006164.html">[PATCH] b43: Optimize PIO scratchbuffer usage
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6163">[ date ]</a>
+              <a href="thread.html#6163">[ thread ]</a>
+              <a href="subject.html#6163">[ subject ]</a>
+              <a href="author.html#6163">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

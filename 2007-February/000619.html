@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 4306 of PowerPC: machine check in ssb_pci_read16
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%204306%20of%20PowerPC%3A%20machine%20check%20in%20ssb_pci_read16&In-Reply-To=%3C1172086266.17618.35.camel%40dv%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000618.html">
+   <LINK REL="Next"  HREF="000620.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>4306 of PowerPC: machine check in ssb_pci_read16</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%204306%20of%20PowerPC%3A%20machine%20check%20in%20ssb_pci_read16&In-Reply-To=%3C1172086266.17618.35.camel%40dv%3E"
+       TITLE="4306 of PowerPC: machine check in ssb_pci_read16">proski at gnu.org
+       </A><BR>
+    <I>Wed Feb 21 20:31:06 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000618.html">4306 of PowerPC: machine check in ssb_pci_read16
+</A></li>
+        <LI>Next message: <A HREF="000620.html">4306 of PowerPC: machine check in ssb_pci_read16
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#619">[ date ]</a>
+              <a href="thread.html#619">[ thread ]</a>
+              <a href="subject.html#619">[ subject ]</a>
+              <a href="author.html#619">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Wed, 2007-02-21 at 19:51 +0100, Michael Buesch wrote:
+&gt;<i> On Wednesday 21 February 2007 18:22, Pavel Roskin wrote:
+</I>&gt;<i> &gt; Hello!
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; I've got my hands on a 4306 MiniPCI card, and I put it into a Blue&amp;White
+</I>&gt;<i> 
+</I>&gt;<i> Questions came up on IRC if this really is a 4306.
+</I>&gt;<i> I think it's a 4309. The 4306 also reports 4306 as chipid.
+</I>&gt;<i> Help us to find out by providing lspci ;)
+</I>&gt;<i> 
+</I>&gt;<i> (Not that it really matters in this oops issue)
+</I>
+I have another card from the same batch, and I'm 99.9% sure it's
+equivalent to the one in PowerPC (but I will check).  I put it to an x86
+laptop, and it's working much better, although I had with an assertion
+failure the first time I tried it.  When trying it for the second time,
+scanning was OK, association was OK and ping was working right away.
+
+This is the current mb kernel with bcm43xx_d80211 and ssb debugging on.
+First of all, the lspci output:
+
+# lspci -vvvn -s 02:02.0
+02:02.0 0280: 14e4:4320 (rev 03)
+        Subsystem: 1028:0003
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+        Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+        Latency: 64
+        Interrupt: pin A routed to IRQ 11
+        Region 0: Memory at d0200000 (32-bit, non-prefetchable) [size=8K]
+
+# lspci -vvv -s 02:02.0
+02:02.0 Network controller: Broadcom Corporation BCM4306 802.11b/g Wireless LAN Controller (rev 03)
+        Subsystem: Dell Wireless 1350 WLAN Mini-PCI Card
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+        Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+        Latency: 64
+        Interrupt: pin A routed to IRQ 11
+        Region 0: Memory at d0200000 (32-bit, non-prefetchable) [size=8K]
+
+The chip on the card has BCM4306KFB on it.
+
+The kernel messages from module load to ping:
+
+ACPI: PCI Interrupt 0000:02:02.0[A] -&gt; Link [LNKC] -&gt; GSI 11 (level, low) -&gt; IRQ 11
+ssb: Sonics Silicon Backplane found on PCI device 0000:02:02.0
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x04, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x05, vendor 0x4243)
+ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x02, vendor 0x4243)
+ssb: Core 3 found: V90 (cc 0x807, rev 0x02, vendor 0x4243)
+ssb: Core 4 found: PCI (cc 0x804, rev 0x09, vendor 0x4243)
+ssb: Switching to ChipCommon core, index 0
+ssb: Switching to PCI core, index 4
+bcm43xx_d80211: Broadcom 4306 WLAN found
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_d80211: Radio turned off
+wmaster0: Selected rate control algorithm 'simple'
+bcm43xx_d80211: Adding Interface type 2
+bcm43xx_d80211: Found PHY: Analog 2, Type 2, Revision 2
+bcm43xx_d80211: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+ssb: Switching to PCI core, index 4
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_d80211: Loading firmware version 371.1122 (2006-11-08 22:02:13)
+ssb: Switching to ChipCommon core, index 0
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_d80211: Radio turned on
+bcm43xx_d80211: Radio enabled by hardware
+bcm43xx_d80211: Chip initialized
+bcm43xx_d80211: 30-bit DMA initialized
+bcm43xx_d80211: Wireless interface started
+wmaster0: Does not support passive scan, disabled
+wlan0: starting scan
+wlan0: scan completed
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:11:50:d9:2e:66
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:11:50:d9:2e:66
+wlan0: RX authentication from 00:11:50:d9:2e:66 (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:11:50:d9:2e:66
+wlan0: authentication frame received from 00:11:50:d9:2e:66, but not in authenticate state - ignored
+wlan0: RX AssocResp from 00:11:50:d9:2e:66 (capab=0x421 status=0 aid=1)
+wlan0: associated
+wlan0: WMM queue=2 aci=0 acm=0 aifs=2 cWmin=7 cWmax=1023 burst=20
+wlan0: WMM queue=3 aci=1 acm=0 aifs=7 cWmin=15 cWmax=1023 burst=0
+wlan0: WMM queue=1 aci=2 acm=0 aifs=2 cWmin=7 cWmax=15 burst=30
+wlan0: WMM queue=0 aci=3 acm=0 aifs=2 cWmin=3 cWmax=7 burst=15
+
+I found the logs from the first try, and the difference is that there is
+one extra line between &quot;Radio enabled by hardware&quot; and &quot;Chip
+initialized&quot;:
+
+bcm43xx_d80211: ASSERTION FAILED (phy-&gt;cur_idle_tssi)
+at: /home/proski/src/linux-2.6/drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c:548:bcm43xx_phy_init_pctl()
+
+-- 
+Regards,
+Pavel Roskin
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000618.html">4306 of PowerPC: machine check in ssb_pci_read16
+</A></li>
+	<LI>Next message: <A HREF="000620.html">4306 of PowerPC: machine check in ssb_pci_read16
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#619">[ date ]</a>
+              <a href="thread.html#619">[ thread ]</a>
+              <a href="subject.html#619">[ subject ]</a>
+              <a href="author.html#619">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> LED on BCM4311 on Acer Extensa 5220
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20LED%20on%20BCM4311%20on%20Acer%20Extensa%205220&In-Reply-To=%3C496EAEEE.5090801%40list.ru%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005059.html">
+   <LINK REL="Next"  HREF="005061.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>LED on BCM4311 on Acer Extensa 5220</H1>
+    <B>_vi at list.ru</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20LED%20on%20BCM4311%20on%20Acer%20Extensa%205220&In-Reply-To=%3C496EAEEE.5090801%40list.ru%3E"
+       TITLE="LED on BCM4311 on Acer Extensa 5220">_vi at list.ru
+       </A><BR>
+    <I>Thu Jan 15 04:35:10 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005059.html">Support for 16 bit PCMCIA 0x02d0, 0x042d?
+</A></li>
+        <LI>Next message: <A HREF="005061.html">LED on BCM4311 on Acer Extensa 5220
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5047">[ date ]</a>
+              <a href="thread.html#5047">[ thread ]</a>
+              <a href="subject.html#5047">[ subject ]</a>
+              <a href="author.html#5047">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>(Previous message failed)
+
+The Wi-Fi status LED on Acer Extensa 5220 works incorrectly.
+When using b43, it is turned on only if radio is disabled.
+When using ndiswrapper, it is blinking when disconnected, on when
+connected and rapidly flashes when information is being sent or received.
+
+When &quot;/sys/class/leds/b43-phy0::radio/brightness&quot; is set to 0, the LED
+is turned on. When it is 1 to 255, the LED is off.
+
+vi-notebook:/sys/class/leds/b43-phy0::radio# cat trigger
+none ide-disk rfkill0 ADP1-online BAT0-charging-or-full BAT0-charging
+BAT0-full mmc0 phy0rx phy0tx phy0assoc phy0radio [rfkill4]
+
+If I set &quot;/sys/class/leds/b43-phy0::radio/trigger&quot; to &quot;phy0rx&quot;, LED will
+be turned on and off on every received packet (brightness will
+alternate: first 0, then 255, then 0 and so on)
+
+There are also b43-phy0::rx and b43-phy0::tx, but they have no physical
+implementation on my device.
+
+Should LEDs be controlled from userspace script? How to receive that
+&quot;phy0rx&quot; and &quot;phy0tx&quot; events from userspace?
+
+The following one-liner will give LED flashing similar to original:
+for((;;)) { sleep 0.1; ifconfig wlan0 | perl -ne '/TX packets:(\d+)/ and
+print &quot;$1\n&quot;'; } | perl -e '$q=0; $|=1; while(&lt;&gt;){ print &quot;255\n&quot; and
+(select(undef,undef,undef,0.05) or 1) and print &quot;0\n&quot; and $q=$_ if
+$_&gt;$q; }' &gt; /sys/class/leds/b43-phy0\:\:radio/brightness
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005059.html">Support for 16 bit PCMCIA 0x02d0, 0x042d?
+</A></li>
+	<LI>Next message: <A HREF="005061.html">LED on BCM4311 on Acer Extensa 5220
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5047">[ date ]</a>
+              <a href="thread.html#5047">[ thread ]</a>
+              <a href="subject.html#5047">[ subject ]</a>
+              <a href="author.html#5047">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.21.1 works with ifconfig; fails with ifup
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.21.1%20works%20with%20ifconfig%3B%20fails%20with%20ifup&In-Reply-To=%3C1178920888.2853.23.camel%40dv%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001231.html">
+   <LINK REL="Next"  HREF="001244.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.21.1 works with ifconfig; fails with ifup</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.21.1%20works%20with%20ifconfig%3B%20fails%20with%20ifup&In-Reply-To=%3C1178920888.2853.23.camel%40dv%3E"
+       TITLE="2.6.21.1 works with ifconfig; fails with ifup">proski at gnu.org
+       </A><BR>
+    <I>Sat May 12 00:01:28 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001231.html">2.6.21.1 works with ifconfig; fails with ifup
+</A></li>
+        <LI>Next message: <A HREF="001244.html">2.6.21.1 works with ifconfig; fails with ifup
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1242">[ date ]</a>
+              <a href="thread.html#1242">[ thread ]</a>
+              <a href="subject.html#1242">[ subject ]</a>
+              <a href="author.html#1242">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello!
+
+On Mon, 2007-05-07 at 19:04 -0700, Ehud Gavron wrote:
+&gt;<i> 2.6.21.1 ifup eth1 panics and is repeatable.
+</I>
+I understand it's Fedora Core 6.  /sbin/ifup should be a script.  You
+can trace it by running it as
+
+bash -x /sbin/ifup eth1
+
+&gt;<i> Unfortunately I can't get netconsole working because the 2.6.21.1 kernel 
+</I>&gt;<i> doesn't like my hardwired Ethernet card for no good reason.  TXcount 
+</I>&gt;<i> increases, RXcount does not.  tcpdump shows nothing.  Rebooting in 
+</I>&gt;<i> 2.6.20-1.2948.fc6 restores full functionality.
+</I>
+That should go to netdev list or to a list specifically about that
+driver.  But I don't think netconsole is the best tool to debug other
+networking drivers.
+
+Please see Documentation/oops-tracing.txt in the Linux sources.  If you
+have serial console, please use it.  If you can use local console,
+that's the second best choice.  Use &quot;dmesg -n 8&quot; to enable all messages
+on the console.  Switch to the first virtual console by Ctrl-Alt-F1 if X
+Window System is running.  To maximize the number of lines, set the
+smallest font, e.g.
+
+setfont drdos8x8
+
+Reproduce the panic and write down the messages.  Or you can make a
+photograph of the screen.
+
+Documentation/oops-tracing.txt also suggests kdump.  I haven't tried it,
+but I think it would work.
+
+&gt;<i> If I do the following it works flawlessly:
+</I>&gt;<i> ifconfig eth1 up
+</I>&gt;<i> iwconfig eth1 key wep-key-here
+</I>&gt;<i> iwconfig eth1 essid any   (or &quot;real-essid-here&quot;)
+</I>&gt;<i> ifconfig eth1 10.1.1.5 netmask 255.255.255.0
+</I>&gt;<i> route add -net 0.0.0.0/0 gw 10.1.1.1
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> If I do the following I get a kernel panic:
+</I>&gt;<i> ifup eth1
+</I>
+That's a clear sign that it's caused by something other that bringing
+the interface up.
+
+&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at egdell</A> ~]# more /etc/sysconfig/network-scripts/ifcfg-eth1
+</I>&gt;<i> # Broadcom Corporation BCM4306 802.11b/g Wireless LAN Controller
+</I>&gt;<i> TYPE=wireless
+</I>&gt;<i> DEVICE=eth1
+</I>&gt;<i> ONBOOT=no
+</I>&gt;<i> BOOTPROTO=static
+</I>&gt;<i> ADDRESS=10.1.1.5
+</I>&gt;<i> NETMASK=255.255.255.255
+</I>&gt;<i> GATEWAY=10.1.1.1
+</I>&gt;<i> ESSID=wetwork
+</I>&gt;<i> KEY=xxxa0055ae775e80fd864exxxx
+</I>&gt;<i> #RATE=24
+</I>&gt;<i> #CHANNEL=6
+</I>
+This looks good.
+
+&gt;<i> While I can't use netconsole, I can use strace.  Accordingly attached is 
+</I>&gt;<i> the output from
+</I>&gt;<i> strace ifup eth1 &gt; nothing.txt 2&gt;output.txt
+</I>
+That's not very useful.  The interesting stuff is done in other
+processes.  You could try to follow them by adding &quot;-f&quot; and &quot;-F&quot; flags.
+But I think the first priority should be getting the kernel messages.
+
+&gt;<i> If anyone has any ideas what's wrong with the wired ethernet...
+</I>&gt;<i> 09:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5752 
+</I>&gt;<i> Gigabit Ethernet PCI Express (rev 02)
+</I>
+Please ask in netdev.
+
+&gt;<i> If I don't get any better suggestions I'll remake oldconfig but answer N 
+</I>&gt;<i> to all the new stuff and see if that makes a difference.  There are a 
+</I>&gt;<i> couple of new GE drivers, some experimental, and I'm guessing (with no 
+</I>&gt;<i> basis for the guess) that there may be interference there.
+</I>
+I would not change anything unless all possibilities for tracking down
+the bug are exhausted.  The bug can just disappear temporarily to appear
+later.
+
+&gt;<i> access(&quot;/sbin/ip&quot;, X_OK)                = 0
+</I>&gt;<i> access(&quot;/sbin/ip&quot;, R_OK)                = 0
+</I>&gt;<i> rt_sigprocmask(SIG_BLOCK, [INT CHLD], [], 8) = 0
+</I>&gt;<i> _llseek(255, -1124, [9428], SEEK_CUR)   = 0
+</I>&gt;<i> clone(child_stack=0, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|
+</I>&gt;<i> SIGCHLD, child_tidptr=0xb7f5d918) = 3400
+</I>&gt;<i> rt_sigprocmask(SIG_SETMASK, [], NULL, 8) = 0
+</I>&gt;<i> rt_sigprocmask(SIG_BLOCK, [CHLD], [], 8) = 0
+</I>&gt;<i> rt_sigprocmask(SIG_SETMASK, [], NULL, 8) = 0
+</I>&gt;<i> rt_sigprocmask(SIG_BLOCK, [CHLD], [], 8) = 0
+</I>&gt;<i> rt_sigaction(SIGINT, {0x807a8c0, [], 0}, {SIG_DFL}, 8) = 0
+</I>&gt;<i> waitpid(-1, 
+</I>
+Either it was /sbin/ip that triggered the crash, or the end of the log
+wasn't written to the hard drive.  Generally, the console is designed to
+be more survivable than the storage devices in case of a panic, so using
+the console is preferred.
+
+-- 
+Regards,
+Pavel Roskin
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001231.html">2.6.21.1 works with ifconfig; fails with ifup
+</A></li>
+	<LI>Next message: <A HREF="001244.html">2.6.21.1 works with ifconfig; fails with ifup
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1242">[ date ]</a>
+              <a href="thread.html#1242">[ thread ]</a>
+              <a href="subject.html#1242">[ subject ]</a>
+              <a href="author.html#1242">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Wrong phystatus0?
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Wrong%20phystatus0%3F&In-Reply-To=%3C1170924381.14208.45.camel%40dv%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000397.html">
+   <LINK REL="Next"  HREF="000401.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Wrong phystatus0?</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Wrong%20phystatus0%3F&In-Reply-To=%3C1170924381.14208.45.camel%40dv%3E"
+       TITLE="Wrong phystatus0?">proski at gnu.org
+       </A><BR>
+    <I>Thu Feb  8 09:46:21 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000397.html">Hack to make bcm43xx_d80211 work with 802.11g APs
+</A></li>
+        <LI>Next message: <A HREF="000401.html">Change SoftMAC to initialize to high rates
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#399">[ date ]</a>
+              <a href="thread.html#399">[ thread ]</a>
+              <a href="subject.html#399">[ subject ]</a>
+              <a href="author.html#399">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello!
+
+Since I know that my card (still the same bcm4312) has a problem
+receiving data frames and the problem can be mitigated by turning off
+the OFDM rates, I decided to check if the bcm43xx_d80211 driver is
+receiving data with OFDM rates.
+
+Either I'm missing the obvious, or something is seriously wrong with the
+driver and with the specification.
+
+I added this line right after phystat0 is calculated in bcm43xx_rx(),
+file bcm43xx_xmit.c:
+
+printk(&quot;phystat0 = %04x\n&quot;, phystat0);
+
+I loaded the module and tried to associate to a 802.11g AP.  I brought
+the interface up and set up the parameters (channel, ap, essid).  The
+link quality became 100/100 (that's a usual value for my setup).  As
+usually, ping would not work.
+
+That's what I saw on the console:
+
+phystat0 = 0006
+phystat0 = 0004
+phystat0 = 0006
+phystat0 = 0004
+phystat0 = 0006
+phystat0 = 0004
+phystat0 = 0006
+phystat0 = 0002
+phystat0 = 0006
+phystat0 = 0002
+
+OFDM would need an odd number.  But 2 means PRE-N, and I don't have a
+pre-n AP, it's Atheros 5212 with MadWifi in 802.11g mode.
+
+Moreover, the bit 2 (value 4) is not described at all on
+<A HREF="http://bcm-v4.sipsolutions.net/802.11/RX">http://bcm-v4.sipsolutions.net/802.11/RX</A>
+
+That's all the values that have been seen:
+
+# dmesg |grep phystat0 |sort -u
+phystat0 = 0000
+phystat0 = 0002
+phystat0 = 0004
+phystat0 = 0006
+phystat0 = 0008
+phystat0 = 0022
+phystat0 = 0024
+phystat0 = 0040
+phystat0 = 0041
+phystat0 = 0043
+phystat0 = 0060
+
+The value of 3 in the two lower bytes would mean standard 802.11n, and I
+don't have it either.
+
+It seems to me that the description of &quot;PHY RX Status 0&quot; has nothing to
+to with the reality.
+
+The CPU is x86_64 (Intel Core 2 Duo).  I'm using the latest firmware
+4.102.15.61.  The kernel is current from
+<A HREF="http://bu3sch.de/git/wireless-dev.git">http://bu3sch.de/git/wireless-dev.git</A>
+
+Kernel messages on module load:
+
+ACPI: PCI Interrupt 0000:0c:00.0[A] -&gt; GSI 17 (level, low) -&gt; IRQ 17
+PCI: Setting latency timer of device 0000:0c:00.0 to 64
+ssb: Sonics Silicon Backplane found on PCI device 0000:0c:00.0
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x11, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x0A, vendor 0x4243)
+ssb: Core 2 found: USB 1.1 Host (cc 0x817, rev 0x03, vendor 0x4243)
+ssb: Core 3 found: PCI-E (cc 0x820, rev 0x01, vendor 0x4243)
+ssb: Switching to ChipCommon core, index 0
+ssb: Switching to PCI-E core, index 3
+wmaster0: Selected rate control algorithm 'simple'
+bcm43xx_d80211: Broadcom 4311 WLAN found
+ssb: Switching to IEEE 802.11 core, index 1
+ssb: Switching to PCI-E core, index 3
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_d80211: Adding Interface type 2
+bcm43xx_d80211: Found PHY: Version 4, Type 2, Revision 8
+bcm43xx_d80211: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+bcm43xx_d80211: Loading firmware version 371.1122 (2006-11-08 22:02:13)
+ssb: Switching to ChipCommon core, index 0
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_d80211: Radio turned on
+bcm43xx_d80211: Chip initialized
+bcm43xx_d80211: 32-bit DMA initialized
+bcm43xx_d80211: Wireless interface started
+wmaster0: Does not support passive scan, disabled
+
+-- 
+Regards,
+Pavel Roskin
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000397.html">Hack to make bcm43xx_d80211 work with 802.11g APs
+</A></li>
+	<LI>Next message: <A HREF="000401.html">Change SoftMAC to initialize to high rates
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#399">[ date ]</a>
+              <a href="thread.html#399">[ thread ]</a>
+              <a href="subject.html#399">[ subject ]</a>
+              <a href="author.html#399">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

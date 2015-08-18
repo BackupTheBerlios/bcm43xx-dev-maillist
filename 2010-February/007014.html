@@ -1,0 +1,171 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Make driver fall back gracefully to PIO mode after	fatal DMA errors
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Make%20driver%20fall%20back%20gracefully%20to%20PIO%20mode%20after%0A%09fatal%20DMA%20errors&In-Reply-To=%3C4b882f0a.mh6Uqo07p1AwjuBv%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="007016.html">
+   <LINK REL="Next"  HREF="007015.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Make driver fall back gracefully to PIO mode after	fatal DMA errors</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Make%20driver%20fall%20back%20gracefully%20to%20PIO%20mode%20after%0A%09fatal%20DMA%20errors&In-Reply-To=%3C4b882f0a.mh6Uqo07p1AwjuBv%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43: Make driver fall back gracefully to PIO mode after	fatal DMA errors">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Feb 26 21:28:58 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="007016.html">LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+</A></li>
+        <LI>Next message: <A HREF="007015.html">LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7014">[ date ]</a>
+              <a href="thread.html#7014">[ thread ]</a>
+              <a href="subject.html#7014">[ subject ]</a>
+              <a href="author.html#7014">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Subject: Make b43 driver fall back gracefully to PIO mode after fatal DMA errors
+From: Linus Torvalds &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">torvalds at linux-foundation.org</A>&gt;
+Date: Fri, 26 Feb 2010 10:34:27 -0800 (PST)
+
+This makes the b43 driver just automatically fall back to PIO mode when 
+DMA doesn't work.
+
+The driver already told the user to do it, so rather than have the user 
+reload the module with a new flag, just make the driver do it 
+automatically. We keep the message as an indication that something is 
+wrong, but now just automatically fall back to the hopefully working PIO 
+case.
+
+Signed-off-by: Linus Torvalds &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">torvalds at linux-foundation.org</A>&gt;
+---
+
+John,
+
+This version will work with wireless-testing.
+
+Larry
+---
+
+Index: wireless-testing/drivers/net/wireless/b43/Kconfig
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/Kconfig
++++ wireless-testing/drivers/net/wireless/b43/Kconfig
+@@ -3,7 +3,6 @@ config B43
+ 	depends on SSB_POSSIBLE &amp;&amp; MAC80211 &amp;&amp; HAS_DMA
+ 	select SSB
+ 	select FW_LOADER
+-	select SSB_BLOCKIO
+ 	---help---
+ 	  b43 is a driver for the Broadcom 43xx series wireless devices.
+ 
+@@ -79,6 +78,14 @@ config B43_SDIO
+ 
+ 	  If unsure, say N.
+ 
++#Data transfers to the device via PIO. We want it as a fallback even
++# if we can do DMA.
++config B43_PIO
++	bool
++	depends on B43
++	select SSB_BLOCKIO
++	default y
++
+ config B43_NPHY
+ 	bool &quot;Pre IEEE 802.11n support (BROKEN)&quot;
+ 	depends on B43 &amp;&amp; EXPERIMENTAL &amp;&amp; BROKEN
+@@ -130,4 +137,12 @@ config B43_DEBUG
+ 	  for production use.
+ 	  Only say Y, if you are debugging a problem in the b43 driver sourcecode.
+ 
+-
++config B43_FORCE_PIO
++	bool &quot;Force usage of PIO instead of DMA&quot;
++	depends on B43 &amp;&amp; B43_DEBUG
++	---help---
++	  This will disable DMA and always enable PIO instead.
++
++	  Say N!
++	  This is only for debugging the PIO engine code. You do
++	  _NOT_ want to enable this.
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c
++++ wireless-testing/drivers/net/wireless/b43/main.c
+@@ -107,9 +107,9 @@ int b43_modparam_verbose = B43_VERBOSITY
+ module_param_named(verbose, b43_modparam_verbose, int, 0644);
+ MODULE_PARM_DESC(verbose, &quot;Log message verbosity: 0=error, 1=warn, 2=info(default), 3=debug&quot;);
+ 
+-static int modparam_pio;
+-module_param_named(pio, modparam_pio, int, 0444);
+-MODULE_PARM_DESC(pio, &quot;enable(1) / disable(0) PIO mode&quot;);
++int b43_modparam_pio = B43_PIO_DEFAULT;
++module_param_named(pio, b43_modparam_pio, int, 0644);
++MODULE_PARM_DESC(pio, &quot;Use PIO accesses by default: 0=DMA, 1=PIO&quot;);
+ 
+ static const struct ssb_device_id b43_ssb_tbl[] = {
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 5),
+@@ -1804,8 +1804,9 @@ static void b43_do_interrupt_thread(stru
+ 			       dma_reason[4], dma_reason[5]);
+ 			b43err(dev-&gt;wl, &quot;This device does not support DMA &quot;
+ 			       &quot;on your system. Please use PIO instead.\n&quot;);
+-			b43err(dev-&gt;wl, &quot;Unload the b43 module and reload &quot;
+-			       &quot;with 'pio=1'\n&quot;);
++			/* Fall back to PIO transfers if we get fatal DMA errors! */
++			dev-&gt;use_pio = 1;
++			b43_controller_restart(dev, &quot;DMA error&quot;);
+ 			return;
+ 		}
+ 		if (merged_dma_reason &amp; B43_DMAIRQ_NONFATALMASK) {
+@@ -4357,7 +4358,7 @@ static int b43_wireless_core_init(struct
+ 
+ 	if ((dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_PCMCIA) ||
+ 	    (dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO) ||
+-	    modparam_pio) {
++	    dev-&gt;use_pio) {
+ 		dev-&gt;__using_pio_transfers = 1;
+ 		err = b43_pio_init(dev);
+ 	} else {
+@@ -4824,6 +4825,7 @@ static int b43_one_core_attach(struct ss
+ 	if (!wldev)
+ 		goto out;
+ 
++	wldev-&gt;use_pio = b43_modparam_pio;
+ 	wldev-&gt;dev = dev;
+ 	wldev-&gt;wl = wl;
+ 	b43_set_status(wldev, B43_STAT_UNINIT);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="007016.html">LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+</A></li>
+	<LI>Next message: <A HREF="007015.html">LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7014">[ date ]</a>
+              <a href="thread.html#7014">[ thread ]</a>
+              <a href="subject.html#7014">[ subject ]</a>
+              <a href="author.html#7014">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

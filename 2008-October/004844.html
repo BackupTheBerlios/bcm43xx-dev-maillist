@@ -1,0 +1,116 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 fails to reauthenticate
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20fails%20to%20reauthenticate&In-Reply-To=%3C200810300825.06888.hs4233%40mail.mn-solutions.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004842.html">
+   
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 fails to reauthenticate</H1>
+    <B>Holger Schurig</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20fails%20to%20reauthenticate&In-Reply-To=%3C200810300825.06888.hs4233%40mail.mn-solutions.de%3E"
+       TITLE="b43 fails to reauthenticate">hs4233 at mail.mn-solutions.de
+       </A><BR>
+    <I>Thu Oct 30 08:25:06 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004842.html">b43 fails to reauthenticate
+</A></li>
+        
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4844">[ date ]</a>
+              <a href="thread.html#4844">[ thread ]</a>
+              <a href="subject.html#4844">[ subject ]</a>
+              <a href="author.html#4844">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>&gt;<i> From my uneducated point of view it looks like problem in
+</I>&gt;<i> driver
+</I>
+Not necessarily. It might be your wpa_supplicant or the AP.
+
+
+&gt;<i> After some time of successful usage (5-10 minutes) AP sends
+</I>&gt;<i> deauthentication with reason code 2, which AFAIU is &quot;Previous
+</I>&gt;<i> authentication no longer valid&quot;.
+</I>
+The you need to find out why the AP does this in the first place.
+
+
+&gt;<i> WPA configuration:
+</I>&gt;<i> ctrl_interface=/var/run/wpa_supplicant
+</I>&gt;<i> ctrl_interface_group=0
+</I>&gt;<i> eapol_version=1
+</I>&gt;<i> ap_scan=1
+</I>&gt;<i> fast_reauth=1
+</I>&gt;<i>
+</I>&gt;<i> network={
+</I>&gt;<i>   scan_ssid=0
+</I>&gt;<i>   ssid=&quot;..........&quot;
+</I>&gt;<i>   proto=WPA
+</I>&gt;<i>   key_mgmt=WPA-PSK
+</I>&gt;<i>   pairwise=CCMP TKIP
+</I>&gt;<i>   group=CCMP TKIP WEP104 WEP40
+</I>&gt;<i>   psk=&quot;............&quot;
+</I>&gt;<i> }
+</I>
+So, the above entry is strange. If you know the network/AP, you 
+can do an &quot;iwlist eth1 scan&quot; and fill in pairwise/group 
+accordingly. Usually they're both identical. As you 
+have &quot;proto=WPA&quot;, you should normally then have pairwise=TKIP, 
+group=TKIP. CCMP is used with proto=WPA2 (or proto=RSN, which is 
+the same).
+
+&gt;<i> network={
+</I>&gt;<i>   ssid=&quot;any&quot;
+</I>&gt;<i>   key_mgmt=NONE
+</I>&gt;<i>   priority=2
+</I>&gt;<i> }
+</I>
+And that's even more strange, an entry for something that 
+shouldn't exist: an open, unencrypted, unprotected wireless 
+network ...
+
+
+
+
+Some things that might help you: Try &quot;wpa_cli&quot; and it's &quot;status&quot; 
+and &quot;level&quot; commands. Make sure that no other external programs, 
+e.g. Network-Manager, is responsible. Look with &quot;ps faxwww&quot; at 
+the command line arguments for wpa_supplicant. Then kill it, do 
+an &quot;ifconfig XXX up&quot; (name of the interface) and start 
+wpa-supplicant by yourself, but this time without the &quot;-B&quot; 
+(background) option, but with one or two &quot;-d&quot; (debug options).
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004842.html">b43 fails to reauthenticate
+</A></li>
+	
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4844">[ date ]</a>
+              <a href="thread.html#4844">[ thread ]</a>
+              <a href="subject.html#4844">[ subject ]</a>
+              <a href="author.html#4844">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

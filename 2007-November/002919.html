@@ -1,0 +1,181 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC/T] b43: Fix Radio On/Off LED action
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/T%5D%20b43%3A%20Fix%20Radio%20On/Off%20LED%20action&In-Reply-To=%3C474c3fed.AWsUCELaFNf32i8C%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002914.html">
+   <LINK REL="Next"  HREF="002920.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC/T] b43: Fix Radio On/Off LED action</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/T%5D%20b43%3A%20Fix%20Radio%20On/Off%20LED%20action&In-Reply-To=%3C474c3fed.AWsUCELaFNf32i8C%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[RFC/T] b43: Fix Radio On/Off LED action">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Tue Nov 27 17:03:57 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002914.html">Patch for 4311/2 to work with mainline 2.6.24-rcX
+</A></li>
+        <LI>Next message: <A HREF="002920.html">[RFC/T] b43: Fix Radio On/Off LED action
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2919">[ date ]</a>
+              <a href="thread.html#2919">[ thread ]</a>
+              <a href="subject.html#2919">[ subject ]</a>
+              <a href="author.html#2919">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Since addition of the rfkill callback, the LED associated with the off
+switch on the radio has not worked because essential data in the rfkill
+structure was missing. This hack adds the necessary data and places direct
+calls to turn the leds on/off.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: wireless-2.6/drivers/net/wireless/b43/rfkill.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/rfkill.c
++++ wireless-2.6/drivers/net/wireless/b43/rfkill.c
+@@ -23,6 +23,7 @@
+ */
+ 
+ #include &quot;rfkill.h&quot;
++#include &quot;leds.h&quot;
+ #include &quot;b43.h&quot;
+ 
+ 
+@@ -57,6 +58,10 @@ static void b43_rfkill_poll(struct input
+ 		report_change = 1;
+ 		b43info(wl, &quot;Radio hardware status changed to %s\n&quot;,
+ 			enabled ? &quot;ENABLED&quot; : &quot;DISABLED&quot;);
++		if (enabled)
++			b43_led_turn_on(dev, 1, 1);
++		else
++			b43_led_turn_off(dev, 1, 1);
+ 	}
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+@@ -70,11 +75,13 @@ static int b43_rfkill_soft_toggle(void *
+ 	struct b43_wldev *dev = data;
+ 	struct b43_wl *wl = dev-&gt;wl;
+ 	int err = 0;
++	int lock = mutex_is_locked(&amp;wl-&gt;mutex);
+ 
+ 	if (!wl-&gt;rfkill.registered)
+ 		return 0;
+ 
+-	mutex_lock(&amp;wl-&gt;mutex);
++	if (!lock)
++		mutex_lock(&amp;wl-&gt;mutex);
+ 	B43_WARN_ON(b43_status(dev) &lt; B43_STAT_INITIALIZED);
+ 	switch (state) {
+ 	case RFKILL_STATE_ON:
+@@ -93,7 +100,8 @@ static int b43_rfkill_soft_toggle(void *
+ 		break;
+ 	}
+ out_unlock:
+-	mutex_unlock(&amp;wl-&gt;mutex);
++	if (!lock)
++		mutex_unlock(&amp;wl-&gt;mutex);
+ 
+ 	return err;
+ }
+@@ -133,6 +141,12 @@ void b43_rfkill_init(struct b43_wldev *d
+ 	rfk-&gt;poll_dev-&gt;poll = b43_rfkill_poll;
+ 	rfk-&gt;poll_dev-&gt;poll_interval = 1000; /* msecs */
+ 
++	rfk-&gt;poll_dev-&gt;input-&gt;name = rfk-&gt;name;
++	rfk-&gt;poll_dev-&gt;input-&gt;id.bustype = BUS_HOST;
++	rfk-&gt;poll_dev-&gt;input-&gt;id.vendor = dev-&gt;dev-&gt;bus-&gt;boardinfo.vendor;
++	rfk-&gt;poll_dev-&gt;input-&gt;evbit[0] = BIT(EV_KEY);
++	set_bit(KEY_WLAN, rfk-&gt;poll_dev-&gt;input-&gt;keybit);
++
+ 	err = rfkill_register(rfk-&gt;rfkill);
+ 	if (err)
+ 		goto err_free_polldev;
+Index: wireless-2.6/drivers/net/wireless/b43/leds.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/leds.c
++++ wireless-2.6/drivers/net/wireless/b43/leds.c
+@@ -30,7 +30,7 @@
+ #include &quot;leds.h&quot;
+ 
+ 
+-static void b43_led_turn_on(struct b43_wldev *dev, u8 led_index,
++void b43_led_turn_on(struct b43_wldev *dev, u8 led_index,
+ 			    bool activelow)
+ {
+ 	struct b43_wl *wl = dev-&gt;wl;
+@@ -47,7 +47,7 @@ static void b43_led_turn_on(struct b43_w
+ 	spin_unlock_irqrestore(&amp;wl-&gt;leds_lock, flags);
+ }
+ 
+-static void b43_led_turn_off(struct b43_wldev *dev, u8 led_index,
++void b43_led_turn_off(struct b43_wldev *dev, u8 led_index,
+ 			     bool activelow)
+ {
+ 	struct b43_wl *wl = dev-&gt;wl;
+Index: wireless-2.6/drivers/net/wireless/b43/leds.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/leds.h
++++ wireless-2.6/drivers/net/wireless/b43/leds.h
+@@ -44,7 +44,10 @@ enum b43_led_behaviour {
+ 
+ void b43_leds_init(struct b43_wldev *dev);
+ void b43_leds_exit(struct b43_wldev *dev);
+-
++void b43_led_turn_on(struct b43_wldev *dev, u8 led_index,
++			     bool activelow);
++void b43_led_turn_off(struct b43_wldev *dev, u8 led_index,
++			     bool activelow);
+ 
+ #else /* CONFIG_B43_LEDS */
+ /* LED support disabled */
+Index: wireless-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/main.c
++++ wireless-2.6/drivers/net/wireless/b43/main.c
+@@ -2799,6 +2799,8 @@ static int b43_op_config(struct ieee8021
+ 	b43_interrupt_enable(dev, savedirqs);
+ 	mmiowb();
+ 	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
++	if (dev-&gt;radio_hw_enable)
++		b43_led_turn_on(dev, 1, 1);
+       out_unlock_mutex:
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002914.html">Patch for 4311/2 to work with mainline 2.6.24-rcX
+</A></li>
+	<LI>Next message: <A HREF="002920.html">[RFC/T] b43: Fix Radio On/Off LED action
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2919">[ date ]</a>
+              <a href="thread.html#2919">[ thread ]</a>
+              <a href="subject.html#2919">[ subject ]</a>
+              <a href="author.html#2919">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

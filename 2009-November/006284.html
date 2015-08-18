@@ -1,0 +1,168 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43-phy0 ERROR: Fatal DMA error: 0x00000400
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43-phy0%20ERROR%3A%20Fatal%20DMA%20error%3A%200x00000400&In-Reply-To=%3C4AFB58CC.6010807%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006286.html">
+   <LINK REL="Next"  HREF="006287.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43-phy0 ERROR: Fatal DMA error: 0x00000400</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43-phy0%20ERROR%3A%20Fatal%20DMA%20error%3A%200x00000400&In-Reply-To=%3C4AFB58CC.6010807%40lwfinger.net%3E"
+       TITLE="b43-phy0 ERROR: Fatal DMA error: 0x00000400">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Thu Nov 12 01:37:32 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006286.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+        <LI>Next message: <A HREF="006287.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6284">[ date ]</a>
+              <a href="thread.html#6284">[ thread ]</a>
+              <a href="subject.html#6284">[ subject ]</a>
+              <a href="author.html#6284">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Andy,
+
+Please try the patch below to see what we can learn from the DMA descriptor
+errors. Some of this code is temporary, but there are also some statements that
+will probably become permanent.
+
+Please post any messages that result.
+
+Larry
+
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c
++++ wireless-testing/drivers/net/wireless/b43/dma.c
+@@ -46,6 +46,8 @@
+  * into separate slots. */
+ #define TX_SLOTS_PER_FRAME	2
+
++int dma_point = 0;
++struct b43_dmadesc_generic dma_desc_save[20];
+
+ /* 32bit DMA ops. */
+ static
+@@ -190,6 +192,12 @@ static void op64_fill_descriptor(struct
+ 	desc-&gt;dma64.control1 = cpu_to_le32(ctl1);
+ 	desc-&gt;dma64.address_low = cpu_to_le32(addrlo);
+ 	desc-&gt;dma64.address_high = cpu_to_le32(addrhi);
++	dma_desc_save[dma_point].dma64.control0 = desc-&gt;dma64.control0;
++	dma_desc_save[dma_point].dma64.control1 = desc-&gt;dma64.control1;
++	dma_desc_save[dma_point].dma64.address_low = desc-&gt;dma64.address_low;
++	dma_desc_save[dma_point].dma64.address_high = desc-&gt;dma64.address_high;
++	if (++dma_point &gt;= 20)
++		dma_point = 0;
+ }
+
+ static void op64_poke_tx(struct b43_dmaring *ring, int slot)
+@@ -1216,8 +1224,11 @@ static int dma_tx_fragment(struct b43_dm
+ 	meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+ 	/* create a bounce buffer in zone_dma on mapping failure. */
+ 	if (b43_dma_mapping_error(ring, meta-&gt;dmaaddr, skb-&gt;len, 1)) {
++		printk(KERN_INFO &quot;b43: Using bounce buffer\n&quot;);
+ 		bounce_skb = __dev_alloc_skb(skb-&gt;len, GFP_ATOMIC | GFP_DMA);
+ 		if (!bounce_skb) {
++			b43warn(ring-&gt;dev-&gt;wl, &quot;Bounce buffer allocation &quot;
++				&quot;failed\n&quot;);
+ 			ring-&gt;current_slot = old_top_slot;
+ 			ring-&gt;used_slots = old_used_slots;
+ 			err = -ENOMEM;
+@@ -1236,6 +1247,8 @@ static int dma_tx_fragment(struct b43_dm
+ 		meta-&gt;skb = skb;
+ 		meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+ 		if (b43_dma_mapping_error(ring, meta-&gt;dmaaddr, skb-&gt;len, 1)) {
++			b43warn(ring-&gt;dev-&gt;wl, &quot;DMA mapping error for bounce &quot;
++				&quot;buffer\n&quot;);
+ 			ring-&gt;current_slot = old_top_slot;
+ 			ring-&gt;used_slots = old_used_slots;
+ 			err = -EIO;
+@@ -1620,6 +1633,25 @@ void b43_dma_tx_resume(struct b43_wldev
+ 	b43_power_saving_ctl_bits(dev, 0);
+ }
+
++void b43_dump_desc_buffer(void)
++{
++	/* dump the descriptor buffer once */
++	int i, j = dma_point;
++	static int once = 0;
++
++	if (once)
++		return;
++	printk(KERN_INFO &quot;b43: Dump of last 20 DMA descriptors\n&quot;);
++	for (i = 0; i &lt; 20; i++) {
++		if (--j &lt; 0)
++			j = 19;
++		printk(KERN_INFO &quot;b43: Descr. %2d: 0x%x 0x%X 0x%X 0x%X\n&quot;, i,
++		       dma_desc_save[j].dma64.control0, dma_desc_save[j].dma64.control1,
++		       dma_desc_save[j].dma64.address_low, dma_desc_save[j].dma64.address_high);
++	}
++	once++;
++}
++
+ #ifdef CONFIG_B43_PIO
+ static void direct_fifo_rx(struct b43_wldev *dev, enum b43_dmatype type,
+ 			   u16 mmio_base, bool enable)
+Index: wireless-testing/drivers/net/wireless/b43/dma.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.h
++++ wireless-testing/drivers/net/wireless/b43/dma.h
+@@ -287,4 +287,5 @@ void b43_dma_rx(struct b43_dmaring *ring
+ void b43_dma_direct_fifo_rx(struct b43_wldev *dev,
+ 			    unsigned int engine_index, bool enable);
+
++void b43_dump_desc_buffer(void);
+ #endif /* B43_DMA_H_ */
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c
++++ wireless-testing/drivers/net/wireless/b43/main.c
+@@ -1785,6 +1785,7 @@ static void b43_do_interrupt_thread(stru
+ 			       dma_reason[2], dma_reason[3],
+ 			       dma_reason[4], dma_reason[5]);
+ 			b43_controller_restart(dev, &quot;DMA error&quot;);
++			b43_dump_desc_buffer();
+ 			return;
+ 		}
+ 		if (merged_dma_reason &amp; B43_DMAIRQ_NONFATALMASK) {
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006286.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+	<LI>Next message: <A HREF="006287.html">b43-phy0 ERROR: Fatal DMA error: 0x00000400
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6284">[ date ]</a>
+              <a href="thread.html#6284">[ thread ]</a>
+              <a href="subject.html#6284">[ subject ]</a>
+              <a href="author.html#6284">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

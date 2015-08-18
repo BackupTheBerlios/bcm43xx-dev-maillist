@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 3/3] b43: Use the new weak DMA-mask API
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20b43%3A%20Use%20the%20new%20weak%20DMA-mask%20API&In-Reply-To=%3C200805011643.08605.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004015.html">
+   <LINK REL="Next"  HREF="004016.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 3/3] b43: Use the new weak DMA-mask API</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20b43%3A%20Use%20the%20new%20weak%20DMA-mask%20API&In-Reply-To=%3C200805011643.08605.mb%40bu3sch.de%3E"
+       TITLE="[PATCH 3/3] b43: Use the new weak DMA-mask API">mb at bu3sch.de
+       </A><BR>
+    <I>Thu May  1 16:43:08 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004015.html">[PATCH 2/3] ssb: Add weak DMA-mask API
+</A></li>
+        <LI>Next message: <A HREF="004016.html">[PATCH 0/3] Add API for weak DMA masks
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4013">[ date ]</a>
+              <a href="thread.html#4013">[ thread ]</a>
+              <a href="subject.html#4013">[ subject ]</a>
+              <a href="author.html#4013">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds a user for the new weak DMA mask API.
+This removes the b43 DMA mask probe loop.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+
+Index: linux-2.6/drivers/net/wireless/b43/dma.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/b43/dma.c	2008-05-01 13:19:51.000000000 +0200
++++ linux-2.6/drivers/net/wireless/b43/dma.c	2008-05-01 14:45:52.000000000 +0200
+@@ -980,37 +980,27 @@ void b43_dma_free(struct b43_wldev *dev)
+ 	destroy_ring(dma, tx_ring_mcast);
+ }
+ 
++static inline unsigned int mask_to_bit(u64 dma_mask)
++{
++	return fls64(dma_mask);
++}
++
+ static int b43_dma_set_mask(struct b43_wldev *dev, u64 mask)
+ {
+ 	u64 orig_mask = mask;
+-	bool fallback = 0;
+ 	int err;
+ 
+-	/* Try to set the DMA mask. If it fails, try falling back to a
+-	 * lower mask, as we can always also support a lower one. */
+-	while (1) {
+-		err = ssb_dma_set_mask(dev-&gt;dev, mask);
+-		if (!err)
+-			break;
+-		if (mask == DMA_64BIT_MASK) {
+-			mask = DMA_32BIT_MASK;
+-			fallback = 1;
+-			continue;
+-		}
+-		if (mask == DMA_32BIT_MASK) {
+-			mask = DMA_30BIT_MASK;
+-			fallback = 1;
+-			continue;
+-		}
++	err = ssb_dma_set_mask_weak(dev-&gt;dev, &amp;mask);
++	if (err) {
+ 		b43err(dev-&gt;wl, &quot;The machine/kernel does not support &quot;
+ 		       &quot;the required %u-bit DMA mask\n&quot;,
+-		       (unsigned int)dma_mask_to_engine_type(orig_mask));
++		       mask_to_bit(orig_mask));
+ 		return -EOPNOTSUPP;
+ 	}
+-	if (fallback) {
++	if (mask != orig_mask) {
+ 		b43info(dev-&gt;wl, &quot;DMA mask fallback from %u-bit to %u-bit\n&quot;,
+-			(unsigned int)dma_mask_to_engine_type(orig_mask),
+-			(unsigned int)dma_mask_to_engine_type(mask));
++			mask_to_bit(orig_mask),
++			mask_to_bit(mask));
+ 	}
+ 
+ 	return 0;
+
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004015.html">[PATCH 2/3] ssb: Add weak DMA-mask API
+</A></li>
+	<LI>Next message: <A HREF="004016.html">[PATCH 0/3] Add API for weak DMA masks
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4013">[ date ]</a>
+              <a href="thread.html#4013">[ thread ]</a>
+              <a href="subject.html#4013">[ subject ]</a>
+              <a href="author.html#4013">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

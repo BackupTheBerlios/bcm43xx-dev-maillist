@@ -1,0 +1,241 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Support for turning the radio off from software.
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Support%20for%20turning%20the%20radio%20off%20from%0A%20software.&In-Reply-To=%3C46f32836.SaYVr1nG4%2BWJSJ9K%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002468.html">
+   <LINK REL="Next"  HREF="002469.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Support for turning the radio off from software.</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Support%20for%20turning%20the%20radio%20off%20from%0A%20software.&In-Reply-To=%3C46f32836.SaYVr1nG4%2BWJSJ9K%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43legacy: Support for turning the radio off from software.">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Sep 21 04:11:02 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002468.html">[PATCH] b43legacy: Change the hardware radio enable logic and	cleanup code
+</A></li>
+        <LI>Next message: <A HREF="002469.html">Can't get wireless working with bcm43xx driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2466">[ date ]</a>
+              <a href="thread.html#2466">[ thread ]</a>
+              <a href="subject.html#2466">[ subject ]</a>
+              <a href="author.html#2466">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds support for turning the radio off in software.
+That's useful in environments, where you don't want the RF
+to radiate any signals, but don't want to bring the interface down.
+
+This patch is based on a similar patch of b43 by Michael Buesch.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">larry.finger at lwfinger.net</A>&gt;
+
+ drivers/net/wireless/b43legacy/b43legacy.h |   11 +++++++-
+ drivers/net/wireless/b43legacy/main.c      |   16 +++++++++++
+ drivers/net/wireless/b43legacy/phy.c       |   14 +---------
+ drivers/net/wireless/b43legacy/radio.c     |   39 ++++++++++++++++++++++++-----
+ 4 files changed, 61 insertions(+), 19 deletions(-)
+
+Index: wireless-dev/drivers/net/wireless/b43legacy/b43legacy.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/b43legacy.h
++++ wireless-dev/drivers/net/wireless/b43legacy/b43legacy.h
+@@ -411,7 +411,6 @@ struct b43legacy_phy {
+ 	u8 calibrated:1;
+ 	u8 radio_rev;		/* Radio revision */
+ 
+-	bool radio_on;		/* Radio switched on/off */
+ 	bool locked;		/* Only used in b43legacy_phy_{un}lock() */
+ 	bool dyn_tssi_tbl;	/* tssi2dbm is kmalloc()ed. */
+ 
+@@ -420,6 +419,16 @@ struct b43legacy_phy {
+ 	bool aci_wlan_automatic;
+ 	bool aci_hw_rssi;
+ 
++	/* Radio switched on/off */
++	bool radio_on;
++	struct {
++		/* Values saved when turning the radio off.
++		 * They are needed when turning it on again. */
++		bool valid;
++		u16 rfover;
++		u16 rfoverval;
++	} radio_off_context;
++
+ 	u16 minlowsig[2];
+ 	u16 minlowsigpos[2];
+ 
+Index: wireless-dev/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-dev/drivers/net/wireless/b43legacy/main.c
+@@ -2672,6 +2672,22 @@ static int b43legacy_dev_config(struct i
+ 		b43legacy_set_beacon_int(dev, conf-&gt;beacon_int);
+ 
+ 
++	if (!!conf-&gt;radio_enabled != phy-&gt;radio_on) {
++		if (conf-&gt;radio_enabled) {
++			b43legacy_radio_turn_on(dev);
++			b43legacyinfo(dev-&gt;wl, &quot;Radio turned on by software\n&quot;);
++			if (!dev-&gt;radio_hw_enable)
++				b43legacyinfo(dev-&gt;wl, &quot;The hardware RF-kill&quot;
++					      &quot; button still turns the radio&quot;
++					      &quot; physically off. Press the&quot;
++					      &quot; button to turn it on.\n&quot;);
++		} else {
++			b43legacy_radio_turn_off(dev);
++			b43legacyinfo(dev-&gt;wl, &quot;Radio turned off by&quot;
++				      &quot; software\n&quot;);
++		}
++	}
++
+ 	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+ 	b43legacy_interrupt_enable(dev, savedirqs);
+ 	mmiowb();
+Index: wireless-dev/drivers/net/wireless/b43legacy/phy.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/phy.c
++++ wireless-dev/drivers/net/wireless/b43legacy/phy.c
+@@ -462,12 +462,7 @@ static void b43legacy_phy_initb2(struct 
+ 		val -= 0x0202;
+ 	}
+ 	b43legacy_phy_write(dev, 0x03E4, 0x3000);
+-	if (phy-&gt;channel == 0xFF)
+-		b43legacy_radio_selectchannel(dev,
+-					B43legacy_RADIO_DEFAULT_CHANNEL_BG,
+-					0);
+-	else
+-		b43legacy_radio_selectchannel(dev, phy-&gt;channel, 0);
++	b43legacy_radio_selectchannel(dev, phy-&gt;channel, 0);
+ 	if (phy-&gt;radio_ver != 0x2050) {
+ 		b43legacy_radio_write16(dev, 0x0075, 0x0080);
+ 		b43legacy_radio_write16(dev, 0x0079, 0x0081);
+@@ -516,12 +511,7 @@ static void b43legacy_phy_initb4(struct 
+ 		val -= 0x0202;
+ 	}
+ 	b43legacy_phy_write(dev, 0x03E4, 0x3000);
+-	if (phy-&gt;channel == 0xFF)
+-		b43legacy_radio_selectchannel(dev,
+-					B43legacy_RADIO_DEFAULT_CHANNEL_BG,
+-					0);
+-	else
+-		b43legacy_radio_selectchannel(dev, phy-&gt;channel, 0);
++	b43legacy_radio_selectchannel(dev, phy-&gt;channel, 0);
+ 	if (phy-&gt;radio_ver != 0x2050) {
+ 		b43legacy_radio_write16(dev, 0x0075, 0x0080);
+ 		b43legacy_radio_write16(dev, 0x0079, 0x0081);
+Index: wireless-dev/drivers/net/wireless/b43legacy/radio.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/radio.c
++++ wireless-dev/drivers/net/wireless/b43legacy/radio.c
+@@ -1767,6 +1767,17 @@ int b43legacy_radio_selectchannel(struct
+ {
+ 	struct b43legacy_phy *phy = &amp;dev-&gt;phy;
+ 
++	if (channel == 0xFF) {
++		switch (phy-&gt;type) {
++		case B43legacy_PHYTYPE_B:
++		case B43legacy_PHYTYPE_G:
++			channel = B43legacy_RADIO_DEFAULT_CHANNEL_BG;
++			break;
++		default:
++			B43legacy_WARN_ON(1);
++		}
++	}
++
+ /* TODO: Check if channel is valid - return -EINVAL if not */
+ 	if (synthetic_pu_workaround)
+ 		b43legacy_synth_pu_workaround(dev, channel);
+@@ -2070,6 +2081,7 @@ void b43legacy_radio_turn_on(struct b43l
+ {
+ 	struct b43legacy_phy *phy = &amp;dev-&gt;phy;
+ 	int err;
++	u8 channel;
+ 
+ 	might_sleep();
+ 
+@@ -2083,15 +2095,24 @@ void b43legacy_radio_turn_on(struct b43l
+ 		b43legacy_phy_write(dev, 0x0015, 0xCC00);
+ 		b43legacy_phy_write(dev, 0x0015,
+ 				    (phy-&gt;gmode ? 0x00C0 : 0x0000));
++		if (phy-&gt;radio_off_context.valid) {
++			/* Restore the RFover values. */
++			b43legacy_phy_write(dev, B43legacy_PHY_RFOVER,
++					    phy-&gt;radio_off_context.rfover);
++			b43legacy_phy_write(dev, B43legacy_PHY_RFOVERVAL,
++					    phy-&gt;radio_off_context.rfoverval);
++			phy-&gt;radio_off_context.valid = 0;
++		}
++		channel = phy-&gt;channel;
+ 		err = b43legacy_radio_selectchannel(dev,
+ 					B43legacy_RADIO_DEFAULT_CHANNEL_BG, 1);
+-		B43legacy_WARN_ON(err != 0);
++		err |= b43legacy_radio_selectchannel(dev, channel, 0);
++		B43legacy_WARN_ON(err);
+ 		break;
+ 	default:
+ 		B43legacy_BUG_ON(1);
+ 	}
+ 	phy-&gt;radio_on = 1;
+-	b43legacydbg(dev-&gt;wl, &quot;Radio turned on\n&quot;);
+ 	b43legacy_leds_update(dev, 0);
+ }
+ 
+@@ -2100,10 +2121,16 @@ void b43legacy_radio_turn_off(struct b43
+ 	struct b43legacy_phy *phy = &amp;dev-&gt;phy;
+ 
+ 	if (phy-&gt;type == B43legacy_PHYTYPE_G &amp;&amp; dev-&gt;dev-&gt;id.revision &gt;= 5) {
+-		b43legacy_phy_write(dev, 0x0811, b43legacy_phy_read(dev, 0x0811)
+-				    | 0x008C);
+-		b43legacy_phy_write(dev, 0x0812, b43legacy_phy_read(dev, 0x0812)
+-				    &amp; 0xFF73);
++		u16 rfover, rfoverval;
++
++		rfover = b43legacy_phy_read(dev, B43legacy_PHY_RFOVER);
++		rfoverval = b43legacy_phy_read(dev, B43legacy_PHY_RFOVERVAL);
++		phy-&gt;radio_off_context.rfover = rfover;
++		phy-&gt;radio_off_context.rfoverval = rfoverval;
++		phy-&gt;radio_off_context.valid = 1;
++		b43legacy_phy_write(dev, B43legacy_PHY_RFOVER, rfover | 0x008C);
++		b43legacy_phy_write(dev, B43legacy_PHY_RFOVERVAL,
++				    rfoverval &amp; 0xFF73);
+ 	} else
+ 		b43legacy_phy_write(dev, 0x0015, 0xAA00);
+ 	phy-&gt;radio_on = 0;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002468.html">[PATCH] b43legacy: Change the hardware radio enable logic and	cleanup code
+</A></li>
+	<LI>Next message: <A HREF="002469.html">Can't get wireless working with bcm43xx driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2466">[ date ]</a>
+              <a href="thread.html#2466">[ thread ]</a>
+              <a href="subject.html#2466">[ subject ]</a>
+              <a href="author.html#2466">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

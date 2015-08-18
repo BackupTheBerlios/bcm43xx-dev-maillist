@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BCM4311 and Hidden SSIDs?
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4311%20and%20Hidden%20SSIDs%3F&In-Reply-To=%3C45BABF48.5070207%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000218.html">
+   <LINK REL="Next"  HREF="000220.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BCM4311 and Hidden SSIDs?</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4311%20and%20Hidden%20SSIDs%3F&In-Reply-To=%3C45BABF48.5070207%40lwfinger.net%3E"
+       TITLE="BCM4311 and Hidden SSIDs?">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Sat Jan 27 03:56:08 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000218.html">BCM4311 and Hidden SSIDs?
+</A></li>
+        <LI>Next message: <A HREF="000220.html">BCM4311 and Hidden SSIDs?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#219">[ date ]</a>
+              <a href="thread.html#219">[ thread ]</a>
+              <a href="subject.html#219">[ subject ]</a>
+              <a href="author.html#219">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Paul Marks wrote:
+&gt;<i> On 1/26/07, Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">larry.finger at lwfinger.net</A>&gt; wrote:
+</I>&gt;&gt;<i> Paul Marks wrote:
+</I>&gt;&gt;<i> &gt; I have a BCM4311 card, and ever since the PCI-E interrupts patch,
+</I>&gt;&gt;<i> I've been
+</I>&gt;&gt;<i> &gt; able to associate just fine with my own WPA2-PSK access point, using
+</I>&gt;&gt;<i> &gt; wpa_supplicant with ap_scan=1.
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i> &gt; However, the access points at my school (Purdue) are all
+</I>&gt;&gt;<i> WPA-Enterprise with
+</I>&gt;&gt;<i> &gt; a hidden SSID, and I so far haven't had any luck getting bcm43xx to
+</I>&gt;&gt;<i> connect
+</I>&gt;&gt;<i> &gt; to these.  If I use ndiswrapper instead, then these APs work as
+</I>&gt;&gt;<i> expected.
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i> &gt; Am I doing something wrong, or is this a limitation in the driver?  Has
+</I>&gt;&gt;<i> &gt; anyone gotten bcm43xx to work in a hidden-SSID situation?
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i> &gt; -snip-
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> It should work. I just hid my SSID and had no trouble seeing the AP
+</I>&gt;&gt;<i> when scanning nor any problem
+</I>&gt;&gt;<i> with associating or authenticating.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> How close are you to the AP at Purdue? The 4311's don't broadcast with
+</I>&gt;&gt;<i> much power and you might not
+</I>&gt;&gt;<i> be in reach. I'm also not sure about the ap_scan=2 in your .conf file.
+</I>&gt;&gt;<i> Please try a value of 1.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> One other thing to test. Once the system is trying to authenticate, do
+</I>&gt;&gt;<i> an 'iwlist s' command to see
+</I>&gt;&gt;<i> if any scans are getting through. It doesn't seem as if they are, but
+</I>&gt;&gt;<i> this is another way to see.
+</I>&gt;<i> 
+</I>&gt;<i> In order to get around the (possible) transmit power problem, I set my
+</I>&gt;<i> own AP to have a hidden SSID, and it's currently sitting about 1 meter
+</I>&gt;<i> from the laptop.
+</I>&gt;<i> 
+</I>&gt;<i> I've been skimming through the wpa_supplicant source code to try to
+</I>&gt;<i> get a handle on what's going on.   When ap_scan is set to 1,
+</I>&gt;<i> wpa_supplicant will walk through all of the entries in the config file
+</I>&gt;<i> that have &quot;scan_ssid=1&quot; set.  For each of these SSIDs, it tells the
+</I>&gt;<i> driver to scan for that specific SSID, and when the results come back,
+</I>&gt;<i> it compares each resulting SSID with the SSID that it was originally
+</I>&gt;<i> scanning for, looking for an exact string match.
+</I>&gt;<i> 
+</I>&gt;<i> So, it looks like it's the driver's job to scan for a specific SSID,
+</I>&gt;<i> and insert its name into one of the fields that would ordinarily be
+</I>&gt;<i> &quot;&lt;hidden&gt;&quot;.  The problem is, even after scanning for a specific SSID,
+</I>&gt;<i> the results from the driver never contain the SSID that we searched
+</I>&gt;<i> for.  In the debug output for wpa_supplicant, I see:
+</I>&gt;<i> 
+</I>&gt;<i> 0: 00:16:01:11:42:11 ssid='&lt;hidden&gt;' wpa_ie_len=26 rsn_ie_len=22 caps=0x11
+</I>&gt;<i>   skip - SSID mismatch
+</I>&gt;<i> 
+</I>&gt;<i> That's definitely my access point, but as you can see, the driver
+</I>&gt;<i> never inserted the correct SSID.
+</I>
+I will inquire what the software should insert when the SSID is hidden. The piece of code that
+inserts the &quot;&lt;hidden&gt;&quot; is ieee80211, which is not part of bcm43xx-softmac, but was written by Intel
+and is used by a number of drivers besides bcm43xx.
+
+My system is working with the SSID hidden and the following conf file for wpa_supplicant. It can
+take a long time to authenticate as the scan doesn't always find the AP. That is probably a problem
+with the driver.
+
+ctrl_interface=/var/run/wpa_supplicant
+ap_scan=1
+network={
+  scan_ssid=1
+  ssid=&quot;lwfdjf&quot;
+  key_mgmt=WPA-PSK
+  psk=&quot;&lt;removed&gt;&quot;
+}
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000218.html">BCM4311 and Hidden SSIDs?
+</A></li>
+	<LI>Next message: <A HREF="000220.html">BCM4311 and Hidden SSIDs?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#219">[ date ]</a>
+              <a href="thread.html#219">[ thread ]</a>
+              <a href="subject.html#219">[ subject ]</a>
+              <a href="author.html#219">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

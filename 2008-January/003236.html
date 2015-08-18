@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: rfkill use after free
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20rfkill%20use%20after%20free&In-Reply-To=%3C200801132228.28234.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003235.html">
+   <LINK REL="Next"  HREF="003237.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: rfkill use after free</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20rfkill%20use%20after%20free&In-Reply-To=%3C200801132228.28234.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: rfkill use after free">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Jan 13 22:28:27 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003235.html">[PATCH] b43: Add NPHY radio init code
+</A></li>
+        <LI>Next message: <A HREF="003237.html">[PATCH] b43: Add NPHY channel switch code
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3236">[ date ]</a>
+              <a href="thread.html#3236">[ thread ]</a>
+              <a href="subject.html#3236">[ subject ]</a>
+              <a href="author.html#3236">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday 13 January 2008 22:20:52 Eric Paris wrote:
+&gt;<i> inside b43_rfkill_exit() we call rfkill_unregister() which puts the last
+</I>&gt;<i> reference and frees the rfkill struct.  Then just 3 lines later the code
+</I>&gt;<i> explicitly calls rfkill_free() on the struct we already freed.  This
+</I>&gt;<i> showed up as slub corruption (what should have been 6b was showing up as
+</I>&gt;<i> 6a) since the rfkill_free had dec'ed the are that should have been the
+</I>&gt;<i> use counter.
+</I>&gt;<i> 
+</I>&gt;<i> stop using the already freed rfkill struct.
+</I>&gt;<i> 
+</I>&gt;<i> =============================================================================
+</I>&gt;<i> BUG kmalloc-1024 (Not tainted): Poison overwritten
+</I>&gt;<i> -----------------------------------------------------------------------------
+</I>&gt;<i> 
+</I>&gt;<i> INFO: 0xf40b89e8-0xf40b89e8. First byte 0x6a instead of 0x6b
+</I>&gt;<i> INFO: Allocated in rfkill_allocate+0x1b/0x8b [rfkill] age=231032011 cpu=0 pid=2403
+</I>&gt;<i> INFO: Freed in rfkill_release+0xd/0x19 [rfkill] age=366 cpu=0 pid=2403
+</I>&gt;<i> INFO: Slab 0xc1b62840 used=6 fp=0xf40b8860 flags=0x400040c3
+</I>&gt;<i> INFO: Object 0xf40b8860 @offset=2144 fp=0x00000000
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Eric Paris &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">eparis at redhat.com</A>&gt;
+</I>&gt;<i> 
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i>  drivers/net/wireless/b43/rfkill.c |    1 -
+</I>&gt;<i>  1 file changed, 1 deletion(-)
+</I>&gt;<i> 
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/rfkill.c b/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> index 98cf70c..a19be53 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> @@ -195,6 +195,5 @@ void b43_rfkill_exit(struct b43_wldev *dev)
+</I>&gt;<i>  	rfkill_unregister(rfk-&gt;rfkill);
+</I>&gt;<i>  	input_free_polled_device(rfk-&gt;poll_dev);
+</I>&gt;<i>  	rfk-&gt;poll_dev = NULL;
+</I>&gt;<i> -	rfkill_free(rfk-&gt;rfkill);
+</I>&gt;<i>  	rfk-&gt;rfkill = NULL;
+</I>&gt;<i>  }
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+NACK.
+Better patch available from Stefano.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003235.html">[PATCH] b43: Add NPHY radio init code
+</A></li>
+	<LI>Next message: <A HREF="003237.html">[PATCH] b43: Add NPHY channel switch code
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3236">[ date ]</a>
+              <a href="thread.html#3236">[ thread ]</a>
+              <a href="subject.html#3236">[ subject ]</a>
+              <a href="author.html#3236">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

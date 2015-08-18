@@ -1,0 +1,128 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> mac80211 IPv6 problems
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mac80211%20IPv6%20problems&In-Reply-To=%3C20070803005517.GA4261%40tuxdriver.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001734.html">
+   <LINK REL="Next"  HREF="001744.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>mac80211 IPv6 problems</H1>
+    <B>John W. Linville</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mac80211%20IPv6%20problems&In-Reply-To=%3C20070803005517.GA4261%40tuxdriver.com%3E"
+       TITLE="mac80211 IPv6 problems">linville at tuxdriver.com
+       </A><BR>
+    <I>Fri Aug  3 02:55:18 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001734.html">mac80211 IPv6 problems
+</A></li>
+        <LI>Next message: <A HREF="001744.html">mac80211 IPv6 problems
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1739">[ date ]</a>
+              <a href="thread.html#1739">[ thread ]</a>
+              <a href="subject.html#1739">[ subject ]</a>
+              <a href="author.html#1739">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Thu, Aug 02, 2007 at 11:46:18PM +0100, David Woodhouse wrote:
+&gt;<i> On Thu, 2007-08-02 at 18:30 -0400, Daniel Drake wrote:
+</I>&gt;<i> &gt; This may be a stack-level issue. This is one of the issues holding back 
+</I>&gt;<i> &gt; zd1211rw-mac80211 going into mainline: we have a report that 
+</I>&gt;<i> &gt; zd1211rw-softmac works fine with IPv6 but mac80211 only works 
+</I>&gt;<i> &gt; occasionally with the same device on the same system.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Does anyone have any ideas?
+</I>&gt;<i> 
+</I>&gt;<i> It receives its own neighbour solicitation (multicast) packets when the
+</I>&gt;<i> AP sends them back out again. These packets...
+</I>&gt;<i> 
+</I>&gt;<i> 23:41:56.046939 00:0a:95:f3:99:92 &gt; 33:33:ff:f3:99:92, ethertype IPv6
+</I>&gt;<i> (0x86dd), length 78: :: &gt; ff02::1:fff3:9992: ICMP6, neighbor
+</I>&gt;<i> solicitation, who has fe80::20a:95ff:fef3:9992, length 24
+</I>&gt;<i> 
+</I>&gt;<i> You should be able to see this without _any_ IPv6 infrastructure -- and
+</I>&gt;<i> you'll see the link-local IPv6 address remains 'tentative'.
+</I>&gt;<i> 
+</I>&gt;<i> Once you've fixed that, setting up a local route advertisement d&#230;mon
+</I>&gt;<i> (radvd) to give you site-local addresses is fairly trivial too -- and
+</I>&gt;<i> then you can also check that Ethernet multicast is working properly.
+</I>
+I hacked-up the (untested) patch below -- thoughts?
+
+---
+
+From: John W. Linville &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>&gt;
+
+[PATCH] mac80211: filter locally-originated multicast frames
+
+In STA mode, the AP will echo our traffic.  This includes multicast
+traffice.
+
+Receiving these frames confuses some protocols and applications,
+notably IPv6 Duplicate Address Detection.
+
+Signed-off-by: John W. Linville &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>&gt;
+---
+
+ net/mac80211/ieee80211.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/net/mac80211/ieee80211.c b/net/mac80211/ieee80211.c
+index a42e70e..6dc6451 100644
+--- a/net/mac80211/ieee80211.c
++++ b/net/mac80211/ieee80211.c
+@@ -4263,11 +4263,14 @@ void __ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb,
+ 					rx.u.rx.ra_match = 0;
+ 				} else if (!multicast &amp;&amp;
+ 					   compare_ether_addr(sdata-&gt;dev-&gt;dev_addr,
+-							      hdr-&gt;addr1) != 0) {
++							      hdr-&gt;addr1)) {
+ 					if (!sdata-&gt;promisc)
+ 						continue;
+ 					rx.u.rx.ra_match = 0;
+-				}
++				} else if (multicast &amp;&amp;
++					   !compare_ether_addr(sdata-&gt;dev-&gt;dev_addr,
++							       hdr-&gt;addr3))
++					rx.u.rx.ra_match = 0;
+ 				break;
+ 			case IEEE80211_IF_TYPE_IBSS:
+ 				if (!bssid)
+-- 
+John W. Linville
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001734.html">mac80211 IPv6 problems
+</A></li>
+	<LI>Next message: <A HREF="001744.html">mac80211 IPv6 problems
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1739">[ date ]</a>
+              <a href="thread.html#1739">[ thread ]</a>
+              <a href="subject.html#1739">[ subject ]</a>
+              <a href="author.html#1739">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

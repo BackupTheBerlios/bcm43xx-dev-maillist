@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.23-rc1-wireless-dev%20bcm43xx_mac80211%20associates%2C%0A%09but%20Ethernet%20appears%20broken&In-Reply-To=%3C46B9E7EE.5020902%40Wetwork.Net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001868.html">
+   <LINK REL="Next"  HREF="001870.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken</H1>
+    <B>Ehud Gavron</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.23-rc1-wireless-dev%20bcm43xx_mac80211%20associates%2C%0A%09but%20Ethernet%20appears%20broken&In-Reply-To=%3C46B9E7EE.5020902%40Wetwork.Net%3E"
+       TITLE="2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken">gavron at Wetwork.Net
+       </A><BR>
+    <I>Wed Aug  8 17:57:34 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001868.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken
+</A></li>
+        <LI>Next message: <A HREF="001870.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1869">[ date ]</a>
+              <a href="thread.html#1869">[ thread ]</a>
+              <a href="subject.html#1869">[ subject ]</a>
+              <a href="author.html#1869">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I had hoped this would be the cure so I don't have to undo the 85a83d26 
+commit patch by patch.
+
+However, while this did not solve the problem it DID show a new error:
+bcm43xx_mac80211: ASSERTION FAILED (bcm43xx_status(dev) == 
+BCM43xx_STAT_STARTED) at: 
+drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c:1377:bcm43xx_interrupt_tasklet()
+
+Is that a clue to bigger things, or a problem with this patch? 
+dmesg and tcpdump (of garbage) included along with a log of what I did 
+with the git &quot;test&quot; tree to get there.
+
+Ehud
+
+
+Larry Finger wrote:
+&gt;<i> To the list: The beginnings of this thread were done off-list, but I 
+</I>&gt;<i> want to let everyone know about
+</I>&gt;<i> the problem, and to discover if anyone else has it. Since 2.6.23-rc1, 
+</I>&gt;<i> Ehud has a problem in that the information his interface is 
+</I>&gt;<i> transmitting is garbled. He did a bisection and discovered that the 
+</I>&gt;<i> problem is involved with commit 85a83d26 &quot;bcm43xx-mac80211: Rewrite 
+</I>&gt;<i> and simplify handling of the initialization status.&quot;. Neither Michael 
+</I>&gt;<i> nor I can reproduce the problem, nor is anything obviously wrong with 
+</I>&gt;<i> the patch, other than this patch exposes an error in the location of 
+</I>&gt;<i> the initial interrupt. I found this error on my old/slow notebook. 
+</I>&gt;<i> Fixing that error did not resolve Ehud's problem. That fix is now in 
+</I>&gt;<i> Linville's tree.
+</I>&gt;<i>
+</I>&gt;<i> Ehud - please make your test tree current with a 'git checkout -f' 
+</I>&gt;<i> command, and do a 'git pull' to
+</I>&gt;<i> make certain you have the latest code. Then apply the trial patch 
+</I>&gt;<i> below, which reverts a small part of Michael's patch, and see if it 
+</I>&gt;<i> fixes the problem.
+</I>&gt;<i>
+</I>&gt;<i> Larry
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- 
+</I>&gt;<i> wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+</I>&gt;<i> +++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+</I>&gt;<i> @@ -1503,7 +1503,7 @@ static void bcm43xx_interrupt_ack(struct
+</I>&gt;<i>  /* Interrupt handler top-half */
+</I>&gt;<i>  static irqreturn_t bcm43xx_interrupt_handler(int irq, void *dev_id)
+</I>&gt;<i>  {
+</I>&gt;<i> -    irqreturn_t ret = IRQ_NONE;
+</I>&gt;<i> +    irqreturn_t ret = IRQ_HANDLED;
+</I>&gt;<i>      struct bcm43xx_wldev *dev = dev_id;
+</I>&gt;<i>      u32 reason;
+</I>&gt;<i>
+</I>&gt;<i> @@ -1512,12 +1512,11 @@ static irqreturn_t bcm43xx_interrupt_han
+</I>&gt;<i>
+</I>&gt;<i>      spin_lock(&amp;dev-&gt;wl-&gt;irq_lock);
+</I>&gt;<i>
+</I>&gt;<i> -    if (bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED)
+</I>&gt;<i> -        goto out;
+</I>&gt;<i>      reason = bcm43xx_read32(dev, BCM43xx_MMIO_GEN_IRQ_REASON);
+</I>&gt;<i> -    if (reason == 0xffffffff) /* shared IRQ */
+</I>&gt;<i> +    if (reason == 0xffffffff) { /* shared IRQ */
+</I>&gt;<i> +        ret = IRQ_NONE;
+</I>&gt;<i>          goto out;
+</I>&gt;<i> -    ret = IRQ_HANDLED;
+</I>&gt;<i> +    }
+</I>&gt;<i>      reason &amp;= bcm43xx_read32(dev, BCM43xx_MMIO_GEN_IRQ_MASK);
+</I>&gt;<i>      if (!reason)
+</I>&gt;<i>          goto out;
+</I>-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: dmesg_grep_bcm_2007_08_07.txt
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070808/308cf628/attachment.txt">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070808/308cf628/attachment.txt</A>&gt;
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: tcpdump.2007_08_07
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070808/308cf628/attachment.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070808/308cf628/attachment.ksh</A>&gt;
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: larry-patch-2007-aug-08-log.txt
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070808/308cf628/attachment-0001.txt">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070808/308cf628/attachment-0001.txt</A>&gt;
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/x-pkcs7-signature
+Size: 3283 bytes
+Desc: S/MIME Cryptographic Signature
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070808/308cf628/attachment.bin">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070808/308cf628/attachment.bin</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001868.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken
+</A></li>
+	<LI>Next message: <A HREF="001870.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1869">[ date ]</a>
+              <a href="thread.html#1869">[ thread ]</a>
+              <a href="subject.html#1869">[ subject ]</a>
+              <a href="author.html#1869">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

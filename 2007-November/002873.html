@@ -1,0 +1,153 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH V2] b43: Changes to enable BCM4311 rev 02 with wireless	core revision 13
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20b43%3A%20Changes%20to%20enable%20BCM4311%20rev%2002%20with%20wireless%0A%09core%20revision%2013&In-Reply-To=%3C474666F7.6090405%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002869.html">
+   <LINK REL="Next"  HREF="002883.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH V2] b43: Changes to enable BCM4311 rev 02 with wireless	core revision 13</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20b43%3A%20Changes%20to%20enable%20BCM4311%20rev%2002%20with%20wireless%0A%09core%20revision%2013&In-Reply-To=%3C474666F7.6090405%40lwfinger.net%3E"
+       TITLE="[PATCH V2] b43: Changes to enable BCM4311 rev 02 with wireless	core revision 13">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Fri Nov 23 06:36:55 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002869.html">[PATCH V2] b43: Changes to enable BCM4311 rev 02 with wireless	core revision 13
+</A></li>
+        <LI>Next message: <A HREF="002883.html">[PATCH V2] b43: Changes to enable BCM4311 rev 02 with wireless	core revision 13
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2873">[ date ]</a>
+              <a href="thread.html#2873">[ thread ]</a>
+              <a href="subject.html#2873">[ subject ]</a>
+              <a href="author.html#2873">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> 
+</I>&gt;<i> partially acked.
+</I>&gt;<i> Though, I'm not quite sure yet why you remove that
+</I>&gt;<i> address extension bits. The specs clearly say that they _are_ there.
+</I>&gt;<i> And it makes sense to use them, as two bytes of the address are used
+</I>&gt;<i> for the routing stuff. So the highest 2 bits of the address have to be put
+</I>&gt;<i> somewhere else. That's the &quot;Transmit Channel Control Word&quot; and
+</I>&gt;<i> &quot;Receive Channel Control Word&quot; where 0x00030000 are the extension bits.
+</I>&gt;<i> 
+</I>
+The appropriate section of dmacontroller_setup() in my patched source is as follows:
+
+        if (ring-&gt;tx) {
+                if (ring-&gt;dma64) {
+                        u64 ringbase = (u64) (ring-&gt;dmabase);
+
+                        b43_dma_write(ring, B43_DMA64_TXCTL,
+                                      B43_DMA64_TXENABLE);
+                        b43_dma_write(ring, B43_DMA64_TXRINGLO,
+                                      (ringbase &amp; 0xFFFFFFFF));
+                        b43_dma_write(ring, B43_DMA64_TXRINGHI,
+                                      (ringbase &gt;&gt; 32));
+                } else {
+			...... untouched 32-bit stuff ....
+		}
+        } else {
+                err = alloc_initial_descbuffers(ring);
+                if (err)
+                        goto out;
+                if (ring-&gt;dma64) {
+                        u64 ringbase = (u64) (ring-&gt;dmabase);
+
+                        value = (ring-&gt;frameoffset &lt;&lt; B43_DMA64_RXFROFF_SHIFT)
+                                | B43_DMA64_RXENABLE;
+                        b43_dma_write(ring, B43_DMA64_RXCTL, value);
+                        b43_dma_write(ring, B43_DMA64_RXRINGLO,
+                                      (ringbase &amp; 0xFFFFFFFF));
+                        b43_dma_write(ring, B43_DMA64_RXRINGHI,
+                                      (ringbase &gt;&gt; 32));
+                        b43_dma_write(ring, B43_DMA64_RXINDEX, ring-&gt;nr_slots *
+                                      sizeof(struct b43_dmadesc64));
+                } else {
+			........... 32-bit stuff ........
+	}
+
+No address extensions are used here because the specs clearly state that a flat 64-bit address is
+used to specify the Descriptor Ring address. My code matches the specs.
+
+In the 64-bit fill_descriptor routine, the my patches result in the following code:
+
+        addrlo = (u32) (dmaaddr &amp; 0xFFFFFFFF);
+        addrhi = (((u64) dmaaddr &gt;&gt; 32) &amp; ~SSB_DMA_TRANSLATION_MASK);
+        addrext = (((u64) dmaaddr &gt;&gt; 32) &amp; SSB_DMA_TRANSLATION_MASK)
+            &gt;&gt; SSB_DMA_TRANSLATION_SHIFT;
+        addrhi |= (ssb_dma_translation(ring-&gt;dev-&gt;dev) &lt;&lt; 1);
+        if (slot == ring-&gt;nr_slots - 1)
+                ctl0 |= B43_DMA64_DCTL0_DTABLEEND;
+        if (start)
+                ctl0 |= B43_DMA64_DCTL0_FRAMESTART;
+        if (end)
+                ctl0 |= B43_DMA64_DCTL0_FRAMEEND;
+        if (irq)
+                ctl0 |= B43_DMA64_DCTL0_IRQ;
+        ctl1 |= (bufsize - ring-&gt;frameoffset)
+            &amp; B43_DMA64_DCTL1_BYTECNT;
+        ctl1 |= (addrext &lt;&lt; B43_DMA64_DCTL1_ADDREXT_SHIFT)
+            &amp; B43_DMA64_DCTL1_ADDREXT_MASK;
+
+In this case, the specs do call for the upper two bits to be masked off the high 32 bits of the
+address to be used for the routing code. These are saved in 'addrext' above. The routing bits, which
+must be '10' for the 64-bit case, are then shifted into that 2-bit field, and the masked address
+bits are encoded into the second control word 'ctl1' in the above snippet. As far as I can tell, my
+code is doing exactly what the specs require - address extensions and all. If not, please show me
+the error.
+
+&gt;<i> However I do think that this might be related to the bug you are explaining
+</I>&gt;<i> in the comment:
+</I>&gt;&gt;<i> +	 * For unknown reasons - possibly a hardware error - the BCM4311 rev
+</I>&gt;&gt;<i> +	 * 02, which uses 64-bit DMA, needs the ring buffer in very low memory,
+</I>&gt;&gt;<i> +	 * which accounts for the GFP_DMA flag below.
+</I>&gt;<i>
+</I>
+Not true for two reasons. The first one is that it is the address of the ring buffer that is getting
+the error, and that part does not use any extension bits. Secondly, the address extension stuff
+would only apply if my computer had more than 2^(62) bytes of RAM, which is something like 10
+billion GB - an amount that probably exceeds the total RAM in the world. As best I can tell, this
+bug triggers when the Ring Buffer is placed above the 64-Megabyte level.
+
+Larry
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002869.html">[PATCH V2] b43: Changes to enable BCM4311 rev 02 with wireless	core revision 13
+</A></li>
+	<LI>Next message: <A HREF="002883.html">[PATCH V2] b43: Changes to enable BCM4311 rev 02 with wireless	core revision 13
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2873">[ date ]</a>
+              <a href="thread.html#2873">[ thread ]</a>
+              <a href="subject.html#2873">[ subject ]</a>
+              <a href="author.html#2873">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

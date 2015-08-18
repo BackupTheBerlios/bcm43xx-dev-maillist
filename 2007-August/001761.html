@@ -1,0 +1,153 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.23-rc1-wireless-dev%20bcm43xx_mac80211%20associates%2C%0A%09but%20Ethernet%20appears%20broken&In-Reply-To=%3C46B38B0F.20808%40Wetwork.Net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001759.html">
+   <LINK REL="Next"  HREF="001765.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken</H1>
+    <B>Ehud Gavron</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.23-rc1-wireless-dev%20bcm43xx_mac80211%20associates%2C%0A%09but%20Ethernet%20appears%20broken&In-Reply-To=%3C46B38B0F.20808%40Wetwork.Net%3E"
+       TITLE="2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken">gavron at Wetwork.Net
+       </A><BR>
+    <I>Fri Aug  3 22:07:43 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001759.html">Reverse engineering of hwpctl table upload
+</A></li>
+        <LI>Next message: <A HREF="001765.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1761">[ date ]</a>
+              <a href="thread.html#1761">[ thread ]</a>
+              <a href="subject.html#1761">[ subject ]</a>
+              <a href="author.html#1761">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The bcm43xx_mac80211 code associates fine and has good signal strength.  
+However, the stuff coming out of it on eth1 is not Ethernet...
+The same setup worked in 2.6.22-wireless-dev.
+
+A simple unload of the two modules, a reload of bcm43xx with v3 fw, and 
+it all works...
+
+You'll note I attached entire dmesg and not just &quot;dmesg|grep bcm&quot; so 
+that you could also see:
+bcm43xx-phy0 debug: bbatt(11) &gt;= size of LO array
+
+Call Trace:
+ [&lt;ffffffff88299ab0&gt;] :bcm43xx_mac80211:bcm43xx_get_lo_g_ctl+0x65/0xa8
+ [&lt;ffffffff88299b29&gt;] :bcm43xx_mac80211:bcm43xx_lo_g_ctl_current+0x36/0x3b
+ [&lt;ffffffff88299c0d&gt;] :bcm43xx_mac80211:bcm43xx_lo_g_adjust+0x9/0x15
+ [&lt;ffffffff8829425b&gt;] :bcm43xx_mac80211:bcm43xx_phy_init_pctl+0x338/0x6a6
+ [&lt;ffffffff8828eaf4&gt;] :bcm43xx_mac80211:bcm43xx_phy_read+0x5c/0x63
+ [&lt;ffffffff88297528&gt;] :bcm43xx_mac80211:bcm43xx_phy_initg+0xc85/0xd0a
+ [&lt;ffffffff88297d5b&gt;] :bcm43xx_mac80211:bcm43xx_phy_init+0x582/0x5a7
+ [&lt;ffffffff8828bcce&gt;] :bcm43xx_mac80211:bcm43xx_chip_init+0x68c/0x9a3
+ [&lt;ffffffff8828c26d&gt;] 
+:<i>bcm43xx_mac80211:bcm43xx_wireless_core_init+0x288/0x73e
+</I> [&lt;ffffffff8828d2bb&gt;] :bcm43xx_mac80211:bcm43xx_add_interface+0x5f/0xf4
+ [&lt;ffffffff882586b6&gt;] :mac80211:ieee80211_open+0x21d/0x34d
+ [&lt;ffffffff803ddcec&gt;] dev_open+0x2f/0x6e
+ [&lt;ffffffff803dbedb&gt;] dev_change_flags+0xaa/0x168
+ [&lt;ffffffff80420c4b&gt;] devinet_ioctl+0x235/0x597
+ [&lt;ffffffff803d1413&gt;] sock_ioctl+0x1c8/0x1e5
+ [&lt;ffffffff8029d665&gt;] do_ioctl+0x21/0x6b
+ [&lt;ffffffff8029d8f2&gt;] vfs_ioctl+0x243/0x25c
+ [&lt;ffffffff8029d964&gt;] sys_ioctl+0x59/0x79
+ [&lt;ffffffff8020bc8e&gt;] system_call+0x7e/0x83
+
+bcm43xx-phy0 debug: Chip initialized
+
+See attached files.
+
+Ehud
+dmesg.afterboot   --- what dmesg shows after boot has completed
+iwconfig.afterboot--- what iwconfig shows after boot (without my doing 
+anything)
+iwconfig.after_ifup--- now I've ifup eth1 'd
+lsmod.afterboot -- quick module check for bcm and ndis to ensure no conflict
+tcpdump.after_ifup_mac80211--- a tcpdump while trying the dhcp client 
+(dhclient)
+
+rmmod bcm43xx_mac80211
+rmmod bcm43xx
+modprobe bcm43xx fwpostfix=&quot;.fw3&quot;
+
+tcpdump.works_softmac --- it brought the interface up, associated, 
+dhcp'd all before I could start tcpdump...
+
+
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: dmesg.afterboot
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment.ksh</A>&gt;
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: dmesg.after_dhclient_failed_mac80211
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment-0001.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment-0001.ksh</A>&gt;
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: ifconfig.after_ifup
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment-0002.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment-0002.ksh</A>&gt;
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: iwconfig.afterboot
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment-0003.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment-0003.ksh</A>&gt;
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: iwconfig.after_ifup
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment-0004.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment-0004.ksh</A>&gt;
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: lsmod.afterboot
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment-0005.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment-0005.ksh</A>&gt;
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: tcpdump.after_ifup_mac80211
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment-0006.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment-0006.ksh</A>&gt;
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: tcpdump.works_softmac
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment-0007.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment-0007.ksh</A>&gt;
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/x-pkcs7-signature
+Size: 3283 bytes
+Desc: S/MIME Cryptographic Signature
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment.bin">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070803/57025d6e/attachment.bin</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001759.html">Reverse engineering of hwpctl table upload
+</A></li>
+	<LI>Next message: <A HREF="001765.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1761">[ date ]</a>
+              <a href="thread.html#1761">[ thread ]</a>
+              <a href="subject.html#1761">[ subject ]</a>
+              <a href="author.html#1761">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

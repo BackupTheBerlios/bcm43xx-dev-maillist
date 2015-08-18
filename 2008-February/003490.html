@@ -1,0 +1,230 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH RFT] b43: Fix beaconing
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RFT%5D%20b43%3A%20Fix%20beaconing&In-Reply-To=%3C200802211757.18167.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003489.html">
+   <LINK REL="Next"  HREF="003494.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH RFT] b43: Fix beaconing</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RFT%5D%20b43%3A%20Fix%20beaconing&In-Reply-To=%3C200802211757.18167.mb%40bu3sch.de%3E"
+       TITLE="[PATCH RFT] b43: Fix beaconing">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Feb 21 17:57:17 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003489.html">[PATCH] b43(legacy): include full timestamp in beacon frames
+</A></li>
+        <LI>Next message: <A HREF="003494.html">[PATCH RFT] b43: Fix beaconing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3490">[ date ]</a>
+              <a href="thread.html#3490">[ thread ]</a>
+              <a href="subject.html#3490">[ subject ]</a>
+              <a href="author.html#3490">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Can you please test if this fixes beaconing?
+
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h	2008-02-21 17:10:17.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/b43.h	2008-02-21 17:12:41.000000000 +0100
+@@ -670,12 +670,13 @@ struct b43_wl {
+ 
+ 	/* The beacon we are currently using (AP or IBSS mode).
+ 	 * This beacon stuff is protected by the irq_lock. */
+ 	struct sk_buff *current_beacon;
+ 	bool beacon0_uploaded;
+ 	bool beacon1_uploaded;
++	struct work_struct beacon_update_trigger;
+ };
+ 
+ /* In-memory representation of a cached microcode file. */
+ struct b43_firmware_file {
+ 	const char *filename;
+ 	const struct firmware *data;
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-02-21 17:10:17.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-02-21 17:17:59.000000000 +0100
+@@ -1316,13 +1316,14 @@ static void b43_write_beacon_template(st
+ 		i += ie_len + 2;
+ 	}
+ 	if (!tim_found) {
+ 		b43warn(dev-&gt;wl, &quot;Did not find a valid TIM IE in &quot;
+ 			&quot;the beacon template packet. AP or IBSS operation &quot;
+ 			&quot;may be broken.\n&quot;);
+-	}
++	} else
++		b43dbg(dev-&gt;wl, &quot;Updated beacon template\n&quot;);
+ }
+ 
+ static void b43_write_probe_resp_plcp(struct b43_wldev *dev,
+ 				      u16 shm_offset, u16 size,
+ 				      struct ieee80211_rate *rate)
+ {
+@@ -1426,12 +1427,33 @@ static void b43_write_probe_resp_templat
+ 	b43_write_template_common(dev, probe_resp_data,
+ 				  size, ram_offset, shm_size_offset,
+ 				  rate-&gt;hw_value);
+ 	kfree(probe_resp_data);
+ }
+ 
++static void b43_beacon_update_trigger_work(struct work_struct *work)
++{
++	struct b43_wl *wl = container_of(work, struct b43_wl,
++					 beacon_update_trigger);
++	struct b43_wldev *dev;
++
++	mutex_lock(&amp;wl-&gt;mutex);
++	dev = wl-&gt;current_dev;
++	if (likely(dev &amp;&amp; (b43_status(dev) &gt;= B43_STAT_INITIALIZED))) {
++		/* Force the microcode to trigger the
++		 * beacon update bottom-half IRQ. */
++		spin_lock_irq(&amp;wl-&gt;irq_lock);
++		b43_write32(dev, B43_MMIO_MACCMD,
++			    b43_read32(dev, B43_MMIO_MACCMD)
++			    | B43_MACCMD_BEACON0_VALID
++			    | B43_MACCMD_BEACON1_VALID);
++		spin_unlock_irq(&amp;wl-&gt;irq_lock);
++	}
++	mutex_unlock(&amp;wl-&gt;mutex);
++}
++
+ /* Asynchronously update the packet templates in template RAM.
+  * Locking: Requires wl-&gt;irq_lock to be locked. */
+ static void b43_update_templates(struct b43_wl *wl, struct sk_buff *beacon)
+ {
+ 	/* This is the top half of the ansynchronous beacon update.
+ 	 * The bottom half is the beacon IRQ.
+@@ -1441,12 +1463,13 @@ static void b43_update_templates(struct 
+ 
+ 	if (wl-&gt;current_beacon)
+ 		dev_kfree_skb_any(wl-&gt;current_beacon);
+ 	wl-&gt;current_beacon = beacon;
+ 	wl-&gt;beacon0_uploaded = 0;
+ 	wl-&gt;beacon1_uploaded = 0;
++	queue_work(wl-&gt;hw-&gt;workqueue, &amp;wl-&gt;beacon_update_trigger);
+ }
+ 
+ static void b43_set_ssid(struct b43_wldev *dev, const u8 * ssid, u8 ssid_len)
+ {
+ 	u32 tmp;
+ 	u16 i, len;
+@@ -1466,42 +1489,47 @@ static void b43_set_ssid(struct b43_wlde
+ }
+ 
+ static void b43_set_beacon_int(struct b43_wldev *dev, u16 beacon_int)
+ {
+ 	b43_time_lock(dev);
+ 	if (dev-&gt;dev-&gt;id.revision &gt;= 3) {
+-		b43_write32(dev, 0x188, (beacon_int &lt;&lt; 16));
++		b43_write32(dev, B43_MMIO_TSF_CFP_REP, (beacon_int &lt;&lt; 16));
++		b43_write32(dev, B43_MMIO_TSF_CFP_START, (beacon_int &lt;&lt; 10));
+ 	} else {
+ 		b43_write16(dev, 0x606, (beacon_int &gt;&gt; 6));
+ 		b43_write16(dev, 0x610, beacon_int);
+ 	}
+ 	b43_time_unlock(dev);
++	b43dbg(dev-&gt;wl, &quot;Set beacon interval to %u\n&quot;, beacon_int);
+ }
+ 
+ static void handle_irq_beacon(struct b43_wldev *dev)
+ {
+ 	struct b43_wl *wl = dev-&gt;wl;
+-	u32 cmd;
++	u32 cmd, beacon0_valid, beacon1_valid;
+ 
+ 	if (!b43_is_mode(wl, IEEE80211_IF_TYPE_AP))
+ 		return;
+ 
+ 	/* This is the bottom half of the asynchronous beacon update. */
+ 
+ 	cmd = b43_read32(dev, B43_MMIO_MACCMD);
+-	if (!(cmd &amp; B43_MACCMD_BEACON0_VALID)) {
++	beacon0_valid = (cmd &amp; B43_MACCMD_BEACON0_VALID);
++	beacon1_valid = (cmd &amp; B43_MACCMD_BEACON1_VALID);
++	cmd &amp;= ~(B43_MACCMD_BEACON0_VALID | B43_MACCMD_BEACON1_VALID);
++
++	if (!beacon0_valid) {
+ 		if (!wl-&gt;beacon0_uploaded) {
+ 			b43_write_beacon_template(dev, 0x68, 0x18,
+ 						  B43_CCK_RATE_1MB);
+ 			b43_write_probe_resp_template(dev, 0x268, 0x4A,
+ 						      &amp;__b43_ratetable[3]);
+ 			wl-&gt;beacon0_uploaded = 1;
+ 		}
+ 		cmd |= B43_MACCMD_BEACON0_VALID;
+-	}
+-	if (!(cmd &amp; B43_MACCMD_BEACON1_VALID)) {
++	} else if (!beacon1_valid) {
+ 		if (!wl-&gt;beacon1_uploaded) {
+ 			b43_write_beacon_template(dev, 0x468, 0x1A,
+ 						  B43_CCK_RATE_1MB);
+ 			wl-&gt;beacon1_uploaded = 1;
+ 		}
+ 		cmd |= B43_MACCMD_BEACON1_VALID;
+@@ -3770,12 +3798,13 @@ static int b43_op_start(struct ieee80211
+ static void b43_op_stop(struct ieee80211_hw *hw)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev = wl-&gt;current_dev;
+ 
+ 	b43_rfkill_exit(dev);
++	cancel_work_sync(&amp;wl-&gt;beacon_update_trigger);
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 	if (b43_status(dev) &gt;= B43_STAT_STARTED)
+ 		b43_wireless_core_stop(dev);
+ 	b43_wireless_core_exit(dev);
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+@@ -4135,12 +4164,13 @@ static int b43_wireless_init(struct ssb_
+ 	wl-&gt;hw = hw;
+ 	spin_lock_init(&amp;wl-&gt;irq_lock);
+ 	spin_lock_init(&amp;wl-&gt;leds_lock);
+ 	spin_lock_init(&amp;wl-&gt;shm_lock);
+ 	mutex_init(&amp;wl-&gt;mutex);
+ 	INIT_LIST_HEAD(&amp;wl-&gt;devlist);
++	INIT_WORK(&amp;wl-&gt;beacon_update_trigger, b43_beacon_update_trigger_work);
+ 
+ 	ssb_set_devtypedata(dev, wl);
+ 	b43info(wl, &quot;Broadcom %04X WLAN found\n&quot;, dev-&gt;bus-&gt;chip_id);
+ 	err = 0;
+       out:
+ 	return err;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003489.html">[PATCH] b43(legacy): include full timestamp in beacon frames
+</A></li>
+	<LI>Next message: <A HREF="003494.html">[PATCH RFT] b43: Fix beaconing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3490">[ date ]</a>
+              <a href="thread.html#3490">[ thread ]</a>
+              <a href="subject.html#3490">[ subject ]</a>
+              <a href="author.html#3490">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

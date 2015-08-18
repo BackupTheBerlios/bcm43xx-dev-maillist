@@ -1,0 +1,320 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 2/5 V2] b43: N-PHY: implement and add multi-dimensional 	table writing
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/5%20V2%5D%20b43%3A%20N-PHY%3A%20implement%20and%20add%20multi-dimensional%20%0A%09table%20writing&In-Reply-To=%3C69e28c911001171628s684df11avb3e9f9586e64b69e%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006795.html">
+   <LINK REL="Next"  HREF="006800.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 2/5 V2] b43: N-PHY: implement and add multi-dimensional 	table writing</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/5%20V2%5D%20b43%3A%20N-PHY%3A%20implement%20and%20add%20multi-dimensional%20%0A%09table%20writing&In-Reply-To=%3C69e28c911001171628s684df11avb3e9f9586e64b69e%40mail.gmail.com%3E"
+       TITLE="[PATCH 2/5 V2] b43: N-PHY: implement and add multi-dimensional 	table writing">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Mon Jan 18 01:28:40 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006795.html">[PATCH 2/5 V2] b43: N-PHY: implement and add multi-dimensional table	writing
+</A></li>
+        <LI>Next message: <A HREF="006800.html">[PATCH 2/5 V2] b43: N-PHY: implement and add multi-dimensional 	table writing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6799">[ date ]</a>
+              <a href="thread.html#6799">[ thread ]</a>
+              <a href="subject.html#6799">[ subject ]</a>
+              <a href="author.html#6799">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>2010/1/18 Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;:
+&gt;<i> Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i> V2: updated to apply without fuzz
+</I>
+Actually, you do not need to do that - offset or fuzzy patches will
+still be applied cleanly AFAIK, without any intervention.
+(John, correct me if I'm wrong here...)
+
+&gt;<i> ---
+</I>&gt;<i> &#160;drivers/net/wireless/b43/phy_n.c &#160; &#160; &#160; | &#160; 58
+</I>&gt;<i> ++++++++++++++------------------
+</I>&gt;<i> &#160;drivers/net/wireless/b43/tables_nphy.c | &#160; 40 ++++++++++++++++++++++
+</I>&gt;<i> &#160;drivers/net/wireless/b43/tables_nphy.h | &#160; &#160;2 +
+</I>&gt;<i> &#160;3 files changed, 67 insertions(+), 33 deletions(-)
+</I>&gt;<i>
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/phy_n.c
+</I>&gt;<i> b/drivers/net/wireless/b43/phy_n.c
+</I>&gt;<i> index 16f1f9b..6b200e5 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/phy_n.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/phy_n.c
+</I>&gt;<i> @@ -1699,8 +1699,7 @@ static void b43_nphy_restore_cal(struct b43_wldev
+</I>&gt;<i> *dev)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;loft = &amp;nphy-&gt;cal_cache.txcal_coeffs_5G[5];
+</I>&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;<i>
+</I>&gt;<i> - &#160; &#160; &#160; /* TODO: Write an N PHY table with ID 15, length 4, offset 80,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; width 16, and data from table */
+</I>&gt;<i> + &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(15, 80), 4, table);
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;for (i = 0; i &lt; 4; i++) {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;if (dev-&gt;phy.rev &gt;= 3)
+</I>&gt;<i> @@ -1709,12 +1708,9 @@ static void b43_nphy_restore_cal(struct b43_wldev
+</I>&gt;<i> *dev)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;coef[i] = 0;
+</I>&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;<i>
+</I>&gt;<i> - &#160; &#160; &#160; /* TODO: Write an N PHY table with ID 15, length 4, offset 88,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; width 16, and data from coef */
+</I>&gt;<i> - &#160; &#160; &#160; /* TODO: Write an N PHY table with ID 15, length 2, offset 85,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; width 16 and data from loft */
+</I>&gt;<i> - &#160; &#160; &#160; /* TODO: Write an N PHY table with ID 15, length 2, offset 93,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; width 16 and data from loft */
+</I>&gt;<i> + &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(15, 88), 4, coef);
+</I>&gt;<i> + &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(15, 85), 2, loft);
+</I>&gt;<i> + &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(15, 93), 2, loft);
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;if (dev-&gt;phy.rev &lt; 2)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_nphy_tx_iq_workaround(dev);
+</I>&gt;<i> @@ -1782,8 +1778,8 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev
+</I>&gt;<i> *dev,
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_nphy_iq_cal_gain_params(dev, i, target, &amp;params[i]);
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;gain[i] = params[i].cal_gain;
+</I>&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;<i> - &#160; &#160; &#160; /* TODO: Write an N PHY Table with ID 7, length 2, offset 0x110,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; width 16, and data pointer gain */
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(7, 0x110), 2, gain);
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_nphy_tx_cal_radio_setup(dev);
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_nphy_tx_cal_phy_setup(dev);
+</I>&gt;<i> @@ -1833,8 +1829,7 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev
+</I>&gt;<i> *dev,
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;}
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;}
+</I>&gt;<i>
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; /* TODO: Write an N PHY Table with ID 15, length from above,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; offset 64, width 16, and the data pointer from above
+</I>&gt;<i> */
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(15, 64), length, table);
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;if (full) {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;if (dev-&gt;phy.rev &gt;= 3)
+</I>&gt;<i> @@ -1902,9 +1897,8 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev
+</I>&gt;<i> *dev,
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;/* TODO: Read an N PHY Table with ID 15,
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;length table_length, offset 96, width 16,
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;and data pointer buffer */
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; /* TODO: Write an N PHY Table with ID 15,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; length table_length, offset 64, width 16,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; and data pointer buffer */
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(15, 64), length,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; buffer);
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;if (type == 1 || type == 3 || type == 4)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;buffer[0] = diq_start;
+</I>&gt;<i> @@ -1916,8 +1910,7 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev
+</I>&gt;<i> *dev,
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;last = (dev-&gt;phy.rev &lt; 3) ? 6 : 7;
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;if (!mphase || nphy-&gt;mphase_cal_phase_id == last) {
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; /* TODO: Write an N PHY Table with ID 15, length 4,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; offset 96, width 16, and data pointer buffer
+</I>&gt;<i> */
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(15, 96), 4,
+</I>&gt;<i> buffer);
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;/* TODO: Read an N PHY Table with ID 15, length 4,
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;offset 80, width 16, and data pointer buffer
+</I>&gt;<i> */
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;if (dev-&gt;phy.rev &lt; 3) {
+</I>&gt;<i> @@ -1926,14 +1919,14 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev
+</I>&gt;<i> *dev,
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;buffer[2] = 0;
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;buffer[3] = 0;
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;}
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; /* TODO: Write an N PHY Table with ID 15, length 4,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; offset 88, width 16, and data pointer buffer
+</I>&gt;<i> */
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; /* TODO: Read an N PHY Table with ID 15, length 2,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; offset 101, width 16, and data pointer
+</I>&gt;<i> buffer*/
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; /* TODO: Write an N PHY Table with ID 15, length 2,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; offset 85, width 16, and data pointer buffer
+</I>&gt;<i> */
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; /* TODO: Write an N PHY Table with ID 15, length 2,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; offset 93, width 16, and data pointer buffer
+</I>&gt;<i> */
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(15, 88), 4,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; buffer);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(15, 101), 2,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; buffer);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(15, 85), 2,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; buffer);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(15, 93), 2,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; buffer);
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;length = 11;
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;if (dev-&gt;phy.rev &lt; 3)
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;length -= 2;
+</I>&gt;<i> @@ -1957,8 +1950,7 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev
+</I>&gt;<i> *dev,
+</I>&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_nphy_tx_cal_phy_cleanup(dev);
+</I>&gt;<i> - &#160; &#160; &#160; /* TODO: Write an N PHY Table with ID 7, length 2, offset 0x110,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; width 16, and data from save */
+</I>&gt;<i> + &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(7, 0x110), 2, save);
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;if (dev-&gt;phy.rev &lt; 2 &amp;&amp; (!mphase || nphy-&gt;mphase_cal_phase_id ==
+</I>&gt;<i> last))
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_nphy_tx_iq_workaround(dev);
+</I>&gt;<i> @@ -2008,8 +2000,7 @@ static int b43_nphy_rev2_cal_rx_iq(struct b43_wldev
+</I>&gt;<i> *dev,
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;b43_nphy_iq_cal_gain_params(dev, i, target, &amp;cal_params[i]);
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;cal_gain[i] = cal_params[i].cal_gain;
+</I>&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;<i> - &#160; &#160; &#160; /* TODO: Write an N PHY Table with ID 7, length 2, offset 0x110,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; width 16, and data from cal_gain */
+</I>&gt;<i> + &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(7, 0x110), 2, cal_gain);
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;for (i = 0; i &lt; 2; i++) {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;if (i == 0) {
+</I>&gt;<i> @@ -2147,8 +2138,7 @@ static int b43_nphy_rev2_cal_rx_iq(struct b43_wldev
+</I>&gt;<i> *dev,
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;/* TODO: Call N PHY RF Ctrl Override with 0x400, 0, 3, 1 as
+</I>&gt;<i> arguments*/
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_nphy_force_rf_sequence(dev, B43_RFSEQ_RESET2RX);
+</I>&gt;<i> - &#160; &#160; &#160; /* TODO: Write an N PHY Table with ID 7, length 2, offset 0x110,
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; width 16, and data from gain_save */
+</I>&gt;<i> + &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB16(7, 0x110), 2, gain_save);
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43_nphy_stay_in_carrier_search(dev, 0);
+</I>&gt;<i>
+</I>&gt;<i> @@ -2290,8 +2280,10 @@ int b43_phy_initn(struct b43_wldev *dev)
+</I>&gt;<i> &#160; &#160; &#160; &#160;if (phy-&gt;rev &gt;= 3) {
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;/* TODO */
+</I>&gt;<i> &#160; &#160; &#160; &#160;} else {
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; /* TODO Write an N PHY table with ID 26, length 128, offset
+</I>&gt;<i> 192, width 32, and the data from Rev 2 TX Power Control Table */
+</I>&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; /* TODO Write an N PHY table with ID 27, length 128, offset
+</I>&gt;<i> 192, width 32, and the data from Rev 2 TX Power Control Table */
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB32(26, 192), 128,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_ntab_tx_gain_rev0_1_2);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_ntab_write_bulk(dev, B43_NTAB32(27, 192), 128,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_ntab_tx_gain_rev0_1_2);
+</I>&gt;<i> &#160; &#160; &#160; &#160;}
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;if (nphy-&gt;phyrxchain != 3)
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/tables_nphy.c
+</I>&gt;<i> b/drivers/net/wireless/b43/tables_nphy.c
+</I>&gt;<i> index 7dff853..fc08be0 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/tables_nphy.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/tables_nphy.c
+</I>&gt;<i> @@ -2952,6 +2952,46 @@ void b43_ntab_write(struct b43_wldev *dev, u32
+</I>&gt;<i> offset, u32 value)
+</I>&gt;<i> &#160; &#160; &#160; &#160;assert_ntab_array_sizes();
+</I>&gt;<i> &#160;}
+</I>&gt;<i>
+</I>&gt;<i> +void b43_ntab_write_bulk(struct b43_wldev *dev, u32 offset,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; unsigned int nr_elements, const void *_data)
+</I>&gt;<i> +{
+</I>&gt;<i> + &#160; &#160; &#160; u32 type, value;
+</I>&gt;<i> + &#160; &#160; &#160; const u8 *data = _data;
+</I>&gt;<i> + &#160; &#160; &#160; unsigned int i;
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; type = offset &amp; B43_NTAB_TYPEMASK;
+</I>&gt;<i> + &#160; &#160; &#160; offset &amp;= ~B43_NTAB_TYPEMASK;
+</I>&gt;<i> + &#160; &#160; &#160; B43_WARN_ON(offset &gt; 0xFFFF);
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; b43_phy_write(dev, B43_NPHY_TABLE_ADDR, offset);
+</I>&gt;<i> +
+</I>&gt;<i> + &#160; &#160; &#160; for (i = 0; i &lt; nr_elements; i++) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; switch (type) {
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; case B43_NTAB_8BIT:
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; value = *data;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; data++;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; B43_WARN_ON(value &amp; ~0xFF);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, B43_NPHY_TABLE_DATALO, value);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; break;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; case B43_NTAB_16BIT:
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; value = *((u16 *)data);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; data += 2;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; B43_WARN_ON(value &amp; ~0xFFFF);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, B43_NPHY_TABLE_DATALO, value);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; break;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; case B43_NTAB_32BIT:
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; value = *((u32 *)data);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; data += 4;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, B43_NPHY_TABLE_DATAHI, value &gt;&gt;
+</I>&gt;<i> 16);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, B43_NPHY_TABLE_DATALO,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; value &amp; 0xFFFF);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; break;
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; default:
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; B43_WARN_ON(1);
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; }
+</I>&gt;<i> + &#160; &#160; &#160; }
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> &#160;#define ntab_upload(dev, offset, data) do { \
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;unsigned int i; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; \
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;for (i = 0; i &lt; (offset##_SIZE); i++) &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; \
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/tables_nphy.h
+</I>&gt;<i> b/drivers/net/wireless/b43/tables_nphy.h
+</I>&gt;<i> index 51636d0..d5605df 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/tables_nphy.h
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/tables_nphy.h
+</I>&gt;<i> @@ -143,6 +143,8 @@ b43_nphy_get_chantabent(struct b43_wldev *dev, u8
+</I>&gt;<i> channel);
+</I>&gt;<i> &#160;#define B43_NTAB_TX_IQLO_CAL_CMDS_FULLCAL_REV3 &#160; &#160; &#160; &#160; 12
+</I>&gt;<i>
+</I>&gt;<i> &#160;void b43_ntab_write(struct b43_wldev *dev, u32 offset, u32 value);
+</I>&gt;<i> +void b43_ntab_write_bulk(struct b43_wldev *dev, u32 offset,
+</I>&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; unsigned int nr_elements, const void *_data);
+</I>&gt;<i>
+</I>&gt;<i> &#160;void b43_nphy_rev0_1_2_tables_init(struct b43_wldev *dev);
+</I>&gt;<i> &#160;void b43_nphy_rev3plus_tables_init(struct b43_wldev *dev);
+</I>&gt;<i> --
+</I>&gt;<i> 1.6.4.2
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i> To unsubscribe from this list: send the line &quot;unsubscribe linux-wireless&quot; in
+</I>&gt;<i> the body of a message to <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">majordomo at vger.kernel.org</A>
+</I>&gt;<i> More majordomo info at &#160;<A HREF="http://vger.kernel.org/majordomo-info.html">http://vger.kernel.org/majordomo-info.html</A>
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006795.html">[PATCH 2/5 V2] b43: N-PHY: implement and add multi-dimensional table	writing
+</A></li>
+	<LI>Next message: <A HREF="006800.html">[PATCH 2/5 V2] b43: N-PHY: implement and add multi-dimensional 	table writing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6799">[ date ]</a>
+              <a href="thread.html#6799">[ thread ]</a>
+              <a href="subject.html#6799">[ subject ]</a>
+              <a href="author.html#6799">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

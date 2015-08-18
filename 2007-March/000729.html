@@ -1,0 +1,294 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFT] [PATCH] bcm43xx: ACI fixes
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFT%5D%20%5BPATCH%5D%20bcm43xx%3A%20ACI%20fixes&In-Reply-To=%3C20070312010420.353a59c0%40localhost%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000787.html">
+   <LINK REL="Next"  HREF="000730.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFT] [PATCH] bcm43xx: ACI fixes</H1>
+    <B>Stefano Brivio</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFT%5D%20%5BPATCH%5D%20bcm43xx%3A%20ACI%20fixes&In-Reply-To=%3C20070312010420.353a59c0%40localhost%3E"
+       TITLE="[RFT] [PATCH] bcm43xx: ACI fixes">stefano.brivio at polimi.it
+       </A><BR>
+    <I>Mon Mar 12 01:04:20 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000787.html">New combined patch for 2.6.20.2
+</A></li>
+        <LI>Next message: <A HREF="000730.html">[RFT] [PATCH] bcm43xx: ACI fixes
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#729">[ date ]</a>
+              <a href="thread.html#729">[ thread ]</a>
+              <a href="subject.html#729">[ subject ]</a>
+              <a href="author.html#729">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Please test the following patch. It syncs ACI (Adjacent Channels
+Interference) code to specs. I can't test it right now. Will port to
+mac80211 branch ASAP.
+
+
+Signed-off-by: Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+----
+
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx.h b/drivers/net/wireless/bcm43xx/bcm43xx.h
+index 95ff175..7023327 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx.h
++++ b/drivers/net/wireless/bcm43xx/bcm43xx.h
+@@ -398,6 +398,9 @@
+ #define BCM43xx_DEFAULT_SHORT_RETRY_LIMIT	7
+ #define BCM43xx_DEFAULT_LONG_RETRY_LIMIT	4
+ 
++/* Statscounter offsets. */
++#define BCM43xx_SC_ACI		0x2E
++
+ /* FIXME: the next line is a guess as to what the maximum RSSI value might be */
+ #define RX_RSSI_MAX				60
+ 
+@@ -550,7 +553,11 @@ struct bcm43xx_phyinfo {
+ 	u8 connected:1,
+ 	   calibrated:1,
+ 	   is_locked:1, /* used in bcm43xx_phy_{un}lock() */
+-	   dyn_tssi_tbl:1; /* used in bcm43xx_phy_init_tssi2dbm_table() */
++	   dyn_tssi_tbl:1, /* used in bcm43xx_phy_init_tssi2dbm_table() */
++	   g_interfmode:1; /* bit 4000 in PHY_G_CRS, used in periodic tasks */
++	u8 g_interfmode_timer; /* how much time ago g_interfmode was unset */
++	u16 g_sc_saved; /* used in periodic tasks for ACI */
++
+ 	/* LO Measurement Data.
+ 	 * Use bcm43xx_get_lopair() to get a value.
+ 	 */
+@@ -629,7 +636,9 @@ struct bcm43xx_radioinfo {
+ 	/* ACI (adjacent channel interference) flags. */
+ 	u8 aci_enable:1,
+ 	   aci_wlan_automatic:1,
+-	   aci_hw_rssi:1;
++	   aci_hw_rssi:1,
++	   aci_delay:5;
++	u8 aci_start;
+ };
+ 
+ /* Data structures for DMA transmission, per 80211 core. */
+@@ -699,6 +708,18 @@ struct bcm43xx_noise_calculation {
+ 	s8 samples[8][4];
+ };
+ 
++/* Statscounter data (currently ACI only). */
++struct bcm43xx_statscounter_saved {
++	u16 aci;
++};
++
++/* Values for ACI moving average calculation. */
++struct bcm43xx_aci_saved {
++	u16 value[8];
++	u8 next:3,
++	   set:3;
++};
++
+ struct bcm43xx_stats {
+ 	u8 noise;
+ 	struct iw_statistics wstats;
+@@ -812,6 +833,10 @@ struct bcm43xx_private {
+ 	u32 irq_savedstate;
+ 	/* Link Quality calculation context. */
+ 	struct bcm43xx_noise_calculation noisecalc;
++	/* Statscounter tracking. */
++	struct bcm43xx_statscounter_saved sc;
++	/* ACI tracking. */
++	struct bcm43xx_aci_saved aci;
+ 	/* if &gt; 0 MAC is suspended. if == 0 MAC is enabled. */
+ 	int mac_suspended;
+ 
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+index e594af4..27ec519 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -3059,6 +3059,44 @@ static void bcm43xx_pcie_mdio_write(stru
+ 	bcm43xx_write32(bcm, BCM43xx_PCIECORE_MDIO_CTL, 0);
+ }
+ 
++/* We don't use any statscounter other than ACI for now */
++static u16 bcm43xx_sc_read(struct bcm43xx_private *bcm)
++{
++	struct bcm43xx_statscounter_saved *sc = &amp;bcm-&gt;sc;
++	u16 tmp;
++
++	tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x80 + BCM43xx_SC_ACI)
++		- sc-&gt;aci;
++	if (tmp)
++		sc-&gt;aci += tmp;
++
++	return tmp;
++}
++
++static u16 bcm43xx_aci_moving_average(struct bcm43xx_private *bcm)
++{
++	struct bcm43xx_aci_saved *aci = &amp;bcm-&gt;aci;
++
++	u8 i;
++	u16 avg;
++	u32 sum = 0;
++
++	aci-&gt;value[aci-&gt;next] = bcm43xx_sc_read(bcm);
++	if (unlikely(aci-&gt;set &lt; 7))
++		aci-&gt;set++;
++	for (i = 0; i &lt; aci-&gt;set; i++)
++		sum += aci-&gt;value[i];
++	avg = sum / (u16)8;
++	if ((sum % 8) &gt; 3)
++		avg++;
++	if (aci-&gt;next &lt; 7)
++		aci-&gt;next++;
++	else
++		aci-&gt;next = 0;
++
++	return avg;
++}
++
+ /* Make an I/O Core usable. &quot;core_mask&quot; is the bitmask of the cores to enable.
+  * To enable core 0, pass a core_mask of 1&lt;&lt;0
+  */
+@@ -3182,6 +3220,8 @@ static void bcm43xx_periodic_every1sec(s
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
+ 	int radio_hw_enable;
++	unsigned long phylock_flags;
++	u16 tmp;
+ 
+ 	/* check if radio hardware enabled status changed */
+ 	radio_hw_enable = bcm43xx_is_hw_radio_enabled(bcm);
+@@ -3191,27 +3231,56 @@ static void bcm43xx_periodic_every1sec(s
+ 		       (radio_hw_enable == 0) ? &quot;disabled&quot; : &quot;enabled&quot;);
+ 		bcm43xx_leds_update(bcm, 0);
+ 	}
++
+ 	if (phy-&gt;type == BCM43xx_PHYTYPE_G) {
+-		//TODO: update_aci_moving_average
+-		if (radio-&gt;aci_enable &amp;&amp; radio-&gt;aci_wlan_automatic) {
++		
++		if (radio-&gt;aci_start &lt; 60)
++			radio-&gt;aci_start++;
++		if (radio-&gt;aci_delay)
++			radio-&gt;aci_delay--;
++		if (phy-&gt;g_interfmode &amp;&amp; phy-&gt;g_interfmode_timer &lt; 30)
++			phy-&gt;g_interfmode_timer++;
++
++		if (radio-&gt;interfmode == BCM43xx_RADIO_INTERFMODE_AUTOWLAN &amp;&amp;
++				!radio-&gt;aci_delay) {
+ 			bcm43xx_mac_suspend(bcm);
+-			if (!radio-&gt;aci_enable &amp;&amp; 1 /*TODO: not scanning? */) {
+-				if (0 /*TODO: bunch of conditions*/) {
+-					bcm43xx_radio_set_interference_mitigation(bcm,
+-										  BCM43xx_RADIO_INTERFMODE_MANUALWLAN);
+-				}
+-			} else if (1/*TODO*/) {
+-				/*
+-				if ((aci_average &gt; 1000) &amp;&amp; !(bcm43xx_radio_aci_scan(bcm))) {
+-					bcm43xx_radio_set_interference_mitigation(bcm,
+-										  BCM43xx_RADIO_INTERFMODE_NONE);
++			if (!radio-&gt;aci_enable)
++			{
++				if (bcm43xx_aci_moving_average(bcm) &lt; 200) {
++					if (bcm43xx_radio_aci_scan(bcm)) {
++						bcm43xx_radio_set_interference_mitigation(bcm,
++							BCM43xx_RADIO_INTERFMODE_MANUALWLAN);
++						radio-&gt;aci_start = 0;
++					} else
++						radio-&gt;aci_delay = 20;
+ 				}
+-				*/
++			} else if (radio-&gt;aci_start == 60) {
++				if (bcm43xx_aci_moving_average(bcm) &gt; 1000)
++					if (!bcm43xx_radio_aci_scan(bcm))
++						bcm43xx_radio_set_interference_mitigation(bcm,
++							BCM43xx_RADIO_INTERFMODE_NONE);
+ 			}
+ 			bcm43xx_mac_enable(bcm);
+ 		} else if (radio-&gt;interfmode == BCM43xx_RADIO_INTERFMODE_NONWLAN &amp;&amp;
+-			   phy-&gt;rev == 1) {
+-			//TODO: implement rev1 workaround
++				phy-&gt;rev == 1) {
++			tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x00AE);
++			if (phy-&gt;g_interfmode) {
++				if (tmp &amp;&amp; ((tmp - phy-&gt;g_sc_saved) &gt; 1500)) {
++					bcm43xx_phy_lock(bcm, phylock_flags);
++					bcm43xx_phy_write(bcm, 0x00AE,
++						bcm43xx_phy_read(bcm, 0x00AE) &amp; ~0x4000);
++					bcm43xx_phy_unlock(bcm, phylock_flags);
++					phy-&gt;g_interfmode = 1;
++					phy-&gt;g_interfmode_timer = 0;
++				}
++			} else if (phy-&gt;g_interfmode_timer == 30) {
++						bcm43xx_phy_lock(bcm, phylock_flags);
++						bcm43xx_phy_write(bcm, 0x00AE,
++							bcm43xx_phy_read(bcm, 0x00AE &amp; 0x4000));
++						bcm43xx_phy_unlock(bcm, phylock_flags);
++						phy-&gt;g_interfmode = 0;
++			}
++			phy-&gt;g_sc_saved = tmp;
+ 		}
+ 	}
+ }
+@@ -3297,10 +3366,16 @@ void bcm43xx_periodic_tasks_delete(struc
+ void bcm43xx_periodic_tasks_setup(struct bcm43xx_private *bcm)
+ {
+ 	struct delayed_work *work = &amp;bcm-&gt;periodic_work;
++	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 
+ 	assert(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED);
+ 	INIT_DELAYED_WORK(work, bcm43xx_periodic_work_handler);
+ 	schedule_delayed_work(work, 0);
++	
++	if (bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS) &amp; 0x4000)
++		phy-&gt;g_interfmode = 1;
++	else
++		phy-&gt;g_interfmode = 0;
+ }
+ 
+ static void bcm43xx_security_init(struct bcm43xx_private *bcm)
+@@ -3429,6 +3504,8 @@ static void prepare_radiodata_for_init(s
+ 	radio-&gt;aci_enable = 0;
+ 	radio-&gt;aci_wlan_automatic = 0;
+ 	radio-&gt;aci_hw_rssi = 0;
++	radio-&gt;aci_start = 0;
++	radio-&gt;aci_delay = 0;
+ }
+ 
+ static void prepare_priv_for_init(struct bcm43xx_private *bcm)
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_phy.c b/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000787.html">New combined patch for 2.6.20.2
+</A></li>
+	<LI>Next message: <A HREF="000730.html">[RFT] [PATCH] bcm43xx: ACI fixes
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#729">[ date ]</a>
+              <a href="thread.html#729">[ thread ]</a>
+              <a href="subject.html#729">[ subject ]</a>
+              <a href="author.html#729">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,471 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] Proposed changes to fwcutter
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20Proposed%20changes%20to%20fwcutter&In-Reply-To=%3C46bca40d.zEv6v3zA35%2BE39SQ%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001941.html">
+   <LINK REL="Next"  HREF="001958.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] Proposed changes to fwcutter</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20Proposed%20changes%20to%20fwcutter&In-Reply-To=%3C46bca40d.zEv6v3zA35%2BE39SQ%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[RFC] Proposed changes to fwcutter">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Aug 10 19:44:45 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001941.html">Usage of bcm43xx-sprom tool
+</A></li>
+        <LI>Next message: <A HREF="001958.html">[RFC] Proposed changes to fwcutter
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1953">[ date ]</a>
+              <a href="thread.html#1953">[ thread ]</a>
+              <a href="subject.html#1953">[ subject ]</a>
+              <a href="author.html#1953">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This patch will convert fwcutter to generate firmware files with names
+of bcm43_XXX.fw from V4 driver filess and bcm43legacy_XXX.fw from V3
+driver files. It also changes the fwcutter version from 6 to 7 and
+the name of the utility to bcm43-fwcutter.
+
+Note: I stuck the new string that I needed in the cmdargs structure,
+even though it has nothing to do with command arguments.
+
+Larry
+
+
+Index: bcm43xx-fwcutter-006/Makefile
+===================================================================
+--- bcm43xx-fwcutter-006.orig/Makefile
++++ bcm43xx-fwcutter-006/Makefile
+@@ -1,4 +1,4 @@
+-VERSION = 006
++VERSION = 007
+ 
+ FIRMWARE_INSTALL_DIR ?= /lib/firmware
+ 
+@@ -16,20 +16,20 @@ CFLAGS += -DFWCUTTER_VERSION_=$(VERSION)
+ all: fwcutter
+ 
+ fwcutter: $(OBJECTS)
+-	$(CC) $(CFLAGS) -o bcm43xx-fwcutter $(OBJECTS) $(LDFLAGS)
++	$(CC) $(CFLAGS) -o bcm43-fwcutter $(OBJECTS) $(LDFLAGS)
+ 
+ install: all
+ 	-install -d -o 0 -g 0 -m 755 $(PREFIX)/bin/
+-	-install -o 0 -g 0 -m 755 bcm43xx-fwcutter $(PREFIX)/bin/
++	-install -o 0 -g 0 -m 755 bcm43-fwcutter $(PREFIX)/bin/
+ 	-install -d -o 0 -g 0 -m 755 $(PREFIX)/man/man1/
+-	-install -o 0 -g 0 -m 644 bcm43xx-fwcutter.1 $(PREFIX)/man/man1/
++	-install -o 0 -g 0 -m 644 bcm43-fwcutter.1 $(PREFIX)/man/man1/
+ 
+ clean:
+-	-rm -f *~ *.o *.orig *.rej *.fw bcm43xx-fwcutter
++	-rm -f *~ *.o *.orig *.rej *.fw bcm43-fwcutter
+ 
+ installfw:
+ 	-if ! [ -d $(FIRMWARE_INSTALL_DIR) ]; then mkdir -p $(FIRMWARE_INSTALL_DIR); fi
+-	-install -o 0 -g 0 -m 600 bcm43xx_*.fw $(FIRMWARE_INSTALL_DIR)
++	-install -o 0 -g 0 -m 600 bcm43_*.fw $(FIRMWARE_INSTALL_DIR)
+ 
+ # dependencies
+ fwcutter.o: fwcutter.h md5.h fwcutter_list.h
+Index: bcm43xx-fwcutter-006/fwcutter.c
+===================================================================
+--- bcm43xx-fwcutter-006.orig/fwcutter.c
++++ bcm43xx-fwcutter-006/fwcutter.c
+@@ -111,8 +111,9 @@ static void write_iv(uint8_t flags, uint
+ 		}
+ 
+ 		snprintf(ivfilename, sizeof(ivfilename),
+-			 &quot;%s/bcm43xx_initval%02d%s.fw&quot;,
++			 &quot;%s/bcm43%s_initval%02d%s.fw&quot;,
+ 			 cmdargs.target_dir,
++			 cmdargs.format,
+ 			 ivnum,
+ 			 cmdargs.postfix);
+ 
+@@ -168,8 +169,8 @@ static void write_iv(uint8_t flags, uint
+ 			exit(1);
+ 		}
+ 
+-		printf(&quot;extracting bcm43xx_initval%02d%s.fw ...\n&quot;, 
+-		       ivnum,
++		printf(&quot;extracting bcm43%s_initval%02d%s.fw ...\n&quot;,
++		       cmdargs.format, ivnum,
+ 		       cmdargs.postfix);
+ 
+ 		while (1) {
+@@ -289,16 +290,17 @@ static void extract_fw(uint8_t fwtype, u
+ 	case FIRMWARE_UCODE_5:
+ 	case FIRMWARE_UCODE_11:
+ 	case FIRMWARE_UCODE_13:
+-		snprintf(outfile, sizeof(outfile), &quot;bcm43xx_microcode%i%s.fw&quot;, 
+-			 fwtype - FIRMWARE_UCODE_OFFSET, cmdargs.postfix);
++		snprintf(outfile, sizeof(outfile), &quot;bcm43%s_microcode%i%s.fw&quot;,
++			 cmdargs.format, fwtype - FIRMWARE_UCODE_OFFSET,
++			 cmdargs.postfix);
+ 		break;
+ 	case FIRMWARE_PCM_4:
+ 	case FIRMWARE_PCM_5:
+-		snprintf(outfile, sizeof(outfile), &quot;bcm43xx_pcm%i%s.fw&quot;, 
+-			 fwtype, cmdargs.postfix);
++		snprintf(outfile, sizeof(outfile), &quot;bcm43%s_pcm%i%s.fw&quot;,
++			 cmdargs.format, fwtype, cmdargs.postfix);
+ 		break;
+ 	default:
+-		snprintf(outfile, sizeof(outfile), &quot;bcm43xx_unknown.fw&quot;);
++		snprintf(outfile, sizeof(outfile), &quot;bcm43_unknown.fw&quot;);
+ 	}
+ 
+ 	if (length &gt; 0) {
+@@ -313,29 +315,29 @@ static void extract_fw(uint8_t fwtype, u
+ 		switch (fwtype) {
+ 		case FIRMWARE_UCODE_2:
+ 		case FIRMWARE_UCODE_4:
+-			printf(&quot;WARNING! Therefore bcm43xx with 0x812 cores &quot;
++			printf(&quot;WARNING! Therefore bcm43 with 0x812 cores &quot;
+ 			       &quot;rev 0x%x will not work.\n&quot;, 
+ 			       fwtype - FIRMWARE_UCODE_OFFSET);
+ 			break;
+ 		case FIRMWARE_UCODE_5:
+-			printf(&quot;WARNING! Therefore bcm43xx with cores 0x812 &quot;
++			printf(&quot;WARNING! Therefore bcm43 with cores 0x812 &quot;
+ 			       &quot;rev 0x5 up to 0xa will not work.\n&quot;);
+ 			break;
+ 		case FIRMWARE_UCODE_11:
+-			printf(&quot;WARNING! Therefore bcm43xx with cores 0x812 &quot;
++			printf(&quot;WARNING! Therefore bcm43 with cores 0x812 &quot;
+ 			       &quot;rev 0xb or 0xc will not work.\n&quot;);
+ 			break;
+ 		case FIRMWARE_UCODE_13:
+-			printf(&quot;WARNING! Therefore bcm43xx with cores 0x812 &quot;
++			printf(&quot;WARNING! Therefore bcm43 with cores 0x812 &quot;
+ 			       &quot;rev 0xd or greater will not work.\n&quot;);
+ 			break;
+ 		case FIRMWARE_PCM_4:
+-			printf(&quot;WARNING! Therefore bcm43xx with cores 0x812 &quot;
++			printf(&quot;WARNING! Therefore bcm43 with cores 0x812 &quot;
+ 			       &quot;rev 0x%x or smaller will not work.\n&quot;, 
+ 			       fwtype);
+ 			break;
+ 		case FIRMWARE_PCM_5:
+-			printf(&quot;WARNING! Therefore bcm43xx with cores 0x812 &quot;
++			printf(&quot;WARNING! Therefore bcm43 with cores 0x812 &quot;
+ 			       &quot;rev 0x%x or greater will not work.\n&quot;, 
+ 			       fwtype);
+ 			break;
+@@ -484,7 +486,7 @@ static void get_ucode_info(const struct 
+ 
+ static void print_banner(void)
+ {
+-	printf(&quot;bcm43xx-fwcutter version &quot; FWCUTTER_VERSION &quot;\n&quot;);
++	printf(&quot;bcm43-fwcutter version &quot; FWCUTTER_VERSION &quot;\n&quot;);
+ }
+ 
+ static void print_file(const struct file *file)
+@@ -569,14 +571,13 @@ static const struct file * find_file(FIL
+ 				return 0;
+ 			}
+ 			if (files[i].flags &amp; V4_FIRMWARE) {
+-				printf(&quot;*** WARNING ***\n&quot;
+-				       &quot;This file contains new version4 \n&quot;
+-				       &quot;firmware. v4 firmware is _not_ supported by \n&quot;
+-				       &quot;the driver in mainline kernels. For v4 firmware \n&quot;
+-				       &quot;you need latest bcm43xx development version \n&quot;
+-				       &quot;(wireless-dev kernel tree). If you don't know what \n&quot;
+-				       &quot;this warning is about, use a 3.xx.xx.xx driver version \n&quot;
+-				       &quot;instead to extract the firmware.\n&quot;);
++				strcpy(cmdargs.format, &quot;&quot;);
++				printf( &quot;This file contains version 4 &quot;
++					&quot; firmware for the bcm43 driver\n&quot;);
++			} else {
++				strcpy(cmdargs.format, &quot;-legacy&quot;);
++				printf( &quot;This file contains version 3 &quot;
++					&quot; firmware for the bcm43legacy driver\n&quot;);
+ 			}
+ 			printf(&quot;\n  filename   :  %s\n&quot;, files[i].name);
+ 			printf(&quot;  version    :  %s\n&quot;, files[i].version);
+@@ -601,7 +602,7 @@ static const struct file * find_file(FIL
+ 		}
+ 	}
+ 	printf(&quot;Sorry, the input file is either wrong or &quot;
+-	       &quot;not supported by bcm43xx-fwcutter.\n&quot;);
++	       &quot;not supported by bcm43-fwcutter.\n&quot;);
+ 	printf(&quot;This file has an unknown MD5sum %s.\n&quot;, md5sig);
+ 
+ 	return 0;
+@@ -637,7 +638,7 @@ static void print_usage(int argc, char *
+ 	printf(&quot;  -p|--postfix \&quot;.FOO\&quot;   &quot;
+ 	       &quot;Postfix for firmware filenames (.FOO.fw)\n&quot;);
+ 	printf(&quot;  -v|--version          &quot;
+-	       &quot;Print bcm43xx-fwcutter version\n&quot;);
++	       &quot;Print bcm43-fwcutter version\n&quot;);
+ 	printf(&quot;  -h|--help             &quot;
+ 	       &quot;Print this help\n&quot;);
+ 	printf(&quot;\nExample: %s bcmwl5.sys\n&quot;
+Index: bcm43xx-fwcutter-006/bcm43-fwcutter.1
+===================================================================
+--- /dev/null
++++ bcm43xx-fwcutter-006/bcm43-fwcutter.1
+@@ -0,0 +1,103 @@
++.\&quot; Initially generated by help2man 1.36.
++.TH BCM43-FWCUTTER &quot;1&quot; &quot;September 2006&quot; &quot;bcm43-fwcutter&quot; &quot;User Commands&quot;
++.SH NAME
++bcm43-fwcutter \- manual page for bcm43-fwcutter
++.SH SYNOPSIS
++.B bcm43-fwcutter
++[\fIOPTION\fR] [\fIDRIVER\fR]
++.SH DESCRIPTION
++Bcm43xx-fwcutter can extract the firmware for your Broadcom 43xx hardware from different closed source drivers. The bcm43  and bcm43legacy drivers depend on this firmware files and can't work without them.
++.PP
++Currently bcm43-fwcutter supports Apple MacOS X, Microsoft Windows 98/ME/2000/XP and Linux drivers, but keep in mind that bcm43-fwcutter doesn't support all driver versions.
++.PP
++Example:
++.IP
++bcm43-fwcutter bcmwl5.sys
++.PP
++to cut the firmware out of bcmwl5.sys
++.SH OPTIONS
++.TP
++\fB\-l\fR|\-\-list
++List supported driver versions
++.TP
++\fB\-i\fR|\-\-identify
++Only identify the driver file (don't extract)
++.TP
++\fB\-w\fR|\-\-target\-dir DIR
++Extract and write firmware to DIR
++.TP
++\fB\-a\fR|\-\-alt\-iv
++Extract alternative initvals (only 3.10.x.x)
++.TP
++\fB\-p\fR|\-\-postfix &quot;.FOO&quot;
++Postfix for firmware filenames (.FOO.fw)
++.TP
++\fB\-v\fR|\-\-version
++Print bcm43-fwcutter version
++.TP
++\fB\-h\fR|\-\-help
++Print help information
++.SH DRIVERS
++.TP
++\fBAppleAirPort2\fR
++Apple MacOS 10.x driver file (ppc, x86)
++.TP
++\fBAppleAirPort3\fR
++Apple MacOS 10.x driver file (ppc)
++.TP
++\fBAppleAirPortBrcm4311\fR
++Apple MacOS 10.4 driver file (x86)
++.TP
++\fBbcmwl5.sys\fR
++Microsoft Windows driver file, 32bit (x86)
++.TP
++\fBbcmwl564.sys\fR
++Microsoft Windows driver file, 64bit (x86-64)
++.TP
++\fBbcmwl5a.sys\fR
++Microsoft Windows driver file, 32bit (x86)
++.TP
++\fBmn720-50.sys\fR
++This is a renamed bcmwl5.sys driver for Microsoft Wireless MN-720 Notebook Adapter
++and MN-730 PCI Adapter
++.TP
++\fBn54gnds.sys\fR
++This is a renamed bcmwl5.sys driver for Planex GW-NS54G 54Mbps Wireless LAN Cards
++.TP
++\fBwmp11v27.sys\fR
++This is a renamed bcmwl5.sys driver for Linksys WMP-11 802.11b PCI Cards
++.TP
++\fBwn511b.sys\fR
++This is a renamed bcmwl5.sys driver for Netgear WN511B Cards
++.TP
++\fBap_d11ucode.o\fR
++Linux 2.4.x driver file (mips)
++.TP
++\fBapsta_d11ucode.o\fR
++Linux 2.4.x driver file (mips)
++.TP
++\fBsta_d11ucode.o\fR
++Linux 2.4.x driver file (mips)
++.TP
++\fBwl.o\fR
++Linux 2.4.x driver file (mips)
++.TP
++\fBwl_ap.o\fR
++Linux 2.4.x driver file (mips)
++.TP
++\fBwl_apsta.o\fR
++Linux 2.4.x driver file (mips)
++.TP
++\fBwl_sta.o\fR
++Linux 2.4.x driver file (mips)
++.TP
++\fBwl96345GW.o_save\fR
++Linux 2.6.x driver file (mips, bcm6345)
++.TP
++\fBwl96348GW.o_save\fR
++Linux 2.6.x driver file (mips, bcm6348)
++.TP
++\fBwl96348GWV_DT.o_save\fR
++Linux 2.6.x driver file (mips, bcm6348)
++.SH AUTHORS
++BCM43xx development team, <A HREF="http://bcm43xx.berlios.de">http://bcm43xx.berlios.de</A>
+Index: bcm43xx-fwcutter-006/fwcutter.h
+===================================================================
+--- bcm43xx-fwcutter-006.orig/fwcutter.h
++++ bcm43xx-fwcutter-006/fwcutter.h
+@@ -59,6 +59,7 @@ struct cmdline_args {
+ 	const char *infile;
+ 	const char *postfix;
+ 	const char *target_dir;
++	char format[10];
+ 	int alt_iv;
+ 	int identify_only;
+ };
+Index: bcm43xx-fwcutter-006/bcm43xx-fwcutter.1
+===================================================================
+--- bcm43xx-fwcutter-006.orig/bcm43xx-fwcutter.1
++++ bcm43xx-fwcutter-006/bcm43xx-fwcutter.1
+@@ -1,103 +1 @@
+-.\&quot; Initially generated by help2man 1.36.
+-.TH BCM43XX-FWCUTTER &quot;1&quot; &quot;September 2006&quot; &quot;bcm43xx-fwcutter&quot; &quot;User Commands&quot;
+-.SH NAME
+-bcm43xx-fwcutter \- manual page for bcm43xx-fwcutter
+-.SH SYNOPSIS
+-.B bcm43xx-fwcutter
+-[\fIOPTION\fR] [\fIDRIVER\fR]
+-.SH DESCRIPTION
+-Bcm43xx-fwcutter can extract the firmware for your Broadcom 43xx hardware from different closed source drivers. The bcm43xx driver depends on this firmware files and can't work without them.
+-.PP
+-Currently bcm43xx-fwcutter supports Apple MacOS X, Microsoft Windows 98/ME/2000/XP and Linux drivers, but keep in mind that bcm43xx-fwcutter doesn't support all driver versions.
+-.PP
+-Example:
+-.IP
+-bcm43xx-fwcutter bcmwl5.sys
+-.PP
+-to cut the firmware out of bcmwl5.sys
+-.SH OPTIONS
+-.TP
+-\fB\-l\fR|\-\-list
+-List supported driver versions
+-.TP
+-\fB\-i\fR|\-\-identify
+-Only identify the driver file (don't extract)
+-.TP
+-\fB\-w\fR|\-\-target\-dir DIR
+-Extract and write firmware to DIR
+-.TP
+-\fB\-a\fR|\-\-alt\-iv
+-Extract alternative initvals (only 3.10.x.x)
+-.TP
+-\fB\-p\fR|\-\-postfix &quot;.FOO&quot;
+-Postfix for firmware filenames (.FOO.fw)
+-.TP
+-\fB\-v\fR|\-\-version
+-Print bcm43xx-fwcutter version
+-.TP
+-\fB\-h\fR|\-\-help
+-Print help information
+-.SH DRIVERS
+-.TP
+-\fBAppleAirPort2\fR
+-Apple MacOS 10.x driver file (ppc, x86)
+-.TP
+-\fBAppleAirPort3\fR
+-Apple MacOS 10.x driver file (ppc)
+-.TP
+-\fBAppleAirPortBrcm4311\fR
+-Apple MacOS 10.4 driver file (x86)
+-.TP
+-\fBbcmwl5.sys\fR
+-Microsoft Windows driver file, 32bit (x86)
+-.TP
+-\fBbcmwl564.sys\fR
+-Microsoft Windows driver file, 64bit (x86-64)
+-.TP
+-\fBbcmwl5a.sys\fR
+-Microsoft Windows driver file, 32bit (x86)
+-.TP
+-\fBmn720-50.sys\fR
+-This is a renamed bcmwl5.sys driver for Microsoft Wireless MN-720 Notebook Adapter 
+-and MN-730 PCI Adapter 
+-.TP
+-\fBn54gnds.sys\fR
+-This is a renamed bcmwl5.sys driver for Planex GW-NS54G 54Mbps Wireless LAN Cards
+-.TP
+-\fBwmp11v27.sys\fR
+-This is a renamed bcmwl5.sys driver for Linksys WMP-11 802.11b PCI Cards
+-.TP
+-\fBwn511b.sys\fR
+-This is a renamed bcmwl5.sys driver for Netgear WN511B Cards
+-.TP
+-\fBap_d11ucode.o\fR
+-Linux 2.4.x driver file (mips)
+-.TP
+-\fBapsta_d11ucode.o\fR
+-Linux 2.4.x driver file (mips)
+-.TP
+-\fBsta_d11ucode.o\fR
+-Linux 2.4.x driver file (mips)
+-.TP
+-\fBwl.o\fR
+-Linux 2.4.x driver file (mips)
+-.TP
+-\fBwl_ap.o\fR
+-Linux 2.4.x driver file (mips)
+-.TP
+-\fBwl_apsta.o\fR
+-Linux 2.4.x driver file (mips)
+-.TP
+-\fBwl_sta.o\fR
+-Linux 2.4.x driver file (mips)
+-.TP
+-\fBwl96345GW.o_save\fR
+-Linux 2.6.x driver file (mips, bcm6345)
+-.TP
+-\fBwl96348GW.o_save\fR
+-Linux 2.6.x driver file (mips, bcm6348)
+-.TP
+-\fBwl96348GWV_DT.o_save\fR
+-Linux 2.6.x driver file (mips, bcm6348)
+-.SH AUTHORS
+-BCM43xx development team, <A HREF="http://bcm43xx.berlios.de">http://bcm43xx.berlios.de</A>
++
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001941.html">Usage of bcm43xx-sprom tool
+</A></li>
+	<LI>Next message: <A HREF="001958.html">[RFC] Proposed changes to fwcutter
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1953">[ date ]</a>
+              <a href="thread.html#1953">[ thread ]</a>
+              <a href="subject.html#1953">[ subject ]</a>
+              <a href="author.html#1953">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

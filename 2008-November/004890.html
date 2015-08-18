@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BCM4312 Fails when xdm is started
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4312%20Fails%20when%20xdm%20is%20started&In-Reply-To=%3C200811220839.32674.yuval%40avramzon.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004889.html">
+   <LINK REL="Next"  HREF="004891.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BCM4312 Fails when xdm is started</H1>
+    <B>Yuval Hager</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4312%20Fails%20when%20xdm%20is%20started&In-Reply-To=%3C200811220839.32674.yuval%40avramzon.net%3E"
+       TITLE="BCM4312 Fails when xdm is started">yuval at avramzon.net
+       </A><BR>
+    <I>Sat Nov 22 07:39:24 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004889.html">BCM4312 Fails when xdm is started
+</A></li>
+        <LI>Next message: <A HREF="004891.html">BCM4312 Fails when xdm is started
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4890">[ date ]</a>
+              <a href="thread.html#4890">[ thread ]</a>
+              <a href="subject.html#4890">[ subject ]</a>
+              <a href="author.html#4890">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 21 November 2008, Larry Finger wrote:
+&gt;<i> Yuval,
+</I>&gt;<i>
+</I>&gt;<i> Michael Buesch wrote:
+</I>&gt;<i> &gt; Can you dump PCI config space and SSB registers (TMSLOW, maybe others,
+</I>&gt;<i> &gt; too). It looks like a random bus write disabled the device.
+</I>&gt;<i>
+</I>&gt;<i> Please incorporate the following patch and run your system. In addition,
+</I>&gt;<i> run the following command when the wireless is working and after it fails:
+</I>&gt;<i>
+</I>&gt;<i> sudo lspci -d 14e4:4312 -x
+</I>&gt;<i>
+</I>
+When the wireless is working:
+$ lspci -d 14e4:4312 -x
+02:00.0 Network controller: Broadcom Corporation BCM4312 802.11a/b/g (rev 02)
+00: e4 14 12 43 06 01 10 00 02 00 80 02 08 00 00 00
+10: 04 c0 ff fd 00 00 00 00 00 00 00 00 00 00 00 00
+20: 00 00 00 00 00 00 00 00 00 00 00 00 3c 10 71 13
+30: 00 00 00 00 40 00 00 00 00 00 00 00 0a 01 00 00
+
+After it fails:
+$ lspci -d 14e4:4312 -x
+02:00.0 Network controller: Broadcom Corporation BCM4312 802.11a/b/g (rev 02)
+00: e4 14 12 43 00 00 10 00 02 00 80 02 00 00 00 00
+10: 04 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+20: 00 00 00 00 00 00 00 00 00 00 00 00 3c 10 71 13
+30: 00 00 00 00 40 00 00 00 00 00 00 00 00 01 00 00
+
+
+&gt;<i> Post the results of the above commands and any entries in /var/log/messages
+</I>&gt;<i> that dump registers. They should all be prefaced with ****
+</I>&gt;<i>
+</I>
+Sorry for the long time to reply, it took a while to recreate the problem. 
+According to the logs, it happened exactly when I checked the machine in the 
+morning.
+At the beginning, the register dumps look like this:
+
+[   57.279984] ****** b43: B43_MMIO_MACCTL 0x840A0503
+[   57.279992] ****** b43: SSB_TMSLOW 0x20150000
+(these line repeat exactly the same. Skipping)
+
+[31723.961262] ****** b43: B43_MMIO_MACCTL 0x840A0503
+[31723.961275] ****** b43: SSB_TMSLOW 0x20150000
+[31732.959490] b43-phy0: Radio hardware status changed to DISABLED
+[31732.959505] b43-phy0: ******** B43_B43_MMIO_RADIO_HWENABLED_HI 0xFFFFFFFF
+[31738.130551] wlan0: No ProbeResp from current AP 00:22:3f:18:89:5e - assume 
+out of range
+[31783.855931] ------------[ cut here ]------------
+[31783.855944] WARNING: at drivers/net/wireless/b43/phy_common.c:135 
+b43_radio_lock+0x29/0x7e [b43]()
+[31783.855955] Modules linked in: via drm rfkill_input hci_usb b43 led_class 
+input_polldev rtc snd_hda_intel snd_pcm snd_tim
+er snd_page_alloc snd_hwdep snd soundcore ehci_hcd uhci_hcd usbcore sg ssb 
+video output via_agp agpgart
+[31783.856023] Pid: 1220, comm: b43 Not tainted 2.6.28-rc5 #13
+[31783.856032] Call Trace:
+[31783.856055]  [&lt;c011f4e9&gt;] warn_on_slowpath+0x40/0x59
+[31783.856102]  [&lt;f7d93da3&gt;] b43_gphy_op_write+0x25/0x29 [b43]
+[31783.856143]  [&lt;f7d90735&gt;] b43_calc_nrssi_slope+0x103e/0x105a [b43]
+[31783.856180]  [&lt;f7cba429&gt;] ssb_pci_write32+0x15/0x3f [ssb]
+[31783.856209]  [&lt;f7cba545&gt;] ssb_pci_read16+0x31/0x3f [ssb]
+[31783.856244]  [&lt;f7d8854c&gt;] __b43_shm_read16+0x79/0x81 [b43]
+[31783.856272]  [&lt;f7cba545&gt;] ssb_pci_read16+0x31/0x3f [ssb]
+[31783.856306]  [&lt;f7d8854c&gt;] __b43_shm_read16+0x79/0x81 [b43]
+[31783.856334]  [&lt;f7cba4eb&gt;] ssb_pci_read32+0x12/0x3b [ssb]
+[31783.856370]  [&lt;f7d8dc77&gt;] b43_radio_lock+0x29/0x7e [b43]
+[31783.856408]  [&lt;f7d91e92&gt;] b43_gphy_op_adjust_txpower+0x111/0x138 [b43]
+[31783.856446]  [&lt;f7d8da06&gt;] b43_phy_txpower_adjust_work+0x0/0x39 [b43]
+[31783.856483]  [&lt;f7d8da36&gt;] b43_phy_txpower_adjust_work+0x30/0x39 [b43]
+[31783.856500]  [&lt;c012b2a4&gt;] run_workqueue+0x6a/0xdf
+[31783.856515]  [&lt;c012b9ba&gt;] worker_thread+0x0/0xbd
+[31783.856527]  [&lt;c012ba6d&gt;] worker_thread+0xb3/0xbd
+[31783.856545]  [&lt;c012dc8c&gt;] autoremove_wake_function+0x0/0x2d
+[31783.856560]  [&lt;c012dbc9&gt;] kthread+0x38/0x5f
+[31783.856573]  [&lt;c012db91&gt;] kthread+0x0/0x5f
+[31783.856588]  [&lt;c01040a7&gt;] kernel_thread_helper+0x7/0x10
+[31783.856598] ---[ end trace 7548c7ede66fa0d3 ]---
+[31783.856607] ****** b43: B43_MMIO_MACCTL 0xFFFFFFFF
+[31783.856616] ****** b43: SSB_TMSLOW 0xFFFFFFFF
+
+And from now on, all reads are ones. I have the full logs if you need.
+
+Cheers,
+
+--yuval
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 197 bytes
+Desc: This is a digitally signed message part.
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20081122/9e92e5e1/attachment.pgp">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20081122/9e92e5e1/attachment.pgp</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004889.html">BCM4312 Fails when xdm is started
+</A></li>
+	<LI>Next message: <A HREF="004891.html">BCM4312 Fails when xdm is started
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4890">[ date ]</a>
+              <a href="thread.html#4890">[ thread ]</a>
+              <a href="subject.html#4890">[ subject ]</a>
+              <a href="author.html#4890">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,365 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Implement spec updates and remove resolved FIXMEs
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Implement%20spec%20updates%20and%20remove%20resolved%20FIXMEs&In-Reply-To=%3C4A8AE255.9030102%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005863.html">
+   <LINK REL="Next"  HREF="005871.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Implement spec updates and remove resolved FIXMEs</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Implement%20spec%20updates%20and%20remove%20resolved%20FIXMEs&In-Reply-To=%3C4A8AE255.9030102%40gmail.com%3E"
+       TITLE="[PATCH] b43: LP-PHY: Implement spec updates and remove resolved FIXMEs">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Tue Aug 18 19:18:13 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005863.html">[PATCH] b43: Fix sparse warnings
+</A></li>
+        <LI>Next message: <A HREF="005871.html">[PATCH] b43: LP-PHY: Implement spec updates and remove resolved 	FIXMEs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5864">[ date ]</a>
+              <a href="thread.html#5864">[ thread ]</a>
+              <a href="subject.html#5864">[ subject ]</a>
+              <a href="author.html#5864">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Larry has started re-checking all current routines against a new
+version of the Broadcom MIPS driver. This patch implements the first
+round of changes he documented on the specs wiki.
+
+Also remove a few FIXMEs regarding missing initial values for variables
+with dynamic initial values where reading the values has been implemented.
+
+Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_lp.c       |   98 +++++++++++++++++++------------
+ drivers/net/wireless/b43/phy_lp.h       |   18 +++---
+ drivers/net/wireless/b43/tables_lpphy.c |   12 ++++-
+ 3 files changed, 82 insertions(+), 46 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+index 242338f..6c69cdb 100644
+--- a/drivers/net/wireless/b43/phy_lp.c
++++ b/drivers/net/wireless/b43/phy_lp.c
+@@ -719,9 +719,39 @@ static void lpphy_set_bb_mult(struct b43_wldev *dev, u8 bb_mult)
+ 	b43_lptab_write(dev, B43_LPTAB16(0, 87), (u16)bb_mult &lt;&lt; 8);
+ }
+ 
+-static void lpphy_disable_crs(struct b43_wldev *dev)
++static void lpphy_set_deaf(struct b43_wldev *dev, bool user)
+ {
++	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
++
++	if (user)
++		lpphy-&gt;crs_usr_disable = 1;
++	else
++		lpphy-&gt;crs_sys_disable = 1;
+ 	b43_phy_maskset(dev, B43_LPPHY_CRSGAIN_CTL, 0xFF1F, 0x80);
++}
++
++static void lpphy_clear_deaf(struct b43_wldev *dev, bool user)
++{
++	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
++
++	if (user)
++		lpphy-&gt;crs_usr_disable = 0;
++	else
++		lpphy-&gt;crs_sys_disable = 0;
++
++	if (!lpphy-&gt;crs_usr_disable &amp;&amp; !lpphy-&gt;crs_sys_disable) {
++		if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)
++			b43_phy_maskset(dev, B43_LPPHY_CRSGAIN_CTL,
++					0xFF1F, 0x60);
++		else
++			b43_phy_maskset(dev, B43_LPPHY_CRSGAIN_CTL,
++					0xFF1F, 0x20);
++	}
++}
++
++static void lpphy_disable_crs(struct b43_wldev *dev, bool user)
++{
++	lpphy_set_deaf(dev, user);
+ 	b43_phy_maskset(dev, B43_LPPHY_RF_OVERRIDE_VAL_0, 0xFFFC, 0x1);
+ 	b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_0, 0x3);
+ 	b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_VAL_0, 0xFFFB);
+@@ -749,12 +779,9 @@ static void lpphy_disable_crs(struct b43_wldev *dev)
+ 	b43_phy_write(dev, B43_LPPHY_RF_OVERRIDE_2, 0x3FF);
+ }
+ 
+-static void lpphy_restore_crs(struct b43_wldev *dev)
++static void lpphy_restore_crs(struct b43_wldev *dev, bool user)
+ {
+-	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)
+-		b43_phy_maskset(dev, B43_LPPHY_CRSGAIN_CTL, 0xFF1F, 0x60);
+-	else
+-		b43_phy_maskset(dev, B43_LPPHY_CRSGAIN_CTL, 0xFF1F, 0x20);
++	lpphy_clear_deaf(dev, user);
+ 	b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_0, 0xFF80);
+ 	b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFC00);
+ }
+@@ -800,10 +827,11 @@ static void lpphy_set_tx_gains(struct b43_wldev *dev,
+ 		b43_phy_maskset(dev, B43_LPPHY_TX_GAIN_CTL_OVERRIDE_VAL,
+ 				0xF800, rf_gain);
+ 	} else {
+-		pa_gain = b43_phy_read(dev, B43_PHY_OFDM(0xFB)) &amp; 0x7F00;
++		pa_gain = b43_phy_read(dev, B43_PHY_OFDM(0xFB)) &amp; 0x1FC0;
++		pa_gain &lt;&lt;= 2;
+ 		b43_phy_write(dev, B43_LPPHY_TX_GAIN_CTL_OVERRIDE_VAL,
+ 			      (gains.pga &lt;&lt; 8) | gains.gm);
+-		b43_phy_maskset(dev, B43_LPPHY_TX_GAIN_CTL_OVERRIDE_VAL,
++		b43_phy_maskset(dev, B43_PHY_OFDM(0xFB),
+ 				0x8000, gains.pad | pa_gain);
+ 		b43_phy_write(dev, B43_PHY_OFDM(0xFC),
+ 			      (gains.pga &lt;&lt; 8) | gains.gm);
+@@ -817,7 +845,7 @@ static void lpphy_set_tx_gains(struct b43_wldev *dev,
+ 		b43_phy_maskset(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFF7F, 1 &lt;&lt; 7);
+ 		b43_phy_maskset(dev, B43_LPPHY_RF_OVERRIDE_2, 0xBFFF, 1 &lt;&lt; 14);
+ 	}
+-	b43_phy_maskset(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFFBF, 1 &lt;&lt; 6);
++	b43_phy_maskset(dev, B43_LPPHY_AFE_CTL_OVR, 0xFFBF, 1 &lt;&lt; 6);
+ }
+ 
+ static void lpphy_rev0_1_set_rx_gain(struct b43_wldev *dev, u32 gain)
+@@ -857,33 +885,33 @@ static void lpphy_rev2plus_set_rx_gain(struct b43_wldev *dev, u32 gain)
+ 	}
+ }
+ 
+-static void lpphy_enable_rx_gain_override(struct b43_wldev *dev)
++static void lpphy_disable_rx_gain_override(struct b43_wldev *dev)
+ {
+ 	b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_0, 0xFFFE);
+ 	b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_0, 0xFFEF);
+ 	b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_0, 0xFFBF);
+ 	if (dev-&gt;phy.rev &gt;= 2) {
+ 		b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFEFF);
+-		if (b43_current_band(dev-&gt;wl) != IEEE80211_BAND_2GHZ)
+-			return;
+-		b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFBFF);
+-		b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFFF7);
++		if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
++			b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFBFF);
++			b43_phy_mask(dev, B43_PHY_OFDM(0xE5), 0xFFF7);
++		}
+ 	} else {
+ 		b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_2, 0xFDFF);
+ 	}
+ }
+ 
+-static void lpphy_disable_rx_gain_override(struct b43_wldev *dev)
++static void lpphy_enable_rx_gain_override(struct b43_wldev *dev)
+ {
+ 	b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_0, 0x1);
+ 	b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_0, 0x10);
+ 	b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_0, 0x40);
+ 	if (dev-&gt;phy.rev &gt;= 2) {
+ 		b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_2, 0x100);
+-		if (b43_current_band(dev-&gt;wl) != IEEE80211_BAND_2GHZ)
+-			return;
+-		b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_2, 0x400);
+-		b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_2, 0x8);
++		if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
++			b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_2, 0x400);
++			b43_phy_set(dev, B43_PHY_OFDM(0xE5), 0x8);
++		}
+ 	} else {
+ 		b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_2, 0x200);
+ 	}
+@@ -1002,26 +1030,22 @@ static u32 lpphy_qdiv_roundup(u32 dividend, u32 divisor, u8 precision)
+ {
+ 	u32 quotient, remainder, rbit, roundup, tmp;
+ 
+-	if (divisor == 0) {
+-		quotient = 0;
+-		remainder = 0;
+-	} else {
+-		quotient = dividend / divisor;
+-		remainder = dividend % divisor;
+-	}
++	if (divisor == 0)
++		return 0;
++
++	quotient = dividend / divisor;
++	remainder = dividend % divisor;
+ 
+ 	rbit = divisor &amp; 0x1;
+ 	roundup = (divisor &gt;&gt; 1) + rbit;
+-	precision--;
+ 
+-	while (precision != 0xFF) {
++	while (precision != 0) {
+ 		tmp = remainder - roundup;
+ 		quotient &lt;&lt;= 1;
+-		remainder &lt;&lt;= 1;
+-		if (remainder &gt;= roundup) {
++		if (remainder &gt;= roundup)
+ 			remainder = (tmp &lt;&lt; 1) + rbit;
+-			quotient--;
+-		}
++		else
++			remainder &lt;&lt;= 1;
+ 		precision--;
+ 	}
+ 
+@@ -1123,11 +1147,11 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev *dev)
+ 	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+ 	struct lpphy_iq_est iq_est;
+ 	struct lpphy_tx_gains tx_gains;
+-	static const u32 ideal_pwr_table[22] = {
++	static const u32 ideal_pwr_table[21] = {
+ 		0x10000, 0x10557, 0x10e2d, 0x113e0, 0x10f22, 0x0ff64,
+ 		0x0eda2, 0x0e5d4, 0x0efd1, 0x0fbe8, 0x0b7b8, 0x04b35,
+ 		0x01a5e, 0x00a0b, 0x00444, 0x001fd, 0x000ff, 0x00088,
+-		0x0004c, 0x0002c, 0x0001a, 0xc0006,
++		0x0004c, 0x0002c, 0x0001a,
+ 	};
+ 	bool old_txg_ovr;
+ 	u8 old_bbmult;
+@@ -1145,7 +1169,7 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev *dev)
+ 		       &quot;RC calib: Failed to switch to channel 7, error = %d&quot;,
+ 		       err);
+ 	}
+-	old_txg_ovr = (b43_phy_read(dev, B43_LPPHY_AFE_CTL_OVR) &gt;&gt; 6) &amp; 1;
++	old_txg_ovr = !!(b43_phy_read(dev, B43_LPPHY_AFE_CTL_OVR) &amp; 0x40);
+ 	old_bbmult = lpphy_get_bb_mult(dev);
+ 	if (old_txg_ovr)
+ 		tx_gains = lpphy_get_tx_gains(dev);
+@@ -1160,7 +1184,7 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev *dev)
+ 	old_txpctl = lpphy-&gt;txpctl_mode;
+ 
+ 	lpphy_set_tx_power_control(dev, B43_LPPHY_TXPCTL_OFF);
+-	lpphy_disable_crs(dev);
++	lpphy_disable_crs(dev, true);
+ 	loopback = lpphy_loopback(dev);
+ 	if (loopback == -1)
+ 		goto finish;
+@@ -1193,7 +1217,7 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev *dev)
+ 	lpphy_stop_ddfs(dev);
+ 
+ finish:
+-	lpphy_restore_crs(dev);
++	lpphy_restore_crs(dev, true);
+ 	b43_phy_write(dev, B43_LPPHY_RF_OVERRIDE_VAL_0, old_rf_ovrval);
+ 	b43_phy_write(dev, B43_LPPHY_RF_OVERRIDE_0, old_rf_ovr);
+ 	b43_phy_write(dev, B43_LPPHY_AFE_CTL_OVRVAL, old_afe_ovrval);
+diff --git a/drivers/net/wireless/b43/phy_lp.h b/drivers/net/wireless/b43/phy_lp.h
+index 99cb038..e158d1f 100644
+--- a/drivers/net/wireless/b43/phy_lp.h
++++ b/drivers/net/wireless/b43/phy_lp.h
+@@ -825,11 +825,11 @@ struct b43_phy_lp {
+ 	enum b43_lpphy_txpctl_mode txpctl_mode;
+ 
+ 	/* Transmit isolation medium band */
+-	u8 tx_isolation_med_band; /* FIXME initial value? */
++	u8 tx_isolation_med_band;
+ 	/* Transmit isolation low band */
+-	u8 tx_isolation_low_band; /* FIXME initial value? */
++	u8 tx_isolation_low_band;
+ 	/* Transmit isolation high band */
+-	u8 tx_isolation_hi_band; /* FIXME initial value? */
++	u8 tx_isolation_hi_band;
+ 
+ 	/* Max transmit power medium band */
+ 	u16 max_tx_pwr_med_band;
+@@ -848,7 +848,7 @@ struct b43_phy_lp {
+ 	s16 txpa[3], txpal[3], txpah[3];
+ 
+ 	/* Receive power offset */
+-	u8 rx_pwr_offset; /* FIXME initial value? */
++	u8 rx_pwr_offset;
+ 
+ 	/* TSSI transmit count */
+ 	u16 tssi_tx_count;
+@@ -864,16 +864,16 @@ struct b43_phy_lp {
+ 	s8 tx_pwr_idx_over; /* FIXME initial value? */
+ 
+ 	/* RSSI vf */
+-	u8 rssi_vf; /* FIXME initial value? */
++	u8 rssi_vf;
+ 	/* RSSI vc */
+-	u8 rssi_vc; /* FIXME initial value? */
++	u8 rssi_vc;
+ 	/* RSSI gs */
+-	u8 rssi_gs; /* FIXME initial value? */
++	u8 rssi_gs;
+ 
+ 	/* RC cap */
+ 	u8 rc_cap; /* FIXME initial value? */
+ 	/* BX arch */
+-	u8 bx_arch; /* FIXME initial value? */
++	u8 bx_arch;
+ 
+ 	/* Full calibration channel */
+ 	u8 full_calib_chan; /* FIXME initial value? */
+@@ -885,6 +885,8 @@ struct b43_phy_lp {
+ 	/* Used for &quot;Save/Restore Dig Filt State&quot; */
+ 	u16 dig_flt_state[9];
+ 
++	bool crs_usr_disable, crs_sys_disable;
++
+ 	unsigned int pdiv;
+ };
+ 
+diff --git a/drivers/net/wireless/b43/tables_lpphy.c b/drivers/net/wireless/b43/tables_lpphy.c
+index 2721310..60d472f 100644
+--- a/drivers/net/wireless/b43/tables_lpphy.c
++++ b/drivers/net/wireless/b43/tables_lpphy.c
+@@ -2367,7 +2367,17 @@ static void lpphy_rev2plus_write_gain_table(struct b43_wldev *dev, int offset,
+ 	tmp  = data.pad &lt;&lt; 16;
+ 	tmp |= data.pga &lt;&lt; 8;
+ 	tmp |= data.gm;
+-	tmp |= 0x7f000000;
++	if (dev-&gt;phy.rev &gt;= 3) {
++		if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ)
++			tmp |= 0x10 &lt;&lt; 24;
++		else
++			tmp |= 0x70 &lt;&lt; 24;
++	} else {
++		if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ)
++			tmp |= 0x14 &lt;&lt; 24;
++		else
++			tmp |= 0x7F &lt;&lt; 24;
++	}
+ 	b43_lptab_write(dev, B43_LPTAB32(7, 0xC0 + offset), tmp);
+ 	tmp  = data.bb_mult &lt;&lt; 20;
+ 	tmp |= data.dac &lt;&lt; 28;
+-- 
+1.6.2.4
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005863.html">[PATCH] b43: Fix sparse warnings
+</A></li>
+	<LI>Next message: <A HREF="005871.html">[PATCH] b43: LP-PHY: Implement spec updates and remove resolved 	FIXMEs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5864">[ date ]</a>
+              <a href="thread.html#5864">[ thread ]</a>
+              <a href="subject.html#5864">[ subject ]</a>
+              <a href="author.html#5864">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

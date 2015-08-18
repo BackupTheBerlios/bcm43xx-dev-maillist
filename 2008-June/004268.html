@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix possible MMIO access while device is down
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20possible%20MMIO%20access%20while%20device%20is%20down&In-Reply-To=%3C200806151601.24322.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004267.html">
+   <LINK REL="Next"  HREF="004272.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix possible MMIO access while device is down</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20possible%20MMIO%20access%20while%20device%20is%20down&In-Reply-To=%3C200806151601.24322.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix possible MMIO access while device is down">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Jun 15 16:01:24 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004267.html">[PATCH] b43legacy: Do not return TX_BUSY from op_tx
+</A></li>
+        <LI>Next message: <A HREF="004272.html">oops loading b43 driver w/ 4318 minipci card (but works on bcm5352)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4268">[ date ]</a>
+              <a href="thread.html#4268">[ thread ]</a>
+              <a href="subject.html#4268">[ subject ]</a>
+              <a href="author.html#4268">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes a possible MMIO access while the device is still down
+from a suspend cycle. MMIO accesses with the device powered down
+may cause crashes on certain devices.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, please queue for 2.6.26
+
+
+Index: wireless-testing/drivers/net/wireless/b43/leds.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/leds.c	2008-05-15 23:31:37.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/leds.c	2008-06-15 15:55:42.000000000 +0200
+@@ -69,12 +69,15 @@ static void b43_led_brightness_set(struc
+ 				   enum led_brightness brightness)
+ {
+ 	struct b43_led *led = container_of(led_dev, struct b43_led, led_dev);
+ 	struct b43_wldev *dev = led-&gt;dev;
+ 	bool radio_enabled;
+ 
++	if (unlikely(b43_status(dev) &lt; B43_STAT_INITIALIZED))
++		return;
++
+ 	/* Checking the radio-enabled status here is slightly racy,
+ 	 * but we want to avoid the locking overhead and we don't care
+ 	 * whether the LED has the wrong state for a second. */
+ 	radio_enabled = (dev-&gt;phy.radio_on &amp;&amp; dev-&gt;radio_hw_enable);
+ 
+ 	if (brightness == LED_OFF || !radio_enabled)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004267.html">[PATCH] b43legacy: Do not return TX_BUSY from op_tx
+</A></li>
+	<LI>Next message: <A HREF="004272.html">oops loading b43 driver w/ 4318 minipci card (but works on bcm5352)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4268">[ date ]</a>
+              <a href="thread.html#4268">[ thread ]</a>
+              <a href="subject.html#4268">[ subject ]</a>
+              <a href="author.html#4268">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

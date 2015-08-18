@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.21-rc4-mm1
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.21-rc4-mm1&In-Reply-To=%3C4601761F.4000302%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000811.html">
+   <LINK REL="Next"  HREF="000813.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.21-rc4-mm1</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.21-rc4-mm1&In-Reply-To=%3C4601761F.4000302%40lwfinger.net%3E"
+       TITLE="2.6.21-rc4-mm1">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Wed Mar 21 19:14:55 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000811.html">Does this belong?
+</A></li>
+        <LI>Next message: <A HREF="000813.html">2.6.21-rc4-mm1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#812">[ date ]</a>
+              <a href="thread.html#812">[ thread ]</a>
+              <a href="subject.html#812">[ subject ]</a>
+              <a href="author.html#812">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Andrew Morton wrote:
+&gt;<i> On Tue, 20 Mar 2007 17:23:54 -0600 Zan Lynx &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zlynx at acm.org</A>&gt; wrote:
+</I>&gt;<i> 
+</I>&gt;&gt;<i> On Mon, 2007-03-19 at 20:56 -0800, Andrew Morton wrote:
+</I>&gt;&gt;&gt;<i> Temporarily at
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i>   <A HREF="http://userweb.kernel.org/~akpm/2.6.21-rc4-mm1/">http://userweb.kernel.org/~akpm/2.6.21-rc4-mm1/</A>
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> Will appear later at
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i>   <A HREF="ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.21-rc4/2.6.21-rc4-mm1/">ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.21-rc4/2.6.21-rc4-mm1/</A>
+</I>&gt;&gt;<i> First impressions:
+</I>&gt;&gt;<i> Several of the same bugs as rc3-mm*:
+</I>&gt;&gt;<i>       * Freezes immediately if I touch the wlan0 device after loading
+</I>&gt;&gt;<i>         the new Broadcom wireless driver.
+</I>
+The version of the ssb driver in 2.6.21-rc4-mm1 has a bug that causes a kernel oops if the bcm43xx
+chip contains a USB (dangling) core. This bug has been fixed in Michael Buesch's tree, but
+apparently not yet in Linville's wireless-dev tree. The patch is as follows:
+
+commit 08531ff130bcc8181d9294a66e25010f48eefb97
+Author: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+Date:   Wed Mar 7 23:01:08 2007 +0100
+
+    ssb: Don't freeze unregistered devices.
+
+    Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+diff --git a/drivers/ssb/core.c b/drivers/ssb/core.c
+index 2facada..c956edf 100644
+--- a/drivers/ssb/core.c
++++ b/drivers/ssb/core.c
+@@ -163,6 +163,8 @@ int ssb_devices_freeze(struct ssb_bus *bus)
+ 		dev = &amp;(bus-&gt;devices[i]);
+ 		if (!dev-&gt;dev-&gt;driver)
+ 			continue;
++		if (!device_is_registered(dev-&gt;dev))
++			continue;
+ 		drv = drv_to_ssb_drv(dev-&gt;dev-&gt;driver);
+ 		if (drv &amp;&amp; drv-&gt;suspend) {
+ 			err = drv-&gt;suspend(dev, state);
+@@ -185,6 +187,8 @@ int ssb_devices_thaw(struct ssb_bus *bus)
+ 		dev = &amp;(bus-&gt;devices[i]);
+ 		if (!dev-&gt;dev-&gt;driver)
+ 			continue;
++		if (!device_is_registered(dev-&gt;dev))
++			continue;
+ 		drv = drv_to_ssb_drv(dev-&gt;dev-&gt;driver);
+ 		if (drv &amp;&amp; drv-&gt;resume) {
+ 			err = drv-&gt;resume(dev);
+
+Larry
+
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: usb_freeze
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070321/4e484d55/attachment.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070321/4e484d55/attachment.ksh</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000811.html">Does this belong?
+</A></li>
+	<LI>Next message: <A HREF="000813.html">2.6.21-rc4-mm1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#812">[ date ]</a>
+              <a href="thread.html#812">[ thread ]</a>
+              <a href="subject.html#812">[ subject ]</a>
+              <a href="author.html#812">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

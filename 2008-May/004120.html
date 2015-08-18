@@ -1,0 +1,186 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add panic reason code that doesn't trigger restart
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20panic%20reason%20code%20that%20doesn%27t%20trigger%20restart&In-Reply-To=%3C200805192351.38219.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004123.html">
+   <LINK REL="Next"  HREF="004121.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add panic reason code that doesn't trigger restart</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20panic%20reason%20code%20that%20doesn%27t%20trigger%20restart&In-Reply-To=%3C200805192351.38219.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add panic reason code that doesn't trigger restart">mb at bu3sch.de
+       </A><BR>
+    <I>Mon May 19 23:51:37 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004123.html">unsubscribed
+</A></li>
+        <LI>Next message: <A HREF="004121.html">[PATCH] b43: Add firmware markers support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4120">[ date ]</a>
+              <a href="thread.html#4120">[ thread ]</a>
+              <a href="subject.html#4120">[ subject ]</a>
+              <a href="author.html#4120">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Add a firmware panic reason code that doesn't trigger a restart.
+This is useful for firmware debugging and avoiding endless
+restart loops. We can use FWPANIC_DIE to halt the firmware at a
+well defined point.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, this is for 2.6.27
+
+
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h	2008-05-17 23:09:09.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/b43.h	2008-05-18 23:57:16.000000000 +0200
+@@ -419,18 +419,27 @@ enum {
+ 					 B43_IRQ_TXFIFO_FLUSH_OK | \
+ 					 B43_IRQ_NOISESAMPLE_OK | \
+ 					 B43_IRQ_UCODE_DEBUG | \
+ 					 B43_IRQ_RFKILL | \
+ 					 B43_IRQ_TX_OK)
+ 
++/* The firmware register to fetch the debug-IRQ reason from. */
++#define B43_DEBUGIRQ_REASON_REG		63
+ /* Debug-IRQ reasons. */
+ #define B43_DEBUGIRQ_PANIC		0	/* The firmware panic'ed */
+ #define B43_DEBUGIRQ_DUMP_SHM		1	/* Dump shared SHM */
+ #define B43_DEBUGIRQ_DUMP_REGS		2	/* Dump the microcode registers */
+ #define B43_DEBUGIRQ_ACK		0xFFFF	/* The host writes that to ACK the IRQ */
+ 
++/* The firmware register to fetch the panic reason from. */
++#define B43_FWPANIC_REASON_REG		3
++/* Firmware panic reason codes */
++#define B43_FWPANIC_DIE			0 /* Firmware died. Don't auto-restart it. */
++#define B43_FWPANIC_RESTART		1 /* Firmware died. Schedule a controller reset. */
++
++
+ /* Device specific rate values.
+  * The actual values defined here are (rate_in_mbps * 2).
+  * Some code depends on this. Don't change it. */
+ #define B43_CCK_RATE_1MB		0x02
+ #define B43_CCK_RATE_2MB		0x04
+ #define B43_CCK_RATE_5MB		0x0B
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-05-17 23:33:15.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-05-19 00:02:01.000000000 +0200
+@@ -1661,31 +1661,52 @@ static void b43_set_beacon_int(struct b4
+ 		b43_write16(dev, 0x610, beacon_int);
+ 	}
+ 	b43_time_unlock(dev);
+ 	b43dbg(dev-&gt;wl, &quot;Set beacon interval to %u\n&quot;, beacon_int);
+ }
+ 
++static void b43_handle_firmware_panic(struct b43_wldev *dev)
++{
++	u16 reason;
++
++	/* Read the register that contains the reason code for the panic. */
++	reason = b43_shm_read16(dev, B43_SHM_SCRATCH, B43_FWPANIC_REASON_REG);
++	b43err(dev-&gt;wl, &quot;Whoopsy, firmware panic! Reason: %u\n&quot;, reason);
++
++	switch (reason) {
++	default:
++		b43dbg(dev-&gt;wl, &quot;The panic reason is unknown.\n&quot;);
++		/* fallthrough */
++	case B43_FWPANIC_DIE:
++		/* Do not restart the controller or firmware.
++		 * The device is nonfunctional from now on.
++		 * Restarting would result in this panic to trigger again,
++		 * so we avoid that recursion. */
++		break;
++	case B43_FWPANIC_RESTART:
++		b43_controller_restart(dev, &quot;Microcode panic&quot;);
++		break;
++	}
++}
++
+ static void handle_irq_ucode_debug(struct b43_wldev *dev)
+ {
+ 	unsigned int i, cnt;
+ 	u16 reason;
+ 	__le16 *buf;
+ 
+ 	/* The proprietary firmware doesn't have this IRQ. */
+ 	if (!dev-&gt;fw.opensource)
+ 		return;
+ 
+-	/* Microcode register 63 contains the debug-IRQ reason. */
+-	reason = b43_shm_read16(dev, B43_SHM_SCRATCH, 63);
++	/* Read the register that contains the reason code for this IRQ. */
++	reason = b43_shm_read16(dev, B43_SHM_SCRATCH, B43_DEBUGIRQ_REASON_REG);
++
+ 	switch (reason) {
+ 	case B43_DEBUGIRQ_PANIC:
+-		/* The reason for the panic is in register 3. */
+-		reason = b43_shm_read16(dev, B43_SHM_SCRATCH, 3);
+-		b43err(dev-&gt;wl, &quot;Whoopsy, the microcode panic'ed! Reason: %u\n&quot;,
+-		       reason);
+-		b43_controller_restart(dev, &quot;Microcode panic&quot;);
++		b43_handle_firmware_panic(dev);
+ 		break;
+ 	case B43_DEBUGIRQ_DUMP_SHM:
+ 		if (!B43_DEBUG)
+ 			break; /* Only with driver debugging enabled. */
+ 		buf = kmalloc(4096, GFP_ATOMIC);
+ 		if (!buf) {
+@@ -1720,13 +1741,15 @@ static void handle_irq_ucode_debug(struc
+ 		break;
+ 	default:
+ 		b43dbg(dev-&gt;wl, &quot;Debug-IRQ triggered for unknown reason: %u\n&quot;,
+ 		       reason);
+ 	}
+ out:
+-	b43_shm_write16(dev, B43_SHM_SCRATCH, 63, B43_DEBUGIRQ_ACK);
++	/* Acknowledge the debug-IRQ, so the firmware can continue. */
++	b43_shm_write16(dev, B43_SHM_SCRATCH,
++			B43_DEBUGIRQ_REASON_REG, B43_DEBUGIRQ_ACK);
+ }
+ 
+ /* Interrupt handler bottom-half */
+ static void b43_interrupt_tasklet(struct b43_wldev *dev)
+ {
+ 	u32 reason;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004123.html">unsubscribed
+</A></li>
+	<LI>Next message: <A HREF="004121.html">[PATCH] b43: Add firmware markers support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4120">[ date ]</a>
+              <a href="thread.html#4120">[ thread ]</a>
+              <a href="subject.html#4120">[ subject ]</a>
+              <a href="author.html#4120">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

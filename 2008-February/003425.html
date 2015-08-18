@@ -1,0 +1,150 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Enabling CONFIG_DEBUG_SLAB breakes b43 module
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Enabling%20CONFIG_DEBUG_SLAB%20breakes%20b43%20module&In-Reply-To=%3Cslrnfr0ffm.9uq.joerg%40alea.gnuu.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003428.html">
+   <LINK REL="Next"  HREF="003427.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Enabling CONFIG_DEBUG_SLAB breakes b43 module</H1>
+    <B>J&#246;rg Sommer</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Enabling%20CONFIG_DEBUG_SLAB%20breakes%20b43%20module&In-Reply-To=%3Cslrnfr0ffm.9uq.joerg%40alea.gnuu.de%3E"
+       TITLE="Enabling CONFIG_DEBUG_SLAB breakes b43 module">joerg at alea.gnuu.de
+       </A><BR>
+    <I>Mon Feb 11 13:22:14 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003428.html">Possible problem on b43 driver's init
+</A></li>
+        <LI>Next message: <A HREF="003427.html">Enabling CONFIG_DEBUG_SLAB breakes b43 module
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3425">[ date ]</a>
+              <a href="thread.html#3425">[ thread ]</a>
+              <a href="subject.html#3425">[ subject ]</a>
+              <a href="author.html#3425">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi,
+
+I'm using the b43 driver to connect to a WPA2 encrypted WLAN. When I
+enable the kernel option CONFIG_DEBUG_SLAB my connection breaks.
+wpa_supplicant can establish the connection and I can make pings or DNS
+queries, but downloading a file kills the connection. The kernel log
+includes these lines:
+
+[  593.513610] eth1: RX protected frame, but have no key
+[  593.574095] b43-phy0 debug: Removing Interface type 2
+[  593.598874] b43-phy0 debug: Wireless interface stopped
+[  593.599135] b43-phy0 debug: DMA-32 0x0200 (RX) max used slots: 4/64
+[  593.601390] b43-phy0 debug: DMA-32 0x02A0 (TX) max used slots: 0/128
+[  593.618607] b43-phy0 debug: DMA-32 0x0280 (TX) max used slots: 0/128
+[  593.626237] b43-phy0 debug: DMA-32 0x0260 (TX) max used slots: 0/128
+[  593.634301] b43-phy0 debug: DMA-32 0x0240 (TX) max used slots: 0/128
+[  593.642281] b43-phy0 debug: DMA-32 0x0220 (TX) max used slots: 2/128
+[  593.651068] b43-phy0 debug: DMA-32 0x0200 (TX) max used slots: 0/128
+[  601.021777] b43-phy0 debug: Loading firmware version 351.126 (2006-07-29 05:54:02)
+[  602.751023] b43-phy0 debug: Chip initialized
+[  602.760835] b43-phy0 debug: 30-bit DMA initialized
+[  602.777127] b43-phy0 debug: Wireless interface started
+[  602.823829] b43-phy0 debug: Adding Interface type 2
+[  602.828855] ADDRCONF(NETDEV_UP): eth1: link is not ready
+[  604.273055] eth1: Initial auth_alg=0
+[  604.273082] eth1: authenticate with AP 00:14:1b:60:5d:00
+[  604.276600] eth1: RX authentication from 00:14:1b:60:5d:00 (alg=0 transaction=2 status=0)
+[  604.276620] eth1: authenticated
+[  604.276629] eth1: associate with AP 00:14:1b:60:5d:00
+[  604.280697] eth1: RX AssocResp from 00:14:1b:60:5d:00 (capab=0x431 status=0 aid=161)
+[  604.280720] eth1: associated
+[  604.280742] eth1: CTS protection enabled (BSSID=00:14:1b:60:5d:00)
+[  604.280752] eth1: switched to short barker preamble (BSSID=00:14:1b:60:5d:00)
+[  604.281061] eth1: WMM queue=2 aci=0 acm=0 aifs=3 cWmin=15 cWmax=1023 burst=0
+[  604.281072] eth1: WMM queue=3 aci=1 acm=0 aifs=7 cWmin=15 cWmax=1023 burst=0
+[  604.281081] eth1: WMM queue=1 aci=2 acm=0 aifs=2 cWmin=7 cWmax=15 burst=30
+[  604.281091] eth1: WMM queue=0 aci=3 acm=0 aifs=2 cWmin=3 cWmax=7 burst=15
+[  604.283358] ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready
+[  604.395160] eth1: RX protected frame, but have no key
+[  604.396598] eth1: RX protected frame, but have no key
+[  604.397609] eth1: RX protected frame, but have no key
+[  607.038550] eth1: RX deauthentication from 00:14:1b:60:5d:00 (reason=14)
+[  607.038567] eth1: deauthenticated
+[  607.083301] ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready
+[  607.148534] eth1: Initial auth_alg=0
+[  607.148560] eth1: authenticate with AP 00:14:1b:60:5d:00
+[  607.151549] eth1: RX authentication from 00:14:1b:60:5d:00 (alg=0 transaction=2 status=0)
+[  607.151569] eth1: authenticated
+[  607.151578] eth1: associate with AP 00:14:1b:60:5d:00
+[  607.166211] eth1: RX ReassocResp from 00:14:1b:60:5d:00 (capab=0x0 status=13 aid=0)
+[  607.166229] eth1: AP denied association (code=13)
+[  607.353166] eth1: associate with AP 00:14:1b:60:5d:00
+[  607.355885] eth1: RX deauthentication from 00:14:1b:60:5d:00 (reason=2)
+[  607.355904] eth1: deauthenticated
+[  608.355322] eth1: authenticate with AP 00:14:1b:60:5d:00
+[  608.357688] eth1: RX authentication from 00:14:1b:60:5d:00 (alg=0 transaction=2 status=0)
+[  608.357707] eth1: authenticated
+[  608.357716] eth1: associate with AP 00:14:1b:60:5d:00
+[  608.361568] eth1: RX AssocResp from 00:14:1b:60:5d:00 (capab=0x0 status=13 aid=0)
+[  608.361586] eth1: AP denied association (code=13)
+[  608.561470] eth1: associate with AP 00:14:1b:60:5d:00
+[  608.569470] eth1: RX deauthentication from 00:14:1b:60:5d:00 (reason=2)
+[  608.569489] eth1: deauthenticated
+[  609.568954] eth1: authenticate with AP 00:14:1b:60:5d:00
+[  609.570574] eth1: RX authentication from 00:14:1b:60:5d:00 (alg=0 transaction=2 status=0)
+[  609.570589] eth1: authenticated
+[  609.570598] eth1: associate with AP 00:14:1b:60:5d:00
+[  609.572686] eth1: RX AssocResp from 00:14:1b:60:5d:00 (capab=0x0 status=13 aid=0)
+[  609.572698] eth1: AP denied association (code=13)
+
+% uname -a
+Linux ibook 2.6.24 #1 Thu Feb 7 10:22:52 CET 2008 ppc GNU/Linux
+
+I've an Airport Extreme Card.
+# lspci -s 10:12 -v
+0001:10:12.0 Network controller: Broadcom Corporation BCM4306 802.11b/g Wireless LAN Controller (rev 03)
+        Subsystem: Apple Computer Inc. AirPort Extreme
+        Flags: bus master, fast devsel, latency 16, IRQ 52
+        Memory at 80084000 (32-bit, non-prefetchable) [size=8K]
+        Capabilities: [40] Power Management version 2
+        Kernel driver in use: b43-pci-bridge
+        Kernel modules: ssb
+
+Bye, J&#246;rg.
+-- 
+But in the case of &quot;git revert&quot;, it should be an ancestor (or the user
+is just insane, in which case it doesn't matter - insane people can do
+insane things)
+Linus Torvalds &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">alpine.LFD.1.00.0801041031590.2811 at woody.linux-foundation.org</A>&gt;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003428.html">Possible problem on b43 driver's init
+</A></li>
+	<LI>Next message: <A HREF="003427.html">Enabling CONFIG_DEBUG_SLAB breakes b43 module
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3425">[ date ]</a>
+              <a href="thread.html#3425">[ thread ]</a>
+              <a href="subject.html#3425">[ subject ]</a>
+              <a href="author.html#3425">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

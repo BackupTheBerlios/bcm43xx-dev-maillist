@@ -1,0 +1,148 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Implement sw scan callbacks
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Implement%20sw%20scan%20callbacks&In-Reply-To=%3C200902201539.21888.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005237.html">
+   <LINK REL="Next"  HREF="005239.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Implement sw scan callbacks</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Implement%20sw%20scan%20callbacks&In-Reply-To=%3C200902201539.21888.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Implement sw scan callbacks">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Feb 20 15:39:21 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005237.html">[PATCH] b43: Enable PCI slow clock workaround, if needed.
+</A></li>
+        <LI>Next message: <A HREF="005239.html">[PATCH 0/6] b43: Use spatch to convert register accesses
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5238">[ date ]</a>
+              <a href="thread.html#5238">[ thread ]</a>
+              <a href="subject.html#5238">[ subject ]</a>
+              <a href="author.html#5238">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This implements the new sw scan callbacks in b43.
+They are currently used to turn CFP update in the microcode off while scanning.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, please put on top of the mac80211 sw scan notifier patch.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2009-02-20 14:53:23.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/main.c	2009-02-20 15:34:41.000000000 +0100
+@@ -4190,12 +4190,13 @@ static int b43_wireless_core_init(struct
+ 	}
+ 	if (sprom-&gt;boardflags_lo &amp; B43_BFL_XTAL_NOSLOW)
+ 		hf |= B43_HF_DSCRQ; /* Disable slowclock requests from ucode. */
+ 	if ((bus-&gt;bustype == SSB_BUSTYPE_PCI) &amp;&amp;
+ 	    (bus-&gt;pcicore.dev-&gt;id.revision &lt;= 10))
+ 		hf |= B43_HF_PCISCW; /* PCI slow clock workaround. */
++	hf &amp;= ~B43_HF_SKCFPUP;
+ 	b43_hf_write(dev, hf);
+ 
+ 	b43_set_retry_limits(dev, B43_DEFAULT_SHORT_RETRY_LIMIT,
+ 			     B43_DEFAULT_LONG_RETRY_LIMIT);
+ 	b43_shm_write16(dev, B43_SHM_SHARED, B43_SHM_SH_SFFBLIM, 3);
+ 	b43_shm_write16(dev, B43_SHM_SHARED, B43_SHM_SH_LFFBLIM, 2);
+@@ -4412,12 +4413,40 @@ static void b43_op_sta_notify(struct iee
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 
+ 	B43_WARN_ON(!vif || wl-&gt;vif != vif);
+ }
+ 
++static void b43_op_sw_scan_start_notifier(struct ieee80211_hw *hw)
++{
++	struct b43_wl *wl = hw_to_b43_wl(hw);
++	struct b43_wldev *dev;
++
++	mutex_lock(&amp;wl-&gt;mutex);
++	dev = wl-&gt;current_dev;
++	if (dev &amp;&amp; (b43_status(dev) &gt;= B43_STAT_INITIALIZED)) {
++		/* Disable CFP update during scan on other channels. */
++		b43_hf_write(dev, b43_hf_read(dev) | B43_HF_SKCFPUP);
++	}
++	mutex_unlock(&amp;wl-&gt;mutex);
++}
++
++static void b43_op_sw_scan_complete_notifier(struct ieee80211_hw *hw)
++{
++	struct b43_wl *wl = hw_to_b43_wl(hw);
++	struct b43_wldev *dev;
++
++	mutex_lock(&amp;wl-&gt;mutex);
++	dev = wl-&gt;current_dev;
++	if (dev &amp;&amp; (b43_status(dev) &gt;= B43_STAT_INITIALIZED)) {
++		/* Re-enable CFP update. */
++		b43_hf_write(dev, b43_hf_read(dev) &amp; ~B43_HF_SKCFPUP);
++	}
++	mutex_unlock(&amp;wl-&gt;mutex);
++}
++
+ static const struct ieee80211_ops b43_hw_ops = {
+ 	.tx			= b43_op_tx,
+ 	.conf_tx		= b43_op_conf_tx,
+ 	.add_interface		= b43_op_add_interface,
+ 	.remove_interface	= b43_op_remove_interface,
+ 	.config			= b43_op_config,
+@@ -4430,12 +4459,14 @@ static const struct ieee80211_ops b43_hw
+ 	.get_tsf		= b43_op_get_tsf,
+ 	.set_tsf		= b43_op_set_tsf,
+ 	.start			= b43_op_start,
+ 	.stop			= b43_op_stop,
+ 	.set_tim		= b43_op_beacon_set_tim,
+ 	.sta_notify		= b43_op_sta_notify,
++	.sw_scan_start		= b43_op_sw_scan_start_notifier,
++	.sw_scan_complete	= b43_op_sw_scan_complete_notifier,
+ };
+ 
+ /* Hard-reset the chip. Do not call this directly.
+  * Use b43_controller_restart()
+  */
+ static void b43_chip_reset(struct work_struct *work)
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005237.html">[PATCH] b43: Enable PCI slow clock workaround, if needed.
+</A></li>
+	<LI>Next message: <A HREF="005239.html">[PATCH 0/6] b43: Use spatch to convert register accesses
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5238">[ date ]</a>
+              <a href="thread.html#5238">[ thread ]</a>
+              <a href="subject.html#5238">[ subject ]</a>
+              <a href="author.html#5238">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,138 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 kills my kernel
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20kills%20my%20kernel&In-Reply-To=%3C69e28c910911181557v39d7b8b4ge9117ac57c0b4959%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006395.html">
+   <LINK REL="Next"  HREF="006397.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 kills my kernel</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20kills%20my%20kernel&In-Reply-To=%3C69e28c910911181557v39d7b8b4ge9117ac57c0b4959%40mail.gmail.com%3E"
+       TITLE="b43 kills my kernel">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Thu Nov 19 00:57:07 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006395.html">b43 kills my kernel
+</A></li>
+        <LI>Next message: <A HREF="006397.html">b43 kills my kernel
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6396">[ date ]</a>
+              <a href="thread.html#6396">[ thread ]</a>
+              <a href="subject.html#6396">[ subject ]</a>
+              <a href="author.html#6396">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Thu, Nov 19, 2009 at 12:39 AM, Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; wrote:
+&gt;<i> Please keep it on-list. This is really important to get this debugged properly.
+</I>&gt;<i>
+</I>&gt;<i> On Thursday 19 November 2009 00:23:18 Oncaphillis wrote:
+</I>&gt;&gt;<i> On 11/18/2009 11:59 PM, Michael Buesch wrote:
+</I>&gt;&gt;<i> &gt;&gt; What kind of device is that? Some laptop? I only knew about embedded devices
+</I>&gt;&gt;<i> &gt;&gt; using these wireless cards without sprom.
+</I>&gt;&gt;<i> &gt;&gt; Is the card connected via (mini)pci? Or is it on-board?
+</I>&gt;&gt;<i> &gt;&gt;
+</I>&gt;&gt;<i> &gt;&gt; What we need is a way to identify the card so we avoid accessing
+</I>&gt;&gt;<i> &gt;&gt; the dangling bus to the sprom. I'd like to avoid the read-the-first-word-
+</I>&gt;&gt;<i> &gt;&gt; and-check-if-its-all-ones approach, because accesses a dangling bus.
+</I>&gt;&gt;<i> &gt;&gt; That's obviously no good and can hang the CPU due to missing bus acks.
+</I>&gt;&gt;<i> &gt;&gt;
+</I>&gt;&gt;<i> &gt;&gt; What's the lspci -vvnn output for the card?
+</I>&gt;&gt;<i> &gt;&gt;
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i> &gt; Note that the chipcommon revision on the card is 0x16. That's a pretty high number.
+</I>&gt;&gt;<i> &gt; I wonder if they changed something and there actually _is_ an sprom on the card,
+</I>&gt;&gt;<i> &gt; but there's just a new way to access it (or the shadow area has to be mapped through
+</I>&gt;&gt;<i> &gt; chipcommon first or something like that)...
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> It's an acer aspire one d250 netbook
+</I>&gt;<i>
+</I>&gt;<i> Nice. Is it possible to open the device and take a picture of the card?
+</I>&gt;<i> It's trivial to find out this way whether it has a SPROM or not, because it's
+</I>&gt;<i> a separate chip.
+</I>
+Hmm... this kinda reminds me of when the SPROM died on my Asus 4318,
+causing it to display as a &quot;14e4:0008&quot;, and freeze immediately upon
+any SPROM read/write attempt. Quite possibly we have something similar
+here (there is an SPROM, but it's broken - without an SPROM, the card
+AFAIK can't even produce a valid PCI ID).
+
+&gt;<i>
+</I>&gt;<i> Is it this device?
+</I>&gt;<i> <A HREF="http://hax0rpedia.com/index.php/Disassembeling_the_AAO_D250">http://hax0rpedia.com/index.php/Disassembeling_the_AAO_D250</A>
+</I>&gt;<i>
+</I>&gt;<i> Can you open the lower-right cover shown here:
+</I>&gt;<i> <A HREF="http://hax0rpedia.com/index.php/File:Aao_d250_step2.jpg">http://hax0rpedia.com/index.php/File:Aao_d250_step2.jpg</A>
+</I>&gt;<i> and take a closeup picture of the wireless card?
+</I>&gt;<i> Also probably a picture of the backside of the card. That'd require removing
+</I>&gt;<i> the card, though.
+</I>&gt;<i>
+</I>&gt;<i> We really need to find out somehow if there is a SPROM chip on the device
+</I>&gt;<i> and if that's the case how to access it.
+</I>&gt;<i>
+</I>&gt;&gt;<i> You may have a look at the full lspci -vvnn output at:
+</I>&gt;<i>
+</I>&gt;<i> Nice, thanks.
+</I>&gt;<i>
+</I>&gt;&gt;<i> I did a &quot;read the first word&quot;. Surprisingly it succeeds the first time.
+</I>&gt;&gt;<i> After that I may still read 32bit words. When the module tries to read
+</I>&gt;&gt;<i> the sprom the second time looking for a larger sprom the first read16
+</I>&gt;&gt;<i> fails.
+</I>&gt;<i>
+</I>&gt;<i> Well, my guess is that _any_ subsequent 16bit read would fail from then on,
+</I>&gt;<i> because it was still waiting for the bus-ack of the first one.
+</I>&gt;<i> If the bus really is dangling, we must avoid to access it in the first place.
+</I>&gt;<i>
+</I>&gt;&gt;<i> Should I try to dump out the full 16k area reported for the device ?
+</I>&gt;<i>
+</I>&gt;<i> I don't think that would be useful.
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i> Greetings, Michael.
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Bcm43xx-dev mailing list
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006395.html">b43 kills my kernel
+</A></li>
+	<LI>Next message: <A HREF="006397.html">b43 kills my kernel
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6396">[ date ]</a>
+              <a href="thread.html#6396">[ thread ]</a>
+              <a href="subject.html#6396">[ subject ]</a>
+              <a href="author.html#6396">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

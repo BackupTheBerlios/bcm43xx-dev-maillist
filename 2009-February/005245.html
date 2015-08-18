@@ -1,0 +1,276 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 5/6] b43: Convert usage of b43_radio_mask()
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%205/6%5D%20b43%3A%20Convert%20usage%20of%20b43_radio_mask%28%29&In-Reply-To=%3C20090220183556.4913B172584%40mail.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005243.html">
+   <LINK REL="Next"  HREF="005244.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 5/6] b43: Convert usage of b43_radio_mask()</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%205/6%5D%20b43%3A%20Convert%20usage%20of%20b43_radio_mask%28%29&In-Reply-To=%3C20090220183556.4913B172584%40mail.berlios.de%3E"
+       TITLE="[PATCH 5/6] b43: Convert usage of b43_radio_mask()">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Feb 20 19:30:10 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005243.html">[PATCH 4/6] b43: Convert usage of b43_radio_set()
+</A></li>
+        <LI>Next message: <A HREF="005244.html">[PATCH 6/6] b43: Convert usage of b43_radio_maskset()
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5245">[ date ]</a>
+              <a href="thread.html#5245">[ thread ]</a>
+              <a href="subject.html#5245">[ subject ]</a>
+              <a href="author.html#5245">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This patch converts code to use the new b43_radio_mask() API.
+
+The semantic patch that makes this change is as follows:
+
+// &lt;smpl&gt;
+@@
+expression dev, addr, mask;
+@@
+
+-b43_radio_write16(dev, addr, b43_radio_read16(dev, addr) &amp; mask);
++b43_radio_mask(dev, addr, mask);
+// &lt;/smpl&gt;
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+Index: wireless-testing/drivers/net/wireless/b43/lo.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/lo.c	2009-02-20 19:07:11.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/lo.c	2009-02-20 19:08:49.000000000 +0100
+@@ -228,14 +228,13 @@ static void lo_measure_txctl_values(stru
+ 	b43_radio_write16(dev, 0x43, (b43_radio_read16(dev, 0x43)
+ 				      &amp; 0xFFF0) | radio_pctl_reg);
+ 	b43_gphy_set_baseband_attenuation(dev, 2);
+ 
+ 	reg = lo_txctl_register_table(dev, &amp;mask, NULL);
+ 	mask = ~mask;
+-	b43_radio_write16(dev, reg, b43_radio_read16(dev, reg)
+-			  &amp; mask);
++	b43_radio_mask(dev, reg, mask);
+ 
+ 	if (has_tx_magnification(phy)) {
+ 		int i, j;
+ 		int feedthrough;
+ 		int min_feedth = 0xFFFF;
+ 		u8 tx_magn, tx_bias;
+@@ -266,14 +265,13 @@ static void lo_measure_txctl_values(stru
+ 					   &amp; 0xFF00) | lo-&gt;tx_bias | lo-&gt;
+ 					  tx_magn);
+ 		}
+ 	} else {
+ 		lo-&gt;tx_magn = 0;
+ 		lo-&gt;tx_bias = 0;
+-		b43_radio_write16(dev, 0x52, b43_radio_read16(dev, 0x52)
+-				  &amp; 0xFFF0);	/* TX bias == 0 */
++		b43_radio_mask(dev, 0x52, 0xFFF0);	/* TX bias == 0 */
+ 	}
+ 	lo-&gt;txctl_measured_time = jiffies;
+ }
+ 
+ static void lo_read_power_vector(struct b43_wldev *dev)
+ {
+Index: wireless-testing/drivers/net/wireless/b43/phy_a.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_a.c	2009-02-20 19:07:38.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/phy_a.c	2009-02-20 19:08:44.000000000 +0100
+@@ -131,18 +131,16 @@ static void aphy_channel_switch(struct b
+ 					&amp; 0xFF0F) | 0x00B0);
+ 	b43_radio_write16(dev, 0x0035, 0x00AA);
+ 	b43_radio_write16(dev, 0x0036, 0x0085);
+ 	b43_radio_write16(dev, 0x003A, (b43_radio_read16(dev, 0x003A)
+ 					&amp; 0xFF20) |
+ 			  freq_r3A_value(freq));
+-	b43_radio_write16(dev, 0x003D,
+-			  b43_radio_read16(dev, 0x003D) &amp; 0x00FF);
++	b43_radio_mask(dev, 0x003D, 0x00FF);
+ 	b43_radio_write16(dev, 0x0081, (b43_radio_read16(dev, 0x0081)
+ 					&amp; 0xFF7F) | 0x0080);
+-	b43_radio_write16(dev, 0x0035,
+-			  b43_radio_read16(dev, 0x0035) &amp; 0xFFEF);
++	b43_radio_mask(dev, 0x0035, 0xFFEF);
+ 	b43_radio_write16(dev, 0x0035, (b43_radio_read16(dev, 0x0035)
+ 					&amp; 0xFFEF) | 0x0010);
+ 	b43_radio_set_tx_iq(dev);
+ 	//TODO: TSSI2dbm workaround
+ //FIXME	b43_phy_xmitpower(dev);
+ }
+@@ -157,27 +155,27 @@ static void b43_radio_init2060(struct b4
+ 	b43_radio_write16(dev, 0x0006, 0x008F);
+ 	b43_radio_write16(dev, 0x0034, 0x008F);
+ 	b43_radio_write16(dev, 0x002C, 0x0007);
+ 	b43_radio_write16(dev, 0x0082, 0x0080);
+ 	b43_radio_write16(dev, 0x0080, 0x0000);
+ 	b43_radio_write16(dev, 0x003F, 0x00DA);
+-	b43_radio_write16(dev, 0x0005, b43_radio_read16(dev, 0x0005) &amp; ~0x0008);
+-	b43_radio_write16(dev, 0x0081, b43_radio_read16(dev, 0x0081) &amp; ~0x0010);
+-	b43_radio_write16(dev, 0x0081, b43_radio_read16(dev, 0x0081) &amp; ~0x0020);
+-	b43_radio_write16(dev, 0x0081, b43_radio_read16(dev, 0x0081) &amp; ~0x0020);
++	b43_radio_mask(dev, 0x0005, ~0x0008);
++	b43_radio_mask(dev, 0x0081, ~0x0010);
++	b43_radio_mask(dev, 0x0081, ~0x0020);
++	b43_radio_mask(dev, 0x0081, ~0x0020);
+ 	msleep(1);		/* delay 400usec */
+ 
+ 	b43_radio_write16(dev, 0x0081,
+ 			  (b43_radio_read16(dev, 0x0081) &amp; ~0x0020) | 0x0010);
+ 	msleep(1);		/* delay 400usec */
+ 
+ 	b43_radio_write16(dev, 0x0005,
+ 			  (b43_radio_read16(dev, 0x0005) &amp; ~0x0008) | 0x0008);
+-	b43_radio_write16(dev, 0x0085, b43_radio_read16(dev, 0x0085) &amp; ~0x0010);
+-	b43_radio_write16(dev, 0x0005, b43_radio_read16(dev, 0x0005) &amp; ~0x0008);
+-	b43_radio_write16(dev, 0x0081, b43_radio_read16(dev, 0x0081) &amp; ~0x0040);
++	b43_radio_mask(dev, 0x0085, ~0x0010);
++	b43_radio_mask(dev, 0x0005, ~0x0008);
++	b43_radio_mask(dev, 0x0081, ~0x0040);
+ 	b43_radio_write16(dev, 0x0081,
+ 			  (b43_radio_read16(dev, 0x0081) &amp; ~0x0040) | 0x0040);
+ 	b43_radio_write16(dev, 0x0005,
+ 			  (b43_radio_read16(dev, 0x0081) &amp; ~0x0008) | 0x0008);
+ 	b43_phy_write(dev, 0x0063, 0xDDC6);
+ 	b43_phy_write(dev, 0x0069, 0x07BE);
+@@ -244,14 +242,13 @@ static void b43_phy_ww(struct b43_wldev 
+ 		} else if (curr_s &gt;= 0x0080)
+ 			curr_s = 0x0100 - curr_s;
+ 		if (curr_s &lt; best_s)
+ 			best_s = curr_s;
+ 	}
+ 	b43_phy_write(dev, B43_PHY_PWRDOWN, b);
+-	b43_radio_write16(dev, 0x0004,
+-		b43_radio_read16(dev, 0x0004) &amp; 0xFFFB);
++	b43_radio_mask(dev, 0x0004, 0xFFFB);
+ 	b43_radio_write16(dev, 0x0013, best_s);
+ 	b43_ofdmtab_write16(dev, B43_OFDMTAB_AGC1_R1, 0, 0xFFEC);
+ 	b43_phy_write(dev, B43_PHY_OFDM(0xB7), 0x1E80);
+ 	b43_phy_write(dev, B43_PHY_OFDM(0xB6), 0x1C00);
+ 	b43_phy_write(dev, B43_PHY_OFDM(0xB5), 0x0EC0);
+ 	b43_phy_write(dev, B43_PHY_OFDM(0xB2), 0x00C0);
+Index: wireless-testing/drivers/net/wireless/b43/phy_g.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_g.c	2009-02-20 19:07:35.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/phy_g.c	2009-02-20 19:08:40.000000000 +0100
+@@ -486,14 +486,13 @@ static void b43_calc_nrssi_offset(struct
+ 			if (v47F &lt; 31 &amp;&amp; saved == 0xFFFF)
+ 				saved = i;
+ 		}
+ 		if (saved == 0xFFFF)
+ 			saved = 4;
+ 	} else {
+-		b43_radio_write16(dev, 0x007A,
+-				  b43_radio_read16(dev, 0x007A) &amp; 0x007F);
++		b43_radio_mask(dev, 0x007A, 0x007F);
+ 		if (phy-&gt;rev != 1) {	/* Not in specs, but needed to prevent PPC machine check */
+ 			b43_phy_set(dev, 0x0814, 0x0001);
+ 			b43_phy_mask(dev, 0x0815, 0xFFFE);
+ 		}
+ 		b43_phy_set(dev, 0x0811, 0x000C);
+ 		b43_phy_set(dev, 0x0812, 0x000C);
+@@ -623,27 +622,25 @@ static void b43_calc_nrssi_slope(struct 
+ 		}
+ 		b43_phy_set(dev, 0x0060, 0x0040);
+ 		b43_phy_set(dev, 0x0014, 0x0200);
+ 	}
+ 	b43_radio_set(dev, 0x007A, 0x0070);
+ 	b43_set_all_gains(dev, 0, 8, 0);
+-	b43_radio_write16(dev, 0x007A,
+-			  b43_radio_read16(dev, 0x007A) &amp; 0x00F7);
++	b43_radio_mask(dev, 0x007A, 0x00F7);
+ 	if (phy-&gt;rev &gt;= 2) {
+ 		b43_phy_maskset(dev, 0x0811, 0xFFCF, 0x0030);
+ 		b43_phy_maskset(dev, 0x0812, 0xFFCF, 0x0010);
+ 	}
+ 	b43_radio_set(dev, 0x007A, 0x0080);
+ 	udelay(20);
+ 
+ 	nrssi0 = (s16) ((b43_phy_read(dev, 0x047F) &gt;&gt; 8) &amp; 0x003F);
+ 	if (nrssi0 &gt;= 0x0020)
+ 		nrssi0 -= 0x0040;
+ 
+-	b43_radio_write16(dev, 0x007A,
+-			  b43_radio_read16(dev, 0x007A) &amp; 0x007F);
++	b43_radio_mask(dev, 0x007A, 0x007F);
+ 	if (phy-&gt;rev &gt;= 2) {
+ 		b43_phy_maskset(dev, 0x0003, 0xFF9F, 0x0040);
+ 	}
+ 
+ 	b43_write16(dev, B43_MMIO_CHANNEL_EXT,
+ 		    b43_read16(dev, B43_MMIO_CHANNEL_EXT)
+@@ -1800,14 +1797,13 @@ static void b43_calc_loopback_gain(struc
+ 	if (dev-&gt;dev-&gt;bus-&gt;sprom.boardflags_lo &amp; B43_BFL_EXTLNA) {
+ 		if (phy-&gt;rev &gt;= 7) {
+ 			b43_phy_set(dev, B43_PHY_RFOVER, 0x0800);
+ 			b43_phy_set(dev, B43_PHY_RFOVERVAL, 0x8000);
+ 		}
+ 	}
+-	b43_radio_write16(dev, 0x7A, b43_radio_read16(dev, 0x7A)
+-			  &amp; 0x00F7);
++	b43_radio_mask(dev, 0x7A, 0x00F7);
+ 
+ 	j = 0;
+ 	loop_i_max = (phy-&gt;radio_rev == 8) ? 15 : 9;
+ 	for (i = 0; i &lt; loop_i_max; i++) {
+ 		for (j = 0; j &lt; 16; j++) {
+ 			b43_radio_write16(dev, 0x43, i);
+@@ -1989,15 +1985,13 @@ static void b43_phy_init_pctl(struct b43
+ 				       &quot;adjustment.\n&quot;, gphy-&gt;cur_idle_tssi,
+ 				       gphy-&gt;tgt_idle_tssi);
+ 				gphy-&gt;cur_idle_tssi = 0;
+ 			}
+ 		}
+ 		if (phy-&gt;radio_ver == 0x2050 &amp;&amp; phy-&gt;analog == 0) {
+-			b43_radio_write16(dev, 0x0076,
+-					  b43_radio_read16(dev, 0x0076)
+-					  &amp; 0xFF7B);
++			b43_radio_mask(dev, 0x0076, 0xFF7B);
+ 		} else {
+ 			b43_set_txpower_g(dev, &amp;old_bbatt,
+ 					  &amp;old_rfatt, old_tx_control);
+ 		}
+ 	}
+ 	b43_hardware_pctl_init_gphy(dev);
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005243.html">[PATCH 4/6] b43: Convert usage of b43_radio_set()
+</A></li>
+	<LI>Next message: <A HREF="005244.html">[PATCH 6/6] b43: Convert usage of b43_radio_maskset()
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5245">[ date ]</a>
+              <a href="thread.html#5245">[ thread ]</a>
+              <a href="subject.html#5245">[ subject ]</a>
+              <a href="author.html#5245">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

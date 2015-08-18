@@ -1,0 +1,169 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Remove irqs_disabled() sanity checks
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Remove%20irqs_disabled%28%29%20sanity%20checks&In-Reply-To=%3C200803230108.22652.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003613.html">
+   <LINK REL="Next"  HREF="003615.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Remove irqs_disabled() sanity checks</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Remove%20irqs_disabled%28%29%20sanity%20checks&In-Reply-To=%3C200803230108.22652.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Remove irqs_disabled() sanity checks">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Mar 23 01:08:22 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003613.html">[PATCH] b43: Fix DMA mapping leakage
+</A></li>
+        <LI>Next message: <A HREF="003615.html">[PATCH] b43: Don't compile N-PHY code when N-PHY is disabled
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3614">[ date ]</a>
+              <a href="thread.html#3614">[ thread ]</a>
+              <a href="subject.html#3614">[ subject ]</a>
+              <a href="author.html#3614">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Remove all irqs_disabled() sanity checks, as they are not safe on
+a RT-enabled kernel and will trigger bogus warnings.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, please apply to 2.6.25
+
+
+Index: wireless-testing/drivers/net/wireless/b43/debugfs.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/debugfs.c	2008-02-15 21:39:56.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/debugfs.c	2008-03-23 01:00:40.000000000 +0100
+@@ -615,25 +615,25 @@ void b43_debugfs_remove_device(struct b4
+ 
+ 	debugfs_remove(e-&gt;subdir);
+ 	kfree(e-&gt;txstatlog.log);
+ 	kfree(e);
+ }
+ 
++/* Called with IRQs disabled. */
+ void b43_debugfs_log_txstat(struct b43_wldev *dev,
+ 			    const struct b43_txstatus *status)
+ {
+ 	struct b43_dfsentry *e = dev-&gt;dfsentry;
+ 	struct b43_txstatus_log *log;
+ 	struct b43_txstatus *cur;
+ 	int i;
+ 
+ 	if (!e)
+ 		return;
+ 	log = &amp;e-&gt;txstatlog;
+-	B43_WARN_ON(!irqs_disabled());
+-	spin_lock(&amp;log-&gt;lock);
++	spin_lock(&amp;log-&gt;lock); /* IRQs are already disabled. */
+ 	i = log-&gt;end + 1;
+ 	if (i == B43_NR_LOGGED_TXSTATUS)
+ 		i = 0;
+ 	log-&gt;end = i;
+ 	cur = &amp;(log-&gt;log[i]);
+ 	memcpy(cur, status, sizeof(*cur));
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2008-03-23 00:54:27.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2008-03-23 01:01:14.000000000 +0100
+@@ -1343,26 +1343,27 @@ static void b43_fill_txstatus_report(str
+ 			ring-&gt;nr_succeed_tx_packets++;
+ 		ring-&gt;nr_total_packet_tries += status-&gt;frame_count;
+ #endif /* DEBUG */
+ 	}
+ }
+ 
++/* Called with IRQs disabled. */
+ void b43_dma_handle_txstatus(struct b43_wldev *dev,
+ 			     const struct b43_txstatus *status)
+ {
+ 	const struct b43_dma_ops *ops;
+ 	struct b43_dmaring *ring;
+ 	struct b43_dmadesc_generic *desc;
+ 	struct b43_dmadesc_meta *meta;
+ 	int slot;
+ 
+ 	ring = parse_cookie(dev, status-&gt;cookie, &amp;slot);
+ 	if (unlikely(!ring))
+ 		return;
+-	B43_WARN_ON(!irqs_disabled());
+-	spin_lock(&amp;ring-&gt;lock);
++
++	spin_lock(&amp;ring-&gt;lock); /* IRQs are already disabled. */
+ 
+ 	B43_WARN_ON(!ring-&gt;tx);
+ 	ops = ring-&gt;ops;
+ 	while (1) {
+ 		B43_WARN_ON(!(slot &gt;= 0 &amp;&amp; slot &lt; ring-&gt;nr_slots));
+ 		desc = ops-&gt;idx2desc(ring, slot, &amp;meta);
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-03-22 21:50:35.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-03-23 00:59:05.000000000 +0100
+@@ -2155,13 +2155,12 @@ static void b43_gpio_cleanup(struct b43_
+ 
+ /* <A HREF="http://bcm-specs.sipsolutions.net/EnableMac">http://bcm-specs.sipsolutions.net/EnableMac</A> */
+ static void b43_mac_enable(struct b43_wldev *dev)
+ {
+ 	dev-&gt;mac_suspended--;
+ 	B43_WARN_ON(dev-&gt;mac_suspended &lt; 0);
+-	B43_WARN_ON(irqs_disabled());
+ 	if (dev-&gt;mac_suspended == 0) {
+ 		b43_write32(dev, B43_MMIO_MACCTL,
+ 			    b43_read32(dev, B43_MMIO_MACCTL)
+ 			    | B43_MACCTL_ENABLED);
+ 		b43_write32(dev, B43_MMIO_GEN_IRQ_REASON,
+ 			    B43_IRQ_MAC_SUSPENDED);
+@@ -2181,13 +2180,12 @@ static void b43_mac_enable(struct b43_wl
+ static void b43_mac_suspend(struct b43_wldev *dev)
+ {
+ 	int i;
+ 	u32 tmp;
+ 
+ 	might_sleep();
+-	B43_WARN_ON(irqs_disabled());
+ 	B43_WARN_ON(dev-&gt;mac_suspended &lt; 0);
+ 
+ 	if (dev-&gt;mac_suspended == 0) {
+ 		/* Mask IRQs before suspending MAC. Otherwise
+ 		 * the MAC stays busy and won't suspend. */
+ 		spin_lock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003613.html">[PATCH] b43: Fix DMA mapping leakage
+</A></li>
+	<LI>Next message: <A HREF="003615.html">[PATCH] b43: Don't compile N-PHY code when N-PHY is disabled
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3614">[ date ]</a>
+              <a href="thread.html#3614">[ thread ]</a>
+              <a href="subject.html#3614">[ subject ]</a>
+              <a href="author.html#3614">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

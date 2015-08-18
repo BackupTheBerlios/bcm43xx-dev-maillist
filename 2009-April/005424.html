@@ -1,0 +1,284 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43legacy AP
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43legacy%20AP&In-Reply-To=%3C30353c3d0904101349o915439arffb652b98e245e10%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005423.html">
+   <LINK REL="Next"  HREF="005425.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43legacy AP</H1>
+    <B>David Ellingsworth</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43legacy%20AP&In-Reply-To=%3C30353c3d0904101349o915439arffb652b98e245e10%40mail.gmail.com%3E"
+       TITLE="b43legacy AP">david at identd.dyndns.org
+       </A><BR>
+    <I>Fri Apr 10 22:49:39 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005423.html">b43legacy AP
+</A></li>
+        <LI>Next message: <A HREF="005425.html">b43legacy AP
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5424">[ date ]</a>
+              <a href="thread.html#5424">[ thread ]</a>
+              <a href="subject.html#5424">[ subject ]</a>
+              <a href="author.html#5424">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Fri, Apr 10, 2009 at 3:30 PM, Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt; wrote:
+&gt;<i> David Ellingsworth wrote:
+</I>&gt;&gt;<i> I'd like to try and get b43legacy running in AP mode this weekend. Can
+</I>&gt;&gt;<i> anyone tell me what modifications to b43legacy need to be made in
+</I>&gt;&gt;<i> order to do so? The last time I tried, I applied the two patches by
+</I>&gt;&gt;<i> Larry to address beaconing issues in b43legacy without much success.
+</I>&gt;&gt;<i> My tests indicated that hostapd seemed capable of communicating with
+</I>&gt;&gt;<i> b43legacy and my 4306 rev 2 through nl80211 but that the card was
+</I>&gt;&gt;<i> still not producing any beacons when monitored remotely. The only sign
+</I>&gt;&gt;<i> of failure from hostapd is the repeated message of &quot;MGMT (TX callback)
+</I>&gt;&gt;<i> fail&quot; whenever hostapd received a probe for the ssid it configured the
+</I>&gt;&gt;<i> interface for. This isn't much information to go on but it points us
+</I>&gt;&gt;<i> in a direction to where the problem(s) may exist. Again, any help
+</I>&gt;&gt;<i> would be appreciated.
+</I>&gt;<i>
+</I>&gt;<i> There may be problems that are unique to your 4306 rev 2, but b43legacy with my
+</I>&gt;<i> patches runs as an AP just fine.
+</I>&gt;<i>
+</I>&gt;<i> My configuration is as follows:
+</I>&gt;<i>
+</I>&gt;<i> LAN ======= eth0 -- BCM4312/1 as AP ~~~~~~~~~~~~~~ laptop with BCM4318.
+</I>&gt;<i>
+</I>&gt;<i> As my BCM4312/1 uses ucode5 firmware, I only have to change the ssb_tbl entries
+</I>&gt;<i> to have it use either b43 or b43legacy.
+</I>&gt;<i>
+</I>&gt;<i> I started with b43 driving the AP. I use hostapd v0.6.8 as the basis for the AP
+</I>&gt;<i> and the current wireless-testing as my kernel. &#160;My hostapd.conf contains the
+</I>&gt;<i> following:
+</I>&gt;<i>
+</I>&gt;<i> ==================================================
+</I>&gt;<i> interface=wlan0
+</I>&gt;<i> driver=nl80211
+</I>&gt;<i> logger_syslog=-1
+</I>&gt;<i> logger_syslog_level=2
+</I>&gt;<i> logger_stdout=-1
+</I>&gt;<i> logger_stdout_level=2
+</I>&gt;<i> debug=0
+</I>&gt;<i> dump_file=/tmp/hostapd.dump
+</I>&gt;<i> ctrl_interface=/var/run/hostapd
+</I>&gt;<i> ctrl_interface_group=0
+</I>&gt;<i> hw_mode=g
+</I>&gt;<i> channel=11
+</I>&gt;<i> beacon_int=100
+</I>&gt;<i> dtim_period=2
+</I>&gt;<i> max_num_sta=255
+</I>&gt;<i> rts_threshold=2347
+</I>&gt;<i> fragm_threshold=2346
+</I>&gt;<i> macaddr_acl=0
+</I>&gt;<i> ignore_broadcast_ssid=0
+</I>&gt;<i> wme_enabled=1
+</I>&gt;<i> wme_ac_bk_cwmin=4
+</I>&gt;<i> wme_ac_bk_cwmax=10
+</I>&gt;<i> wme_ac_bk_aifs=7
+</I>&gt;<i> wme_ac_bk_txop_limit=0
+</I>&gt;<i> wme_ac_bk_acm=0
+</I>&gt;<i> wme_ac_be_aifs=3
+</I>&gt;<i> wme_ac_be_cwmin=4
+</I>&gt;<i> wme_ac_be_cwmax=10
+</I>&gt;<i> wme_ac_be_txop_limit=0
+</I>&gt;<i> wme_ac_be_acm=0
+</I>&gt;<i> wme_ac_vi_aifs=2
+</I>&gt;<i> wme_ac_vi_cwmin=3
+</I>&gt;<i> wme_ac_vi_cwmax=4
+</I>&gt;<i> wme_ac_vi_txop_limit=94
+</I>&gt;<i> wme_ac_vi_acm=0
+</I>&gt;<i> wme_ac_vo_aifs=2
+</I>&gt;<i> wme_ac_vo_cwmin=2
+</I>&gt;<i> wme_ac_vo_cwmax=3
+</I>&gt;<i> wme_ac_vo_txop_limit=47
+</I>&gt;<i> wme_ac_vo_acm=0
+</I>&gt;<i> eapol_key_index_workaround=0
+</I>&gt;<i> eap_server=0
+</I>&gt;<i> own_ip_addr=127.0.0.1
+</I>&gt;<i> wpa=1
+</I>&gt;<i> wpa_passphrase=123456789
+</I>&gt;<i> ==================================================
+</I>&gt;<i>
+</I>&gt;<i> I created a file dhcpd.conf, which contains
+</I>&gt;<i>
+</I>&gt;<i> ==================================================
+</I>&gt;<i> option domain-name-servers 192.168.1.1;
+</I>&gt;<i> default-lease-time 600;
+</I>&gt;<i> max-lease-time 7200;
+</I>&gt;<i> ddns-update-style none; ddns-updates off;
+</I>&gt;<i> subnet 192.168.0.0 netmask 255.255.255.0 {
+</I>&gt;<i> &#160; &#160; &#160; &#160;range 192.168.0.200 192.168.0.229;
+</I>&gt;<i> &#160; &#160; &#160; &#160;option subnet-mask 255.255.255.0;
+</I>&gt;<i> &#160; &#160; &#160; &#160;option broadcast-address 192.168.0.255;
+</I>&gt;<i> &#160; &#160; &#160; &#160;option routers 192.168.0.1;
+</I>&gt;<i> }
+</I>&gt;<i> ==================================================
+</I>&gt;<i>
+</I>&gt;<i> My script to control the AP is as follows:
+</I>&gt;<i>
+</I>&gt;<i> ==================================================
+</I>&gt;<i> #!/bin/sh
+</I>&gt;<i> # Script to start/stop a hostapd-based access point
+</I>&gt;<i> #
+</I>&gt;<i> # Symbols for needed programs
+</I>&gt;<i>
+</I>&gt;<i> IPTABLES=/usr/sbin/iptables
+</I>&gt;<i> IFCONFIG=/sbin/ifconfig
+</I>&gt;<i> DHCPD=/usr/sbin/dhcpd
+</I>&gt;<i> HOSTAPD=/usr/local/bin/hostapd
+</I>&gt;<i>
+</I>&gt;<i> # Symbols for internal and external interfaces
+</I>&gt;<i>
+</I>&gt;<i> NET_INT=wlan0
+</I>&gt;<i> NET_EXT=eth0
+</I>&gt;<i>
+</I>&gt;<i> # IP address for the AP
+</I>&gt;<i>
+</I>&gt;<i> INT_ADDR=192.168.0.1
+</I>&gt;<i>
+</I>&gt;<i> case &quot;$1&quot; in
+</I>&gt;<i> start)
+</I>&gt;<i> &#160; &#160; &#160; &#160;echo &quot;Starting AP mode for $NET_INT at address $INT_ADDR&quot;
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;# Disable packet forwarding
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;echo 0 &gt; /proc/sys/net/ipv4/ip_forward
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;# Stop hostapd and dhcpd daemons
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;killproc hostapd
+</I>&gt;<i> &#160; &#160; &#160; &#160;killproc dhcpd
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;#Set up forwarding
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;$IPTABLES -t nat -A POSTROUTING -o $NET_EXT -j MASQUERADE
+</I>&gt;<i> &#160; &#160; &#160; &#160;$IPTABLES -A FORWARD -i $NET_EXT -o $NET_INT -m state \
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;--state RELATED,ESTABLISHED -j ACCEPT
+</I>&gt;<i> &#160; &#160; &#160; &#160;$IPTABLES -A FORWARD -i $NET_INT -o $NET_EXT -j ACCEPT
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;# Enable packet forwarding
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;echo 1 &gt; /proc/sys/net/ipv4/ip_forward
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;# Get the internal interface in the right state
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;$IFCONFIG $NET_INT down
+</I>&gt;<i> &#160; &#160; &#160; &#160;$IFCONFIG $NET_INT up
+</I>&gt;<i> &#160; &#160; &#160; &#160;$IFCONFIG $NET_INT $INT_ADDR
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;# dhcpd needs to have a leases file available - create it if needed
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;if [ ! -f /var/lib/dhcp/db/dhcpd.leases ]; then
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;touch /var/lib/dhcp/db/dhcpd.leases
+</I>&gt;<i> &#160; &#160; &#160; &#160;fi
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;# Bring up the DHCP server
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;$DHCPD -cf /root/dhcpd.conf $NET_INT
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;# Bring up hostapd
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;$HOSTAPD -B /root/hostapd.conf
+</I>&gt;<i> &#160; &#160; &#160; &#160;;;
+</I>&gt;<i> stop)
+</I>&gt;<i> &#160; &#160; &#160; &#160;echo &quot;Stopping AP mode on $NET_INT&quot;
+</I>&gt;<i>
+</I>&gt;<i> &#160; &#160; &#160; &#160;# Stop hostapd and dhcpd daemons
+</I>&gt;<i> &#160; &#160; &#160; &#160;killproc hostapd
+</I>&gt;<i> &#160; &#160; &#160; &#160;killproc dhcpd
+</I>&gt;<i> &#160; &#160; &#160; &#160;;;
+</I>&gt;<i> *)
+</I>&gt;<i> &#160; &#160; &#160; &#160;echo &quot;Usage: $0 {start|stop}&quot;
+</I>&gt;<i> &#160; &#160; &#160; &#160;exit 1
+</I>&gt;<i> &#160; &#160; &#160; &#160;;;
+</I>&gt;<i> esac
+</I>&gt;<i> ===============================================
+</I>&gt;<i>
+</I>&gt;<i> The first thing I found when using b43 as the AP host was that many hundreds of
+</I>&gt;<i> &quot;PHY transmission errors&quot; were generated every second. I got rid of those be
+</I>&gt;<i> eliminating the code that reports the error in drivers/net/wireless/b43/main.c.
+</I>&gt;<i> I also made the same change to b43legacy.
+</I>&gt;<i>
+</I>&gt;<i> Testing was done with a separate laptop that has a PCMCIA format BCM4318. The
+</I>&gt;<i> link was kept busy using a 10-second TX test from the utility tcpperf. The
+</I>&gt;<i> server for tcpperf is connected to my hub via a 100 Mb wired connection. The
+</I>&gt;<i> base rate for the test is 13-14 Mb/s through my Linksys AP. Using b43 as the AP,
+</I>&gt;<i> the rate was a little lower with a maximum rate of 12-13 Mb/s. The client's
+</I>&gt;<i> connection is at 54 Mb/s.
+</I>&gt;<i>
+</I>&gt;<i> After verifying that my setup would work with b43, I switched to b43legacy.
+</I>&gt;<i> There was no difference in stability or performance. After eliminating the PHY
+</I>&gt;<i> transmission error messages, the only thing logged on the AP host were the
+</I>&gt;<i> 10-minute DCHP renewals.
+</I>&gt;<i>
+</I>&gt;<i> Larry
+</I>&gt;<i>
+</I>
+Hmm.. very interesting.
+
+The configuration I got working was...
+
+LAN ====== br0(eth0 -- wlan0 (BCM4318)) as AP ~~~~~~~~~~ laptop with
+BCM4306 rev 2
+
+...but I believe the BCM4318 I have is defective.. even with a
+standard AP, I haven't got it transfer any faster than about .5Mb/s.
+
+In the reverse configuration...
+
+LAN ====== br0(eth0 -- wlan0 (BCM4306 rev 2)) as AP ~~~~~~~~~~ server
+with BCM4318
+
+...I was unable to observe any beacons coming from the AP.
+
+Like you said, the issue might be related to my particular card since
+you were successful at getting your card to send beacons. I'll
+experiment with your patches to see if I can't determine where they
+seem to fail with my card. Hopefully, some well placed debug messages
+will help locate the problem.
+
+Ideally, my server will eventually be the AP but for now I need
+something my BCM4318 can try to connect to. Thus when a Linksys tech
+isn't capable of producing the speeds claimed by the 4318 card I can
+get it RMA'd for a new device.
+
+Regards,
+
+David Ellingsworth
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005423.html">b43legacy AP
+</A></li>
+	<LI>Next message: <A HREF="005425.html">b43legacy AP
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5424">[ date ]</a>
+              <a href="thread.html#5424">[ thread ]</a>
+              <a href="subject.html#5424">[ subject ]</a>
+              <a href="author.html#5424">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

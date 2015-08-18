@@ -1,0 +1,144 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> huge softirq while using wlan0
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20huge%20softirq%20while%20using%20wlan0&In-Reply-To=%3C1224376914.12407.59.camel%40pc.ilinx%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004801.html">
+   <LINK REL="Next"  HREF="004813.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>huge softirq while using wlan0</H1>
+    <B>Brian J. Murrell</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20huge%20softirq%20while%20using%20wlan0&In-Reply-To=%3C1224376914.12407.59.camel%40pc.ilinx%3E"
+       TITLE="huge softirq while using wlan0">brian at interlinx.bc.ca
+       </A><BR>
+    <I>Sun Oct 19 02:41:54 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004801.html">Kudo's to the developers
+</A></li>
+        <LI>Next message: <A HREF="004813.html">huge softirq while using wlan0
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4802">[ date ]</a>
+              <a href="thread.html#4802">[ thread ]</a>
+              <a href="subject.html#4802">[ subject ]</a>
+              <a href="author.html#4802">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi there,
+
+I've got a Linksys WRT54GS loaded with OpenWrt's Kamikaze branch,
+revision r12987.
+
+I have configured the wlan0 interface to use WPA2 but I am finding that
+traffic going through the wlan0 interface is killing the CPU on this
+router with soft interrupts.  Here's what the top of top says while I'm
+bulk transferring through the router:
+
+CPU:   0% usr   0% sys   0% nice   0% idle   0% io   0% irq  99% softirq
+Load average: 2.36 0.78 0.29
+  PID  PPID USER     STAT   VSZ %MEM %CPU COMMAND
+    3     2 root     RW&lt;      0   0%  57% [ksoftirqd/0]
+  715     1 root     R     3932  13%  19% hostapd -B /var/run/hostapd-wlan0.con
+  501     1 root     S     1968   7%  10% udhcpc -t 0 -i eth0.1 -b -p /var/run/
+
+Effective throughput is only 1.4MB/s even though the client says it's
+connected at 54Mbp/s.
+
+Here's the dmesg output from my router:
+
+b43-phy0: Broadcom 4712 WLAN found
+b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 2
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+b43-phy0 debug: DebugFS (CONFIG_DEBUG_FS) not enabled in kernel config
+phy0: Selected rate control algorithm 'pid'
+Broadcom 43xx driver loaded [ Features: NLR, Firmware-ID: FW13 ]
+PPP generic driver version 2.4.2
+ip_tables: (C) 2000-2006 Netfilter Core Team
+nf_conntrack version 0.5.0 (1024 buckets, 4096 max)
+input: b43-phy0 as /devices/virtual/input/input0
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 30-bit DMA initialized
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+device wlan0 entered promiscuous mode
+b43-phy0 debug: Removing Interface type 2
+b43-phy0 debug: Wireless interface stopped
+b43-phy0 debug: DMA-30 rx_ring: Used slots 1/64, Failed frames 0/0 = 0.0%, Average tries 0.00
+b43-phy0 debug: DMA-30 tx_ring_AC_BK: Used slots 0/128, Failed frames 0/0 = 0.0%, Average tries 0.00
+b43-phy0 debug: DMA-30 tx_ring_AC_BE: Used slots 0/128, Failed frames 0/0 = 0.0%, Average tries 0.00
+b43-phy0 debug: DMA-30 tx_ring_AC_VI: Used slots 0/128, Failed frames 0/0 = 0.0%, Average tries 0.00
+b43-phy0 debug: DMA-30 tx_ring_AC_VO: Used slots 2/128, Failed frames 0/6 = 0.0%, Average tries 1.00
+b43-phy0 debug: DMA-30 tx_ring_mcast: Used slots 0/128, Failed frames 0/0 = 0.0%, Average tries 0.00
+br-lan: port 2(wlan0) entering disabled state
+input: b43-phy0 as /devices/virtual/input/input1
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 30-bit DMA initialized
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 1
+br-lan: port 2(wlan0) entering learning state
+br-lan: topology change detected, propagating
+br-lan: port 2(wlan0) entering forwarding state
+b43-phy0 debug: Set beacon interval to 100
+b43-phy0 debug: Set beacon interval to 100
+b43-phy0 debug: Updated beacon template at 0x68
+b43-phy0 debug: Updated beacon template at 0x468
+b43-phy0 debug: Updated beacon template at 0x468
+b43-phy0 debug: Set beacon interval to 100
+b43-phy0 debug: Using hardware based encryption for keyidx: 1, mac: 00:00:00:00:00:00
+b43-phy0 debug: Updated beacon template at 0x468
+b43-phy0 debug: Using hardware based encryption for keyidx: 0, mac: 00:1d:e0:4f:1b:6d
+
+I am noticing that last message and that is the MAC of the client doing
+the bulk transfer.  I would have thought that that would be causing the
+crypto to be getting done in hardware rather than software, although
+that's a complete amateur's observation.
+
+Any ideas why the softirq is so damn high?
+
+b.
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 197 bytes
+Desc: This is a digitally signed message part
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20081018/7c7a21bf/attachment.pgp">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20081018/7c7a21bf/attachment.pgp</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004801.html">Kudo's to the developers
+</A></li>
+	<LI>Next message: <A HREF="004813.html">huge softirq while using wlan0
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4802">[ date ]</a>
+              <a href="thread.html#4802">[ thread ]</a>
+              <a href="subject.html#4802">[ subject ]</a>
+              <a href="author.html#4802">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

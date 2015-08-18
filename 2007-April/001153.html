@@ -1,0 +1,346 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 2/3] fix G LO variables and functions naming
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/3%5D%20fix%20G%20LO%20variables%20and%20functions%20naming&In-Reply-To=%3C20070423203335.21f6afe0%40localhost%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001154.html">
+   <LINK REL="Next"  HREF="001156.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 2/3] fix G LO variables and functions naming</H1>
+    <B>Stefano Brivio</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/3%5D%20fix%20G%20LO%20variables%20and%20functions%20naming&In-Reply-To=%3C20070423203335.21f6afe0%40localhost%3E"
+       TITLE="[PATCH 2/3] fix G LO variables and functions naming">stefano.brivio at polimi.it
+       </A><BR>
+    <I>Mon Apr 23 20:33:35 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001154.html">[PATCH 1/3] fix A/G PHYs setup and init
+</A></li>
+        <LI>Next message: <A HREF="001156.html">[PATCH 3/3] 802.11a LO implementation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1153">[ date ]</a>
+              <a href="thread.html#1153">[ thread ]</a>
+              <a href="subject.html#1153">[ subject ]</a>
+              <a href="author.html#1153">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Avoid confusion between A and G PHY LocalOscillator-related variables and
+functions.
+
+TODO: almost everything.
+
+
+Signed-off-by: Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+---
+
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.c
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.c
+@@ -2,7 +2,7 @@
+ 
+   Broadcom BCM43xx wireless driver
+ 
+-  LO (LocalOscillator) Measuring and Control routines
++  G PHY LO (LocalOscillator) Measuring and Control routines
+ 
+   Copyright (c) 2005 Martin Langer &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">martin-langer at gmx.de</A>&gt;,
+   Copyright (c) 2005, 2006 Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">st3 at riseup.net</A>&gt;
+@@ -84,7 +84,7 @@ void assert_rfatt_and_bbatt(const struct
+ }
+ 
+ static
+-struct bcm43xx_loctl * bcm43xx_get_loctl_nopadmix(struct bcm43xx_wldev *dev,
++struct bcm43xx_loctl * bcm43xx_get_lo_g_ctl_nopadmix(struct bcm43xx_wldev *dev,
+ 						  const struct bcm43xx_rfatt *rfatt,
+ 						  const struct bcm43xx_bbatt *bbatt)
+ {
+@@ -95,7 +95,7 @@ struct bcm43xx_loctl * bcm43xx_get_loctl
+ 	return &amp;(lo-&gt;no_padmix[bbatt-&gt;att][rfatt-&gt;att]);
+ }
+ 
+-struct bcm43xx_loctl * bcm43xx_get_loctl(struct bcm43xx_wldev *dev,
++struct bcm43xx_loctl * bcm43xx_get_lo_g_ctl(struct bcm43xx_wldev *dev,
+ 					 const struct bcm43xx_rfatt *rfatt,
+ 					 const struct bcm43xx_bbatt *bbatt)
+ {
+@@ -474,7 +474,7 @@ static void lo_read_power_vector(struct 
+ 			 */
+ 			rf_offset = i / lo-&gt;rfatt_list.len;
+ 			bb_offset = i % lo-&gt;rfatt_list.len;//FIXME?
+-			loctl = bcm43xx_get_loctl(dev, &amp;lo-&gt;rfatt_list.list[rf_offset],
++			loctl = bcm43xx_get_lo_g_ctl(dev, &amp;lo-&gt;rfatt_list.list[rf_offset],
+ 						  &amp;lo-&gt;bbatt_list.list[bb_offset]);
+ 			/* And mark it as &quot;used&quot;, as the device told us
+ 			 * through the bitmap it is using it.
+@@ -732,9 +732,9 @@ static void lo_measure_restore(struct bc
+ 		bcm43xx_gphy_dc_lt_init(dev);
+ 	} else {
+ 		if (lo-&gt;rebuild)
+-			bcm43xx_lo_adjust_to(dev, 3, 2, 0);
++			bcm43xx_lo_g_adjust_to(dev, 3, 2, 0);
+ 		else
+-			bcm43xx_lo_adjust(dev);
++			bcm43xx_lo_g_adjust(dev);
+ 	}
+ 	if (phy-&gt;type == BCM43xx_PHYTYPE_G) {
+ 		if (phy-&gt;rev &gt;= 3)
+@@ -786,7 +786,7 @@ static void lo_measure_restore(struct bc
+ 	bcm43xx_radio_selectchannel(dev, sav-&gt;old_channel, 1);
+ }
+ 
+-struct bcm43xx_lo_statemachine {
++struct bcm43xx_lo_g_statemachine {
+ 	int current_state;
+ 	int nr_measured;
+ 	int state_val_multiplier;
+@@ -797,7 +797,7 @@ struct bcm43xx_lo_statemachine {
+ /* Loop over each possible value in this state. */
+ static int lo_probe_possible_loctls(struct bcm43xx_wldev *dev,
+ 				    struct bcm43xx_loctl *probe_loctl,
+-				    struct bcm43xx_lo_statemachine *d)
++				    struct bcm43xx_lo_g_statemachine *d)
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+ 	struct bcm43xx_txpower_lo_control *lo = phy-&gt;lo_control;
+@@ -882,7 +882,7 @@ static void lo_probe_loctls_statemachine
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+ 	struct bcm43xx_txpower_lo_control *lo = phy-&gt;lo_control;
+-	struct bcm43xx_lo_statemachine d;
++	struct bcm43xx_lo_g_statemachine d;
+ 	u16 feedth;
+ 	int found_lower;
+ 	struct bcm43xx_loctl probe_loctl;
+@@ -976,11 +976,11 @@ static void lo_measure(struct bcm43xx_wl
+ 
+ 		for (bbidx = 0; bbidx &lt; lo-&gt;bbatt_list.len; bbidx++) {
+ 			if (lo-&gt;rebuild) {
+-				ploctl = bcm43xx_get_loctl_nopadmix(dev,
++				ploctl = bcm43xx_get_lo_g_ctl_nopadmix(dev,
+ 							&amp;lo-&gt;rfatt_list.list[rfidx],
+ 							&amp;lo-&gt;bbatt_list.list[bbidx]);
+ 			} else {
+-				ploctl = bcm43xx_get_loctl(dev, &amp;lo-&gt;rfatt_list.list[rfidx],
++				ploctl = bcm43xx_get_lo_g_ctl(dev, &amp;lo-&gt;rfatt_list.list[rfidx],
+ 							   &amp;lo-&gt;bbatt_list.list[bbidx]);
+ 				if (!ploctl-&gt;used)
+ 					continue;
+@@ -1048,9 +1048,9 @@ void bcm43xx_lo_g_measure(struct bcm43xx
+ 	phy-&gt;lo_control-&gt;rebuild = 0;
+ }
+ 
+-void bcm43xx_lo_adjust(struct bcm43xx_wldev *dev)
++void bcm43xx_lo_g_adjust(struct bcm43xx_wldev *dev)
+ {
+-	bcm43xx_lo_write(dev, bcm43xx_loctl_current(dev));
++	bcm43xx_lo_write(dev, bcm43xx_lo_g_ctl_current(dev));
+ }
+ 
+ static inline void fixup_rfatt_for_txctl1(struct bcm43xx_rfatt *rf,
+@@ -1060,7 +1060,7 @@ static inline void fixup_rfatt_for_txctl
+ 		rf-&gt;att = 4;
+ }
+ 
+-void bcm43xx_lo_adjust_to(struct bcm43xx_wldev *dev,
++void bcm43xx_lo_g_adjust_to(struct bcm43xx_wldev *dev,
+ 			  u16 rfatt, u16 bbatt, u16 txctl1)
+ {
+ 	struct bcm43xx_rfatt rf;
+@@ -1072,11 +1072,11 @@ void bcm43xx_lo_adjust_to(struct bcm43xx
+ 	rf.att = rfatt;
+ 	bb.att = bbatt;
+ 	fixup_rfatt_for_txctl1(&amp;rf, txctl1);
+-	loctl = bcm43xx_get_loctl(dev, &amp;rf, &amp;bb);
++	loctl = bcm43xx_get_lo_g_ctl(dev, &amp;rf, &amp;bb);
+ 	bcm43xx_lo_write(dev, loctl);
+ }
+ 
+-struct bcm43xx_loctl * bcm43xx_loctl_current(struct bcm43xx_wldev *dev)
++struct bcm43xx_loctl * bcm43xx_lo_g_ctl_current(struct bcm43xx_wldev *dev)
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+ 	struct bcm43xx_txpower_lo_control *lo = phy-&gt;lo_control;
+@@ -1085,7 +1085,7 @@ struct bcm43xx_loctl * bcm43xx_loctl_cur
+ 	memcpy(&amp;rf, &amp;lo-&gt;rfatt, sizeof(rf));
+ 	fixup_rfatt_for_txctl1(&amp;rf, phy-&gt;txctl1);
+ 
+-	return bcm43xx_get_loctl(dev, &amp;rf, &amp;lo-&gt;bbatt);
++	return bcm43xx_get_lo_g_ctl(dev, &amp;rf, &amp;lo-&gt;bbatt);
+ }
+ 
+ static int do_mark_unused(struct bcm43xx_wldev *dev,
+@@ -1095,7 +1095,7 @@ static int do_mark_unused(struct bcm43xx
+ 	return 0;
+ }
+ 
+-void bcm43xx_loctl_mark_all_unused(struct bcm43xx_wldev *dev)
++void bcm43xx_lo_g_ctl_mark_all_unused(struct bcm43xx_wldev *dev)
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+ 	struct bcm43xx_txpower_lo_control *lo = phy-&gt;lo_control;
+@@ -1103,8 +1103,8 @@ void bcm43xx_loctl_mark_all_unused(struc
+ 	bcm43xx_call_for_each_loctl(dev, do_mark_unused);
+ 	lo-&gt;rebuild = 1;
+ }
+-
+-void bcm43xx_loctl_mark_cur_used(struct bcm43xx_wldev *dev)
++_
++void bcm43xx_lo_g_ctl_mark_cur_used(struct bcm43xx_wldev *dev)
+ {
+-	bcm43xx_loctl_current(dev)-&gt;used = 1;
++	bcm43xx_lo_g_ctl_current(dev)-&gt;used = 1;
+ }
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.h
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.h
+@@ -23,7 +23,7 @@ struct bcm43xx_loctl {
+  * The Value arrays are two-dimensional. The first index
+  * is the baseband attenuation and the second index
+  * is the radio attenuation.
+- * Use bcm43xx_get_loctl() to retrieve a value from the lists.
++ * Use bcm43xx_get_lo_g_ctl() to retrieve a value from the lists.
+  */
+ struct bcm43xx_txpower_lo_control {
+ #define BCM43xx_NR_BB	9
+@@ -66,26 +66,26 @@ void bcm43xx_lo_g_measure(struct bcm43xx
+ /* Adjust the Local Oscillator to the saved attenuation
+  * and txctl values.
+  */
+-void bcm43xx_lo_adjust(struct bcm43xx_wldev *dev);
++void bcm43xx_lo_g_adjust(struct bcm43xx_wldev *dev);
+ /* Adjust to specific values. */
+-void bcm43xx_lo_adjust_to(struct bcm43xx_wldev *dev,
++void bcm43xx_lo_g_adjust_to(struct bcm43xx_wldev *dev,
+ 			  u16 rfatt, u16 bbatt, u16 txctl1);
+ 
+-/* Returns the bcm43xx_loctl corresponding to the current
++/* Returns the bcm43xx_lo_g_ctl corresponding to the current
+  * attenuation values.
+  */
+-struct bcm43xx_loctl * bcm43xx_loctl_current(struct bcm43xx_wldev *dev);
+-/* Mark all possible bcm43xx_loctl as &quot;unused&quot; */
+-void bcm43xx_loctl_mark_all_unused(struct bcm43xx_wldev *dev);
+-/* Mark the bcm43xx_loctl corresponding to the current
++struct bcm43xx_loctl * bcm43xx_lo_g_ctl_current(struct bcm43xx_wldev *dev);
++/* Mark all possible bcm43xx_lo_g_ctl as &quot;unused&quot; */
++void bcm43xx_lo_g_ctl_mark_all_unused(struct bcm43xx_wldev *dev);
++/* Mark the bcm43xx_lo_g_ctl corresponding to the current
+  * attenuation values as used.
+  */
+-void bcm43xx_loctl_mark_cur_used(struct bcm43xx_wldev *dev);
++void bcm43xx_lo_g_ctl_mark_cur_used(struct bcm43xx_wldev *dev);
+ 
+ /* Get a reference to a LO Control value pair in the
+  * TX Power LO Control Array.
+  */
+-struct bcm43xx_loctl * bcm43xx_get_loctl(struct bcm43xx_wldev *dev,
++struct bcm43xx_loctl * bcm43xx_get_lo_g_ctl(struct bcm43xx_wldev *dev,
+ 					 const struct bcm43xx_rfatt *rfatt,
+ 					 const struct bcm43xx_bbatt *bbatt);
+ 
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
+@@ -2188,7 +2188,7 @@ static void bcm43xx_periodic_every120sec
+ 
+ static void bcm43xx_periodic_every60sec(struct bcm43xx_wldev *dev)
+ {
+-	bcm43xx_loctl_mark_all_unused(dev);
++	bcm43xx_lo_g_ctl_mark_all_unused(dev);
+ 	if (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp; BCM43xx_BFL_RSSI) {
+ 		bcm43xx_mac_suspend(dev);
+ 		bcm43xx_calc_nrssi_slope(dev);
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
+@@ -371,13 +371,13 @@ void bcm43xx_gphy_dc_lt_init(struct bcm4
+ 		rf_offset = i / lo-&gt;rfatt_list.len;
+ 		bb_offset = i % lo-&gt;rfatt_list.len;
+ 
+-		loctl0 = bcm43xx_get_loctl(dev, &amp;lo-&gt;rfatt_list.list[rf_offset],
++		loctl0 = bcm43xx_get_lo_g_ctl(dev, &amp;lo-&gt;rfatt_list.list[rf_offset],
+ 					   &amp;lo-&gt;bbatt_list.list[bb_offset]);
+ 		if (i + 1 &lt; lo-&gt;rfatt_list.len * lo-&gt;bbatt_list.len) {
+ 			rf_offset = (i + 1) / lo-&gt;rfatt_list.len;
+ 			bb_offset = (i + 1) % lo-&gt;rfatt_list.len;
+ 
+-			loctl1 = bcm43xx_get_loctl(dev, &amp;lo-&gt;rfatt_list.list[rf_offset],
++			loctl1 = bcm43xx_get_lo_g_ctl(dev, &amp;lo-&gt;rfatt_list.list[rf_offset],
+ 						   &amp;lo-&gt;bbatt_list.list[bb_offset]);
+ 		} else
+ 			loctl1 = loctl0;
+@@ -1329,7 +1329,7 @@ static void bcm43xx_phy_initg(struct bcm
+ 			bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x2F), 0x202);
+ 	}
+ 	if (phy-&gt;gmode) {
+-		bcm43xx_lo_adjust(dev);
++		bcm43xx_lo_g_adjust(dev);
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_LO_MASK, 0x8078);
+ 	}
+ 
+@@ -1498,7 +1498,7 @@ void bcm43xx_phy_xmitpower(struct bcm43x
+ 		radio_att_delta = -(pwr_adjust + 7) &gt;&gt; 3;
+ 		baseband_att_delta = -(pwr_adjust &gt;&gt; 1) - (4 * radio_att_delta);
+ 		if ((radio_att_delta == 0) &amp;&amp; (baseband_att_delta == 0)) {
+-			bcm43xx_loctl_mark_cur_used(dev);
++			bcm43xx_lo_g_ctl_mark_cur_used(dev);
+ 			return;
+ 		}
+ 
+@@ -1560,7 +1560,7 @@ void bcm43xx_phy_xmitpower(struct bcm43x
+ 		bcm43xx_radio_lock(dev);
+ 		bcm43xx_radio_set_txpower_bg(dev, baseband_attenuation,
+ 					     radio_attenuation, txpower);
+-		bcm43xx_loctl_mark_cur_used(dev);
++		bcm43xx_lo_g_ctl_mark_cur_used(dev);
+ 		bcm43xx_radio_unlock(dev);
+ 		bcm43xx_phy_unlock(dev, phylock_flags);
+ 		break;
+@@ -3788,7 +3788,7 @@ void bcm43xx_radio_set_txpower_bg(struct
+ 				       &amp; 0xFFF0) | tx_bias);
+ 	}
+ 	if (phy-&gt;type == BCM43xx_PHYTYPE_G)
+-		bcm43xx_lo_adjust(dev);
++		bcm43xx_lo_g_adjust(dev);
+ }
+ 
+ u16 bcm43xx_default_baseband_attenuation(struct bcm43xx_wldev *dev)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001154.html">[PATCH 1/3] fix A/G PHYs setup and init
+</A></li>
+	<LI>Next message: <A HREF="001156.html">[PATCH 3/3] 802.11a LO implementation
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1153">[ date ]</a>
+              <a href="thread.html#1153">[ thread ]</a>
+              <a href="subject.html#1153">[ subject ]</a>
+              <a href="author.html#1153">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

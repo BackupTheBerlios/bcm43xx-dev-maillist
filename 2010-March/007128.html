@@ -1,0 +1,160 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb: Implement virtual SPROM on disk
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Implement%20virtual%20SPROM%20on%20disk&In-Reply-To=%3C4ba564fb.PfAZePu8tStyxs44%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="007127.html">
+   <LINK REL="Next"  HREF="007129.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb: Implement virtual SPROM on disk</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Implement%20virtual%20SPROM%20on%20disk&In-Reply-To=%3C4ba564fb.PfAZePu8tStyxs44%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] ssb: Implement virtual SPROM on disk">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sun Mar 21 01:14:51 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="007127.html">[RFC] b43-utilities: ssb-vsprom: Add program to create on-disk,	virtual SPROM
+</A></li>
+        <LI>Next message: <A HREF="007129.html">[PATCH] ssb: Implement virtual SPROM on disk
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7128">[ date ]</a>
+              <a href="thread.html#7128">[ thread ]</a>
+              <a href="subject.html#7128">[ subject ]</a>
+              <a href="author.html#7128">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Some recent BCM43XX devices lack an on-board SPROM. The pertinent data
+from the SPROM could be included in the kernel; however, this presents
+a problem in the generation of a unique, reproducible MAC address. The
+solution has been to create a utility that generates a virtual SPROM
+image with a random MAC address. This image is stored in the firmware
+area, and loaded using the asyncronous firmware load facility.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Michael,
+
+I think this patch eliminates the need for the fallback sprom code; however,
+I have not touched that facility yet.
+
+Larry
+---
+
+Index: wireless-testing/drivers/ssb/pci.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/pci.c
++++ wireless-testing/drivers/ssb/pci.c
+@@ -19,6 +19,7 @@
+ #include &lt;linux/ssb/ssb_regs.h&gt;
+ #include &lt;linux/pci.h&gt;
+ #include &lt;linux/delay.h&gt;
++#include &lt;linux/firmware.h&gt;
+ 
+ #include &quot;ssb_private.h&quot;
+ 
+@@ -613,6 +614,39 @@ static int sprom_extract(struct ssb_bus
+ 	return 0;
+ }
+ 
++static int ssb_get_vsprom(struct device *dev, u16 *buf, size_t size)
++{
++	/* Use the firmware load facility to get the disk image of an SPROM */
++	const struct firmware *blob;
++	int err;
++	int i;
++
++	err = request_firmware(&amp;blob, &quot;ssb/vsprom_image&quot;, dev);
++	if (err) {
++		printk(KERN_ERR &quot;ssb: The BCM43XX device does not have an &quot;
++		       &quot;SPROM built in, and the virtual SPROM file is not&quot;
++		       &quot; available.\n&quot;);
++		printk(KERN_ERR &quot;ssb: Please go to &quot;
++		       &quot;<A HREF="http://wireless.kernel.org/en/users/Drivers/b43">http://wireless.kernel.org/en/users/Drivers/b43</A> &quot;
++		       &quot;and download the utility to create the file.\n&quot;);
++		return err;
++	}
++	if (blob-&gt;size != size * 2) {
++		printk(KERN_ERR &quot;ssb: The virtual SPROM file has the wrong&quot;
++		       &quot; size\n&quot;);
++		return -ENOENT;
++	}
++	for (i = 0; i &lt; size; i++)
++		buf[i] = blob-&gt;data[2 * i + 1] &lt;&lt; 8 | blob-&gt;data[2 * i];
++	err = sprom_check_crc(buf, size);
++	if (err) {
++		printk(KERN_ERR &quot;ssb: Invalid CRC for virtual SPROM\n&quot;);
++		return err;
++	}
++
++	return 0;
++}
++
+ static int ssb_pci_sprom_get(struct ssb_bus *bus,
+ 			     struct ssb_sprom *sprom)
+ {
+@@ -620,8 +654,18 @@ static int ssb_pci_sprom_get(struct ssb_
+ 	int err = -ENOMEM;
+ 	u16 *buf;
+ 
+-	if (!ssb_is_sprom_available(bus))
+-		return -ENODEV;
++	if (!ssb_is_sprom_available(bus)) {
++		buf = kcalloc(SSB_SPROMSIZE_WORDS_R4, sizeof(u16),
++			      GFP_KERNEL);
++		if (!buf)
++			return -ENOMEM;
++		bus-&gt;sprom_size = SSB_SPROMSIZE_WORDS_R4;
++		if (ssb_get_vsprom(&amp;bus-&gt;host_pci-&gt;dev, buf, bus-&gt;sprom_size)) {
++			err = -ENODEV;
++			goto out_free;
++		}
++		goto extract;
++	}
+ 
+ 	buf = kcalloc(SSB_SPROMSIZE_WORDS_R123, sizeof(u16), GFP_KERNEL);
+ 	if (!buf)
+@@ -653,6 +697,7 @@ static int ssb_pci_sprom_get(struct ssb_
+ 				   &quot; SPROM CRC (corrupt SPROM)\n&quot;);
+ 		}
+ 	}
++extract:
+ 	err = sprom_extract(bus, sprom, buf, bus-&gt;sprom_size);
+ 
+ out_free:
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="007127.html">[RFC] b43-utilities: ssb-vsprom: Add program to create on-disk,	virtual SPROM
+</A></li>
+	<LI>Next message: <A HREF="007129.html">[PATCH] ssb: Implement virtual SPROM on disk
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7128">[ date ]</a>
+              <a href="thread.html#7128">[ thread ]</a>
+              <a href="subject.html#7128">[ subject ]</a>
+              <a href="author.html#7128">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

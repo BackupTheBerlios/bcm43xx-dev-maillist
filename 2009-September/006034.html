@@ -1,0 +1,250 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm4306 rev2 kernel segfault and reboot
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4306%20rev2%20kernel%20segfault%20and%20reboot&In-Reply-To=%3C4AAA6306.1000607%40schmitt-united.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006029.html">
+   <LINK REL="Next"  HREF="006045.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm4306 rev2 kernel segfault and reboot</H1>
+    <B>Daniel Schmitt</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4306%20rev2%20kernel%20segfault%20and%20reboot&In-Reply-To=%3C4AAA6306.1000607%40schmitt-united.de%3E"
+       TITLE="bcm4306 rev2 kernel segfault and reboot">daniel at schmitt-united.de
+       </A><BR>
+    <I>Fri Sep 11 16:47:34 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006029.html">bcm4306 rev2 kernel segfault and reboot
+</A></li>
+        <LI>Next message: <A HREF="006045.html">bcm4306 rev2 kernel segfault and reboot
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6034">[ date ]</a>
+              <a href="thread.html#6034">[ thread ]</a>
+              <a href="subject.html#6034">[ subject ]</a>
+              <a href="author.html#6034">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>G&#225;bor Stefanik wrote:
+&gt;<i> Please enable CONFIG_KALLSYMS. This trace is useless without symbol information.
+</I>Sorry, I forgot.
+
+I figured out that there is a problem with reading SPROM of my bcm4306.
+I initialized a fallback SPROM at beginning of modinit of ssb.ko. I used this 
+struct:
+
+static struct ssb_sprom bcm63xx2_sprom = {
+	.revision		= 0x01,
+	.board_rev		= 0x00,
+	.country_code		= 0xff,
+	.ant_available_bg 	= 0xff,
+	.pa0b0			= 0xffff,
+	.pa0b1			= 0xffff,
+	.pa0b2			= 0xffff,
+	.pa1b0			= 0xffff,
+	.pa1b1			= 0xffff,
+	.pa1b2			= 0xffff,
+	.gpio0			= 0xff,
+	.gpio1			= 0xff,
+	.gpio2			= 0xff,
+	.gpio3			= 0xff,
+	.maxpwr_bg		= 0x004c,
+	.itssi_bg		= 0x00,
+	.boardflags_lo		= 0x2848,
+	.boardflags_hi		= 0x0000,
+};
+
+Before registering the fallback SPROM I initialized an MAC-Address:
+
+	bcm63xx2_sprom.il0mac[0] = 0x00;
+	bcm63xx2_sprom.il0mac[1] = 0x80;
+	bcm63xx2_sprom.il0mac[2] = 0x23;
+	bcm63xx2_sprom.il0mac[3] = 0xFE;
+	bcm63xx2_sprom.il0mac[4] = 0xCD;
+	bcm63xx2_sprom.il0mac[5] = 0x13;
+
+
+It works that I have a fallback SPROM. here the dmesg:
+DANIEL: fallback SRPM registeredPCI: enabling device 0000:00:02.0 (0140 -&gt; 0142)
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x02, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x04, vendor 0x4243)
+ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x01, vendor 0x4243)
+ssb: Core 3 found: V90 (cc 0x807, rev 0x01, vendor 0x4243)
+ssb: Core 4 found: PCI (cc 0x804, rev 0x07, vendor 0x4243)
+ssb: Core 5 found: IEEE 802.11 (cc 0x812, rev 0x04, vendor 0x4243)
+ssb: Ignoring additional 802.11 core
+ssb: Sonics Silicon Backplane found on PCI device 0000:00:02.0
+PCI: enabling device 0000:00:04.0 (0140 -&gt; 0142)
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x02, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x04, vendor 0x4243)
+ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x01, vendor 0x4243)
+ssb: Core 3 found: V90 (cc 0x807, rev 0x01, vendor 0x4243)
+ssb: Core 4 found: PCI (cc 0x804, rev 0x07, vendor 0x4243)
+ssb: Core 5 found: IEEE 802.11 (cc 0x812, rev 0x04, vendor 0x4243)
+ssb: Ignoring additional 802.11 core
+ssb: Sonics Silicon Backplane found on PCI device 0000:00:04.0
+
+But if I do a &quot;cat /sys/devices/pci0000:00/0000:00:02.0/ssb_sprom&quot; I get
+
+Bad mode in data abort handler detected
+Internal error: Oops - bad mode: 0 [#1]
+Modules linked in: ssb
+CPU: 0    Not tainted  (2.6.28.10 #9)
+PC is at 0xffff01fc
+LR is at ssb_attr_sprom_show+0x7c/0x124 [ssb]
+pc : [&lt;ffff01fc&gt;]    lr : [&lt;bf002704&gt;]    psr: a0000092
+sp : c3aa3e5c  ip : 00000001  fp : c3aa3ecc
+r10: c026e1e4  r9 : 00000000  r8 : 0000ffff
+r7 : c3a30ebe  r6 : c3a24c00  r5 : 00000060  r4 : 00000002
+r3 : c48c90be  r2 : c3aa3ea4  r1 : 00000003  r0 : 90be0000
+Flags: NzCv  IRQs off  FIQs on  Mode IRQ_32  ISA ARM  Segment user
+Control: 000039ff  Table: 03a40000  DAC: 00000015
+Process cat (pid: 1461, stack limit = 0xc3aa2260)
+Stack: (0xc3aa3e5c to 0xc3aa4000)
+3e40:                                                                90be0000
+3e60: 00000003 c3aa3ea4 c48c90be 00000002 00000060 c3a24c00 c3a30ebe 0000ffff
+3e80: 00000000 c026e1e4 c3aa3ecc 00000001 c3aa3e5c bf002704 ffff01fc a0000092
+3ea0: ffffffff c3aa3eb0 c3a24c00 000000dc bf002850 c3a30e00 c3a24c1c c3acb000
+3ec0: c3aa3ef8 c3aa3ed0 bf002704 bf00285c c3acb000 fffffffb c39f1ab4 00000fff
+3ee0: c0267420 c396c8f4 c3aa3f80 c3aa3f0c c3aa3efc bf002cc4 bf002694 bf008730
+3f00: c3aa3f24 c3aa3f10 c012e43c bf002ca0 c396c8e0 c38114c0 c3aa3f5c c3aa3f28
+3f20: c00c7548 c012e420 00000003 00001000 beb23d90 c3869340 00001000 beb23d90
+3f40: c3aa3f80 c0021f84 c3aa2000 00000001 c3aa3f7c c3aa3f60 c008ac1c c00c74b0
+3f60: c3869340 00000000 00000000 00000003 c3aa3fa4 c3aa3f80 c008af0c c008ab78
+3f80: 00000000 00000000 00000000 00001000 4009c614 beb23d90 00000000 c3aa3fa8
+3fa0: c0021de0 c008aecc 00001000 4009c614 00000003 beb23d90 00001000 00074b70
+3fc0: 00001000 4009c614 beb23d90 00000003 00000000 00000001 00000001 00000003
+3fe0: 40052660 beb23d74 0000db54 40052668 20000010 00000003 00000000 00000000
+Backtrace:
+[&lt;bf002850&gt;] (sprom_do_read+0x0/0xf0 [ssb]) from [&lt;bf002704&gt;] 
+(ssb_attr_sprom_show+0x7c/0x124 [ssb])
+[&lt;bf002688&gt;] (ssb_attr_sprom_show+0x0/0x124 [ssb]) from [&lt;bf002cc4&gt;] 
+(ssb_pci_attr_sprom_show+0x30/0x40 [ssb])
+[&lt;bf002c94&gt;] (ssb_pci_attr_sprom_show+0x0/0x40 [ssb]) from [&lt;c012e43c&gt;] 
+(dev_attr_show+0x28/0x54)
+  r4:bf008730
+[&lt;c012e414&gt;] (dev_attr_show+0x0/0x54) from [&lt;c00c7548&gt;] (sysfs_read_file+0xa4/0x138)
+  r5:c38114c0 r4:c396c8e0
+[&lt;c00c74a4&gt;] (sysfs_read_file+0x0/0x138) from [&lt;c008ac1c&gt;] (vfs_read+0xb0/0xfc)
+[&lt;c008ab6c&gt;] (vfs_read+0x0/0xfc) from [&lt;c008af0c&gt;] (sys_read+0x4c/0x84)
+  r7:00000003 r6:00000000 r5:00000000 r4:c3869340
+[&lt;c008aec0&gt;] (sys_read+0x0/0x84) from [&lt;c0021de0&gt;] (ret_fast_syscall+0x0/0x2c)
+  r6:beb23d90 r5:4009c614 r4:00001000
+Code: 00000000 00000000 00000000 00000000 (00000000)
+---[ end trace dffef674132f720b ]---
+
+So I decided to return the same data in sprom_do_read as in my fallback image.
+This works now:
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at OpenWrt</A>:/tmp/root/lib/modules/2.6.28.10# cat /sys/devices/pci0000:00/0000:0
+0:02.0/ssb_sprom
+00012380CDFE00130000000000000000000000000000000000FF00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00004C0000004828000000000000000000000000000000000000000000
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at OpenWrt</A>:/tmp/root/lib/modules/2.6.28.10#
+
+But when I now try to load b43legacy it crashed again :(
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at OpenWrt</A>:/tmp/root/lib/modules/2.6.28.10# insmod b43legacy.ko
+b43legacy-phy0: Broadcom 4306 WLAN found
+b43legacy: probe of ssb0:0 failed with error -2
+b43legacy-phy1: Broadcom 4306 WLAN found
+b43legacy: probe of ssb1:0 failed with error -2
+Unable to handle kernel NULL pointer dereference at virtual address 00000000
+pgd = c3860000
+[00000000] *pgd=0313a031, *pte=00000000, *ppte=00000000
+Internal error: Oops: 817 [#1]
+Modules linked in: b43legacy(+) mac80211 cfg80211 ssb
+CPU: 0    Not tainted  (2.6.28.10 #9)
+PC is at sysfs_create_file+0x34/0x40
+LR is at driver_create_file+0x20/0x2c
+pc : [&lt;c00c78ac&gt;]    lr : [&lt;c0131758&gt;]    psr: 60000013
+sp : c30efd60  ip : c30efd70  fp : c30efd6c
+r10: bf008644  r9 : bf08c000  r8 : c398f5a0
+r7 : 00000000  r6 : 00075030  r5 : bf088bb8  r4 : 00000000
+r3 : 00000000  r2 : 00000020  r1 : c02674b0  r0 : 00000000
+Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
+Control: 000039ff  Table: 03860000  DAC: 00000015
+Process insmod (pid: 1508, stack limit = 0xc30ee260)
+Stack: (0xc30efd60 to 0xc30f0000)
+fd60: c30efd7c c30efd70 c0131758 c00c7884 c30efda8 c30efd80 c0130d88 c0131744
+fd80: bf0838a8 00000000 bf088bb8 00075030 00000000 c30ee000 be842e98 c30efdcc
+fda0: c30efdac c01315a0 c0130cb8 00000000 bf088f00 00075030 00000000 c30ee000
+fdc0: c30efddc c30efdd0 bf0010c0 c0131558 c30efdfc c30efde0 bf08c01c bf0010a4
+fde0: 00000001 00000000 00000000 bf088f00 c30eff80 c30efe00 c00212b0 bf08c00c
+fe00: c026d2d8 00000000 c30efe14 c0069438 c0067fe8 00000000 c026d2fc 00000003
+fe20: c026d2d8 00000001 00000000 00000003 c02f7b20 c026d2f0 c026d2d8 40000013
+fe40: 00000000 00000018 c313ee20 c30efe7c c30efe5c c0069804 c0069388 00000000
+fe60: 00000020 c4936000 00000001 c4936000 c30efe8c c30efe80 c00698a0 c006969c
+fe80: c30efea0 c30efe90 c393e780 00000021 c4936000 c30efec0 c30efea4 c007d634
+fea0: c008652c c396cb60 bf088f00 00000001 00000001 c30efed0 c30efec4 c007d704
+fec0: c007d5a8 c30eff80 c30efed4 c005e888 c007d6e0 00000000 c30eff50 c30eff48
+fee0: bf067818 bf088f0c c494e41c c494e304 c494e3f4 bf084718 c494e084 c494dfb6
+ff00: c393e760 c4954fdc 00000016 0000000b 00000000 00000245 00000245 bf084754
+ff20: bf086b94 bf0429dc 00000018 c494e444 00000000 00000000 00000000 00000000
+ff40: 00000000 00000000 00020fd1 bf088f00 00075030 00000000 00020fd1 bf088f00
+ff60: 00075030 00000000 c0021f84 c30ee000 be842e98 c30effa4 c30eff84 c005e974
+ff80: c0021284 c0088398 00020fd1 00075030 00000002 00000080 00000000 c30effa8
+ffa0: c0021de0 c005e8f0 00020fd1 00075030 00075030 00020fd1 00075020 00075030
+ffc0: 00020fd1 00075030 00000002 be842f5d be842bec 00000002 be842e98 0000c8c0
+ffe0: 40051a94 be841bcc 0001181c 40051aa0 20000010 00075030 00305021 00305421
+Backtrace:
+[&lt;c00c7878&gt;] (sysfs_create_file+0x0/0x40) from [&lt;c0131758&gt;] 
+(driver_create_file+0x20/0x2c)
+[&lt;c0131738&gt;] (driver_create_file+0x0/0x2c) from [&lt;c0130d88&gt;] 
+(bus_add_driver+0xdc/0x22c)
+[&lt;c0130cac&gt;] (bus_add_driver+0x0/0x22c) from [&lt;c01315a0&gt;] 
+(driver_register+0x54/0x130)
+[&lt;c013154c&gt;] (driver_register+0x0/0x130) from [&lt;bf0010c0&gt;] 
+(__ssb_driver_register+0x28/0x30 [ssb])
+  r8:c30ee000 r7:00000000 r6:00075030 r5:bf088f00 r4:00000000
+[&lt;bf001098&gt;] (__ssb_driver_register+0x0/0x30 [ssb]) from [&lt;bf08c01c&gt;] 
+(b43legacy_init+0x1c/0x74 [b43legacy])
+[&lt;bf08c000&gt;] (b43legacy_init+0x0/0x74 [b43legacy]) from [&lt;c00212b0&gt;] 
+(do_one_initcall+0x38/0x1b0)
+  r5:bf088f00 r4:00000000
+[&lt;c0021278&gt;] (do_one_initcall+0x0/0x1b0) from [&lt;c005e974&gt;] 
+(sys_init_module+0x90/0x18c)
+[&lt;c005e8e4&gt;] (sys_init_module+0x0/0x18c) from [&lt;c0021de0&gt;] 
+(ret_fast_syscall+0x0/0x2c)
+  r7:00000080 r6:00000002 r5:00075030 r4:00020fd1
+Code: e3a02002 ebffffee e89da800 e3a03000 (e5833000)
+---[ end trace dffef674132f720b ]---
+Segmentation fault
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at OpenWrt</A>:/tmp/root/lib/modules/2.6.28.10#
+
+this happens with b43legacy driver from compat-wireless_2009-08-20.
+
+I will try to use 2009-08-15 I trink it worked for one time.
+
+Daniel
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006029.html">bcm4306 rev2 kernel segfault and reboot
+</A></li>
+	<LI>Next message: <A HREF="006045.html">bcm4306 rev2 kernel segfault and reboot
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6034">[ date ]</a>
+              <a href="thread.html#6034">[ thread ]</a>
+              <a href="subject.html#6034">[ subject ]</a>
+              <a href="author.html#6034">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

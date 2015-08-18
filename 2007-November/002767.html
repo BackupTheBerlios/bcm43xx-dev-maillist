@@ -1,0 +1,173 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 on a Linksys WRT54GL
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20on%20a%20Linksys%20WRT54GL&In-Reply-To=%3C4735E6E9.3020309%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002764.html">
+   <LINK REL="Next"  HREF="002768.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 on a Linksys WRT54GL</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20on%20a%20Linksys%20WRT54GL&In-Reply-To=%3C4735E6E9.3020309%40lwfinger.net%3E"
+       TITLE="b43 on a Linksys WRT54GL">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Sat Nov 10 18:14:17 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002764.html">b43 on a Linksys WRT54GL
+</A></li>
+        <LI>Next message: <A HREF="002768.html">b43 on a Linksys WRT54GL
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2767">[ date ]</a>
+              <a href="thread.html#2767">[ thread ]</a>
+              <a href="subject.html#2767">[ subject ]</a>
+              <a href="author.html#2767">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Maurits Dijkstra wrote:
+&gt;<i> Hi all,
+</I>&gt;<i> 
+</I>&gt;<i> The last few days I've been trying to get b43 to work on my WRT54GL
+</I>&gt;<i> wlan-router. The reason I've been trying this is because I want to use the
+</I>&gt;<i> device as a bridge between the local university wlan and my own local
+</I>&gt;<i> network. However, because the network I'm trying to connect to is part of
+</I>&gt;<i> the academic eduroam infrastructure I need 802.1x with dynamic WEP keying.
+</I>&gt;<i> 
+</I>&gt;<i> The proprietary broadcom drivers do not seem to support wpa_supplicant or
+</I>&gt;<i> xsupplicant as they do not implement (much of) the standard linux wireless
+</I>&gt;<i> extensions. There is a broadcom-specific driver for wpa_supplicant, but it
+</I>&gt;<i> is broken, and it would be nice to get rid of the binary-only driver
+</I>&gt;<i> altogether, not patch it up with yet another hack. So I set out to get b43
+</I>&gt;<i> working. After a few hours of tinkering I got the driver to insert and
+</I>&gt;<i> load the firmware:
+</I>&gt;<i> 
+</I>&gt;<i> b43-phy0: Broadcom 5352 WLAN found
+</I>&gt;<i> b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 7
+</I>&gt;<i> b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+</I>&gt;<i> b43-phy0 debug: DebugFS (CONFIG_DEBUG_FS) not enabled in kernel config
+</I>&gt;<i> phy0: Selected rate control algorithm 'simple'
+</I>&gt;<i> b43-phy0 debug: Loading firmware version 351.126 (2006-07-29 05:54:02)
+</I>&gt;<i> b43-phy0 debug: Chip initialized
+</I>&gt;<i> b43-phy0 debug: 32-bit DMA initialized
+</I>&gt;<i> b43-phy0 debug: Wireless interface started
+</I>&gt;<i> b43-phy0 debug: Adding Interface type 2
+</I>&gt;<i> 
+</I>&gt;<i> So far so good, I thought. But when I tried to actually do anything with
+</I>&gt;<i> the interface this message appeared in dmesg:
+</I>&gt;<i> 
+</I>&gt;<i> b43-phy0 warning: Invalid max-TX-power value in SPROM.
+</I>&gt;<i> 
+</I>&gt;<i> The driver itself responds to commands, but scanning finds nothing and
+</I>&gt;<i> trying to associate to access points doesn't work either. Also, the MAC
+</I>&gt;<i> addresses for both the wmaster0 and wlan0 interfaces are zeroed out:
+</I>&gt;<i> 
+</I>&gt;<i> wlan0     Link encap:Ethernet  HWaddr 00:00:00:00:00:00
+</I>&gt;<i>           UP BROADCAST MULTICAST  MTU:1500  Metric:1
+</I>&gt;<i>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+</I>&gt;<i>           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;<i>           collisions:0 txqueuelen:1000
+</I>&gt;<i>           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+</I>&gt;<i> 
+</I>&gt;<i> wmaster0  Link encap:UNSPEC  HWaddr
+</I>&gt;<i> 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
+</I>&gt;<i>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+</I>&gt;<i>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+</I>&gt;<i>           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;<i>           collisions:0 txqueuelen:1000
+</I>&gt;<i>           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+</I>&gt;<i> 
+</I>&gt;<i> I've tried b43 from a git tree I pulled yesterday evening on openwrt
+</I>&gt;<i> kamikaze svn trunk (r9519), running linux 2.6.23.1. My SSB info is:
+</I>&gt;<i> 
+</I>&gt;<i> ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x0E, vendor 0x4243)
+</I>&gt;<i> ssb: Core 1 found: Fast Ethernet (cc 0x806, rev 0x09, vendor 0x4243)
+</I>&gt;<i> ssb: Core 2 found: MIPS 3302 (cc 0x816, rev 0x06, vendor 0x4243)
+</I>&gt;<i> ssb: Core 3 found: USB 1.1 Host (cc 0x817, rev 0x02, vendor 0x4243)
+</I>&gt;<i> ssb: Core 4 found: MEMC SDRAM (cc 0x80F, rev 0x01, vendor 0x4243)
+</I>&gt;<i> ssb: Core 5 found: IEEE 802.11 (cc 0x812, rev 0x09, vendor 0x4243)
+</I>&gt;<i> ssb: Core 6 found: Roboswitch (cc 0x81C, rev 0x02, vendor 0x4243)
+</I>&gt;<i> ssb: Initializing MIPS core...
+</I>&gt;<i> ssb: set_irq: core 0x0806, irq 2 =&gt; 2
+</I>&gt;<i> ssb: set_irq: core 0x0817, irq 4 =&gt; 3
+</I>&gt;<i> ssb: set_irq: core 0x0812, irq 0 =&gt; 4
+</I>&gt;<i> ssb: Sonics Silicon Backplane found at address 0x18000000
+</I>&gt;<i> 
+</I>&gt;<i> If I were to take a fairly uneducated guess, I'd say the driver is not
+</I>&gt;<i> recognizing the layout of the SPROM correctly, since it doesn't seem to be
+</I>&gt;<i> able to find  correct values for the MAC address and TX-power, both of
+</I>&gt;<i> which should be stored there...
+</I>&gt;<i> 
+</I>&gt;<i> Is there anyone who knows what's wrong or can provide pointers on where to
+</I>&gt;<i> look? Any help would be greatly appreciated and I wouldn't mind getting my
+</I>&gt;<i> own hands dirty to fix it. :)
+</I>
+In the past few days, I have discovered that the SPROM revision 3 layout doesn't match the specs. To
+dump the SPROM, I used the following patch:
+
+Index: linux-2.6/drivers/ssb/pci.c
+===================================================================
+--- linux-2.6.orig/drivers/ssb/pci.c
++++ linux-2.6/drivers/ssb/pci.c
+@@ -457,6 +457,7 @@ static int ssb_pci_sprom_get(struct ssb_
+ {
+        int err = -ENOMEM;
+        u16 *buf;
++       int i;
+
+        buf = kcalloc(SSB_SPROMSIZE_WORDS, sizeof(u16), GFP_KERNEL);
+        if (!buf)
+@@ -467,6 +468,12 @@ static int ssb_pci_sprom_get(struct ssb_
+                ssb_printk(KERN_WARNING PFX
+                           &quot;WARNING: Invalid SPROM CRC (corrupt SPROM)\n&quot;);
+        }
++       printk(&quot;ssb: SPROM DUMP\nssb: 0x0000: &quot;);
++       for (i=0; i &lt; SSB_SPROMSIZE_WORDS; i++) {
++               printk(&quot;0x%.4X&quot;, buf[i]);
++               if ((i % 8) == 7) printk(&quot;\nssb: 0x%.4X: &quot;, (i + 1) * 2);
++       }
++       printk(&quot;\n&quot;);
+        err = sprom_extract(bus, sprom, buf);
+
+        kfree(buf);
+
+I think your system doesn't use PCI, so this probably won't work, but you should be able to
+implement something similar. Once you have a dump, you should be able to find the MAC addresses of
+the wireless and ethernet interfaces.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002764.html">b43 on a Linksys WRT54GL
+</A></li>
+	<LI>Next message: <A HREF="002768.html">b43 on a Linksys WRT54GL
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2767">[ date ]</a>
+              <a href="thread.html#2767">[ thread ]</a>
+              <a href="subject.html#2767">[ subject ]</a>
+              <a href="author.html#2767">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx-mac80211: Remove the stackdump in rfatt/bbatt	assertion
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx-mac80211%3A%20Remove%20the%20stackdump%20in%20rfatt/bbatt%0A%09assertion&In-Reply-To=%3C200708071815.09936.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001835.html">
+   <LINK REL="Next"  HREF="001838.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx-mac80211: Remove the stackdump in rfatt/bbatt	assertion</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx-mac80211%3A%20Remove%20the%20stackdump%20in%20rfatt/bbatt%0A%09assertion&In-Reply-To=%3C200708071815.09936.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] bcm43xx-mac80211: Remove the stackdump in rfatt/bbatt	assertion">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Aug  7 18:15:09 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001835.html">[PATCH] bcm43xx-mac80211: Make hwpctl optional (disabled by	default)
+</A></li>
+        <LI>Next message: <A HREF="001838.html">[PATCH] bcm43xx-mac80211: Remove the stackdump in rfatt/bbatt	assertion
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1837">[ date ]</a>
+              <a href="thread.html#1837">[ thread ]</a>
+              <a href="subject.html#1837">[ subject ]</a>
+              <a href="author.html#1837">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This removes the stackdump in the rfatt/bbatt assertion
+to reduce verbosity, but it also increases the message log
+level from &quot;debug&quot; to &quot;error&quot;.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_lo.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_lo.c	2007-08-07 17:57:52.000000000 +0200
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_lo.c	2007-08-07 18:11:04.000000000 +0200
+@@ -62,28 +62,23 @@ static void bcm43xx_lo_write(struct bcm4
+ 	bcm43xx_phy_write(dev, reg, value);
+ }
+ 
+-static inline
+-int assert_rfatt_and_bbatt(const struct bcm43xx_rfatt *rfatt,
+-			   const struct bcm43xx_bbatt *bbatt,
+-			   struct bcm43xx_wldev *dev)
++static int assert_rfatt_and_bbatt(const struct bcm43xx_rfatt *rfatt,
++				  const struct bcm43xx_bbatt *bbatt,
++				  struct bcm43xx_wldev *dev)
+ {
+ 	int err = 0;
+ 
+ 	/* Check the attenuation values against the LO control array sizes. */
+-#if BCM43xx_DEBUG
+-	if (rfatt-&gt;att &gt;= BCM43xx_NR_RF) {
+-		bcmdbg(dev-&gt;wl, &quot;rfatt(%u) &gt;= size of LO array\n&quot;,
++	if (unlikely(rfatt-&gt;att &gt;= BCM43xx_NR_RF)) {
++		bcmerr(dev-&gt;wl, &quot;rfatt(%u) &gt;= size of LO array\n&quot;,
+ 		       rfatt-&gt;att);
+ 		err = -EINVAL;
+ 	}
+-	if (bbatt-&gt;att &gt;= BCM43xx_NR_BB) {
+-		bcmdbg(dev-&gt;wl, &quot;bbatt(%u) &gt;= size of LO array\n&quot;,
++	if (unlikely(bbatt-&gt;att &gt;= BCM43xx_NR_BB)) {
++		bcmerr(dev-&gt;wl, &quot;bbatt(%u) &gt;= size of LO array\n&quot;,
+ 		       bbatt-&gt;att);
+ 		err = -EINVAL;
+ 	}
+-	if (err)
+-		dump_stack();
+-#endif /* BCM43xx_DEBUG */
+ 
+ 	return err;
+ }
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001835.html">[PATCH] bcm43xx-mac80211: Make hwpctl optional (disabled by	default)
+</A></li>
+	<LI>Next message: <A HREF="001838.html">[PATCH] bcm43xx-mac80211: Remove the stackdump in rfatt/bbatt	assertion
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1837">[ date ]</a>
+              <a href="thread.html#1837">[ thread ]</a>
+              <a href="subject.html#1837">[ subject ]</a>
+              <a href="author.html#1837">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

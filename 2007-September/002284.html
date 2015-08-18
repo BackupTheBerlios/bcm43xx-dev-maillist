@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> RFC V2 bcm43xx: Fix potential race in shutdown of work queues
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20RFC%20V2%20bcm43xx%3A%20Fix%20potential%20race%20in%20shutdown%20of%20work%20queues&In-Reply-To=%3C46dc6057.sXmM4nQhoObu%2BmF9%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002283.html">
+   <LINK REL="Next"  HREF="002289.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>RFC V2 bcm43xx: Fix potential race in shutdown of work queues</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20RFC%20V2%20bcm43xx%3A%20Fix%20potential%20race%20in%20shutdown%20of%20work%20queues&In-Reply-To=%3C46dc6057.sXmM4nQhoObu%2BmF9%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="RFC V2 bcm43xx: Fix potential race in shutdown of work queues">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Mon Sep  3 21:28:23 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002283.html">Asking for BCM4306/2 results
+</A></li>
+        <LI>Next message: <A HREF="002289.html">RFC V2 bcm43xx: Fix potential race in shutdown of work queues
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2284">[ date ]</a>
+              <a href="thread.html#2284">[ thread ]</a>
+              <a href="subject.html#2284">[ subject ]</a>
+              <a href="author.html#2284">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This patch fixes a problem with work queues during shutdown. The bug
+seems to be responsible for the boot-time crashes reported in
+<A HREF="http://bugzilla.kernel.org/show_bug.cgi?id=8937.">http://bugzilla.kernel.org/show_bug.cgi?id=8937.</A>
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -3197,6 +3197,9 @@ static void bcm43xx_periodic_work_handle
+ 	unsigned long orig_trans_start = 0;
+ 
+ 	mutex_lock(&amp;bcm-&gt;mutex);
++	/* keep from doing and rearming periodic work if shutting down */
++	if (bcm43xx_status(bcm) == BCM43xx_STAT_UNINIT)
++		goto unlock_mutex;
+ 	if (unlikely(bcm-&gt;periodic_state % 60 == 0)) {
+ 		/* Periodic work will take a long time, so we want it to
+ 		 * be preemtible.
+@@ -3242,6 +3245,7 @@ static void bcm43xx_periodic_work_handle
+ 	mmiowb();
+ 	bcm-&gt;periodic_state++;
+ 	spin_unlock_irqrestore(&amp;bcm-&gt;irq_lock, flags);
++unlock_mutex:
+ 	mutex_unlock(&amp;bcm-&gt;mutex);
+ }
+ 
+@@ -3338,6 +3342,14 @@ static void bcm43xx_free_board(struct bc
+ 	bcm43xx_periodic_tasks_delete(bcm);
+ 
+ 	mutex_lock(&amp;(bcm)-&gt;mutex);
++	bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
++	mutex_unlock(&amp;(bcm)-&gt;mutex);
++
++	/* next 2 steps must be unlocked, else they may deadlock */
++	cancel_work_sync(&amp;bcm-&gt;restart_work);
++	cancel_delayed_work_sync(&amp;bcm-&gt;periodic_work);
++
++	mutex_lock(&amp;(bcm)-&gt;mutex);
+ 	bcm43xx_shutdown_all_wireless_cores(bcm);
+ 	bcm43xx_pctl_set_crystal(bcm, 0);
+ 	mutex_unlock(&amp;(bcm)-&gt;mutex);
+@@ -4030,7 +4042,6 @@ static int bcm43xx_net_stop(struct net_d
+ 	err = bcm43xx_disable_interrupts_sync(bcm);
+ 	assert(!err);
+ 	bcm43xx_free_board(bcm);
+-	flush_scheduled_work();
+ 
+ 	return 0;
+ }
+@@ -4165,6 +4176,7 @@ static void bcm43xx_chip_reset(struct wo
+ 	mutex_lock(&amp;(bcm)-&gt;mutex);
+ 	if (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED) {
+ 		bcm43xx_periodic_tasks_delete(bcm);
++		bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
+ 		phy = bcm43xx_current_phy(bcm);
+ 		err = bcm43xx_select_wireless_core(bcm, phy-&gt;type);
+ 		if (!err)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002283.html">Asking for BCM4306/2 results
+</A></li>
+	<LI>Next message: <A HREF="002289.html">RFC V2 bcm43xx: Fix potential race in shutdown of work queues
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2284">[ date ]</a>
+              <a href="thread.html#2284">[ thread ]</a>
+              <a href="subject.html#2284">[ subject ]</a>
+              <a href="author.html#2284">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 3/6] b43: N-PHY: add RSSI calculation for PHY rev &lt; 3
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/6%5D%20b43%3A%20N-PHY%3A%20add%20RSSI%20calculation%20for%20PHY%20rev%20%3C%203&In-Reply-To=%3Cb170af451001111427u25861f2bla4062a7b0aea19ec%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006722.html">
+   <LINK REL="Next"  HREF="006724.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 3/6] b43: N-PHY: add RSSI calculation for PHY rev &lt; 3</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/6%5D%20b43%3A%20N-PHY%3A%20add%20RSSI%20calculation%20for%20PHY%20rev%20%3C%203&In-Reply-To=%3Cb170af451001111427u25861f2bla4062a7b0aea19ec%40mail.gmail.com%3E"
+       TITLE="[PATCH 3/6] b43: N-PHY: add RSSI calculation for PHY rev &lt; 3">zajec5 at gmail.com
+       </A><BR>
+    <I>Mon Jan 11 23:27:18 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006722.html">[PATCH 3/6] b43: N-PHY: add RSSI calculation for PHY rev &lt; 3
+</A></li>
+        <LI>Next message: <A HREF="006724.html">[PATCH 3/6] b43: N-PHY: add RSSI calculation for PHY rev &lt; 3
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6723">[ date ]</a>
+              <a href="thread.html#6723">[ thread ]</a>
+              <a href="subject.html#6723">[ subject ]</a>
+              <a href="author.html#6723">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>W dniu 11 stycznia 2010 23:13 u&#380;ytkownik Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; napisa&#322;:
+&gt;<i> On Monday 11 January 2010 22:13:31 Rafa&#322; Mi&#322;ecki wrote:
+</I>&gt;&gt;<i> 2010/1/10 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;:
+</I>&gt;&gt;<i> &gt; On Sunday 10 January 2010 23:13:34 Rafa&#322; Mi&#322;ecki wrote:
+</I>&gt;&gt;<i> &gt;&gt; + &#160; &#160; s32 results_min[4];
+</I>&gt;&gt;<i> &gt;&gt; + &#160; &#160; u8 vcm_final[4];
+</I>&gt;&gt;<i> &gt;&gt; + &#160; &#160; s32 results[4][4];
+</I>&gt;&gt;<i> &gt;&gt; + &#160; &#160; s32 miniq[4][2];
+</I>&gt;&gt;<i> &gt;&gt; + &#160; &#160; memset(results_min, 0, sizeof(s32) * 4);
+</I>&gt;&gt;<i> &gt;&gt; + &#160; &#160; memset(vcm_final, 0, sizeof(u8) * 4);
+</I>&gt;&gt;<i> &gt;&gt; + &#160; &#160; memset(results, 0, sizeof(s32) * 4 * 4);
+</I>&gt;&gt;<i> &gt;&gt; + &#160; &#160; memset(miniq, 0, sizeof(s32) * 4 * 2);
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i> &gt; Just initialize the variables to zero instead of doing a memset:
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i> &gt; + &#160; &#160; &#160; s32 results_min[4] = { 0, };
+</I>&gt;&gt;<i> &gt; + &#160; &#160; &#160; u8 vcm_final[4] = { 0, };
+</I>&gt;&gt;<i> &gt; + &#160; &#160; &#160; s32 results[4][4] = { 0, };
+</I>&gt;&gt;<i> &gt; + &#160; &#160; &#160; s32 miniq[4][2] = { 0, };
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Nice trick, thanks :) Just for two-dimensional arrays I'll have to hack it to:
+</I>&gt;&gt;<i> s32 results[4][4] = { { 0, }, { 0, }, { 0, }, { 0, } };
+</I>&gt;&gt;<i> I believe.
+</I>&gt;<i>
+</I>&gt;<i> No I don't think so.
+</I>&gt;<i> It's C standard that uninitialized elements on automatic variables are initialized
+</I>&gt;<i> to zero, _if_ at least one element is initialized to something.
+</I>&gt;<i> So if you init one element to 0, all others will be 0, too.
+</I>&gt;<i> I think that should also work for multidimensional arrays. So my example
+</I>&gt;<i> s32 results[4][4] = { 0, };
+</I>&gt;<i> should do the right thing. Am I wrong?
+</I>
+Whoops, I should have explained what I mean. I am not sure what CFLAGS
+&quot;make&quot; picks for compiled but I get:
+
+  CC [M]  drivers/net/wireless/b43/phy_n.o
+drivers/net/wireless/b43/phy_n.c: In function &#8216;b43_nphy_rev2_rssi_cal&#8217;:
+drivers/net/wireless/b43/phy_n.c:887: warning: missing braces around initializer
+drivers/net/wireless/b43/phy_n.c:887: warning: (near initialization
+for &#8216;results[0]&#8217;)
+
+for s32 results[4][4] = { 0, };
+
+-- 
+Rafa&#322;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006722.html">[PATCH 3/6] b43: N-PHY: add RSSI calculation for PHY rev &lt; 3
+</A></li>
+	<LI>Next message: <A HREF="006724.html">[PATCH 3/6] b43: N-PHY: add RSSI calculation for PHY rev &lt; 3
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6723">[ date ]</a>
+              <a href="thread.html#6723">[ thread ]</a>
+              <a href="subject.html#6723">[ subject ]</a>
+              <a href="author.html#6723">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

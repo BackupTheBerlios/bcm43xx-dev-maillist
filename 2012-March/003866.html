@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> No subject
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2012-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20No%20subject&In-Reply-To=%3Cmailman.17.1331727383.28966.bcm43xx-dev%40lists.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003758.html">
+   <LINK REL="Next"  HREF="003998.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>No subject</H1>
+    <B></B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20No%20subject&In-Reply-To=%3Cmailman.17.1331727383.28966.bcm43xx-dev%40lists.berlios.de%3E"
+       TITLE="No subject">
+       </A><BR>
+    <I>Wed Mar 14 13:15:41 CET 2012</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003758.html">No subject
+</A></li>
+        <LI>Next message: <A HREF="003998.html">No subject
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3866">[ date ]</a>
+              <a href="thread.html#3866">[ thread ]</a>
+              <a href="subject.html#3866">[ subject ]</a>
+              <a href="author.html#3866">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>work around it by setting an exception for subsys venID:0x100F and subsys
+prodID:0x1043 to always treat BFL_BTCMOD as 1 if BFL_BTCOEXIST is set to 1.
+(Possibly this is acceptable for all subsys IDs, not just the Asus-specific
+one I wrote here, as I have yet to see a non-Asus BCM43xx that has
+BFL_BTCOEXIST set, but not BFL_BTCMOD.) However, if it's a bug in our
+Bluetooth coexistence code, then we shouldn't just apply the workaround, but
+find and fix the actual bug that causes the bug if the workaround isn't
+applied.
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+------=_Part_5894_4468159.1208533889347
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+Bisection complete!&lt;br&gt;After testing numerous settings for BoardFlags, I fo=
+und that the only ones to have a benefical effect on the card is 0x4049/0x4=
+249 and 0x0048/0x0248, which differs from the original 0x0049 only in the B=
+FL_BTCMOD bit, which is 0 by default, but 1 in this configuration. Not only=
+ that, setting BoardFlags to 0x4049 and leaving everything else as is in th=
+e original Asus SPROM fixes BOTH the &quot;No TX&quot; and the &quot;ping t=
+ime cycle&quot; bugs! Even monitoring/packetspamming while operating works =
+perfectly. The setting 0x4249 produces the same (perfectly-working) result,=
+ only with Afterburner marked as supported. (Not sure if it actually gets e=
+nabled, though.) Setting BFL_FEM to 1 (0x4849 or 0x4A49) introduces the &amp;qu=
+ot;ping cycle&quot; bug, most likely because the card doesn&#39;t actually =
+support the Front-End Module. BFL_HGPA=3D1 (0x6049/0x6249) causes ping pack=
+et loss /duplicate count to increase somewhat, likely because the card does=
+n&#39;t have a high-gain PA. 0x0048 and 0x0248 also work fine, although thi=
+s setting disables Bluetooth coexistence (BFL_BTCOEXIST). So, it looks like=
+ BoardFlags was intended to be 0x4249, but Asus incorrectly sets it to 0x00=
+49, which completely breaks transmission in b43.&lt;br&gt;
+&lt;br&gt;For reference, here is BFL_BTCMOD&#39;s description from bcm-specs:&lt;br&gt;=
+&quot;0x4000: BFL_BTCMOD: BFL_BTCOEXIST is given in alternate GPIOs&quot;.&lt;=
+br&gt;BFL_BTCOEXIST is defined as:&lt;br&gt;&quot;0x0001: BFL_BTCOEXIST: Board imple=
+ments Bluetooth coexistance[sic]&quot;. I don&#39;t know if &quot;coexistan=
+ce&quot; is a misspelling or if it&#39;s the correct spelling in British, b=
+ut if it&#39;s unintended, then it should be fixed. (Just nit-picking, sorr=
+y.)&lt;br&gt;
+&lt;br&gt;From this, the problem appears to be a Bluetooth coexistence bug. We ca=
+n work around it by setting an exception for subsys venID:0x100F and subsys=
+ prodID:0x1043 to always treat BFL_BTCMOD as 1 if BFL_BTCOEXIST is set to 1=
+. (Possibly this is acceptable for all subsys IDs, not just the Asus-specif=
+ic one I wrote here, as I have yet to see a non-Asus BCM43xx that has BFL_B=
+TCOEXIST set, but not BFL_BTCMOD.) However, if it&#39;s a bug in our Blueto=
+oth coexistence code, then we shouldn&#39;t just apply the workaround, but =
+find and fix the actual bug that causes the bug if the workaround isn&#39;t=
+ applied.&lt;br clear=3D&quot;all&quot;&gt;
+&lt;br&gt;-- &lt;br&gt;Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware=
+. :-)
+
+------=_Part_5894_4468159.1208533889347--
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003758.html">No subject
+</A></li>
+	<LI>Next message: <A HREF="003998.html">No subject
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3866">[ date ]</a>
+              <a href="thread.html#3866">[ thread ]</a>
+              <a href="subject.html#3866">[ subject ]</a>
+              <a href="author.html#3866">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

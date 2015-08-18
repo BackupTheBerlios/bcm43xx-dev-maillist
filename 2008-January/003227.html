@@ -1,0 +1,108 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix radio ID register reading
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20radio%20ID%20register%20reading&In-Reply-To=%3C200801131412.44830.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003226.html">
+   <LINK REL="Next"  HREF="003228.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix radio ID register reading</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20radio%20ID%20register%20reading&In-Reply-To=%3C200801131412.44830.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix radio ID register reading">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Jan 13 14:12:44 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003226.html">b43_suspend problem
+</A></li>
+        <LI>Next message: <A HREF="003228.html">[PATCH] b43: Add support for new firmware
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3227">[ date ]</a>
+              <a href="thread.html#3227">[ thread ]</a>
+              <a href="subject.html#3227">[ subject ]</a>
+              <a href="author.html#3227">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes reading of the high 16 bits of the radio ID
+on new devices. 2055 radios want lo16 to be read first.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+For 2.6.25
+
+Index: wireless-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/main.c	2008-01-13 13:26:18.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/main.c	2008-01-13 13:59:27.000000000 +0100
+@@ -3136,16 +3136,15 @@ static int b43_phy_versioning(struct b43
+ 		else if (dev-&gt;dev-&gt;bus-&gt;chip_rev == 1)
+ 			tmp = 0x4205017F;
+ 		else
+ 			tmp = 0x5205017F;
+ 	} else {
+ 		b43_write16(dev, B43_MMIO_RADIO_CONTROL, B43_RADIOCTL_ID);
+-		tmp = b43_read16(dev, B43_MMIO_RADIO_DATA_HIGH);
+-		tmp &lt;&lt;= 16;
++		tmp = b43_read16(dev, B43_MMIO_RADIO_DATA_LOW);
+ 		b43_write16(dev, B43_MMIO_RADIO_CONTROL, B43_RADIOCTL_ID);
+-		tmp |= b43_read16(dev, B43_MMIO_RADIO_DATA_LOW);
++		tmp |= (u32)b43_read16(dev, B43_MMIO_RADIO_DATA_HIGH) &lt;&lt; 16;
+ 	}
+ 	radio_manuf = (tmp &amp; 0x00000FFF);
+ 	radio_ver = (tmp &amp; 0x0FFFF000) &gt;&gt; 12;
+ 	radio_rev = (tmp &amp; 0xF0000000) &gt;&gt; 28;
+ 	if (radio_manuf != 0x17F /* Broadcom */)
+ 		unsupported = 1;
+@@ -3164,13 +3163,13 @@ static int b43_phy_versioning(struct b43
+ 		break;
+ 	case B43_PHYTYPE_G:
+ 		if (radio_ver != 0x2050)
+ 			unsupported = 1;
+ 		break;
+ 	case B43_PHYTYPE_N:
+-		if (radio_ver != 5)
++		if (radio_ver != 0x2055)
+ 			unsupported = 1;
+ 		break;
+ 	default:
+ 		B43_WARN_ON(1);
+ 	}
+ 	if (unsupported) {
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003226.html">b43_suspend problem
+</A></li>
+	<LI>Next message: <A HREF="003228.html">[PATCH] b43: Add support for new firmware
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3227">[ date ]</a>
+              <a href="thread.html#3227">[ thread ]</a>
+              <a href="subject.html#3227">[ subject ]</a>
+              <a href="author.html#3227">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

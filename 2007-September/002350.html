@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Simplify and cleanup debugfs infrastructure
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Simplify%20and%20cleanup%20debugfs%20infrastructure&In-Reply-To=%3C200709091412.22672.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002348.html">
+   <LINK REL="Next"  HREF="002349.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Simplify and cleanup debugfs infrastructure</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Simplify%20and%20cleanup%20debugfs%20infrastructure&In-Reply-To=%3C200709091412.22672.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Simplify and cleanup debugfs infrastructure">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Sep  9 14:12:22 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002348.html">[PATCH] b43: Simplify and cleanup debugfs infrastructure
+</A></li>
+        <LI>Next message: <A HREF="002349.html">[PATCH] b43: Don't cancel the restart workqueue in wireless_core_exit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2350">[ date ]</a>
+              <a href="thread.html#2350">[ thread ]</a>
+              <a href="subject.html#2350">[ subject ]</a>
+              <a href="author.html#2350">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday 09 September 2007 13:53:51 Michael Buesch wrote:
+&gt;<i> Index: wireless-dev/drivers/net/wireless/b43/main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-dev.orig/drivers/net/wireless/b43/main.c	2007-09-07 16:36:00.000000000 +0200
+</I>&gt;<i> +++ wireless-dev/drivers/net/wireless/b43/main.c	2007-09-09 13:27:14.000000000 +0200
+</I>&gt;<i> @@ -762,7 +762,6 @@ static void keymac_write(struct b43_wlde
+</I>&gt;<i>  		 */
+</I>&gt;<i>  		if (index &lt; 8) {
+</I>&gt;<i>  			/* TODO write to RCM 16, 19, 22 and 25 */
+</I>&gt;<i> -			TODO();
+</I>&gt;<i>  		} else {
+</I>&gt;<i>  			b43_shm_write32(dev, B43_SHM_SHARED,
+</I>&gt;<i>  					B43_SHM_SH_PSM + (index * 6) + 0,
+</I>&gt;<i> @@ -3593,19 +3592,23 @@ static void b43_chip_reset(struct work_s
+</I>&gt;<i>  
+</I>&gt;<i>  	mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;<i>  
+</I>&gt;<i> +printk(&quot;RESTART\n&quot;);
+</I>&gt;<i>  	prev_status = b43_status(dev);
+</I>&gt;<i>  	/* Bring the device down... */
+</I>&gt;<i>  	if (prev_status &gt;= B43_STAT_STARTED)
+</I>&gt;<i>  		b43_wireless_core_stop(dev);
+</I>&gt;<i> +printk(&quot;exit\n&quot;);
+</I>&gt;<i>  	if (prev_status &gt;= B43_STAT_INITIALIZED)
+</I>&gt;<i>  		b43_wireless_core_exit(dev);
+</I>&gt;<i>  
+</I>&gt;<i> +printk(&quot;init\n&quot;);
+</I>&gt;<i>  	/* ...and up again. */
+</I>&gt;<i>  	if (prev_status &gt;= B43_STAT_INITIALIZED) {
+</I>&gt;<i>  		err = b43_wireless_core_init(dev);
+</I>&gt;<i>  		if (err)
+</I>&gt;<i>  			goto out;
+</I>&gt;<i>  	}
+</I>&gt;<i> +printk(&quot;start\n&quot;);
+</I>&gt;<i>  	if (prev_status &gt;= B43_STAT_STARTED) {
+</I>&gt;<i>  		err = b43_wireless_core_start(dev);
+</I>&gt;<i>  		if (err) {
+</I>&gt;<i> @@ -3613,6 +3616,7 @@ static void b43_chip_reset(struct work_s
+</I>&gt;<i>  			goto out;
+</I>&gt;<i>  		}
+</I>&gt;<i>  	}
+</I>&gt;<i> +printk(&quot;done\n&quot;);
+</I>&gt;<i>        out:
+</I>&gt;<i>  	mutex_unlock(&amp;wl-&gt;mutex);
+</I>&gt;<i>  	if (err)
+</I>
+Whoopsy. Seems like I should remove debugging code before submission :)
+
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002348.html">[PATCH] b43: Simplify and cleanup debugfs infrastructure
+</A></li>
+	<LI>Next message: <A HREF="002349.html">[PATCH] b43: Don't cancel the restart workqueue in wireless_core_exit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2350">[ date ]</a>
+              <a href="thread.html#2350">[ thread ]</a>
+              <a href="subject.html#2350">[ subject ]</a>
+              <a href="author.html#2350">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

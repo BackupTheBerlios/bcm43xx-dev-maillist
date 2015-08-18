@@ -1,0 +1,138 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Fix cancellation of work queues
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20cancellation%20of%20work%20queues&In-Reply-To=%3C46d6e784.rmn2RTWa4thtSUqA%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002244.html">
+   <LINK REL="Next"  HREF="002246.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Fix cancellation of work queues</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20cancellation%20of%20work%20queues&In-Reply-To=%3C46d6e784.rmn2RTWa4thtSUqA%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43legacy: Fix cancellation of work queues">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Thu Aug 30 17:51:32 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002244.html">[PATCH] b43 drivers: remove IEEE80211_CONF_SSID_HIDDEN
+</A></li>
+        <LI>Next message: <A HREF="002246.html">Speed issues with Broadcom 4311
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2245">[ date ]</a>
+              <a href="thread.html#2245">[ thread ]</a>
+              <a href="subject.html#2245">[ subject ]</a>
+              <a href="author.html#2245">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+This correctly cancels all workqueues on shutdown.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+Signed-off-by: Larry Finger &lt;larry.finger.lwfinger.net&gt;
+---
+
+Index: wireless-dev/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-dev/drivers/net/wireless/b43legacy/main.c
+@@ -2275,11 +2275,6 @@ out:
+ 	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
+ }
+ 
+-static void b43legacy_periodic_tasks_delete(struct b43legacy_wldev *dev)
+-{
+-	cancel_rearming_delayed_work(&amp;dev-&gt;periodic_work);
+-}
+-
+ static void b43legacy_periodic_tasks_setup(struct b43legacy_wldev *dev)
+ {
+ 	struct delayed_work *work = &amp;dev-&gt;periodic_work;
+@@ -2774,9 +2769,9 @@ static void b43legacy_wireless_core_stop
+ 	b43legacy_set_status(dev, B43legacy_STAT_INITIALIZED);
+ 
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+-	/* Must unlock as it would otherwise deadlock. No races here. */
+-	b43legacy_periodic_tasks_delete(dev);
+-	flush_workqueue(dev-&gt;wl-&gt;hw-&gt;workqueue);
++	/* Must unlock as it would otherwise deadlock. No races here.
++	 * Cancel the possibly running self-rearming periodic work. */
++	cancel_delayed_work_sync(&amp;dev-&gt;periodic_work);
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 
+ 	ieee80211_stop_queues(wl-&gt;hw); /* FIXME this could cause a deadlock */
+@@ -3014,13 +3009,22 @@ static void b43legacy_imcfglo_timeouts_w
+ }
+ 
+ /* Shutdown a wireless core */
++/* Locking: wl-&gt;mutex */
+ static void b43legacy_wireless_core_exit(struct b43legacy_wldev *dev)
+ {
++	struct b43legacy_wl *wl = dev-&gt;wl;
+ 	struct b43legacy_phy *phy = &amp;dev-&gt;phy;
+ 
+ 	B43legacy_WARN_ON(b43legacy_status(dev) &gt; B43legacy_STAT_INITIALIZED);
+ 	if (b43legacy_status(dev) != B43legacy_STAT_INITIALIZED)
+ 		return;
++	b43legacy_set_status(dev, B43legacy_STAT_UNINIT);
++
++	mutex_unlock(&amp;wl-&gt;mutex);
++	/* Must unlock as it would otherwise deadlock. No races here.
++	 * Cancel possibly pending workqueues. */
++	cancel_work_sync(&amp;dev-&gt;restart_work);
++	mutex_lock(&amp;wl-&gt;mutex);
+ 
+ 	b43legacy_rng_exit(dev-&gt;wl);
+ 	b43legacy_pio_free(dev);
+@@ -3034,7 +3038,6 @@ static void b43legacy_wireless_core_exit
+ 	phy-&gt;lo_control = NULL;
+ 	ssb_device_disable(dev-&gt;dev, 0);
+ 	ssb_bus_may_powerdown(dev-&gt;dev-&gt;bus);
+-	b43legacy_set_status(dev, B43legacy_STAT_UNINIT);
+ }
+ 
+ static void prepare_phy_data_for_init(struct b43legacy_wldev *dev)
+@@ -3711,6 +3714,9 @@ static void b43legacy_remove(struct ssb_
+ void b43legacy_controller_restart(struct b43legacy_wldev *dev,
+ 				  const char *reason)
+ {
++	/* Must avoid requeueing, if we are in shutdown. */
++	if (b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED)
++		return;
+ 	b43legacyinfo(dev-&gt;wl, &quot;Controller RESET (%s) ...\n&quot;, reason);
+ 	queue_work(dev-&gt;wl-&gt;hw-&gt;workqueue, &amp;dev-&gt;restart_work);
+ }
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002244.html">[PATCH] b43 drivers: remove IEEE80211_CONF_SSID_HIDDEN
+</A></li>
+	<LI>Next message: <A HREF="002246.html">Speed issues with Broadcom 4311
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2245">[ date ]</a>
+              <a href="thread.html#2245">[ thread ]</a>
+              <a href="subject.html#2245">[ subject ]</a>
+              <a href="author.html#2245">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

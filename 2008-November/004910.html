@@ -1,0 +1,119 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BCM4312 Fails when xdm is started
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4312%20Fails%20when%20xdm%20is%20started&In-Reply-To=%3C200811250745.22487.yuval%40avramzon.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004909.html">
+   <LINK REL="Next"  HREF="004912.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BCM4312 Fails when xdm is started</H1>
+    <B>Yuval Hager</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4312%20Fails%20when%20xdm%20is%20started&In-Reply-To=%3C200811250745.22487.yuval%40avramzon.net%3E"
+       TITLE="BCM4312 Fails when xdm is started">yuval at avramzon.net
+       </A><BR>
+    <I>Tue Nov 25 06:43:22 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004909.html">BCM4312 Fails when xdm is started
+</A></li>
+        <LI>Next message: <A HREF="004912.html">BCM4312 Fails when xdm is started
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4910">[ date ]</a>
+              <a href="thread.html#4910">[ thread ]</a>
+              <a href="subject.html#4910">[ subject ]</a>
+              <a href="author.html#4910">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 24 November 2008, Larry Finger wrote:
+&gt;<i> Michael Buesch wrote:
+</I>&gt;<i> &gt; On Monday 24 November 2008 09:49:38 Yuval Hager wrote:
+</I>&gt;<i> &gt;&gt; * Now check this out - the output of lspci -d 14e4:4312 -x
+</I>&gt;<i> &gt;&gt; 02:00.0 Network controller: Broadcom Corporation BCM4312 802.11a/b/g
+</I>&gt;<i> &gt;&gt; (rev ff) 00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+</I>&gt;<i> &gt;&gt; 10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+</I>&gt;<i> &gt;&gt; 20: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+</I>&gt;<i> &gt;&gt; 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; (I double checked this)
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; huh?
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; Hah, interesting. I think your hardware may be faulty, in fact.
+</I>&gt;<i> &gt; To me it really seems like the mainboard has power failures on the PCI
+</I>&gt;<i> &gt; bus.
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; This is a laptop, so you can't pull random hardware? Can you run some
+</I>&gt;<i> &gt; hardware burn-in tests like mprime (<A HREF="http://mersenne.org/freesoft/">http://mersenne.org/freesoft/</A>) or
+</I>&gt;<i> &gt; memtest? If that doesn't help, can you try with another operating system?
+</I>&gt;<i>
+</I>&gt;<i> I also think you are seeing a hardware failure. Another test to try is
+</I>&gt;<i> <A HREF="http://freshmeat.net/projects/cpuburn/?topic_id=146,">http://freshmeat.net/projects/cpuburn/?topic_id=146,</A> which will exercise
+</I>&gt;<i> the system.
+</I>&gt;<i>
+</I>&gt;<i> Larry
+</I>
+I can't argue with what the bits mean, but I must say it doesn't &quot;feel&quot; like a 
+hardware problem. It is very consistent and deterministic. 
+
+I've been running mprime &amp; burnBX &amp; burnMMX for over 6 hours and it is all 
+fine (memtest not ran yet).
+
+However, I have some few interesting findings. 
+First, this is totally unrelated to b43, but to the PCI. I get the flawed 1's 
+read from lspci even without loading b43.
+
+I played around with different video drivers and the results are:
+* If using the 'via' driver, I lose the PCIe card immediately upon 
+initialization
+* Using the 'openchrome' (trunk version), It works well in the beginning. 
+After first blanking the register reads are all 1's, and then when the screen 
+is blank I get a different read (some registers are correct, some are wrong), 
+and when the screen is unblanked, I get 0xff's again. Very consistent and 
+predictabe (same read every time).
+* Using the 'vesa' driver I could not recreate the problem. I could not get 
+the screen to blank for some reason, but closing the lid, going on 
+standby/hibernate, restarting X - all didn't matter much to the PCI and the 
+wireless card kept on working.
+
+--yuval
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 197 bytes
+Desc: This is a digitally signed message part.
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20081125/ebb151b9/attachment.pgp">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20081125/ebb151b9/attachment.pgp</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004909.html">BCM4312 Fails when xdm is started
+</A></li>
+	<LI>Next message: <A HREF="004912.html">BCM4312 Fails when xdm is started
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4910">[ date ]</a>
+              <a href="thread.html#4910">[ thread ]</a>
+              <a href="subject.html#4910">[ subject ]</a>
+              <a href="author.html#4910">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

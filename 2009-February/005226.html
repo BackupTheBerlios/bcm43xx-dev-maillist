@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Problems sniffing custom frames with b43
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Problems%20sniffing%20custom%20frames%20with%20b43&In-Reply-To=%3C7a8182770902191001u273dd403w281ccd0f6c7a23be%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005225.html">
+   <LINK REL="Next"  HREF="005202.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Problems sniffing custom frames with b43</H1>
+    <B> tR3nt R32n0r </B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Problems%20sniffing%20custom%20frames%20with%20b43&In-Reply-To=%3C7a8182770902191001u273dd403w281ccd0f6c7a23be%40mail.gmail.com%3E"
+       TITLE="Problems sniffing custom frames with b43">alukardx at gmail.com
+       </A><BR>
+    <I>Thu Feb 19 19:01:29 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005225.html">Problems sniffing custom frames with b43
+</A></li>
+        <LI>Next message: <A HREF="005202.html">[PATCH] b43: Fix LO calibration txctl reg value
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5226">[ date ]</a>
+              <a href="thread.html#5226">[ thread ]</a>
+              <a href="subject.html#5226">[ subject ]</a>
+              <a href="author.html#5226">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Well,
+
+I've tried doing something different. I've changed the type field on 802.11
+MAC header. I was using management frames type (with reserved subtype) and I
+turned it into data frame type (with ToDS and FromDS flags set to false)
+because it is allowed to recieve this type of frames in state 1, it is,
+being unautenticated and unasociated. So problems with no working flags now
+have disappeared. I didn't really care about frame's type, I only wanted
+these frames to be recieved. But thank you all anyway.
+
+Best regards,
+
+R.
+
+
+
+2009/2/19 [ tR3nt R32n0r ] &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">alukardx at gmail.com</A>&gt;
+
+&gt;<i> Hey!
+</I>&gt;<i>
+</I>&gt;<i> I've been tying to enable the admission of other no IEEE 802.11 frames but
+</I>&gt;<i> it hasn't been possible. I've managed the flags defined for monitor mode in
+</I>&gt;<i> nl80211.h in Hostapd git code (driver_nl80211.c, line 1023) replacing:
+</I>&gt;<i> NLA_PUT_FLAG(flags, NL80211_MNTR_FLAG_COOK_FRAMES);
+</I>&gt;<i> for:
+</I>&gt;<i> NLA_PUT_FLAG(flags, NL80211_MNTR_FLAG_FCSFAIL | NL80211_MNTR_FLAG_PLCPFAIL
+</I>&gt;<i> | NL80211_MNTR_FLAG_CONTROL | NL80211_MNTR_FLAG_OTHER_BSS |
+</I>&gt;<i> __NL80211_MNTR_FLAG_INVALID );
+</I>&gt;<i> And yes, I've been able to see more frames than the ones seen from the
+</I>&gt;<i> monitor interface created when running Hostapd (such as mon.wlan0), but I
+</I>&gt;<i> can't still see my custom frames. I don't know if these flags are the ones
+</I>&gt;<i> you referred, but enabling NL80211_MNTR_FLAG_PLCPFAIL doesn't make Wireshark
+</I>&gt;<i> sniff what I wanted.
+</I>&gt;<i>
+</I>&gt;<i> Are these flags the ones you suggested? Any idea?
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> /**
+</I>&gt;<i>  * enum nl80211_mntr_flags - monitor configuration flags
+</I>&gt;<i>  *
+</I>&gt;<i>  * Monitor configuration flags.
+</I>&gt;<i> *
+</I>&gt;<i>  * @__NL80211_MNTR_FLAG_INVALID: reserved
+</I>&gt;<i>  *
+</I>&gt;<i>  * @NL80211_MNTR_FLAG_FCSFAIL: pass frames with bad FCS
+</I>&gt;<i>  * @NL80211_MNTR_FLAG_PLCPFAIL: pass frames with bad PLCP
+</I>&gt;<i>  * @NL80211_MNTR_FLAG_CONTROL: pass control frames
+</I>&gt;<i>  * @NL80211_MNTR_FLAG_OTHER_BSS: disable BSSID filtering
+</I>&gt;<i>  * @NL80211_MNTR_FLAG_COOK_FRAMES: report frames after processing.
+</I>&gt;<i>  *    overrides all other flags.
+</I>&gt;<i>  *
+</I>&gt;<i>  * @__NL80211_MNTR_FLAG_AFTER_LAST: internal use
+</I>&gt;<i>  * @NL80211_MNTR_FLAG_MAX: highest possible monitor flag
+</I>&gt;<i>  */
+</I>&gt;<i> enum nl80211_mntr_flags {
+</I>&gt;<i>     __NL80211_MNTR_FLAG_INVALID,
+</I>&gt;<i>     NL80211_MNTR_FLAG_FCSFAIL,
+</I>&gt;<i>     NL80211_MNTR_FLAG_PLCPFAIL,
+</I>&gt;<i>     NL80211_MNTR_FLAG_CONTROL,
+</I>&gt;<i>     NL80211_MNTR_FLAG_OTHER_BSS,
+</I>&gt;<i>     NL80211_MNTR_FLAG_COOK_FRAMES,
+</I>&gt;<i>
+</I>&gt;<i>     /* keep last */
+</I>&gt;<i>     __NL80211_MNTR_FLAG_AFTER_LAST,
+</I>&gt;<i>     NL80211_MNTR_FLAG_MAX = __NL80211_MNTR_FLAG_AFTER_LAST - 1
+</I>&gt;<i> };
+</I>&gt;<i>
+</I>&gt;<i> 2009/2/16 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+</I>&gt;<i>
+</I>&gt;<i> On Monday 16 February 2009 09:33:54 Holger Schurig wrote:
+</I>&gt;&gt;<i> &gt; &gt; Oh wait, I think it's probably not needed to modify the
+</I>&gt;&gt;<i> &gt; &gt; firmware. It has a knob to pass &quot;bad frames&quot; up to the driver.
+</I>&gt;&gt;<i> &gt; &gt; It should pass these frames then.
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i> &gt; Shouldn't the monitor mode then turn on this knob by default?
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> No. We're talking about corrupted frames, from the IEEE 802.11 point of
+</I>&gt;&gt;<i> view.
+</I>&gt;&gt;<i> The firmware will drop any corrupted frames or frames that don't match the
+</I>&gt;&gt;<i> IEEE 802.11
+</I>&gt;&gt;<i> version number unless the flags to pass these frames are set.
+</I>&gt;&gt;<i> You can set this via the mac80211 filter flags.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> There are two flags. One flag to pass frames that don't match the IEEE
+</I>&gt;&gt;<i> 802.11 specs
+</I>&gt;&gt;<i> and one flag to pass frames that even failed the PLCP checksum. However,
+</I>&gt;&gt;<i> the passing
+</I>&gt;&gt;<i> of PLCP failed packets will also enable your microwave oven as a valid
+</I>&gt;&gt;<i> packet transmitter. ;)
+</I>&gt;&gt;<i> So you don't want to enable that one.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> --
+</I>&gt;&gt;<i> Greetings, Michael.
+</I>&gt;&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090219/46fe2432/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090219/46fe2432/attachment.html</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005225.html">Problems sniffing custom frames with b43
+</A></li>
+	<LI>Next message: <A HREF="005202.html">[PATCH] b43: Fix LO calibration txctl reg value
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5226">[ date ]</a>
+              <a href="thread.html#5226">[ thread ]</a>
+              <a href="subject.html#5226">[ subject ]</a>
+              <a href="author.html#5226">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

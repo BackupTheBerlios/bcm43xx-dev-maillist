@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx:Eliminate some 'G Mode Enable' magic numbers
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3AEliminate%20some%20%27G%20Mode%20Enable%27%20magic%20numbers&In-Reply-To=%3C45f855be.d6q3Pv%2BrtlMA4ojm%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000767.html">
+   <LINK REL="Next"  HREF="000771.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx:Eliminate some 'G Mode Enable' magic numbers</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3AEliminate%20some%20%27G%20Mode%20Enable%27%20magic%20numbers&In-Reply-To=%3C45f855be.d6q3Pv%2BrtlMA4ojm%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] bcm43xx:Eliminate some 'G Mode Enable' magic numbers">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Wed Mar 14 21:06:22 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000767.html">EAP-FAST or LEAP?
+</A></li>
+        <LI>Next message: <A HREF="000771.html">Assertion failed in bcm43xx_mac80211
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#770">[ date ]</a>
+              <a href="thread.html#770">[ thread ]</a>
+              <a href="subject.html#770">[ subject ]</a>
+              <a href="author.html#770">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>In code manipulating the TM State Low register of 802.11 cores, two
+different magic numbers are used to reference the 'G Mode Enable' bit.
+One of these, 0x20000000, is clear, but the other, (0x800 &lt;&lt; 18), is not.
+This patch replaces both types with a defined constant. In addition, two
+bits in the TM State High registers are given definitions to help in
+following the code.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx.h
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
+@@ -277,11 +277,14 @@
+ #define BCM43xx_SBTMSTATELOW_REJECT		0x02
+ #define BCM43xx_SBTMSTATELOW_CLOCK		0x10000
+ #define BCM43xx_SBTMSTATELOW_FORCE_GATE_CLOCK	0x20000
++#define BCM43xx_SBTMSTATELOW_G_MODE_ENABLE	0x20000000
+ 
+ /* sbtmstatehigh state flags */
+ #define BCM43xx_SBTMSTATEHIGH_SERROR		0x00000001
+ #define BCM43xx_SBTMSTATEHIGH_BUSY		0x00000004
+ #define BCM43xx_SBTMSTATEHIGH_TIMEOUT		0x00000020
++#define BCM43xx_SBTMSTATEHIGH_G_PHY_AVAIL	0x00010000
++#define BCM43xx_SBTMSTATEHIGH_A_PHY_AVAIL	0x00020000
+ #define BCM43xx_SBTMSTATEHIGH_COREFLAGS		0x1FFF0000
+ #define BCM43xx_SBTMSTATEHIGH_DMA64BIT		0x10000000
+ #define BCM43xx_SBTMSTATEHIGH_GATEDCLK		0x20000000
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+@@ -168,16 +168,16 @@ int bcm43xx_phy_connect(struct bcm43xx_p
+ 
+ 	flags = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH);
+ 	if (connect) {
+-		if (!(flags &amp; 0x00010000))
++		if (!(flags &amp; BCM43xx_SBTMSTATEHIGH_G_PHY_AVAIL))
+ 			return -ENODEV;
+ 		flags = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+-		flags |= (0x800 &lt;&lt; 18);
++		flags |= BCM43xx_SBTMSTATELOW_G_MODE_ENABLE;
+ 		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, flags);
+ 	} else {
+-		if (!(flags &amp; 0x00020000))
++		if (!(flags &amp; BCM43xx_SBTMSTATEHIGH_A_PHY_AVAIL))
+ 			return -ENODEV;
+ 		flags = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+-		flags &amp;= ~(0x800 &lt;&lt; 18);
++		flags &amp;= ~BCM43xx_SBTMSTATELOW_G_MODE_ENABLE;
+ 		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, flags);
+ 	}
+ out:
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -1389,7 +1389,7 @@ void bcm43xx_wireless_core_reset(struct 
+ 				&amp; ~(BCM43xx_SBF_MAC_ENABLED | 0x00000002));
+ 	} else {
+ 		if (connect_phy)
+-			flags |= 0x20000000;
++			flags |= BCM43xx_SBTMSTATELOW_G_MODE_ENABLE;
+ 		bcm43xx_phy_connect(bcm, connect_phy);
+ 		bcm43xx_core_enable(bcm, flags);
+ 		bcm43xx_write16(bcm, 0x03E6, 0x0000);
+@@ -3662,7 +3662,7 @@ int bcm43xx_select_wireless_core(struct 
+ 		u32 sbtmstatelow;
+ 
+ 		sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+-		sbtmstatelow |= 0x20000000;
++		sbtmstatelow |= BCM43xx_SBTMSTATELOW_G_MODE_ENABLE;
+ 		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+ 	}
+ 	err = wireless_core_up(bcm, 1);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000767.html">EAP-FAST or LEAP?
+</A></li>
+	<LI>Next message: <A HREF="000771.html">Assertion failed in bcm43xx_mac80211
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#770">[ date ]</a>
+              <a href="thread.html#770">[ thread ]</a>
+              <a href="subject.html#770">[ subject ]</a>
+              <a href="author.html#770">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

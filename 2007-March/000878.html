@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Machine checks on PPC with phy-&gt;rev == 1
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Machine%20checks%20on%20PPC%20with%20phy-%3Erev%20%3D%3D%201&In-Reply-To=%3C1175093773.3277.176.camel%40pmac.infradead.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000877.html">
+   <LINK REL="Next"  HREF="000879.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Machine checks on PPC with phy-&gt;rev == 1</H1>
+    <B>David Woodhouse</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Machine%20checks%20on%20PPC%20with%20phy-%3Erev%20%3D%3D%201&In-Reply-To=%3C1175093773.3277.176.camel%40pmac.infradead.org%3E"
+       TITLE="Machine checks on PPC with phy-&gt;rev == 1">dwmw2 at infradead.org
+       </A><BR>
+    <I>Wed Mar 28 16:56:13 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000877.html">Machine checks on PPC with phy-&gt;rev == 1
+</A></li>
+        <LI>Next message: <A HREF="000879.html">[PATCH] bcm43xx: Change initialization for 2050 radios
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#878">[ date ]</a>
+              <a href="thread.html#878">[ thread ]</a>
+              <a href="subject.html#878">[ subject ]</a>
+              <a href="author.html#878">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Wed, 2007-03-28 at 09:17 -0500, Larry Finger wrote:
+&gt;<i> 
+</I>&gt;<i> I have been working off-line with David Woodhouse and Pavel Roskin to sort out machine checks on PPC
+</I>&gt;<i> hardware with a phy-&gt;rev == 1 card. As you likely recall, we submitted a patch that fixed two
+</I>&gt;<i> distinct places in the code. One of them was a typo in the specs, but the other was found
+</I>&gt;<i> empirically by David. Those have been fixed with a patch now queued with Linus for 2.6.21.
+</I>&gt;<i> 
+</I>&gt;<i> We did find an additional problem when I modified the phy_initg code to match the latest specs of
+</I>&gt;<i> 3/25/07. Now we get a problem in calc_loopback_gain, which David has localized to PHY registers
+</I>&gt;<i> 0x0814 and 0x0815. Based on earlier code in phy_initg (Step 4), it seems that those two registers
+</I>&gt;<i> should be touched in this section only if phy-&gt;rev &gt;= 2. Is there anything in the bcom driver to
+</I>&gt;<i> support this?
+</I>
+FWIW this hack makes finding the machine checks _much_ easier...
+
+--- bcm43xx_phy.c~      2007-03-28 11:10:42.000000000 +0100
++++ bcm43xx_phy.c       2007-03-28 12:15:34.000000000 +0100
+@@ -131,8 +131,13 @@ u16 bcm43xx_phy_read(struct bcm43xx_priv
+ {
+        uint16_t foo;
+        printk(&quot;phy_read %x...&quot;, offset);
++#if 0
+        bcm43xx_write16(bcm, BCM43xx_MMIO_PHY_CONTROL, offset);
+        foo = bcm43xx_read16(bcm, BCM43xx_MMIO_PHY_DATA);
++#else
++       outw(offset, bcm-&gt;mmio_addr + core_offset(bcm) + BCM43xx_MMIO_PHY_CONTROL - isa_io_base);
++       foo = inw(bcm-&gt;mmio_addr + core_offset(bcm) + BCM43xx_MMIO_PHY_DATA - isa_io_base);
++#endif
+        printk(&quot; = %x\n&quot;, foo);
+        return foo;
+ }
+
+Coupled with printks in bcm43xx_phy_{read,write} I get no crashes any
+more; just helpful output like...
+
+phy_read 1... = 0
+phy_read 811... = 0
+phy_read 812... = 3
+phy_read 814...&lt;7&gt;IN from bad port f59f53fe at f22b57ec
+ = ffff
+phy_read 815...&lt;7&gt;IN from bad port f59f53fe at f22b57ec
+ = ffff
+phy_read 5a... = 0
+phy_read 59... = 0
+phy_read 58... = 4
+
+
+-- 
+dwmw2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000877.html">Machine checks on PPC with phy-&gt;rev == 1
+</A></li>
+	<LI>Next message: <A HREF="000879.html">[PATCH] bcm43xx: Change initialization for 2050 radios
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#878">[ date ]</a>
+              <a href="thread.html#878">[ thread ]</a>
+              <a href="subject.html#878">[ subject ]</a>
+              <a href="author.html#878">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,250 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Refresh RX poison on buffer recycling
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Refresh%20RX%20poison%20on%20buffer%20recycling&In-Reply-To=%3C46762F98-C244-42C7-8F42-D206137385C3%40ing.unibs.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005375.html">
+   <LINK REL="Next"  HREF="005377.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Refresh RX poison on buffer recycling</H1>
+    <B>Francesco Gringoli</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Refresh%20RX%20poison%20on%20buffer%20recycling&In-Reply-To=%3C46762F98-C244-42C7-8F42-D206137385C3%40ing.unibs.it%3E"
+       TITLE="[PATCH] b43: Refresh RX poison on buffer recycling">francesco.gringoli at ing.unibs.it
+       </A><BR>
+    <I>Sun Apr  5 21:54:48 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005375.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+        <LI>Next message: <A HREF="005377.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5376">[ date ]</a>
+              <a href="thread.html#5376">[ thread ]</a>
+              <a href="subject.html#5376">[ subject ]</a>
+              <a href="author.html#5376">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+On Apr 5, 2009, at 8:58 PM, Michael Buesch wrote:
+
+&gt;<i> On Sunday 05 April 2009 20:01:22 Francesco Gringoli wrote:
+</I>&gt;&gt;<i> On Mar 30, 2009, at 11:35 PM, Francesco Gringoli wrote:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> On Mar 28, 2009, at 12:41 AM, Michael Buesch wrote:
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i>
+</I>Hi Michael,
+
+&gt;<i>
+</I>&gt;<i> I think this really is completely getting overengineered by now.
+</I>&gt;<i>
+</I>&gt;<i> I'm not going to apply such a patch unless you tell me why it's  
+</I>&gt;<i> needed.
+</I>&gt;<i> Having such an incredible mechanism for an absolute corner case that  
+</I>&gt;<i> happens
+</I>&gt;<i> once in a billion frames but doesn't harm anybody is not really  
+</I>&gt;<i> acceptable.
+</I>No problem :-) I simply sent the patch I'm using in my test  
+environment where I get this behavior for the 0.1% of the received  
+frames when FCSFAIL is set. Note that here we collect traces for  
+experiments with 802.11 protocol, so we need this kind of patches.
+
+I understand that very few of us are doing such kind of experiments  
+and users are not, I simply sent a comment about these devices. It may  
+improve knowledge about them.
+
+Cheers,
+-FG
+
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> If you have FCSFAIL set, you're expected to receive crap. It's as  
+</I>&gt;<i> simple as that.
+</I>&gt;<i> If you don't want crap, don't set the bit.
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+</I>&gt;&gt;<i> ===================================================================
+</I>&gt;&gt;<i> --- drivers/net/wireless/b43/xmit.c	2009-03-26 19:41:53.000000000  
+</I>&gt;&gt;<i> +0100
+</I>&gt;&gt;<i> +++ drivers/net/wireless/b43/xmit.c	2009-03-27 20:55:31.000000000  
+</I>&gt;&gt;<i> +0100
+</I>&gt;&gt;<i> @@ -27,6 +27,7 @@
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>  */
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> +#include &lt;linux/crc32.h&gt;
+</I>&gt;&gt;<i>  #include &quot;xmit.h&quot;
+</I>&gt;&gt;<i>  #include &quot;phy_common.h&quot;
+</I>&gt;&gt;<i>  #include &quot;dma.h&quot;
+</I>&gt;&gt;<i> @@ -560,6 +562,67 @@
+</I>&gt;&gt;<i>  		goto drop;
+</I>&gt;&gt;<i>  	}
+</I>&gt;&gt;<i>  	plcp = (struct b43_plcp_hdr6 *)(skb-&gt;data + padding);
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> +	if ((dev-&gt;wl-&gt;filter_flags &amp; FIF_FCSFAIL) &amp;&amp; !(macstat &amp;
+</I>&gt;&gt;<i> B43_RX_MAC_FCSERR)) {
+</I>&gt;&gt;<i> +		int mismatch = 0;
+</I>&gt;&gt;<i> +		int skb_len = skb-&gt;len - 6 - padding;
+</I>&gt;&gt;<i> +		u8* plcp_data = (u8*) plcp;
+</I>&gt;&gt;<i> +		if (phystat0 &amp; B43_RX_PHYST0_OFDM) {
+</I>&gt;&gt;<i> +			int pkt_len = plcp_data[0] |
+</I>&gt;&gt;<i> +				plcp_data[1] &lt;&lt;  8 |
+</I>&gt;&gt;<i> +				plcp_data[2] &lt;&lt; 16 |
+</I>&gt;&gt;<i> +				plcp_data[3] &lt;&lt; 24;
+</I>&gt;&gt;<i> +			pkt_len &gt;&gt;= 5;
+</I>&gt;&gt;<i> +			pkt_len &amp;= 0xFFF;
+</I>&gt;&gt;<i> +			if(pkt_len != skb_len) {
+</I>&gt;&gt;<i> +				mismatch = 1;
+</I>&gt;&gt;<i> +			}
+</I>&gt;&gt;<i> +		}
+</I>&gt;&gt;<i> +		else {
+</I>&gt;&gt;<i> +			int speed;
+</I>&gt;&gt;<i> +			int len1 = (plcp_data[3] &lt;&lt; 8) | plcp_data[2];
+</I>&gt;&gt;<i> +			int len2;
+</I>&gt;&gt;<i> +			switch(plcp_data[0]) {
+</I>&gt;&gt;<i> +			case 0x0A:
+</I>&gt;&gt;<i> +				speed = 2;
+</I>&gt;&gt;<i> +				break;
+</I>&gt;&gt;<i> +			case 0x14:
+</I>&gt;&gt;<i> +				speed = 4;
+</I>&gt;&gt;<i> +				break;
+</I>&gt;&gt;<i> +			case 0x37:
+</I>&gt;&gt;<i> +				speed = 11;
+</I>&gt;&gt;<i> +				break;
+</I>&gt;&gt;<i> +			case 0x6E:
+</I>&gt;&gt;<i> +				speed = 22;
+</I>&gt;&gt;<i> +				break;
+</I>&gt;&gt;<i> +			default:
+</I>&gt;&gt;<i> +				speed = 1;
+</I>&gt;&gt;<i> +				break;
+</I>&gt;&gt;<i> +			}
+</I>&gt;&gt;<i> +			len2 = skb_len * 16 / speed;
+</I>&gt;&gt;<i> +			if((skb_len * 16 % speed) &gt; 0)
+</I>&gt;&gt;<i> +				len2++;
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> +			if(len1 != len2) {
+</I>&gt;&gt;<i> +				mismatch = 1;
+</I>&gt;&gt;<i> +			}
+</I>&gt;&gt;<i> +		}
+</I>&gt;&gt;<i> +		if(mismatch) {
+</I>&gt;&gt;<i> +			dev-&gt;wl-&gt;ieee_stats.dot11FCSErrorCount++;
+</I>&gt;&gt;<i> +			macstat |= B43_RX_MAC_FCSERR;
+</I>&gt;&gt;<i> +			status.flag |= RX_FLAG_FAILED_FCS_CRC;
+</I>&gt;&gt;<i> +			plcp_data = (u8*) (struct b43_plcp_hdr6 *)(skb-&gt;data);
+</I>&gt;&gt;<i> +			b43dbg(dev-&gt;wl, &quot;RX: padding or plcp mismatch, setting FCSFAIL  
+</I>&gt;&gt;<i> and
+</I>&gt;&gt;<i> keeping frame (&quot; \
+</I>&gt;&gt;<i> +				&quot;%02X %02X %02X %02X padding = %d, len = %d)\n&quot;,
+</I>&gt;&gt;<i> +				plcp_data[0],
+</I>&gt;&gt;<i> +				plcp_data[1],
+</I>&gt;&gt;<i> +				plcp_data[2],
+</I>&gt;&gt;<i> +				plcp_data[3],
+</I>&gt;&gt;<i> +				padding,
+</I>&gt;&gt;<i> +				skb-&gt;len);
+</I>&gt;&gt;<i> +		}
+</I>&gt;&gt;<i> +        }
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i>  	skb_pull(skb, sizeof(struct b43_plcp_hdr6) + padding);
+</I>&gt;&gt;<i>  	/* The skb contains the Wireless Header + payload data now */
+</I>&gt;&gt;<i>  	if (unlikely(skb-&gt;len &lt; (2 + 2 + 6 /*minimum hdr */  + FCS_LEN))) {
+</I>&gt;&gt;<i> @@ -569,6 +648,23 @@
+</I>&gt;&gt;<i>  	wlhdr = (struct ieee80211_hdr *)(skb-&gt;data);
+</I>&gt;&gt;<i>  	fctl = wlhdr-&gt;frame_control;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> +	/* if we keep bad frames we should compute again the FCS as fw can
+</I>&gt;&gt;<i> skip marking */
+</I>&gt;&gt;<i> +        if ((dev-&gt;wl-&gt;filter_flags &amp; FIF_FCSFAIL) &amp;&amp; !(macstat &amp;
+</I>&gt;&gt;<i> B43_RX_MAC_FCSERR)) {
+</I>&gt;&gt;<i> +		u32 fcs1, fcs2;
+</I>&gt;&gt;<i> +		u8* fcs_ptr = skb-&gt;data + skb-&gt;len - FCS_LEN;
+</I>&gt;&gt;<i> +		fcs1 = fcs_ptr[0] |
+</I>&gt;&gt;<i> +			fcs_ptr[1] &lt;&lt; 8  |
+</I>&gt;&gt;<i> +			fcs_ptr[2] &lt;&lt; 16 |
+</I>&gt;&gt;<i> +			fcs_ptr[3] &lt;&lt; 24;
+</I>&gt;&gt;<i> +		fcs2 = ~ether_crc_le(skb-&gt;len - FCS_LEN, skb-&gt;data);
+</I>&gt;&gt;<i> +		if(fcs1 != fcs2) {
+</I>&gt;&gt;<i> +			b43dbg(dev-&gt;wl, &quot;RX: FCS wrong not reported, setting FCSFAIL and
+</I>&gt;&gt;<i> keeping\n&quot;);
+</I>&gt;&gt;<i> +			macstat |= B43_RX_MAC_FCSERR;
+</I>&gt;&gt;<i> +			dev-&gt;wl-&gt;ieee_stats.dot11FCSErrorCount++;
+</I>&gt;&gt;<i> +			status.flag |= RX_FLAG_FAILED_FCS_CRC;
+</I>&gt;&gt;<i> +		}
+</I>&gt;&gt;<i> +	}
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i>  	if (macstat &amp; B43_RX_MAC_DEC) {
+</I>&gt;&gt;<i>  		unsigned int keyidx;
+</I>&gt;&gt;<i>  		int wlhdr_len;
+</I>&gt;&gt;<i> @@ -617,6 +721,10 @@
+</I>&gt;&gt;<i>  		 * Drop the frame, if we are not interested in corrupted frames.  
+</I>&gt;&gt;<i> */
+</I>&gt;&gt;<i>  		if (!(dev-&gt;wl-&gt;filter_flags &amp; FIF_PLCPFAIL))
+</I>&gt;&gt;<i>  			goto drop;
+</I>&gt;&gt;<i> +		else {
+</I>&gt;&gt;<i> +			b43dbg(dev-&gt;wl, &quot;RX: PLCP corrupted, discarding\n&quot;);
+</I>&gt;&gt;<i> +			goto drop;
+</I>&gt;&gt;<i> +		}
+</I>&gt;&gt;<i>  	}
+</I>&gt;&gt;<i>  	status.antenna = !!(phystat0 &amp; B43_RX_PHYST0_ANT);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> -- 
+</I>&gt;<i> Greetings, Michael.
+</I>
+-------
+
+Francesco Gringoli, PhD - Assistant Professor
+Dept. of Electrical Engineering for Automation
+University of Brescia
+via Branze, 38
+25123 Brescia
+ITALY
+
+Ph:  ++39.030.3715843
+FAX: ++39.030.380014
+WWW: <A HREF="http://www.ing.unibs.it/~gringoli">http://www.ing.unibs.it/~gringoli</A>
+
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005375.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+	<LI>Next message: <A HREF="005377.html">[PATCH] b43: Refresh RX poison on buffer recycling
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5376">[ date ]</a>
+              <a href="thread.html#5376">[ thread ]</a>
+              <a href="subject.html#5376">[ subject ]</a>
+              <a href="author.html#5376">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43: 1 second &quot;freeze&quot; every 2 minutes - works with bcm43xx
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%3A%201%20second%20%22freeze%22%20every%202%20minutes%20-%20works%20with%20bcm43xx&In-Reply-To=%3C47EFAD78.9090909%40jm10.no-ip.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003666.html">
+   <LINK REL="Next"  HREF="003669.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43: 1 second &quot;freeze&quot; every 2 minutes - works with bcm43xx</H1>
+    <B>Julien Muchembled</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%3A%201%20second%20%22freeze%22%20every%202%20minutes%20-%20works%20with%20bcm43xx&In-Reply-To=%3C47EFAD78.9090909%40jm10.no-ip.com%3E"
+       TITLE="b43: 1 second &quot;freeze&quot; every 2 minutes - works with bcm43xx">jm at jm10.no-ip.com
+       </A><BR>
+    <I>Sun Mar 30 17:10:48 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003666.html">b43: 1 second &quot;freeze&quot; every 2 minutes - works with bcm43xx
+</A></li>
+        <LI>Next message: <A HREF="003669.html">b43: 1 second &quot;freeze&quot; every 2 minutes - works with bcm43xx
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3668">[ date ]</a>
+              <a href="thread.html#3668">[ thread ]</a>
+              <a href="subject.html#3668">[ subject ]</a>
+              <a href="author.html#3668">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>&gt;<i> The only thing that happens on a 120-second cycle is the following
+</I>&gt;<i> routine from drivers/net/wireless/main.c:
+</I>&gt;<i> 
+</I>&gt;<i> static void b43_periodic_every120sec(struct b43_wldev *dev)
+</I>&gt;<i> {
+</I>&gt;<i>         struct b43_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> 
+</I>&gt;<i>         if (phy-&gt;type != B43_PHYTYPE_G || phy-&gt;rev &lt; 2)
+</I>&gt;<i>                 return;
+</I>&gt;<i> 
+</I>&gt;<i>         b43_mac_suspend(dev);
+</I>&gt;<i>         b43_lo_g_measure(dev);
+</I>&gt;<i>         b43_mac_enable(dev);
+</I>&gt;<i>         if (b43_has_hardware_pctl(phy))
+</I>&gt;<i>                 b43_lo_g_ctl_mark_all_unused(dev);
+</I>&gt;<i> }
+</I>&gt;<i> 
+</I>&gt;<i> To test if this routine is the problem, replace it with a simple return.
+</I>&gt;<i> If that cures the problem, try commenting out the b43_lo_g_measure(dev)
+</I>&gt;<i> and b43_lo_g_ctl_mark_all_unused(dev) lines.
+</I>
+There is no more freeze with a simple return, or if I comment
+b43_lo_g_measure(dev)
+Commenting b43_lo_g_ctl_mark_all_unused(dev) doesn't change anything.
+
+Oh I see a b43_periodic_every60sec below.
+That could explain the small loss of packets we can see every minute on
+the graph.
+
+JM
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003666.html">b43: 1 second &quot;freeze&quot; every 2 minutes - works with bcm43xx
+</A></li>
+	<LI>Next message: <A HREF="003669.html">b43: 1 second &quot;freeze&quot; every 2 minutes - works with bcm43xx
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3668">[ date ]</a>
+              <a href="thread.html#3668">[ thread ]</a>
+              <a href="subject.html#3668">[ subject ]</a>
+              <a href="author.html#3668">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

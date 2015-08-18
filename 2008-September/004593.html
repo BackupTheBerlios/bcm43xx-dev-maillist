@@ -1,0 +1,131 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Speed enhancement for BCM4306/2
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Speed%20enhancement%20for%20BCM4306/2&In-Reply-To=%3C48C30B3E.2040302%40wetwork.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004579.html">
+   <LINK REL="Next"  HREF="004594.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Speed enhancement for BCM4306/2</H1>
+    <B>gavron at wetwork.net</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Speed%20enhancement%20for%20BCM4306/2&In-Reply-To=%3C48C30B3E.2040302%40wetwork.net%3E"
+       TITLE="Speed enhancement for BCM4306/2">gavron at wetwork.net
+       </A><BR>
+    <I>Sun Sep  7 00:59:10 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004579.html">Speed enhancement for BCM4306/2
+</A></li>
+        <LI>Next message: <A HREF="004594.html">Speed enhancement for BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4593">[ date ]</a>
+              <a href="thread.html#4593">[ thread ]</a>
+              <a href="subject.html#4593">[ subject ]</a>
+              <a href="author.html#4593">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+
+Larry Finger wrote:
+&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">gavron at wetwork.net</A> wrote:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Ok, here's try #2.
+</I>&gt;&gt;<i> E
+</I>...
+&gt;<i>
+</I>&gt;<i> This hunk does not match the specs. In addition, I think there are too 
+</I>&gt;<i> many right-hand curly braces for it to compile.
+</I>&gt;<i>
+</I>&gt;<i> Larry
+</I>&gt;<i>
+</I>I haven't tried a build yet, but please let me know if I'm on the right 
+track.
+
+E
+# diff -uN /tmp/phy.c drivers/net/wireless/b43legacy/phy.c
+--- /tmp/phy.c    2008-09-06 15:13:33.000000000 -0700
++++ drivers/net/wireless/b43legacy/phy.c    2008-09-06 
+15:54:03.000000000 -0700
+@@ -1010,7 +1010,7 @@
+         b43legacy_phy_initb5(dev);
+     else
+         b43legacy_phy_initb6(dev);
+-    if (phy-&gt;rev &gt;= 2 || phy-&gt;gmode)
++    if (phy-&gt;rev &gt;= 2 &amp;&amp; phy-&gt;gmode)
+         b43legacy_phy_inita(dev);
+ 
+     if (phy-&gt;rev &gt;= 2) {
+@@ -1021,21 +1021,26 @@
+         b43legacy_phy_write(dev, 0x0811, 0x0000);
+         b43legacy_phy_write(dev, 0x0015, 0x00C0);
+     }
+-    if (phy-&gt;rev &gt; 5) {
++    if (phy-&gt;rev &gt;= 3) {
+         b43legacy_phy_write(dev, 0x0811, 0x0400);
+         b43legacy_phy_write(dev, 0x0015, 0x00C0);
+     }
+-    if (phy-&gt;rev &gt;= 2 || phy-&gt;gmode) {
++    if (phy-&gt;gmode) {
+         tmp = b43legacy_phy_read(dev, 0x0400) &amp; 0xFF;
+-        if (tmp == 3 || tmp == 5) {
++        if (tmp == 3) {
++            b43legacy_phy_write(dev, 0x04C2, 0x1816);
++            b43legacy_phy_write(dev, 0x04C3, 0x8606);
++        }
++        if (tmp == 4 || tmp == 5) {
+             b43legacy_phy_write(dev, 0x04C2, 0x1816);
+             b43legacy_phy_write(dev, 0x04C3, 0x8006);
+-            if (tmp == 5)
+-                b43legacy_phy_write(dev, 0x04CC,
+-                            (b43legacy_phy_read(dev,
+-                             0x04CC) &amp; 0x00FF) |
+-                             0x1F00);
++            b43legacy_phy_write(dev, 0x04CC,
++                        (b43legacy_phy_read(dev,
++                        0x04CC) &amp; 0x00FF) |
++                        0x1F00);
+         }
++    }
++    if (phy--&gt;rev &gt;= 2)
+         b43legacy_phy_write(dev, 0x047E, 0x0078);
+     }
+     if (phy-&gt;radio_rev == 8) {
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004579.html">Speed enhancement for BCM4306/2
+</A></li>
+	<LI>Next message: <A HREF="004594.html">Speed enhancement for BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4593">[ date ]</a>
+              <a href="thread.html#4593">[ thread ]</a>
+              <a href="subject.html#4593">[ subject ]</a>
+              <a href="author.html#4593">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

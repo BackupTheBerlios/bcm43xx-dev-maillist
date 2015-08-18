@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Wireless-testing%27s%20b43%20panics%20in%20b43_generate_txhdr%20on%20packet%0A%09transmit&In-Reply-To=%3C1212381184.2894.3.camel%40rd%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004184.html">
+   <LINK REL="Next"  HREF="004187.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Wireless-testing%27s%20b43%20panics%20in%20b43_generate_txhdr%20on%20packet%0A%09transmit&In-Reply-To=%3C1212381184.2894.3.camel%40rd%3E"
+       TITLE="Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit">proski at gnu.org
+       </A><BR>
+    <I>Mon Jun  2 06:33:04 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004184.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+        <LI>Next message: <A HREF="004187.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4185">[ date ]</a>
+              <a href="thread.html#4185">[ thread ]</a>
+              <a href="subject.html#4185">[ subject ]</a>
+              <a href="author.html#4185">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Mon, 2008-06-02 at 00:08 -0400, Pavel Roskin wrote:
+
+&gt;<i> wep_encrypt_skb() in wep.c would not return TX_CONTINUE.  But most  
+</I>&gt;<i> importantly, there is a suspicious change in wep_encrypt_skb() - the  
+</I>&gt;<i> key is set in the other branch of the condition.
+</I>&gt;<i> 
+</I>&gt;<i> I'll try to restore the original logic in wep.c.  I'll post a patch if  
+</I>&gt;<i> it works.
+</I>
+That was it!  Here's the patch (I'll submit it to John tomorrow if nobody objects).
+
+
+mac80211: fix hardware WEP support
+
+Setting hardware WEP key was accidentally moved to a wrong place in
+57ccbb1cbe3f8e10a500ff8b9fb26dc1a542fe99.  Move it back.  This fixes
+kernel panic in b43 if WEP is used.
+
+Signed-off-by: Pavel Roskin &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">proski at gnu.org</A>&gt;
+---
+
+ net/mac80211/wep.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/mac80211/wep.c b/net/mac80211/wep.c
+index c9fd129..e7b6344 100644
+--- a/net/mac80211/wep.c
++++ b/net/mac80211/wep.c
+@@ -335,10 +335,10 @@ static int wep_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb)
+ 	info-&gt;control.icv_len = WEP_ICV_LEN;
+ 
+ 	if (!(tx-&gt;key-&gt;flags &amp; KEY_FLAG_UPLOADED_TO_HARDWARE)) {
+-		info-&gt;control.hw_key = &amp;tx-&gt;key-&gt;conf;
+ 		if (ieee80211_wep_encrypt(tx-&gt;local, skb, tx-&gt;key))
+ 			return -1;
+ 	} else {
++		info-&gt;control.hw_key = &amp;tx-&gt;key-&gt;conf;
+ 		if (tx-&gt;key-&gt;conf.flags &amp; IEEE80211_KEY_FLAG_GENERATE_IV) {
+ 			if (!ieee80211_wep_add_iv(tx-&gt;local, skb, tx-&gt;key))
+ 				return -1;
+
+
+-- 
+Regards,
+Pavel Roskin
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004184.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+	<LI>Next message: <A HREF="004187.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4185">[ date ]</a>
+              <a href="thread.html#4185">[ thread ]</a>
+              <a href="subject.html#4185">[ subject ]</a>
+              <a href="author.html#4185">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

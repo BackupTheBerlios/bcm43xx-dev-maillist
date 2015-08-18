@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH V2] bcm43xx-mac80211: Rescale link quality output
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20bcm43xx-mac80211%3A%20Rescale%20link%20quality%20output&In-Reply-To=%3C200708051643.30569.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001785.html">
+   <LINK REL="Next"  HREF="001793.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH V2] bcm43xx-mac80211: Rescale link quality output</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20bcm43xx-mac80211%3A%20Rescale%20link%20quality%20output&In-Reply-To=%3C200708051643.30569.mb%40bu3sch.de%3E"
+       TITLE="[PATCH V2] bcm43xx-mac80211: Rescale link quality output">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Aug  5 16:43:30 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001785.html">[PATCH V2] bcm43xx-mac80211: Rescale link quality output
+</A></li>
+        <LI>Next message: <A HREF="001793.html">[PATCH V2] bcm43xx-mac80211: Rescale link quality output
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1786">[ date ]</a>
+              <a href="thread.html#1786">[ thread ]</a>
+              <a href="subject.html#1786">[ subject ]</a>
+              <a href="author.html#1786">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday 05 August 2007, Larry Finger wrote:
+&gt;<i> Michael Buesch wrote:
+</I>&gt;<i> &gt; On Sunday 05 August 2007, Larry Finger wrote:
+</I>&gt;<i> &gt;&gt; The link quality output from wireless extensions is too small by the ratio
+</I>&gt;<i> &gt;&gt; of 100/BCM43xx_RX_MAX_SSI (60) for bcm43xx-mac80211. This patch puts the
+</I>&gt;<i> &gt;&gt; quantity on the proper scale.
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;<i> &gt;&gt; ---
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_xmit.c
+</I>&gt;<i> &gt;&gt; ===================================================================
+</I>&gt;<i> &gt;&gt; --- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_xmit.c
+</I>&gt;<i> &gt;&gt; +++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_xmit.c
+</I>&gt;<i> &gt;&gt; @@ -537,7 +537,8 @@ void bcm43xx_rx(struct bcm43xx_wldev *de
+</I>&gt;<i> &gt;&gt;  					      (phystat0 &amp; BCM43xx_RX_PHYST0_GAINCTL),
+</I>&gt;<i> &gt;&gt;  					      (phystat3 &amp; BCM43xx_RX_PHYST3_TRSTATE));
+</I>&gt;<i> &gt;&gt;  	status.noise = dev-&gt;stats.link_noise;
+</I>&gt;<i> &gt;&gt; -	status.signal = jssi; /* this looks wrong, but is what mac80211 wants */
+</I>&gt;<i> &gt;&gt; +	/* the next line looks wrong, but is what mac80211 wants */
+</I>&gt;<i> &gt;&gt; +	status.signal = (jssi * 100) / BCM43xx_RX_MAX_SSI;
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; So signal is in percent?
+</I>&gt;<i> &gt; Where is this actually documented. I cannot find a hint on what
+</I>&gt;<i> &gt; the values of all these things are supposed to be.
+</I>&gt;<i> 
+</I>&gt;<i> Yes, it is clear as mud, with the additional complications of mac80211 mixing the definitions of 
+</I>&gt;<i> signal and rssi (as far as I'm concerned). The scale is set by the following code snippet in 
+</I>&gt;<i> bcm43xx_wireless_init.
+</I>&gt;<i> 
+</I>&gt;<i>          hw-&gt;max_signal = 100;
+</I>&gt;<i>          hw-&gt;max_rssi = -110;
+</I>&gt;<i>          hw-&gt;max_noise = -110;
+</I>&gt;<i> 
+</I>&gt;<i> In this code, &quot;signal&quot; is put on a scale of 0 to 100, and rssi and noise on a scale of -110 to 0 and 
+</I>&gt;<i> are assumed to be dBm. Of course, rssi should be a positive number and signal should be in dBm, but 
+</I>&gt;<i> my renaming of signal =&gt; quality and rssi =&gt; signal was shot down, so we are stuck.
+</I>&gt;<i> 
+</I>&gt;<i> An alternative to the patch above would be to set hw-&gt;max_signal = BCM43xx_RX_MAX_SSI. In that case, 
+</I>&gt;<i> the line of iwconfig output that reads &quot;Link Quality=83/100  Signal level=-34 dBm  Noise level=-71 
+</I>&gt;<i> dBm&quot; would have a &quot;Link Quality&quot; of 50/60 instead of 83/100.
+</I>&gt;<i> 
+</I>&gt;<i> The bottom line is that it is an arbitrary quantity on an arbitrary scale. Is it better for it to be 
+</I>&gt;<i>   XX/100 than YY/60? I think so, but YMMV.
+</I>
+Ah, I see. Kind of confusing. :)
+
+Well, I would like to do
+hw-&gt;max_signal = MAX_RSSI
+but it seems to be an unwritten rule that signal scales to 100.
+At least I never saw a different scale in a driver, yet.
+So I think I will apply your patch.
+Thanks!
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001785.html">[PATCH V2] bcm43xx-mac80211: Rescale link quality output
+</A></li>
+	<LI>Next message: <A HREF="001793.html">[PATCH V2] bcm43xx-mac80211: Rescale link quality output
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1786">[ date ]</a>
+              <a href="thread.html#1786">[ thread ]</a>
+              <a href="subject.html#1786">[ subject ]</a>
+              <a href="author.html#1786">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

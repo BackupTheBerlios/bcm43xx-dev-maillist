@@ -1,0 +1,180 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH -mm 5/5] b43: Avoid unregistering device objects during suspend
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20-mm%205/5%5D%20b43%3A%20Avoid%20unregistering%20device%20objects%20during%20suspend&In-Reply-To=%3C200801250137.34275.rjw%40sisk.pl%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003282.html">
+   <LINK REL="Next"  HREF="003284.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH -mm 5/5] b43: Avoid unregistering device objects during suspend</H1>
+    <B>Rafael J. Wysocki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20-mm%205/5%5D%20b43%3A%20Avoid%20unregistering%20device%20objects%20during%20suspend&In-Reply-To=%3C200801250137.34275.rjw%40sisk.pl%3E"
+       TITLE="[PATCH -mm 5/5] b43: Avoid unregistering device objects during suspend">rjw at sisk.pl
+       </A><BR>
+    <I>Fri Jan 25 01:37:33 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003282.html">[PATCH -mm 4/5] Leds: Add possibility to remove leds classdevs during	suspend/resume
+</A></li>
+        <LI>Next message: <A HREF="003284.html">[PATCH -mm 5/5] b43: Avoid unregistering device objects during	suspend
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3280">[ date ]</a>
+              <a href="thread.html#3280">[ thread ]</a>
+              <a href="subject.html#3280">[ subject ]</a>
+              <a href="author.html#3280">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: Rafael J. Wysocki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">rjw at sisk.pl</A>&gt;
+
+Modify the b43 driver to avoid deadlocking suspend and resume,
+which happens as a result of attempting to unregister device objects
+locked by the PM core during suspend/resume cycles.  Also, make it
+use a suspend-safe method of unregistering device object in the
+resume error path.
+
+Signed-off-by: Rafael J. Wysocki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">rjw at sisk.pl</A>&gt;
+Acked-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+---
+ drivers/net/wireless/b43/b43.h  |    1 +
+ drivers/net/wireless/b43/leds.c |    5 ++++-
+ drivers/net/wireless/b43/main.c |   25 ++++++++++++++++---------
+ 3 files changed, 21 insertions(+), 10 deletions(-)
+
+Index: linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/b43.h
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/net/wireless/b43/b43.h
++++ linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/b43.h
+@@ -706,6 +706,7 @@ struct b43_wldev {
+ 	bool short_preamble;	/* TRUE, if short preamble is enabled. */
+ 	bool short_slot;	/* TRUE, if short slot timing is enabled. */
+ 	bool radio_hw_enable;	/* saved state of radio hardware enabled state */
++	bool suspend_in_progress;	/* TRUE, if we are in a suspend/resume cycle */
+ 
+ 	/* PHY/Radio device. */
+ 	struct b43_phy phy;
+Index: linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/main.c
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/net/wireless/b43/main.c
++++ linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/main.c
+@@ -2470,10 +2470,10 @@ static int b43_rng_read(struct hwrng *rn
+ 	return (sizeof(u16));
+ }
+ 
+-static void b43_rng_exit(struct b43_wl *wl)
++static void b43_rng_exit(struct b43_wl *wl, bool suspended)
+ {
+ 	if (wl-&gt;rng_initialized)
+-		hwrng_unregister(&amp;wl-&gt;rng);
++		__hwrng_unregister(&amp;wl-&gt;rng, suspended);
+ }
+ 
+ static int b43_rng_init(struct b43_wl *wl)
+@@ -3298,8 +3298,10 @@ static void b43_wireless_core_exit(struc
+ 		return;
+ 	b43_set_status(dev, B43_STAT_UNINIT);
+ 
+-	b43_leds_exit(dev);
+-	b43_rng_exit(dev-&gt;wl);
++	if (!dev-&gt;suspend_in_progress) {
++		b43_leds_exit(dev);
++		b43_rng_exit(dev-&gt;wl, false);
++	}
+ 	b43_pio_free(dev);
+ 	b43_dma_free(dev);
+ 	b43_chip_exit(dev);
+@@ -3420,11 +3422,13 @@ static int b43_wireless_core_init(struct
+ 	memset(wl-&gt;mac_addr, 0, ETH_ALEN);
+ 	b43_upload_card_macaddress(dev);
+ 	b43_security_init(dev);
+-	b43_rng_init(wl);
++	if (!dev-&gt;suspend_in_progress)
++		b43_rng_init(wl);
+ 
+ 	b43_set_status(dev, B43_STAT_INITIALIZED);
+ 
+-	b43_leds_init(dev);
++	if (!dev-&gt;suspend_in_progress)
++		b43_leds_init(dev);
+ out:
+ 	return err;
+ 
+@@ -4024,6 +4028,7 @@ static int b43_suspend(struct ssb_device
+ 	b43dbg(wl, &quot;Suspending...\n&quot;);
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
++	wldev-&gt;suspend_in_progress = true;
+ 	wldev-&gt;suspend_init_status = b43_status(wldev);
+ 	if (wldev-&gt;suspend_init_status &gt;= B43_STAT_STARTED)
+ 		b43_wireless_core_stop(wldev);
+@@ -4055,15 +4060,17 @@ static int b43_resume(struct ssb_device 
+ 	if (wldev-&gt;suspend_init_status &gt;= B43_STAT_STARTED) {
+ 		err = b43_wireless_core_start(wldev);
+ 		if (err) {
++			b43_leds_exit(wldev);
++			b43_rng_exit(wldev-&gt;wl, true);
+ 			b43_wireless_core_exit(wldev);
+ 			b43err(wl, &quot;Resume failed at core start\n&quot;);
+ 			goto out;
+ 		}
+ 	}
+-	mutex_unlock(&amp;wl-&gt;mutex);
+-
+ 	b43dbg(wl, &quot;Device resumed.\n&quot;);
+-      out:
++ out:
++	wldev-&gt;suspend_in_progress = false;
++	mutex_unlock(&amp;wl-&gt;mutex);
+ 	return err;
+ }
+ 
+Index: linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/leds.c
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/net/wireless/b43/leds.c
++++ linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/leds.c
+@@ -116,7 +116,10 @@ static void b43_unregister_led(struct b4
+ {
+ 	if (!led-&gt;dev)
+ 		return;
+-	led_classdev_unregister(&amp;led-&gt;led_dev);
++	if (led-&gt;dev-&gt;suspend_in_progress)
++		led_classdev_unregister_suspended(&amp;led-&gt;led_dev);
++	else
++		led_classdev_unregister(&amp;led-&gt;led_dev);
+ 	b43_led_turn_off(led-&gt;dev, led-&gt;index, led-&gt;activelow);
+ 	led-&gt;dev = NULL;
+ }
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003282.html">[PATCH -mm 4/5] Leds: Add possibility to remove leds classdevs during	suspend/resume
+</A></li>
+	<LI>Next message: <A HREF="003284.html">[PATCH -mm 5/5] b43: Avoid unregistering device objects during	suspend
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3280">[ date ]</a>
+              <a href="thread.html#3280">[ thread ]</a>
+              <a href="subject.html#3280">[ subject ]</a>
+              <a href="author.html#3280">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

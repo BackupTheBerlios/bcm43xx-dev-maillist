@@ -1,0 +1,97 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> TX power stuff confusion
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20TX%20power%20stuff%20confusion&In-Reply-To=%3C200706101913.42966.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001404.html">
+   <LINK REL="Next"  HREF="001394.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>TX power stuff confusion</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20TX%20power%20stuff%20confusion&In-Reply-To=%3C200706101913.42966.mb%40bu3sch.de%3E"
+       TITLE="TX power stuff confusion">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Jun 10 19:13:42 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001404.html">bcm4311 very unstable in kernel 2.6.21.4
+</A></li>
+        <LI>Next message: <A HREF="001394.html">TX power stuff confusion
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1393">[ date ]</a>
+              <a href="thread.html#1393">[ thread ]</a>
+              <a href="subject.html#1393">[ subject ]</a>
+              <a href="author.html#1393">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I implemented the new stuff for the TX power adjustment and
+it seems to work fine. Good work on the specs! :)
+
+There's one thing left I'm confused about. That's the LO
+rf-attenuation bb-attenuation tables.
+So in LO calibration we calculate tables for the
+attenuation values in these tables
+<A HREF="http://bcm-v4.sipsolutions.net/802.11/LO/Tables">http://bcm-v4.sipsolutions.net/802.11/LO/Tables</A>
+note that these tables have &quot;gaps&quot; and don't include
+all possible attenuation values a device can be tuned to
+in the txpower adjustment.
+So, the LO adjustment with the recalculated attenuation values
+is part of the TXpower adjustment (last step). If I
+recalculated the attenuation values, there is a good
+chance I hit some for which we did not precalibrate
+the LO tables (the gaps). Of course the LO code complains.
+
+I have no idea how this is possible to work.
+The head of
+<A HREF="http://bcm-v4.sipsolutions.net/802.11/LO/GPHY/BuildingTheTable">http://bcm-v4.sipsolutions.net/802.11/LO/GPHY/BuildingTheTable</A>
+says:
+&quot;The I and Q values are kept for each possible attenuation
+ value and are indexed by RF Attenuation and Baseband Attenuation.&quot;
+But that's not what's described on the same page in the
+algorithm description. There we do calculate
+the LO values _just_ for the values in the tables from
+<A HREF="http://bcm-v4.sipsolutions.net/802.11/LO/Tables">http://bcm-v4.sipsolutions.net/802.11/LO/Tables</A>
+which do _not_ include all possible attenuation values.
+
+If you want example code, look into my development tree. All
+my development patches are applied there.
+The code there spews lots of LO warnings (after waiting some
+time until power recalibration hits in).
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001404.html">bcm4311 very unstable in kernel 2.6.21.4
+</A></li>
+	<LI>Next message: <A HREF="001394.html">TX power stuff confusion
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1393">[ date ]</a>
+              <a href="thread.html#1393">[ thread ]</a>
+              <a href="subject.html#1393">[ subject ]</a>
+              <a href="author.html#1393">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

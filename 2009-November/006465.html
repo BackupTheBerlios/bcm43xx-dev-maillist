@@ -1,0 +1,305 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb: Fix SPROM writing
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Fix%20SPROM%20writing&In-Reply-To=%3C200911232012.14182.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006462.html">
+   <LINK REL="Next"  HREF="006466.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb: Fix SPROM writing</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Fix%20SPROM%20writing&In-Reply-To=%3C200911232012.14182.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] ssb: Fix SPROM writing">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Nov 23 20:12:13 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006462.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+        <LI>Next message: <A HREF="006466.html">[RFC] b43: Fix regression from Bug #14538
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6465">[ date ]</a>
+              <a href="thread.html#6465">[ thread ]</a>
+              <a href="subject.html#6465">[ subject ]</a>
+              <a href="author.html#6465">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The SPROM writing routines were broken since we rewrote the suspend
+handling on wireless devices, because SPROM writing depended on suspend.
+
+This patch changes it and freezes devices with the driver remove(), probe()
+callbacks instead. This also simplifies the whole logics a lot.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+Tested on BCM4306
+
+
+Index: wireless-testing/drivers/ssb/main.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/main.c	2009-11-06 21:45:29.000000000 +0100
++++ wireless-testing/drivers/ssb/main.c	2009-11-23 19:59:24.000000000 +0100
+@@ -140,6 +140,19 @@ static void ssb_device_put(struct ssb_de
+ 		put_device(dev-&gt;dev);
+ }
+ 
++static inline struct ssb_driver *ssb_driver_get(struct ssb_driver *drv)
++{
++	if (drv)
++		get_driver(&amp;drv-&gt;drv);
++	return drv;
++}
++
++static inline void ssb_driver_put(struct ssb_driver *drv)
++{
++	if (drv)
++		put_driver(&amp;drv-&gt;drv);
++}
++
+ static int ssb_device_resume(struct device *dev)
+ {
+ 	struct ssb_device *ssb_dev = dev_to_ssb_dev(dev);
+@@ -210,90 +223,81 @@ int ssb_bus_suspend(struct ssb_bus *bus)
+ EXPORT_SYMBOL(ssb_bus_suspend);
+ 
+ #ifdef CONFIG_SSB_SPROM
+-int ssb_devices_freeze(struct ssb_bus *bus)
++/** ssb_devices_freeze - Freeze all devices on the bus.
++ *
++ * After freezing no device driver will be handling a device
++ * on this bus anymore. ssb_devices_thaw() must be called after
++ * a successful freeze to reactivate the devices.
++ *
++ * @bus: The bus.
++ * @ctx: Context structure. Pass this to ssb_devices_thaw().
++ */
++int ssb_devices_freeze(struct ssb_bus *bus, struct ssb_freeze_context *ctx)
+ {
+-	struct ssb_device *dev;
+-	struct ssb_driver *drv;
+-	int err = 0;
+-	int i;
+-	pm_message_t state = PMSG_FREEZE;
++	struct ssb_device *sdev;
++	struct ssb_driver *sdrv;
++	unsigned int i;
++
++	memset(ctx, 0, sizeof(*ctx));
++	ctx-&gt;bus = bus;
++	SSB_WARN_ON(bus-&gt;nr_devices &gt; ARRAY_SIZE(ctx-&gt;device_frozen));
+ 
+-	/* First check that we are capable to freeze all devices. */
+ 	for (i = 0; i &lt; bus-&gt;nr_devices; i++) {
+-		dev = &amp;(bus-&gt;devices[i]);
+-		if (!dev-&gt;dev ||
+-		    !dev-&gt;dev-&gt;driver ||
+-		    !device_is_registered(dev-&gt;dev))
+-			continue;
+-		drv = drv_to_ssb_drv(dev-&gt;dev-&gt;driver);
+-		if (!drv)
++		sdev = ssb_device_get(&amp;bus-&gt;devices[i]);
++
++		if (!sdev-&gt;dev || !sdev-&gt;dev-&gt;driver ||
++		    !device_is_registered(sdev-&gt;dev)) {
++			ssb_device_put(sdev);
+ 			continue;
+-		if (!drv-&gt;suspend) {
+-			/* Nope, can't suspend this one. */
+-			return -EOPNOTSUPP;
+ 		}
+-	}
+-	/* Now suspend all devices */
+-	for (i = 0; i &lt; bus-&gt;nr_devices; i++) {
+-		dev = &amp;(bus-&gt;devices[i]);
+-		if (!dev-&gt;dev ||
+-		    !dev-&gt;dev-&gt;driver ||
+-		    !device_is_registered(dev-&gt;dev))
+-			continue;
+-		drv = drv_to_ssb_drv(dev-&gt;dev-&gt;driver);
+-		if (!drv)
++		sdrv = ssb_driver_get(drv_to_ssb_drv(sdev-&gt;dev-&gt;driver));
++		if (!sdrv || SSB_WARN_ON(!sdrv-&gt;remove)) {
++			ssb_device_put(sdev);
+ 			continue;
+-		err = drv-&gt;suspend(dev, state);
+-		if (err) {
+-			ssb_printk(KERN_ERR PFX &quot;Failed to freeze device %s\n&quot;,
+-				   dev_name(dev-&gt;dev));
+-			goto err_unwind;
+ 		}
++		sdrv-&gt;remove(sdev);
++		ctx-&gt;device_frozen[i] = 1;
+ 	}
+ 
+ 	return 0;
+-err_unwind:
+-	for (i--; i &gt;= 0; i--) {
+-		dev = &amp;(bus-&gt;devices[i]);
+-		if (!dev-&gt;dev ||
+-		    !dev-&gt;dev-&gt;driver ||
+-		    !device_is_registered(dev-&gt;dev))
+-			continue;
+-		drv = drv_to_ssb_drv(dev-&gt;dev-&gt;driver);
+-		if (!drv)
+-			continue;
+-		if (drv-&gt;resume)
+-			drv-&gt;resume(dev);
+-	}
+-	return err;
+ }
+ 
+-int ssb_devices_thaw(struct ssb_bus *bus)
++/** ssb_devices_thaw - Unfreeze all devices on the bus.
++ *
++ * This will re-attach the device drivers and re-init the devices.
++ *
++ * @ctx: The context structure from ssb_devices_freeze()
++ */
++int ssb_devices_thaw(struct ssb_freeze_context *ctx)
+ {
+-	struct ssb_device *dev;
+-	struct ssb_driver *drv;
+-	int err;
+-	int i;
++	struct ssb_bus *bus = ctx-&gt;bus;
++	struct ssb_device *sdev;
++	struct ssb_driver *sdrv;
++	unsigned int i;
++	int err, result = 0;
+ 
+ 	for (i = 0; i &lt; bus-&gt;nr_devices; i++) {
+-		dev = &amp;(bus-&gt;devices[i]);
+-		if (!dev-&gt;dev ||
+-		    !dev-&gt;dev-&gt;driver ||
+-		    !device_is_registered(dev-&gt;dev))
++		if (!ctx-&gt;device_frozen[i])
+ 			continue;
+-		drv = drv_to_ssb_drv(dev-&gt;dev-&gt;driver);
+-		if (!drv)
++		sdev = &amp;bus-&gt;devices[i];
++
++		if (SSB_WARN_ON(!sdev-&gt;dev || !sdev-&gt;dev-&gt;driver))
+ 			continue;
+-		if (SSB_WARN_ON(!drv-&gt;resume))
++		sdrv = drv_to_ssb_drv(sdev-&gt;dev-&gt;driver);
++		if (SSB_WARN_ON(!sdrv || !sdrv-&gt;probe))
+ 			continue;
+-		err = drv-&gt;resume(dev);
++
++		err = sdrv-&gt;probe(sdev, &amp;sdev-&gt;id);
+ 		if (err) {
+ 			ssb_printk(KERN_ERR PFX &quot;Failed to thaw device %s\n&quot;,
+-				   dev_name(dev-&gt;dev));
++				   dev_name(sdev-&gt;dev));
++			result = err;
+ 		}
++		ssb_driver_put(sdrv);
++		ssb_device_put(sdev);
+ 	}
+ 
+-	return 0;
++	return result;
+ }
+ #endif /* CONFIG_SSB_SPROM */
+ 
+Index: wireless-testing/drivers/ssb/sprom.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/sprom.c	2009-11-23 13:31:12.000000000 +0100
++++ wireless-testing/drivers/ssb/sprom.c	2009-11-23 14:24:57.000000000 +0100
+@@ -90,6 +90,7 @@ ssize_t ssb_attr_sprom_store(struct ssb_
+ 	u16 *sprom;
+ 	int res = 0, err = -ENOMEM;
+ 	size_t sprom_size_words = bus-&gt;sprom_size;
++	struct ssb_freeze_context freeze;
+ 
+ 	sprom = kcalloc(bus-&gt;sprom_size, sizeof(u16), GFP_KERNEL);
+ 	if (!sprom)
+@@ -111,18 +112,13 @@ ssize_t ssb_attr_sprom_store(struct ssb_
+ 	err = -ERESTARTSYS;
+ 	if (mutex_lock_interruptible(&amp;bus-&gt;sprom_mutex))
+ 		goto out_kfree;
+-	err = ssb_devices_freeze(bus);
+-	if (err == -EOPNOTSUPP) {
+-		ssb_printk(KERN_ERR PFX &quot;SPROM write: Could not freeze devices. &quot;
+-			   &quot;No suspend support. Is CONFIG_PM enabled?\n&quot;);
+-		goto out_unlock;
+-	}
++	err = ssb_devices_freeze(bus, &amp;freeze);
+ 	if (err) {
+ 		ssb_printk(KERN_ERR PFX &quot;SPROM write: Could not freeze all devices\n&quot;);
+ 		goto out_unlock;
+ 	}
+ 	res = sprom_write(bus, sprom);
+-	err = ssb_devices_thaw(bus);
++	err = ssb_devices_thaw(&amp;freeze);
+ 	if (err)
+ 		ssb_printk(KERN_ERR PFX &quot;SPROM write: Could not thaw all devices\n&quot;);
+ out_unlock:
+Index: wireless-testing/drivers/ssb/ssb_private.h
+===================================================================
+--- wireless-testing.orig/drivers/ssb/ssb_private.h	2009-11-23 13:31:12.000000000 +0100
++++ wireless-testing/drivers/ssb/ssb_private.h	2009-11-23 14:08:16.000000000 +0100
+@@ -176,13 +176,21 @@ extern const struct ssb_sprom *ssb_get_f
+ 
+ /* core.c */
+ extern u32 ssb_calc_clock_rate(u32 plltype, u32 n, u32 m);
+-extern int ssb_devices_freeze(struct ssb_bus *bus);
+-extern int ssb_devices_thaw(struct ssb_bus *bus);
+ extern struct ssb_bus *ssb_pci_dev_to_bus(struct pci_dev *pdev);
+ int ssb_for_each_bus_call(unsigned long data,
+ 			  int (*func)(struct ssb_bus *bus, unsigned long data));
+ extern struct ssb_bus *ssb_pcmcia_dev_to_bus(struct pcmcia_device *pdev);
+ 
++struct ssb_freeze_context {
++	/* Pointer to the bus */
++	struct ssb_bus *bus;
++	/* Boolean list to indicate whether a device is frozen on this bus. */
++	bool device_frozen[SSB_MAX_NR_CORES];
++};
++extern int ssb_devices_freeze(struct ssb_bus *bus, struct ssb_freeze_context *ctx);
++extern int ssb_devices_thaw(struct ssb_freeze_context *ctx);
++
++
+ 
+ /* b43_pci_bridge.c */
+ #ifdef CONFIG_SSB_B43_PCI_BRIDGE
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006462.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+	<LI>Next message: <A HREF="006466.html">[RFC] b43: Fix regression from Bug #14538
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6465">[ date ]</a>
+              <a href="thread.html#6465">[ thread ]</a>
+              <a href="subject.html#6465">[ subject ]</a>
+              <a href="author.html#6465">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

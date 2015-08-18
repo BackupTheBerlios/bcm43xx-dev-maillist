@@ -1,0 +1,169 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> driver does not report association
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20driver%20does%20not%20report%20association&In-Reply-To=%3Cslrneu7vev.46r.joerg%40alea.gnuu.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000646.html">
+   <LINK REL="Next"  HREF="000648.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>driver does not report association</H1>
+    <B>J&#246;rg Sommer</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20driver%20does%20not%20report%20association&In-Reply-To=%3Cslrneu7vev.46r.joerg%40alea.gnuu.de%3E"
+       TITLE="driver does not report association">joerg at alea.gnuu.de
+       </A><BR>
+    <I>Tue Feb 27 10:46:07 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000646.html">Patch to allow specification of interface name prefix
+</A></li>
+        <LI>Next message: <A HREF="000648.html">driver does not report association
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#647">[ date ]</a>
+              <a href="thread.html#647">[ thread ]</a>
+              <a href="subject.html#647">[ subject ]</a>
+              <a href="author.html#647">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi,
+
+firstly, I asked[1] the wpa_supplicant team and they advised[2] me to ask
+you.
+
+[1] <A HREF="http://lists.shmoo.com/pipermail/hostap/2007-February/015136.html">http://lists.shmoo.com/pipermail/hostap/2007-February/015136.html</A>
+[2] <A HREF="http://lists.shmoo.com/pipermail/hostap/2007-February/015140.html">http://lists.shmoo.com/pipermail/hostap/2007-February/015140.html</A>
+
+I've an Airport Extreme card (bcm4306) and I use wpa_supplicant 0.5.7
+with a Debian unstable on PowerPC and linux 2.6.20. My config is
+available at
+<A HREF="http://www.uni-jena.de/Linux_Fedora_Core___Scientific_Linux_4_x_mit_WPA_EAP_TTLS_PAP.html">http://www.uni-jena.de/Linux_Fedora_Core___Scientific_Linux_4_x_mit_WPA_EAP_TTLS_PAP.html</A>
+
+# lspci -s 10:12 -v
+0001:10:12.0 Network controller: Broadcom Corporation BCM4306 802.11b/g Wireless
+LAN Controller (rev 03)
+        Subsystem: Apple Computer Inc. AirPort Extreme
+        Flags: bus master, fast devsel, latency 16, IRQ 52
+        Memory at 80084000 (32-bit, non-prefetchable) [size=8K]
+        Capabilities: [40] Power Management version 2
+
+% iwlist eth1 sc
+  Cell 03 - Address: 00:14:1B:60:6A:40
+            ESSID:&quot;802.1X&quot;
+            Protocol:IEEE 802.11bg
+            Mode:Master
+            Channel:13
+            Encryption key:on
+            Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 6 Mb/s; 9 Mb/s
+                      11 Mb/s; 12 Mb/s; 18 Mb/s; 24 Mb/s; 36 Mb/s
+                      48 Mb/s; 54 Mb/s
+            Quality=89/100  Signal level=-61 dBm  Noise level=-67 dBm
+            IE: WPA Version 1
+                Group Cipher : TKIP
+                Pairwise Ciphers (1) : TKIP
+                Authentication Suites (1) : 802.1X
+            IE: IEEE 802.11i/WPA2 Version 1
+                Group Cipher : TKIP
+                Pairwise Ciphers (1) : CCMP
+                Authentication Suites (1) : 802.1X
+            Extra: Last beacon: 2324ms ago
+
+% iwevent
+12:29:08.536222   eth1     Set Mode:Managed
+12:29:08.866442   eth1     Scan request completed
+12:29:08.866542   eth1     Set Mode:Managed
+12:29:08.877978   eth1     Set Frequency:2.472 GHz (Channel 13)
+12:29:08.878259   eth1     Set ESSID:&quot;802.1X&quot;
+12:29:09.222180   eth1     Scan request completed
+12:29:09.224278   eth1     Custom driver event:authenticated
+12:29:19.242191   eth1     Scan request completed
+12:29:19.242266   eth1     Set Mode:Managed
+12:29:19.245092   eth1     Set Frequency:2.472 GHz (Channel 13)
+12:29:19.245244   eth1     Set ESSID:&quot;802.1X&quot;
+12:29:29.606026   eth1     Scan request completed
+12:29:29.606101   eth1     Set Mode:Managed
+12:29:29.617045   eth1     Set Frequency:2.452 GHz (Channel 9)
+
+% wpa_supplicant -D wext -i eth1
+Trying to associate with 00:14:1b:60:6a:40 (SSID='802.1X' freq=2472 MHz)
+Authentication with 00:00:00:00:00:00 timed out.
+Trying to associate with 00:14:1b:60:6a:40 (SSID='802.1X' freq=2472 MHz)
+Authentication with 00:00:00:00:00:00 timed out.
+Trying to associate with 00:14:1b:5b:be:c0 (SSID='802.1X' freq=2452 MHz)
+Authentication with 00:00:00:00:00:00 timed out.
+
+The wpa_supplicant team told me, that the 00:00:00:00:00:00 indicate,
+that the driver did not report the association, but it seems it could
+associate:
+
+% dmesg
+[371477.004914] bcm43xx: Keys cleared
+[371477.004957] bcm43xx: Selected 802.11 core (phytype 2)
+[371477.022872] SoftMAC: Associate: Scanning for networks first.
+[371477.086927] bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
+[371477.087472] bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
+[371477.087701] bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
+[371477.087911] bcm43xx: set security called, .level = 0, .enabled = 0, .encrypt = 0
+[371477.374209] SoftMAC: Scanning finished: scanned 14 channels starting with channel 1
+[371477.374290] SoftMAC: Queueing Authentication Request to 00:14:1b:5b:b0:f0
+[371477.382170] SoftMAC: Sent Authentication Request to 00:14:1b:5b:b0:f0.
+[371477.382915] SoftMAC: generic IE set to dd160050f20101000050f20201000050f20201000050f201
+[371477.382979] bcm43xx: Request to set channel/freq: 13/2472
+[371477.394331] SoftMAC: Already associating or associated to 00:14:1b:5b:b0:f0
+[371477.394379] SoftMAC: Associate: Scanning for networks first.
+[371477.738216] SoftMAC: Scanning finished: scanned 14 channels starting with channel 1
+[371477.738305] SoftMAC: Queueing Authentication Request to 00:14:1b:60:6a:40
+[371477.746191] SoftMAC: Sent Authentication Request to 00:14:1b:60:6a:40.
+[371477.747539] SoftMAC: Open Authentication completed with 00:14:1b:60:6a:40
+[371487.346208] eth1: no IPv6 routers present
+[371487.750219] SoftMAC: Scanning finished: scanned 14 channels starting with channel 1
+[371487.759142] SoftMAC: generic IE set to dd160050f20101000050f20201000050f20201000050f201
+[371487.759212] bcm43xx: Request to set channel/freq: 13/2472
+[371487.768420] SoftMAC: Already associating or associated to 00:14:1b:60:6a:40
+[371489.386104] SoftMAC: Sent Authentication Request to 00:14:1b:5b:b0:f0.
+[371498.114219] SoftMAC: Scanning finished: scanned 14 channels starting with channel 1
+[371498.122988] SoftMAC: generic IE set to dd160050f20101000050f20201000050f20201000050f201
+[371498.123059] bcm43xx: Request to set channel/freq: 9/2452
+[371498.132264] SoftMAC: Already associating or associated to 00:14:1b:60:6a:40
+[371498.470210] SoftMAC: Scanning finished: scanned 14 channels starting with channel 1
+[371498.470295] SoftMAC: Queueing Authentication Request to 00:14:1b:5b:be:c0
+[371498.478169] SoftMAC: Sent Authentication Request to 00:14:1b:5b:be:c0.
+
+Bye, J&#246;rg.
+-- 
+Computer Science is no more about Computers than astronomy is about
+telescopes.
+            (Edsger Wybe Dijkstra)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000646.html">Patch to allow specification of interface name prefix
+</A></li>
+	<LI>Next message: <A HREF="000648.html">driver does not report association
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#647">[ date ]</a>
+              <a href="thread.html#647">[ thread ]</a>
+              <a href="subject.html#647">[ subject ]</a>
+              <a href="author.html#647">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

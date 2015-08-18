@@ -1,0 +1,200 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH RFC/RFT] b43: Rewrite TX power adjustment
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RFC/RFT%5D%20b43%3A%20Rewrite%20TX%20power%20adjustment&In-Reply-To=%3C488E4D7E.6010003%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004444.html">
+   <LINK REL="Next"  HREF="004446.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH RFC/RFT] b43: Rewrite TX power adjustment</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RFC/RFT%5D%20b43%3A%20Rewrite%20TX%20power%20adjustment&In-Reply-To=%3C488E4D7E.6010003%40lwfinger.net%3E"
+       TITLE="[PATCH RFC/RFT] b43: Rewrite TX power adjustment">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Tue Jul 29 00:51:42 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004444.html">[PATCH RFC/RFT] b43: Rewrite TX power adjustment
+</A></li>
+        <LI>Next message: <A HREF="004446.html">[PATCH RFC/RFT] b43: Rewrite TX power adjustment
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4445">[ date ]</a>
+              <a href="thread.html#4445">[ thread ]</a>
+              <a href="subject.html#4445">[ subject ]</a>
+              <a href="author.html#4445">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> On Saturday 26 July 2008 17:26:52 Michael Buesch wrote:
+</I>&gt;&gt;<i> This is an experimental attempt for fixing the currently-not-so-good
+</I>&gt;&gt;<i> TX power adjustment.
+</I>&gt;<i> 
+</I>&gt;<i> Hm, is anybody going to test this, or are there really no transmission
+</I>&gt;<i> problems left? :)
+</I>
+It seems to work here. The dmesg output for my BCM4312 is:
+
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x11, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x0A, vendor 0x4243)
+ssb: Core 2 found: USB 1.1 Host (cc 0x817, rev 0x03, vendor 0x4243)
+ssb: Core 3 found: PCI-E (cc 0x820, rev 0x01, vendor 0x4243)
+ssb: SPROM revision 2 detected.
+ssb: Sonics Silicon Backplane found on PCI device 0000:04:00.0
+b43-phy0: Broadcom 4311 WLAN found
+b43-phy0 debug: Found PHY: Analog 4, Type 2, Revision 8
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+phy0: Selected rate control algorithm 'pid'
+Broadcom 43xx driver loaded [ Features: PLR, Firmware-ID: FW13 ]
+udev: renamed network interface wlan0 to wlan1
+input: b43-phy0 as /class/input/input9
+firmware: requesting b43/ucode5.fw
+firmware: requesting b43/pcm5.fw
+firmware: requesting b43/b0g0initvals5.fw
+firmware: requesting b43/b0g0bsinitvals5.fw
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 32-bit DMA initialized
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+Adjusted power
+wlan1: authenticate with AP 00:1a:70:46:ba:b1
+wlan1: authenticated
+wlan1: associate with AP 00:1a:70:46:ba:b1
+wlan1: RX AssocResp from 00:1a:70:46:ba:b1 (capab=0x431 status=0 aid=3)
+wlan1: associated
+Average is 39
+Adjusted power
+Average is 17
+Average is 18
+Adjusted power
+Average is 4
+Adjusted power
+Average is 4
+Average is 4
+Adjusted power
+Average is 8
+Adjusted power
+Average is 6
+Average is 12
+Average is 11
+Average is 12
+Average is 11
+Average is 12
+Average is 10
+Average is 12
+Average is 11
+Average is 12
+Average is 12
+Average is 11
+Average is 12
+Average is 11
+Average is 12
+Average is 12
+Average is 11
+Average is 13
+Average is 13
+Adjusted power
+Average is 13
+Adjusted power
+Average is 11
+Average is 13
+Adjusted power
+Average is 12
+Average is 13
+Adjusted power
+Average is 13
+Adjusted power
+Average is 11
+Average is 13
+Adjusted power
+Average is 11
+Average is 13
+Adjusted power
+Average is 13
+Adjusted power
+Average is 8
+Average is 9
+Average is 13
+Average is 12
+Average is 13
+Adjusted power
+Average is 13
+Adjusted power
+Average is 12
+Average is 13
+Adjusted power
+Average is 12
+Average is 13
+Adjusted power
+Average is 12
+Average is 13
+Adjusted power
+Average is 7
+Average is 9
+Average is 12
+Average is 10
+Average is 7
+Average is 7
+Adjusted power
+Average is 9
+Average is 13
+Average is 13
+Average is 13
+Adjusted power
+Average is 13
+Adjusted power
+Average is 8
+Average is 8
+Average is 13
+Average is 12
+
+Is this sufficient, or is there other output that you want to see?
+
+
+&gt;<i> But please note that current wireless-testing tree seems to have some
+</I>&gt;<i> unrelated TX issues in mac80211 (see the discussions about the qdisc
+</I>&gt;<i> and skb-&gt;cb stuff.)
+</I>
+AFAIK, this particular bug is limited to mainline. At least wireless still works 
+in wireless-testing, but fails completely in Linus's tree.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004444.html">[PATCH RFC/RFT] b43: Rewrite TX power adjustment
+</A></li>
+	<LI>Next message: <A HREF="004446.html">[PATCH RFC/RFT] b43: Rewrite TX power adjustment
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4445">[ date ]</a>
+              <a href="thread.html#4445">[ thread ]</a>
+              <a href="subject.html#4445">[ subject ]</a>
+              <a href="author.html#4445">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

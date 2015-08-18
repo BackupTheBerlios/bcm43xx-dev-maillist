@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Rewrite DMA Tx status handling sanity checks
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Rewrite%20DMA%20Tx%20status%20handling%20sanity%20checks&In-Reply-To=%3C5A2C6B7F-5617-49AA-B22A-A5574D6CD9FA%40ing.unibs.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006461.html">
+   <LINK REL="Next"  HREF="006464.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Rewrite DMA Tx status handling sanity checks</H1>
+    <B>Francesco Gringoli</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Rewrite%20DMA%20Tx%20status%20handling%20sanity%20checks&In-Reply-To=%3C5A2C6B7F-5617-49AA-B22A-A5574D6CD9FA%40ing.unibs.it%3E"
+       TITLE="[PATCH] b43: Rewrite DMA Tx status handling sanity checks">francesco.gringoli at ing.unibs.it
+       </A><BR>
+    <I>Mon Nov 23 12:00:15 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006461.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+        <LI>Next message: <A HREF="006464.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6463">[ date ]</a>
+              <a href="thread.html#6463">[ thread ]</a>
+              <a href="subject.html#6463">[ subject ]</a>
+              <a href="author.html#6463">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Nov 23, 2009, at 11:49 AM, Michael Buesch wrote:
+
+&gt;<i> On Monday 23 November 2009 05:45:47 Larry Finger wrote:
+</I>&gt;&gt;<i> On 11/19/2009 03:24 PM, Michael Buesch wrote:
+</I>&gt;&gt;&gt;<i> This rewrites the error handling policies in the TX status handler.
+</I>&gt;&gt;&gt;<i> It tries to be error-tolerant as in &quot;try hard to not crash the  
+</I>&gt;&gt;&gt;<i> machine&quot;.
+</I>&gt;&gt;&gt;<i> It won't recover from errors (that are bugs in the firmware or  
+</I>&gt;&gt;&gt;<i> driver),
+</I>&gt;&gt;&gt;<i> because that's impossible. However, it will return a more or less  
+</I>&gt;&gt;&gt;<i> useful
+</I>&gt;&gt;&gt;<i> error message and bail out. It also tries hard to use rate-limited  
+</I>&gt;&gt;&gt;<i> messages
+</I>&gt;&gt;&gt;<i> to not flood the syslog in case of a failure.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> This patch definitely helped open-source firmware, but it is not a  
+</I>&gt;&gt;<i> complete fix.
+</I>&gt;<i>
+</I>&gt;<i> It is no fix _at_ _all_.
+</I>&gt;<i> The patch does not change a single line of code that wasn't either  
+</I>&gt;<i> an assertion
+</I>&gt;<i> or a machine crash before.
+</I>&gt;<i> So it just transforms assertions into more verbose assertions and  
+</I>&gt;<i> crashes into
+</I>&gt;<i> assertions without a crash.
+</I>&gt;<i>
+</I>&gt;&gt;<i> debug: Out of order TX status report on DMA ring 1. Expected 114,  
+</I>&gt;&gt;<i> but got 146
+</I>&gt;<i>
+</I>&gt;<i> Ok, this is what I expected.
+</I>&gt;<i>
+</I>&gt;<i> Let's see what's going on. Here's the ring. o is unused, * is used.
+</I>&gt;<i>
+</I>&gt;<i> ooooooooooooooo 
+</I>&gt;<i> ***************************************************ooooooooooooooooooooooooooo
+</I>&gt;<i>               ^               ^                                 ^
+</I>&gt;<i>               114             146                               newest
+</I>&gt;<i>               oldest
+</I>&gt;<i>
+</I>&gt;<i> So as you can see, the firmware reported a TX status for a frame  
+</I>&gt;<i> right in the middle of
+</I>&gt;<i> the ringbuffer. The new code detects this now before getting a  
+</I>&gt;<i> double free and/or silent
+</I>&gt;<i> memory corruption (freeing of used memory).
+</I>Hi Michael,
+
+so you can observe this behavior at your site. Do you mind describing  
+the exact configuration? Maybe this time I can reproduce this  
+behavior, as I tried everything to make it happen. I also asked Larry  
+one of his boards and put it into several PCs but had no chance to  
+reproduce the crash. Could you please also report the neighboring  
+stations, the AP you are connected and so on.
+
+Many thanks,
+-Francesco
+
+
+
+Informativa sulla privacy: <A HREF="http://help.ing.unibs.it/privacy.php">http://help.ing.unibs.it/privacy.php</A>
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006461.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+	<LI>Next message: <A HREF="006464.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6463">[ date ]</a>
+              <a href="thread.html#6463">[ thread ]</a>
+              <a href="subject.html#6463">[ subject ]</a>
+              <a href="author.html#6463">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

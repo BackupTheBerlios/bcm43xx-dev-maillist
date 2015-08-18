@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43legacy woes
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43legacy%20woes&In-Reply-To=%3C1188604535.985.277.camel%40pmac.infradead.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002278.html">
+   <LINK REL="Next"  HREF="002280.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43legacy woes</H1>
+    <B>David Woodhouse</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43legacy%20woes&In-Reply-To=%3C1188604535.985.277.camel%40pmac.infradead.org%3E"
+       TITLE="b43legacy woes">dwmw2 at infradead.org
+       </A><BR>
+    <I>Sat Sep  1 01:55:35 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002278.html">b43legacy woes
+</A></li>
+        <LI>Next message: <A HREF="002280.html">Broadcom 4311 on HP 350 laptop
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2279">[ date ]</a>
+              <a href="thread.html#2279">[ thread ]</a>
+              <a href="subject.html#2279">[ subject ]</a>
+              <a href="author.html#2279">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Fri, 2007-08-31 at 17:26 -0500, Larry Finger wrote:
+&gt;<i> The poor performance of the BCM4306/2 (your chip/card) is known. There has been a report that this 
+</I>&gt;<i> is a regression since 2.6.20, or so, has not been confirmed. With a 2.6.21 kernel, I got an iperf 
+</I>&gt;<i> transmit rate of 4 Mbs, but that quickly dropped to 0.3 Mbs without me changing anything - I just 
+</I>&gt;<i> repeated the iperf command. 
+</I>
+That reminds me... I accidentally invented a new wireless test. It's
+intended to stream the full OS images to OLPC laptops on the production
+line, and does so by multicast -- so there are no link-layer ACKs and
+retries compensating for your packet loss; it all gets reported.
+
+It's in <A HREF="git://git.infradead.org/mtd-utils.git;">git://git.infradead.org/mtd-utils.git;</A> the tools are recv_image
+and serve_image.
+
+usage: recv_image &lt;host&gt; &lt;port&gt; &lt;mtddev&gt;
+usage: serve_image &lt;host&gt; &lt;port&gt; &lt;image&gt; &lt;erasesize&gt; [&lt;tx_rate&gt;]
+
+A $ dd if=/dev/urandom of=testfile bs=131072 count=50
+A $ ./serve_image ff0f::114 12345 testfile 131072 85
+	Inter-packet delay (avg): 32858&#181;s
+	Transmit rate: 85 KiB/s
+	Checking CRC....85a0d369
+	Checking block CRCS.... 50/50
+	Image size 6400 KiB (0x00640000). 50 blocks at 47 pkts/block
+	Estimated transmit time per cycle: 77s
+	Sending data block 004e0000 packet  15/70    (85 KiB/s)    
+
+
+B $ ./recv_image ff0f::114 12345 foo
+	MEMGETINFO: Inappropriate ioctl for device
+	Receive to file bar with (assumed) erasesize 131072
+	Received 750/2350 (31%) in 25s @82KiB/s, 6 lost (0%), 0 dup/xs  
+
+You can use it unicast too, and/or with Legacy IP instead of IPv6.
+
+If your AP sends all multicast at 1Mb/s, then 85 KiB/s is about all
+you'll get. If you can configure the Basic Rate set not to include the
+slower speeds, or if you can change the multicast rate (which could
+actually be _any_ rate in the Basic Rate set), then you can go faster.
+I find it works quite nicely at 24Mb/s.
+
+-- 
+dwmw2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002278.html">b43legacy woes
+</A></li>
+	<LI>Next message: <A HREF="002280.html">Broadcom 4311 on HP 350 laptop
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2279">[ date ]</a>
+              <a href="thread.html#2279">[ thread ]</a>
+              <a href="subject.html#2279">[ subject ]</a>
+              <a href="author.html#2279">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,140 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/2] b43: make finding the most significant bit common function
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/2%5D%20b43%3A%20make%20finding%20the%20most%20significant%20bit%20common%20function&In-Reply-To=%3Cop.u6iu91z39lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006742.html">
+   <LINK REL="Next"  HREF="006754.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/2] b43: make finding the most significant bit common function</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/2%5D%20b43%3A%20make%20finding%20the%20most%20significant%20bit%20common%20function&In-Reply-To=%3Cop.u6iu91z39lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 1/2] b43: make finding the most significant bit common function">zajec5 at gmail.com
+       </A><BR>
+    <I>Thu Jan 14 13:21:27 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006742.html">[PATCH 3/3 v2] b43: N-PHY: add RX IQ calculation for rev &lt; 3
+</A></li>
+        <LI>Next message: <A HREF="006754.html">[PATCH 1/2] b43: make finding the most significant bit common	function
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6743">[ date ]</a>
+              <a href="thread.html#6743">[ thread ]</a>
+              <a href="subject.html#6743">[ subject ]</a>
+              <a href="author.html#6743">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+  drivers/net/wireless/b43/phy_common.c |   14 ++++++++++++++
+  drivers/net/wireless/b43/phy_common.h |    1 +
+  drivers/net/wireless/b43/phy_lp.c     |   17 ++---------------
+  3 files changed, 17 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_common.c b/drivers/net/wireless/b43/phy_common.c
+index 75b26e1..1389ab2 100644
+--- a/drivers/net/wireless/b43/phy_common.c
++++ b/drivers/net/wireless/b43/phy_common.c
+@@ -421,3 +421,17 @@ void b43_phyop_switch_analog_generic(struct b43_wldev *dev, bool on)
+  {
+  	b43_write16(dev, B43_MMIO_PHY0, on ? 0 : 0xF4);
+  }
++
++/* Find the position of the most significant bit */
++u8 phy_nbits(s32 val)
++{
++	u32 tmp = abs(val);
++	u8 nbits = 0;
++
++	while (tmp != 0) {
++		nbits++;
++		tmp &gt;&gt;= 1;
++	}
++
++	return nbits;
++}
+diff --git a/drivers/net/wireless/b43/phy_common.h b/drivers/net/wireless/b43/phy_common.h
+index 9edd4e8..332ba4c 100644
+--- a/drivers/net/wireless/b43/phy_common.h
++++ b/drivers/net/wireless/b43/phy_common.h
+@@ -418,5 +418,6 @@ int b43_phy_shm_tssi_read(struct b43_wldev *dev, u16 shm_offset);
+   */
+  void b43_phyop_switch_analog_generic(struct b43_wldev *dev, bool on);
+
++u8 phy_nbits(s32 val);
+
+  #endif /* LINUX_B43_PHY_COMMON_H_ */
+diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+index c4e9c5c..7ad9215 100644
+--- a/drivers/net/wireless/b43/phy_lp.c
++++ b/drivers/net/wireless/b43/phy_lp.c
+@@ -1593,19 +1593,6 @@ static const struct lpphy_rx_iq_comp lpphy_rev2plus_iq_comp = {
+  	.c0 = 0,
+  };
+
+-static u8 lpphy_nbits(s32 val)
+-{
+-	u32 tmp = abs(val);
+-	u8 nbits = 0;
+-
+-	while (tmp != 0) {
+-		nbits++;
+-		tmp &gt;&gt;= 1;
+-	}
+-
+-	return nbits;
+-}
+-
+  static int lpphy_calc_rx_iq_comp(struct b43_wldev *dev, u16 samples)
+  {
+  	struct lpphy_iq_est iq_est;
+@@ -1632,8 +1619,8 @@ static int lpphy_calc_rx_iq_comp(struct b43_wldev *dev, u16 samples)
+  		goto out;
+  	}
+
+-	prod_msb = lpphy_nbits(prod);
+-	q_msb = lpphy_nbits(qpwr);
++	prod_msb = phy_nbits(prod);
++	q_msb = phy_nbits(qpwr);
+  	tmp1 = prod_msb - 20;
+
+  	if (tmp1 &gt;= 0) {
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006742.html">[PATCH 3/3 v2] b43: N-PHY: add RX IQ calculation for rev &lt; 3
+</A></li>
+	<LI>Next message: <A HREF="006754.html">[PATCH 1/2] b43: make finding the most significant bit common	function
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6743">[ date ]</a>
+              <a href="thread.html#6743">[ thread ]</a>
+              <a href="subject.html#6743">[ subject ]</a>
+              <a href="author.html#6743">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

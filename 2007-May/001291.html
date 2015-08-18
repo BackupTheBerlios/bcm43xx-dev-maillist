@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BUG: at net/mac80211/ieee80211.c:1280 ieee80211_tx()
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BUG%3A%20at%20net/mac80211/ieee80211.c%3A1280%20ieee80211_tx%28%29&In-Reply-To=%3C200705260702.56851.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001289.html">
+   <LINK REL="Next"  HREF="001290.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BUG: at net/mac80211/ieee80211.c:1280 ieee80211_tx()</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BUG%3A%20at%20net/mac80211/ieee80211.c%3A1280%20ieee80211_tx%28%29&In-Reply-To=%3C200705260702.56851.mb%40bu3sch.de%3E"
+       TITLE="BUG: at net/mac80211/ieee80211.c:1280 ieee80211_tx()">mb at bu3sch.de
+       </A><BR>
+    <I>Sat May 26 07:02:56 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001289.html">BUG: at net/mac80211/ieee80211.c:1280 ieee80211_tx()
+</A></li>
+        <LI>Next message: <A HREF="001290.html">BUG: at net/mac80211/ieee80211.c:1280 ieee80211_tx()
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1291">[ date ]</a>
+              <a href="thread.html#1291">[ thread ]</a>
+              <a href="subject.html#1291">[ subject ]</a>
+              <a href="author.html#1291">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Saturday 26 May 2007 01:37, Will Dyson wrote:
+&gt;<i> Hi all,
+</I>&gt;<i> 
+</I>&gt;<i> First, the good news: bcm43xx-mac80211 in wireless-dev now works about
+</I>&gt;<i> as well for me as the old driver. Similar connection reliability,
+</I>&gt;<i> upload speed and download speed. Woo!
+</I>
+Whoo, nice. :)
+/me pours a bottle of beer to everybody on the list.
+
+&gt;<i> But I've got ton's of these in my log:
+</I>&gt;<i> 
+</I>&gt;<i>  BUG: at net/mac80211/ieee80211.c:1280 ieee80211_tx()
+</I>
+Hm, probably mac80211 bug. Not sure. I didn't look at the code, yet.
+
+&gt;<i>  Call Trace:
+</I>&gt;<i>   [&lt;ffffffff805866a3&gt;] ieee80211_master_start_xmit+0x5f3/0x680
+</I>&gt;<i>   [&lt;ffffffff804d447d&gt;] dev_hard_start_xmit+0x26d/0x2d0
+</I>&gt;<i>   [&lt;ffffffff804e4781&gt;] __qdisc_run+0xd1/0x260
+</I>&gt;<i>   [&lt;ffffffff804d6a87&gt;] dev_queue_xmit+0x1a7/0x370
+</I>&gt;<i>   [&lt;ffffffff8058a45b&gt;] ieee80211_subif_start_xmit+0x34b/0x590
+</I>&gt;<i>   [&lt;ffffffff804ce3a7&gt;] kfree_skb+0x17/0x30
+</I>&gt;<i>   [&lt;ffffffff804d447d&gt;] dev_hard_start_xmit+0x26d/0x2d0
+</I>&gt;<i>   [&lt;ffffffff804e4781&gt;] __qdisc_run+0xd1/0x260
+</I>&gt;<i>   [&lt;ffffffff804d6a87&gt;] dev_queue_xmit+0x1a7/0x370
+</I>&gt;<i>   [&lt;ffffffff804f9bef&gt;] ip_output+0x19f/0x340
+</I>&gt;<i>   [&lt;ffffffff804f9069&gt;] ip_queue_xmit+0x219/0x430
+</I>&gt;<i>   [&lt;ffffffff80295fe0&gt;] __pollwait+0x0/0x110
+</I>&gt;<i>   [&lt;ffffffff8050a82e&gt;] tcp_transmit_skb+0x40e/0x7c0
+</I>&gt;<i>   [&lt;ffffffff8022ce00&gt;] default_wake_function+0x0/0x10
+</I>&gt;<i>   [&lt;ffffffff8050c4bb&gt;] __tcp_push_pending_frames+0x11b/0x940
+</I>&gt;<i>   [&lt;ffffffff8059c6a8&gt;] csum_partial_copy_from_user+0x88/0x120
+</I>&gt;<i>   [&lt;ffffffff80500b66&gt;] tcp_sendmsg+0x876/0xc80
+</I>&gt;<i>   [&lt;ffffffff8022ce0d&gt;] default_wake_function+0xd/0x10
+</I>&gt;<i>   [&lt;ffffffff8022ba37&gt;] __wake_up_common+0x47/0x70
+</I>&gt;<i>   [&lt;ffffffff8051e795&gt;] inet_sendmsg+0x45/0x80
+</I>&gt;<i>   [&lt;ffffffff804c7161&gt;] sock_aio_write+0x101/0x110
+</I>&gt;<i>   [&lt;ffffffff80286071&gt;] do_sync_write+0xf1/0x130
+</I>&gt;<i>   [&lt;ffffffff80246f80&gt;] autoremove_wake_function+0x0/0x40
+</I>&gt;<i>   [&lt;ffffffff8023688e&gt;] current_fs_time+0x3e/0x40
+</I>&gt;<i>   [&lt;ffffffff80286999&gt;] vfs_write+0x159/0x170
+</I>&gt;<i>   [&lt;ffffffff80286fa0&gt;] sys_write+0x50/0x90
+</I>&gt;<i>   [&lt;ffffffff8020a1ae&gt;] system_call+0x7e/0x83
+</I>&gt;<i> 
+</I>&gt;<i> Kernel: wireless-dev latest from git
+</I>&gt;<i> Arch: x86-64
+</I>&gt;<i> 
+</I>&gt;<i> My boot log is attached for full hardware information.
+</I>&gt;<i> 
+</I>
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001289.html">BUG: at net/mac80211/ieee80211.c:1280 ieee80211_tx()
+</A></li>
+	<LI>Next message: <A HREF="001290.html">BUG: at net/mac80211/ieee80211.c:1280 ieee80211_tx()
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1291">[ date ]</a>
+              <a href="thread.html#1291">[ thread ]</a>
+              <a href="subject.html#1291">[ subject ]</a>
+              <a href="author.html#1291">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

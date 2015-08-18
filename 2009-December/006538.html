@@ -1,0 +1,284 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Allow PIO mode to be selected at module load
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Allow%20PIO%20mode%20to%20be%20selected%20at%20module%20load&In-Reply-To=%3C4b2185a5.QaOUdYVRfLIFSF6B%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006537.html">
+   <LINK REL="Next"  HREF="006539.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Allow PIO mode to be selected at module load</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Allow%20PIO%20mode%20to%20be%20selected%20at%20module%20load&In-Reply-To=%3C4b2185a5.QaOUdYVRfLIFSF6B%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43: Allow PIO mode to be selected at module load">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Dec 11 00:35:01 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006537.html">[RFC/RFT] b43: Allow PIO mode to be selected at module load
+</A></li>
+        <LI>Next message: <A HREF="006539.html">[PATCH] b43: add config option to force QoS off
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6538">[ date ]</a>
+              <a href="thread.html#6538">[ thread ]</a>
+              <a href="subject.html#6538">[ subject ]</a>
+              <a href="author.html#6538">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>If userencounter the &quot;Fatal DMA Problem&quot; with a BCM43XX device, and
+still wish to use b43 as the driver, their only option is to rebuild
+the kernel with CONFIG_B43_FORCE_PIO. This patch removes this option and
+allows PIO mode to be selected with a load-time parameter for the module.
+Note that the configuration variable CONFIG_B43_PIO is also removed.
+
+Once the DMA problem with the BCM4312 devices is solved, this patch will
+likely be reverted.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+This version implements the changes suggested by Michael Buesch.
+
+I don't know where this change should go. It is likely too large
+and invasive to be applied to 2.6.33; however, it should be
+applied to 2.6.32. Hmm? I guess that is why you get the &quot;big money&quot;.
+:<i>)
+</I>
+Larry
+---
+
+
+Index: wireless-testing/drivers/net/wireless/b43/Kconfig
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/Kconfig
++++ wireless-testing/drivers/net/wireless/b43/Kconfig
+@@ -3,6 +3,7 @@ config B43
+ 	depends on SSB_POSSIBLE &amp;&amp; MAC80211 &amp;&amp; HAS_DMA
+ 	select SSB
+ 	select FW_LOADER
++	select SSB_BLOCKIO
+ 	---help---
+ 	  b43 is a driver for the Broadcom 43xx series wireless devices.
+ 
+@@ -78,14 +79,6 @@ config B43_SDIO
+ 
+ 	  If unsure, say N.
+ 
+-# Data transfers to the device via PIO
+-# This is only needed on PCMCIA and SDIO devices. All others can do DMA properly.
+-config B43_PIO
+-	bool
+-	depends on B43 &amp;&amp; (B43_SDIO || B43_PCMCIA || B43_FORCE_PIO)
+-	select SSB_BLOCKIO
+-	default y
+-
+ config B43_NPHY
+ 	bool &quot;Pre IEEE 802.11n support (BROKEN)&quot;
+ 	depends on B43 &amp;&amp; EXPERIMENTAL &amp;&amp; BROKEN
+@@ -137,12 +130,4 @@ config B43_DEBUG
+ 	  for production use.
+ 	  Only say Y, if you are debugging a problem in the b43 driver sourcecode.
+ 
+-config B43_FORCE_PIO
+-	bool &quot;Force usage of PIO instead of DMA&quot;
+-	depends on B43 &amp;&amp; B43_DEBUG
+-	---help---
+-	  This will disable DMA and always enable PIO instead.
+-
+-	  Say N!
+-	  This is only for debugging the PIO engine code. You do
+-	  _NOT_ want to enable this.
++
+Index: wireless-testing/drivers/net/wireless/b43/Makefile
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/Makefile
++++ wireless-testing/drivers/net/wireless/b43/Makefile
+@@ -12,7 +12,7 @@ b43-y				+= xmit.o
+ b43-y				+= lo.o
+ b43-y				+= wa.o
+ b43-y				+= dma.o
+-b43-$(CONFIG_B43_PIO)		+= pio.o
++b43-y				+= pio.o
+ b43-y				+= rfkill.o
+ b43-$(CONFIG_B43_LEDS)		+= leds.o
+ b43-$(CONFIG_B43_PCMCIA)	+= pcmcia.o
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h
++++ wireless-testing/drivers/net/wireless/b43/b43.h
+@@ -821,11 +821,9 @@ struct b43_wl {
+ 	/* The device LEDs. */
+ 	struct b43_leds leds;
+ 
+-#ifdef CONFIG_B43_PIO
+ 	/* Kmalloc'ed scratch space for PIO TX/RX. Protected by wl-&gt;mutex. */
+ 	u8 pio_scratchspace[110] __attribute__((__aligned__(8)));
+ 	u8 pio_tailspace[4] __attribute__((__aligned__(8)));
+-#endif /* CONFIG_B43_PIO */
+ };
+ 
+ static inline struct b43_wl *hw_to_b43_wl(struct ieee80211_hw *hw)
+@@ -876,20 +874,9 @@ static inline void b43_write32(struct b4
+ 
+ static inline bool b43_using_pio_transfers(struct b43_wldev *dev)
+ {
+-#ifdef CONFIG_B43_PIO
+ 	return dev-&gt;__using_pio_transfers;
+-#else
+-	return 0;
+-#endif
+ }
+ 
+-#ifdef CONFIG_B43_FORCE_PIO
+-# define B43_FORCE_PIO	1
+-#else
+-# define B43_FORCE_PIO	0
+-#endif
+-
+-
+ /* Message printing */
+ void b43info(struct b43_wl *wl, const char *fmt, ...)
+     __attribute__ ((format(printf, 2, 3)));
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c
++++ wireless-testing/drivers/net/wireless/b43/main.c
+@@ -102,6 +102,9 @@ int b43_modparam_verbose = B43_VERBOSITY
+ module_param_named(verbose, b43_modparam_verbose, int, 0644);
+ MODULE_PARM_DESC(verbose, &quot;Log message verbosity: 0=error, 1=warn, 2=info(default), 3=debug&quot;);
+ 
++static int modparam_pio;
++module_param_named(pio, modparam_pio, int, 0444);
++MODULE_PARM_DESC(pio, &quot;enable(1) / disable(0) PIO mode&quot;);
+ 
+ static const struct ssb_device_id b43_ssb_tbl[] = {
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 5),
+@@ -1786,8 +1789,8 @@ static void b43_do_interrupt_thread(stru
+ 			       dma_reason[4], dma_reason[5]);
+ 			b43err(dev-&gt;wl, &quot;This device does not support DMA &quot;
+ 			       &quot;on your system. Please use PIO instead.\n&quot;);
+-			b43err(dev-&gt;wl, &quot;CONFIG_B43_FORCE_PIO must be set in &quot;
+-			       &quot;your kernel configuration.\n&quot;);
++			b43err(dev-&gt;wl, &quot;Unload the b43 module and reload &quot;
++			       &quot;with 'pio=1'\n&quot;);
+ 			return;
+ 		}
+ 		if (merged_dma_reason &amp; B43_DMAIRQ_NONFATALMASK) {
+@@ -4353,7 +4356,7 @@ static int b43_wireless_core_init(struct
+ 
+ 	if ((dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_PCMCIA) ||
+ 	    (dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO) ||
+-	    B43_FORCE_PIO) {
++	    modparam_pio) {
+ 		dev-&gt;__using_pio_transfers = 1;
+ 		err = b43_pio_init(dev);
+ 	} else {
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c
++++ wireless-testing/drivers/net/wireless/b43/dma.c
+@@ -1760,7 +1760,6 @@ void b43_dma_tx_resume(struct b43_wldev
+ 	b43_power_saving_ctl_bits(dev, 0);
+ }
+ 
+-#ifdef CONFIG_B43_PIO
+ static void direct_fifo_rx(struct b43_wldev *dev, enum b43_dmatype type,
+ 			   u16 mmio_base, bool enable)
+ {
+@@ -1794,4 +1793,3 @@ void b43_dma_direct_fifo_rx(struct b43_w
+ 	mmio_base = b43_dmacontroller_base(type, engine_index);
+ 	direct_fifo_rx(dev, type, mmio_base, enable);
+ }
+-#endif /* CONFIG_B43_PIO */
+Index: wireless-testing/drivers/net/wireless/b43/pio.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/pio.h
++++ wireless-testing/drivers/net/wireless/b43/pio.h
+@@ -55,8 +55,6 @@
+ #define B43_PIO_MAX_NR_TXPACKETS	32
+ 
+ 
+-#ifdef CONFIG_B43_PIO
+-
+ struct b43_pio_txpacket {
+ 	/* Pointer to the TX queue we belong to. */
+ 	struct b43_pio_txqueue *queue;
+@@ -169,42 +167,4 @@ void b43_pio_rx(struct b43_pio_rxqueue *
+ void b43_pio_tx_suspend(struct b43_wldev *dev);
+ void b43_pio_tx_resume(struct b43_wldev *dev);
+ 
+-
+-#else /* CONFIG_B43_PIO */
+-
+-
+-static inline int b43_pio_init(struct b43_wldev *dev)
+-{
+-	return 0;
+-}
+-static inline void b43_pio_free(struct b43_wldev *dev)
+-{
+-}
+-static inline void b43_pio_stop(struct b43_wldev *dev)
+-{
+-}
+-static inline int b43_pio_tx(struct b43_wldev *dev,
+-			     struct sk_buff *skb)
+-{
+-	return 0;
+-}
+-static inline void b43_pio_handle_txstatus(struct b43_wldev *dev,
+-					   const struct b43_txstatus *status)
+-{
+-}
+-static inline void b43_pio_get_tx_stats(struct b43_wldev *dev,
+-					struct ieee80211_tx_queue_stats *stats)
+-{
+-}
+-static inline void b43_pio_rx(struct b43_pio_rxqueue *q)
+-{
+-}
+-static inline void b43_pio_tx_suspend(struct b43_wldev *dev)
+-{
+-}
+-static inline void b43_pio_tx_resume(struct b43_wldev *dev)
+-{
+-}
+-
+-#endif /* CONFIG_B43_PIO */
+ #endif /* B43_PIO_H_ */
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006537.html">[RFC/RFT] b43: Allow PIO mode to be selected at module load
+</A></li>
+	<LI>Next message: <A HREF="006539.html">[PATCH] b43: add config option to force QoS off
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6538">[ date ]</a>
+              <a href="thread.html#6538">[ thread ]</a>
+              <a href="subject.html#6538">[ subject ]</a>
+              <a href="author.html#6538">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

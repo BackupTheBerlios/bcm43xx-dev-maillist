@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20machine%20check%20errors%20for%20PPC%20architecture%0A%09with%20BCM4306/2&In-Reply-To=%3C46EC6A25.2010204%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002415.html">
+   <LINK REL="Next"  HREF="002420.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20machine%20check%20errors%20for%20PPC%20architecture%0A%09with%20BCM4306/2&In-Reply-To=%3C46EC6A25.2010204%40lwfinger.net%3E"
+       TITLE="[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Sun Sep 16 01:26:29 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002415.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+        <LI>Next message: <A HREF="002420.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2418">[ date ]</a>
+              <a href="thread.html#2418">[ thread ]</a>
+              <a href="subject.html#2418">[ subject ]</a>
+              <a href="author.html#2418">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> 
+</I>&gt;<i> There is no such thing as &quot;connected&quot;.
+</I>&gt;<i> The bit is called &quot;gmode&quot;. Why do you change it back to the wrong name?
+</I>&gt;<i> The V3 specs are simply _wrong_. It has nothing to do with the backplane
+</I>&gt;<i> or anything else like that. The bit just selects between the A-PHY and
+</I>&gt;<i> the BG-PHY. Of course, if there is no A-PHY it will obviously machine-check
+</I>&gt;<i> on access, if it's selected.
+</I>&gt;<i> 
+</I>&gt;<i> V3 specs assume that the meaning is &quot;connected&quot;, because it was misinterpreted
+</I>&gt;<i> to be a &quot;PHY connect&quot; flag. But it really is a &quot;PHY select&quot; flag, to select
+</I>&gt;<i> between two different PHYs. If it's enabled, the G-PHY will be selected (and
+</I>&gt;<i> the A-PHY otherwise).
+</I>&gt;<i> 
+</I>&gt;<i> Btw, while we are at it: The V3 specs are wrong regarding the gmode (or connected)
+</I>&gt;<i> bit in other areas as well, because there was even more confusion with
+</I>&gt;<i> other PHY flags. The PHY specification is pretty broken in the v3 specs.
+</I>
+The critical part of the legacy code in this regard is from phy_calibrate():
+
+        if (phy-&gt;type == B43legacy_PHYTYPE_G &amp;&amp; phy-&gt;rev == 1) {
+                b43legacy_wireless_core_reset(dev, 0);
+                b43legacy_phy_initg(dev);
+                b43legacy_wireless_core_reset(dev, B43legacy_TMSLOW_GMODE);
+        }
+
+If phy_initg is going to work correctly, then gmode has to follow the state of the MACCTL_GMODE bit
+in MMIO_MACCTL. Apparently GPHYs with rev &gt; 1 do not care about this bit, but the BCM4306/2 does.
+The changes can be accomplished by the following patch:
+
+Index: wireless-dev/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-dev/drivers/net/wireless/b43legacy/main.c
+@@ -738,8 +738,11 @@ void b43legacy_wireless_core_reset(struc
+
+        macctl = b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
+        macctl &amp;= ~B43legacy_MACCTL_GMODE;
+-       if (flags &amp; B43legacy_TMSLOW_GMODE)
++       if (flags &amp; B43legacy_TMSLOW_GMODE) {
+                macctl |= B43legacy_MACCTL_GMODE;
++               dev-&gt;phy.gmode = 1;
++       } else
++               dev-&gt;phy.gmode = 0;
+        macctl |= B43legacy_MACCTL_IHR_ENABLED;
+        b43legacy_write32(dev, B43legacy_MMIO_MACCTL, macctl);
+ }
+
+The above patch and a revised comment for the gmode variable will be the contents of V3 of my patch.
+I hope that you find it acceptable. In my position as maintainer, I can push stuff through, but I
+prefer that you are in agreement.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002415.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+	<LI>Next message: <A HREF="002420.html">[PATCH] b43legacy: Fix machine check errors for PPC architecture	with BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2418">[ date ]</a>
+              <a href="thread.html#2418">[ thread ]</a>
+              <a href="subject.html#2418">[ subject ]</a>
+              <a href="author.html#2418">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

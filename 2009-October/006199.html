@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 4318 not working with bleeding edge kernels
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%204318%20not%20working%20with%20bleeding%20edge%20kernels&In-Reply-To=%3C20091018205354.d22b8ec8.celejar%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006194.html">
+   <LINK REL="Next"  HREF="006217.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>4318 not working with bleeding edge kernels</H1>
+    <B>Celejar</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%204318%20not%20working%20with%20bleeding%20edge%20kernels&In-Reply-To=%3C20091018205354.d22b8ec8.celejar%40gmail.com%3E"
+       TITLE="4318 not working with bleeding edge kernels">celejar at gmail.com
+       </A><BR>
+    <I>Mon Oct 19 02:53:54 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006194.html">b43/BCM4312 fails with DMA errors
+</A></li>
+        <LI>Next message: <A HREF="006217.html">Poor hostapd work with newer driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6199">[ date ]</a>
+              <a href="thread.html#6199">[ thread ]</a>
+              <a href="subject.html#6199">[ subject ]</a>
+              <a href="author.html#6199">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I'm not sure that this is a b43 thing, but hopefully, even if it isn't,
+someone here will be able to point me in the right direction.
+
+My 4318 (details below) has been working fine for quite some time with
+b43.  As recently as 2.6.31, it was still working:
+
+Oct 18 20:30:06 localhost wpa_supplicant[2892]: CTRL-EVENT-SCAN-RESULTS 
+Oct 18 20:30:06 localhost wpa_supplicant[2892]: Trying to associate with 00:14:d1:3e:ff:30 (SSID='cranford' freq=2437 MHz)
+Oct 18 20:30:06 localhost wpa_supplicant[2892]: Association request to the driver failed
+Oct 18 20:30:07 localhost kernel: [   78.196304] wlan0: authenticate with AP 00:14:d1:3e:ff:30
+Oct 18 20:30:07 localhost kernel: [   78.197716] wlan0: authenticated
+Oct 18 20:30:07 localhost kernel: [   78.197719] wlan0: associate with AP 00:14:d1:3e:ff:30
+Oct 18 20:30:07 localhost kernel: [   78.200084] wlan0: RX AssocResp from 00:14:d1:3e:ff:30 (capab=0x431 status=43 aid=0)
+Oct 18 20:30:07 localhost kernel: [   78.200088] wlan0: AP denied association (code=43)
+Oct 18 20:30:07 localhost kernel: [   78.397059] wlan0: associate with AP 00:14:d1:3e:ff:30
+Oct 18 20:30:07 localhost wpa_supplicant[2892]: Associated with 00:14:d1:3e:ff:30
+Oct 18 20:30:07 localhost kernel: [   78.399232] wlan0: RX AssocResp from 00:14:d1:3e:ff:30 (capab=0x431 status=0 aid=2)
+Oct 18 20:30:07 localhost kernel: [   78.399237] wlan0: associated
+Oct 18 20:30:07 localhost kernel: [   78.400055] ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+Oct 18 20:30:08 localhost dnsmasq[1968]: reading /var/run/dnsmasq/resolv.conf
+Oct 18 20:30:08 localhost dnsmasq[1968]: using nameserver 192.168.0.1#53
+Oct 18 20:30:09 localhost wpa_supplicant[2892]: WPA: Key negotiation completed with 00:14:d1:3e:ff:30 [PTK=CCMP GTK=CCMP]
+Oct 18 20:30:09 localhost wpa_supplicant[2892]: CTRL-EVENT-CONNECTED - Connection to 00:14:d1:3e:ff:30 completed (auth) [id=0 id_str=]
+Oct 18 20:30:09 localhost kernel: [   80.263676] b43-phy0 debug: Using hardware based encryption for keyidx: 0, mac: 00:14:d1:3e:ff:30
+Oct 18 20:30:09 localhost kernel: [   80.263699] b43-phy0 debug: Using hardware based encryption for keyidx: 1, mac: ff:ff:ff:ff:ff:ff
+
+The early 2.6.32 rc kernels were giving oopses, apparently because of
+this:
+
+<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/006129.html">https://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/006129.html</A>
+
+The patch is apparently in -rc5, but that kernel, while it doesn't
+oops, fails to authenticate:
+
+Oct 17 19:44:05 localhost wpa_supplicant[3477]: CTRL-EVENT-SCAN-RESULTS 
+Oct 17 19:44:07 localhost wpa_supplicant[3477]: CTRL-EVENT-SCAN-RESULTS 
+Oct 17 19:44:07 localhost wpa_supplicant[3477]: Trying to associate with 00:14:d1:3e:ff:30 (SSID='cranford' freq=2437 MHz)
+Oct 17 19:44:07 localhost kernel: [  198.914180] wlan0: deauthenticating from 00:14:d1:3e:ff:30 by local choice (reason=3)
+Oct 17 19:44:07 localhost kernel: [  198.914320] wlan0: direct probe to AP 00:14:d1:3e:ff:30 (try 1)
+Oct 17 19:44:07 localhost kernel: [  198.917136] wlan0: direct probe responded
+Oct 17 19:44:07 localhost kernel: [  198.917141] wlan0: authenticate with AP 00:14:d1:3e:ff:30 (try 1)
+Oct 17 19:44:07 localhost kernel: [  198.918857] wlan0: authenticated
+Oct 17 19:44:07 localhost kernel: [  198.918873] wlan0: associate with AP 00:14:d1:3e:ff:30 (try 1)
+Oct 17 19:44:07 localhost kernel: [  198.921192] wlan0: RX AssocResp from 00:14:d1:3e:ff:30 (capab=0x431 status=43 aid=0)
+Oct 17 19:44:07 localhost kernel: [  198.921196] wlan0: AP denied association (code=43)
+Oct 17 19:44:17 localhost wpa_supplicant[3477]: Authentication with 00:14:d1:3e:ff:30 timed out.
+Oct 17 19:44:19 localhost wpa_supplicant[3477]: CTRL-EVENT-SCAN-RESULTS 
+Oct 17 19:44:19 localhost wpa_supplicant[3477]: Trying to associate with 00:14:d1:3e:ff:30 (SSID='cranford' freq=2437 MHz)
+Oct 17 19:44:19 localhost wpa_supplicant[3477]: Association request to the driver failed
+Oct 17 19:44:24 localhost wpa_supplicant[3477]: Authentication with 00:14:d1:3e:ff:30 timed out.
+Oct 17 19:44:25 localhost wpa_supplicant[3477]: CTRL-EVENT-SCAN-RESULTS 
+Oct 17 19:44:25 localhost wpa_supplicant[3477]: Trying to associate with 00:14:d1:3e:ff:30 (SSID='cranford' freq=2437 MHz)
+Oct 17 19:44:25 localhost wpa_supplicant[3477]: Association request to the driver failed
+Oct 17 19:44:30 localhost wpa_supplicant[3477]: Authentication with 00:14:d1:3e:ff:30 timed out.
+Oct 17 19:44:31 localhost wpa_supplicant[3477]: CTRL-EVENT-SCAN-RESULTS 
+Oct 17 19:44:31 localhost wpa_supplicant[3477]: Trying to associate with 00:14:d1:3e:ff:30 (SSID='cranford' freq=2437 MHz)
+Oct 17 19:44:31 localhost wpa_supplicant[3477]: Association request to the driver failed
+
+Any idea what's going on here?
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006194.html">b43/BCM4312 fails with DMA errors
+</A></li>
+	<LI>Next message: <A HREF="006217.html">Poor hostapd work with newer driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6199">[ date ]</a>
+              <a href="thread.html#6199">[ thread ]</a>
+              <a href="subject.html#6199">[ subject ]</a>
+              <a href="author.html#6199">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

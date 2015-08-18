@@ -1,0 +1,142 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't associate	using b43 driver, works with bcm43xx
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Asus%20WL-138G%20V2%20%28BCM4318%20non-E%20rev02%29%20scans%20but%20doesn%27t%20associate%0A%09using%20b43%20driver%2C%20works%20with%20bcm43xx&In-Reply-To=%3C69e28c910803170657t5de8a3e2h5782960fe9cd7bae%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003596.html">
+   <LINK REL="Next"  HREF="003598.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't associate	using b43 driver, works with bcm43xx</H1>
+    <B>Stefanik G&#225;bor</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Asus%20WL-138G%20V2%20%28BCM4318%20non-E%20rev02%29%20scans%20but%20doesn%27t%20associate%0A%09using%20b43%20driver%2C%20works%20with%20bcm43xx&In-Reply-To=%3C69e28c910803170657t5de8a3e2h5782960fe9cd7bae%40mail.gmail.com%3E"
+       TITLE="Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't associate	using b43 driver, works with bcm43xx">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Mon Mar 17 14:57:53 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003596.html">Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't associate	using b43 driver, works with bcm43xx
+</A></li>
+        <LI>Next message: <A HREF="003598.html">Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't	associate using b43 driver, works with bcm43xx
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3597">[ date ]</a>
+              <a href="thread.html#3597">[ thread ]</a>
+              <a href="subject.html#3597">[ subject ]</a>
+              <a href="author.html#3597">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Here is what I get:
+With the old bcm43xx (softmac) driver, iwconfig returns &quot;Operation not
+permitted&quot; for &quot;iwconfig &lt;card&gt; channel 14&quot;. Kismet's backend process
+crashes if I set its channel hopping range to include channel 14.
+NetworkManager and iwlist scan doesn't scan on ch14. Channels 12 and 13 are
+not affected, only the Japanese channel 14. Channels 1 through 13 work fine,
+I can scan, associate, transmit, receive, even monitor mode works.
+
+With the new mac80211 driver (b43), things are a bit more complicated: When
+mac80211 (or cfg80211 on wireless-testing) is loaded without
+ieee80211_regdom, iwconfig goes up to channel 11, after that, &quot;Operation not
+permitted&quot;. Kismet doesn't crash though, it just prints an error when it
+tries to switch to a channel over 11. NetworkManager and iwlist scan skips
+channels 12, 13 and 14. Loading {mac|cfg}80211 with ieee80211_regdom=64
+(which is Japan AFAIK, so it should allow 14 channels) makes channels 12 and
+13 work to some extent, but not channel 14. Iwconfig works up to ch13, while
+ch14 gives &quot;Operation not permitted&quot;. Kismet goes into channel 12 and 13
+nicely, but crashes on channel 14. (It doesn't crash, only throws an error
+when {mac|cfg}80211 is loaded without ieee80211_regdom.)
+Iwlist/NetworkManager scan like with bcm43xx. The different errors of Kismet
+suggest a regional lockout on the hardware, which is likely specific to this
+card, and not present on non-Asus 4318s. Maybe there is a protection/&quot;cop&quot;
+chip connected to the radio, I don't know as I haven't removed the cover of
+the radio.
+
+However, this is a heavy digression from the thread's topic. The biggest
+problem is that regardless of ieee80211_regdom, only scanning and monitor
+mode (that is, tasks that only require receiving data, not transmitting)
+work, anything that requires transmitting (association, packet injection
+with Packetspammer, software AP mode) is broken. The card's LED doesn't show
+activity when it tries to transmit, and I fail to capture Packetspammer's
+test packets on another interface. When trying to associate, dmesg shows
+&quot;Authentication with &lt;BSSID&gt;&quot; 3 or 4 times, then &quot;Authentication with
+&lt;BSSID&gt; timed out&quot;. No &quot;PHY Transmission Error&quot;s, and in general, no b43
+errors (or even warnings) show up, even if I compile b43 with debugging
+enabled. This error shows up with all kernels I tested, including
+wireless-testing and 2.6.24. This might be a mac80211 problem, as on
+wireless-testing, a similar error affected my rt73 USB dongle. Judging from
+the fact that the card's LED doesn't blink while transmitting/trying to
+transmit (as it does on Windows), even though I compiled my kernel with LED
+support enabled, I suspect that the card doesn't even try to transmit. The
+problem is not unique to me, as Szilveszter Erdeg (another Hungarian, with
+an EU WL-138G V2) has the same problem. Likely the US version of the 138G is
+identical to the Japanese one, only the EU version has the lockout, so the 2
+problems might be related.
+
+On Mon, Mar 17, 2008 at 1:29 PM, Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; wrote:
+
+&gt;<i> On Monday 17 March 2008 13:22:02 Stefanik G&#225;bor wrote:
+</I>&gt;<i> &gt; I got that with bcm43xx (not b43!), which is ieee80211-softmac-based.
+</I>&gt;<i> AFAIK
+</I>&gt;<i> &gt; that defaults to Japan, yet it doesn't let me switch to channel 14.
+</I>&gt;<i> Channel
+</I>&gt;<i> &gt; 13 works fine, though. (In bcm43xx. In b43, nothing works.) (This
+</I>&gt;<i> message is
+</I>&gt;<i> &gt; a repost of my previous message that I accidentally sent to Johannes
+</I>&gt;<i> Berg
+</I>&gt;<i> &gt; only.)
+</I>&gt;<i>
+</I>&gt;<i> The hardware does not limit the channel. The firmware hardly knows about
+</I>&gt;<i> the current channel anyway. It just makes sure that packets are
+</I>&gt;<i> transmitted on
+</I>&gt;<i> the currently selected channel. No matter which one that is.
+</I>&gt;<i>
+</I>&gt;<i> But what does it mean when you say &quot;it doesn't let me switch to channel
+</I>&gt;<i> 14&quot;?
+</I>&gt;<i> Does it return an error code, or does iwconfig report success, but it
+</I>&gt;<i> doesn't
+</I>&gt;<i> _work_ on channel 14? That would make a major difference to debug this
+</I>&gt;<i> problem.
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i> Greetings Michael.
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080317/a08811d2/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080317/a08811d2/attachment.html</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003596.html">Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't associate	using b43 driver, works with bcm43xx
+</A></li>
+	<LI>Next message: <A HREF="003598.html">Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't	associate using b43 driver, works with bcm43xx
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3597">[ date ]</a>
+              <a href="thread.html#3597">[ thread ]</a>
+              <a href="subject.html#3597">[ subject ]</a>
+              <a href="author.html#3597">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

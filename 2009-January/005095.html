@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix phy_g.c compiler warning
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20phy_g.c%20compiler%20warning&In-Reply-To=%3C200901242236.58641.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005094.html">
+   <LINK REL="Next"  HREF="005099.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix phy_g.c compiler warning</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20phy_g.c%20compiler%20warning&In-Reply-To=%3C200901242236.58641.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix phy_g.c compiler warning">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Jan 24 22:36:57 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005094.html">[PATCH] b43: Automatically probe for opensource firmware
+</A></li>
+        <LI>Next message: <A HREF="005099.html">[PATCH] b43: Dynamically control log verbosity
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5095">[ date ]</a>
+              <a href="thread.html#5095">[ thread ]</a>
+              <a href="subject.html#5095">[ subject ]</a>
+              <a href="author.html#5095">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Fix compile warning for non-debug builds:
+
+drivers/net/wireless/b43/phy_g.c: In function &#8216;b43_gphy_op_recalc_txpower&#8217;:
+drivers/net/wireless/b43/phy_g.c:3195: warning: unused variable &#8216;dbm&#8217;
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+Index: wireless-testing/drivers/net/wireless/b43/phy_g.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_g.c	2009-01-23 19:18:42.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/phy_g.c	2009-01-24 22:33:44.000000000 +0100
+@@ -3188,20 +3188,23 @@ static enum b43_txpwr_result b43_gphy_op
+ 	/* Lower attenuation =&gt; Bigger power output. Negate it. */
+ 	bbatt_delta = -bbatt_delta;
+ 	/* RF att affects power level 4 times as much as
+ 	 * Baseband attennuation. Subtract it. */
+ 	bbatt_delta -= 4 * rfatt_delta;
+ 
++#if B43_DEBUG
+ 	if (b43_debug(dev, B43_DBG_XMITPOWER)) {
+ 		int dbm = pwr_adjust &lt; 0 ? -pwr_adjust : pwr_adjust;
+ 		b43dbg(dev-&gt;wl,
+ 		       &quot;[TX power deltas]  %s&quot; Q52_FMT &quot; dBm   =&gt;   &quot;
+ 		       &quot;bbatt-delta = %d,  rfatt-delta = %d\n&quot;,
+ 		       (pwr_adjust &lt; 0 ? &quot;-&quot; : &quot;&quot;), Q52_ARG(dbm),
+ 		       bbatt_delta, rfatt_delta);
+ 	}
++#endif /* DEBUG */
++
+ 	/* So do we finally need to adjust something in hardware? */
+ 	if ((rfatt_delta == 0) &amp;&amp; (bbatt_delta == 0))
+ 		goto no_adjustment_needed;
+ 
+ 	/* Save the deltas for later when we adjust the power. */
+ 	gphy-&gt;bbatt_delta = bbatt_delta;
+
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005094.html">[PATCH] b43: Automatically probe for opensource firmware
+</A></li>
+	<LI>Next message: <A HREF="005099.html">[PATCH] b43: Dynamically control log verbosity
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5095">[ date ]</a>
+              <a href="thread.html#5095">[ thread ]</a>
+              <a href="subject.html#5095">[ subject ]</a>
+              <a href="author.html#5095">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

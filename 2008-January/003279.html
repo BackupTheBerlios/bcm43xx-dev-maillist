@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH -mm 1/5] PM: Export device_pm_schedule_removal
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20-mm%201/5%5D%20PM%3A%20Export%20device_pm_schedule_removal&In-Reply-To=%3C200801250130.26591.rjw%40sisk.pl%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003278.html">
+   <LINK REL="Next"  HREF="003283.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH -mm 1/5] PM: Export device_pm_schedule_removal</H1>
+    <B>Rafael J. Wysocki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20-mm%201/5%5D%20PM%3A%20Export%20device_pm_schedule_removal&In-Reply-To=%3C200801250130.26591.rjw%40sisk.pl%3E"
+       TITLE="[PATCH -mm 1/5] PM: Export device_pm_schedule_removal">rjw at sisk.pl
+       </A><BR>
+    <I>Fri Jan 25 01:30:25 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003278.html">[PATCH -mm 0/5] b43: Fix suspend/resume deadlock
+</A></li>
+        <LI>Next message: <A HREF="003283.html">[PATCH -mm 2/5] Misc: Add possibility to remove misc devices during	suspend/resume
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3279">[ date ]</a>
+              <a href="thread.html#3279">[ thread ]</a>
+              <a href="subject.html#3279">[ subject ]</a>
+              <a href="author.html#3279">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: Rafael J. Wysocki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">rjw at sisk.pl</A>&gt;
+
+Move the declaration of device_pm_schedule_removal() to device.h
+and make it exported, as it will be used directly by some drivers
+for unregistering device objects during suspend/resume cycles in a
+safe way.
+
+Signed-off-by: Rafael J. Wysocki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">rjw at sisk.pl</A>&gt;
+---
+ drivers/base/power/main.c  |    1 +
+ drivers/base/power/power.h |    1 -
+ include/linux/device.h     |    6 ++++++
+ 3 files changed, 7 insertions(+), 1 deletion(-)
+
+Index: linux-2.6.24-rc8-mm1/drivers/base/power/main.c
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/base/power/main.c
++++ linux-2.6.24-rc8-mm1/drivers/base/power/main.c
+@@ -129,6 +129,7 @@ void device_pm_schedule_removal(struct d
+ 	list_move_tail(&amp;dev-&gt;power.entry, &amp;dpm_destroy);
+ 	mutex_unlock(&amp;dpm_list_mtx);
+ }
++EXPORT_SYMBOL_GPL(device_pm_schedule_removal);
+ 
+ /**
+  *	pm_sleep_lock - mutual exclusion for registration and suspend
+Index: linux-2.6.24-rc8-mm1/include/linux/device.h
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/include/linux/device.h
++++ linux-2.6.24-rc8-mm1/include/linux/device.h
+@@ -532,11 +532,17 @@ extern struct device *device_create(stru
+ extern void device_destroy(struct class *cls, dev_t devt);
+ #ifdef CONFIG_PM_SLEEP
+ extern void destroy_suspended_device(struct class *cls, dev_t devt);
++extern void device_pm_schedule_removal(struct device *);
+ #else /* !CONFIG_PM_SLEEP */
+ static inline void destroy_suspended_device(struct class *cls, dev_t devt)
+ {
+ 	device_destroy(cls, devt);
+ }
++
++static inline void device_pm_schedule_removal(struct device *dev)
++{
++	device_unregister(dev);
++}
+ #endif /* !CONFIG_PM_SLEEP */
+ 
+ /*
+Index: linux-2.6.24-rc8-mm1/drivers/base/power/power.h
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/base/power/power.h
++++ linux-2.6.24-rc8-mm1/drivers/base/power/power.h
+@@ -13,7 +13,6 @@ static inline struct device *to_device(s
+ 
+ extern void device_pm_add(struct device *);
+ extern void device_pm_remove(struct device *);
+-extern void device_pm_schedule_removal(struct device *);
+ extern int pm_sleep_lock(void);
+ extern void pm_sleep_unlock(void);
+ 
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003278.html">[PATCH -mm 0/5] b43: Fix suspend/resume deadlock
+</A></li>
+	<LI>Next message: <A HREF="003283.html">[PATCH -mm 2/5] Misc: Add possibility to remove misc devices during	suspend/resume
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3279">[ date ]</a>
+              <a href="thread.html#3279">[ thread ]</a>
+              <a href="subject.html#3279">[ subject ]</a>
+              <a href="author.html#3279">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

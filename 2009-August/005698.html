@@ -1,0 +1,199 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH V2] remove wrong probe_resp_plcp write
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20remove%20wrong%20probe_resp_plcp%20write&In-Reply-To=%3C83a869cd0908041544i304ea12ctdc5777ec8b20a5b7%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005695.html">
+   <LINK REL="Next"  HREF="005700.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH V2] remove wrong probe_resp_plcp write</H1>
+    <B>gregor kowski</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20remove%20wrong%20probe_resp_plcp%20write&In-Reply-To=%3C83a869cd0908041544i304ea12ctdc5777ec8b20a5b7%40mail.gmail.com%3E"
+       TITLE="[PATCH V2] remove wrong probe_resp_plcp write">gregor.kowski at gmail.com
+       </A><BR>
+    <I>Wed Aug  5 00:44:23 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005695.html">[PATCH v2] b43: Typo fixes &amp; minor cleanup
+</A></li>
+        <LI>Next message: <A HREF="005700.html">[PATCH V3] b43: implement baseband init for LP-PHY &lt;= rev1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5698">[ date ]</a>
+              <a href="thread.html#5698">[ thread ]</a>
+              <a href="subject.html#5698">[ subject ]</a>
+              <a href="author.html#5698">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The tkip hw support uncovered a bug in b43_write_probe_resp_template : it is
+writing at the wrong shm offset, it is in the B43_SHM_SH_TKIPTSCTTAK
+zone. Remove b43_write_probe_resp_template,  b43_write_probe_resp_plcp
+and b43_write_probe_resp_plcp because the probe response offload is
+currently not supported by mac80211.
+
+Signed-off-by: Gregor Kowski &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">gregor.kowski at gmail.com</A>&gt;
+
+Index: linux-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/b43/main.c	2009-08-04
+22:28:09.000000000 +0000
++++ linux-2.6/drivers/net/wireless/b43/main.c	2009-08-04
+22:39:59.000000000 +0000
+@@ -1431,113 +1431,6 @@
+ 	b43dbg(dev-&gt;wl, &quot;Updated beacon template at 0x%x\n&quot;, ram_offset);
+ }
+
+-static void b43_write_probe_resp_plcp(struct b43_wldev *dev,
+-				      u16 shm_offset, u16 size,
+-				      struct ieee80211_rate *rate)
+-{
+-	struct b43_plcp_hdr4 plcp;
+-	u32 tmp;
+-	__le16 dur;
+-
+-	plcp.data = 0;
+-	b43_generate_plcp_hdr(&amp;plcp, size + FCS_LEN, rate-&gt;hw_value);
+-	dur = ieee80211_generic_frame_duration(dev-&gt;wl-&gt;hw,
+-					       dev-&gt;wl-&gt;vif, size,
+-					       rate);
+-	/* Write PLCP in two parts and timing for packet transfer */
+-	tmp = le32_to_cpu(plcp.data);
+-	b43_shm_write16(dev, B43_SHM_SHARED, shm_offset, tmp &amp; 0xFFFF);
+-	b43_shm_write16(dev, B43_SHM_SHARED, shm_offset + 2, tmp &gt;&gt; 16);
+-	b43_shm_write16(dev, B43_SHM_SHARED, shm_offset + 6, le16_to_cpu(dur));
+-}
+-
+-/* Instead of using custom probe response template, this function
+- * just patches custom beacon template by:
+- * 1) Changing packet type
+- * 2) Patching duration field
+- * 3) Stripping TIM
+- */
+-static const u8 *b43_generate_probe_resp(struct b43_wldev *dev,
+-					 u16 *dest_size,
+-					 struct ieee80211_rate *rate)
+-{
+-	const u8 *src_data;
+-	u8 *dest_data;
+-	u16 src_size, elem_size, src_pos, dest_pos;
+-	__le16 dur;
+-	struct ieee80211_hdr *hdr;
+-	size_t ie_start;
+-
+-	src_size = dev-&gt;wl-&gt;current_beacon-&gt;len;
+-	src_data = (const u8 *)dev-&gt;wl-&gt;current_beacon-&gt;data;
+-
+-	/* Get the start offset of the variable IEs in the packet. */
+-	ie_start = offsetof(struct ieee80211_mgmt, u.probe_resp.variable);
+-	B43_WARN_ON(ie_start != offsetof(struct ieee80211_mgmt, u.beacon.variable));
+-
+-	if (B43_WARN_ON(src_size &lt; ie_start))
+-		return NULL;
+-
+-	dest_data = kmalloc(src_size, GFP_ATOMIC);
+-	if (unlikely(!dest_data))
+-		return NULL;
+-
+-	/* Copy the static data and all Information Elements, except the TIM. */
+-	memcpy(dest_data, src_data, ie_start);
+-	src_pos = ie_start;
+-	dest_pos = ie_start;
+-	for ( ; src_pos &lt; src_size - 2; src_pos += elem_size) {
+-		elem_size = src_data[src_pos + 1] + 2;
+-		if (src_data[src_pos] == 5) {
+-			/* This is the TIM. */
+-			continue;
+-		}
+-		memcpy(dest_data + dest_pos, src_data + src_pos,
+-		       elem_size);
+-		dest_pos += elem_size;
+-	}
+-	*dest_size = dest_pos;
+-	hdr = (struct ieee80211_hdr *)dest_data;
+-
+-	/* Set the frame control. */
+-	hdr-&gt;frame_control = cpu_to_le16(IEEE80211_FTYPE_MGMT |
+-					 IEEE80211_STYPE_PROBE_RESP);
+-	dur = ieee80211_generic_frame_duration(dev-&gt;wl-&gt;hw,
+-					       dev-&gt;wl-&gt;vif, *dest_size,
+-					       rate);
+-	hdr-&gt;duration_id = dur;
+-
+-	return dest_data;
+-}
+-
+-static void b43_write_probe_resp_template(struct b43_wldev *dev,
+-					  u16 ram_offset,
+-					  u16 shm_size_offset,
+-					  struct ieee80211_rate *rate)
+-{
+-	const u8 *probe_resp_data;
+-	u16 size;
+-
+-	size = dev-&gt;wl-&gt;current_beacon-&gt;len;
+-	probe_resp_data = b43_generate_probe_resp(dev, &amp;size, rate);
+-	if (unlikely(!probe_resp_data))
+-		return;
+-
+-	/* Looks like PLCP headers plus packet timings are stored for
+-	 * all possible basic rates
+-	 */
+-	b43_write_probe_resp_plcp(dev, 0x31A, size, &amp;b43_b_ratetable[0]);
+-	b43_write_probe_resp_plcp(dev, 0x32C, size, &amp;b43_b_ratetable[1]);
+-	b43_write_probe_resp_plcp(dev, 0x33E, size, &amp;b43_b_ratetable[2]);
+-	b43_write_probe_resp_plcp(dev, 0x350, size, &amp;b43_b_ratetable[3]);
+-
+-	size = min((size_t) size, 0x200 - sizeof(struct b43_plcp_hdr6));
+-	b43_write_template_common(dev, probe_resp_data,
+-				  size, ram_offset, shm_size_offset,
+-				  rate-&gt;hw_value);
+-	kfree(probe_resp_data);
+-}
+-
+ static void b43_upload_beacon0(struct b43_wldev *dev)
+ {
+ 	struct b43_wl *wl = dev-&gt;wl;
+@@ -1545,10 +1438,6 @@
+ 	if (wl-&gt;beacon0_uploaded)
+ 		return;
+ 	b43_write_beacon_template(dev, 0x68, 0x18);
+-	/* FIXME: Probe resp upload doesn't really belong here,
+-	 *        but we don't use that feature anyway. */
+-	b43_write_probe_resp_template(dev, 0x268, 0x4A,
+-				      &amp;__b43_ratetable[3]);
+ 	wl-&gt;beacon0_uploaded = 1;
+ }
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005695.html">[PATCH v2] b43: Typo fixes &amp; minor cleanup
+</A></li>
+	<LI>Next message: <A HREF="005700.html">[PATCH V3] b43: implement baseband init for LP-PHY &lt;= rev1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5698">[ date ]</a>
+              <a href="thread.html#5698">[ thread ]</a>
+              <a href="subject.html#5698">[ subject ]</a>
+              <a href="author.html#5698">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

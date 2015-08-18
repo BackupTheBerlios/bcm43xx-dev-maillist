@@ -1,0 +1,145 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Tons of interrupts on driver load
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C48122997.4080007%40coderworld.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003968.html">
+   <LINK REL="Next"  HREF="003972.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Tons of interrupts on driver load</H1>
+    <B>Richard Jonsson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C48122997.4080007%40coderworld.net%3E"
+       TITLE="Tons of interrupts on driver load">richie at coderworld.net
+       </A><BR>
+    <I>Fri Apr 25 20:57:27 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003968.html">Tons of interrupts on driver load
+</A></li>
+        <LI>Next message: <A HREF="003972.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3970">[ date ]</a>
+              <a href="thread.html#3970">[ thread ]</a>
+              <a href="subject.html#3970">[ subject ]</a>
+              <a href="author.html#3970">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Larry Finger skrev:
+&gt;<i> Richard Jonsson wrote:
+</I>&gt;&gt;<i> flipping switch a few times, led unchanged
+</I>&gt;&gt;<i> [ 1534.770048] b43-phy0: Radio hardware status changed to ENABLED
+</I>&gt;&gt;<i> [ 1550.778511] b43-phy0: Radio hardware status changed to DISABLED
+</I>&gt;&gt;<i> [ 1562.783474] b43-phy0: Radio hardware status changed to ENABLED
+</I>&gt;&gt;<i> [ 1565.788237] b43-phy0: Radio hardware status changed to DISABLED
+</I>&gt;<i> 
+</I>&gt;<i> This sounds like an rfkill/led configuration problem. In your .config, 
+</I>&gt;<i> you should have
+</I>&gt;<i> 
+</I>&gt;<i> CONFIG_MAC80211_LEDS=y
+</I>&gt;<i> CONFIG_RFKILL=m
+</I>&gt;<i> CONFIG_RFKILL_INPUT=m
+</I>&gt;<i> CONFIG_RFKILL_LEDS=y
+</I>&gt;<i> CONFIG_B43_LEDS=y
+</I>&gt;<i> CONFIG_B43_RFKILL=y
+</I>&gt;<i> 
+</I>Confirmed, but the problem for me is how to select MAC80211_LEDS and 
+B43_LEDS. Searching in menuconfig I found this:
+
+Symbol: B43_LEDS [=n]
+Symbol: RFKILL_LEDS [=n]
+
+with no more info below them. 
+                 Then MAC80211_LEDS turned up this:
+
+Symbol: MAC80211_LEDS [=n] 
+ 
+       Prompt: Enable LED triggers 
+ 
+       Defined at net/mac80211/Kconfig:74 
+ 
+          Depends on: NET &amp;&amp; !S390 &amp;&amp; MAC80211 &amp;&amp; LEDS_TRIGGERS 
+ 
+
+Location:
+   -&gt; Networking 
+
+     -&gt; Networking support (NET [=y]) 
+
+       -&gt; Wireless 
+
+         -&gt; Generic IEEE 802.11 Networking Stack (mac80211) (MAC80211 
+[=y])
+Selected by: IWL4965_LEDS &amp;&amp; NETDEVICES &amp;&amp; !S390 &amp;&amp; IWL4965 || 
+IWL3945_LEDS &amp;&amp; NETDEVICES &amp;&amp; !S390 &amp;&amp; IWL3945
+
+So without IWL4965 / IWL3945 MAC80211_LEDS can't be selected!!
+
+Selecting IWL3945 and IWL3945_LEDS and reloading menuconfig gives me:
+
+CONFIG_MAC80211_LEDS=y
+CONFIG_RFKILL=m
+CONFIG_RFKILL_INPUT=m
+CONFIG_RFKILL_LEDS=n
+CONFIG_B43_LEDS=y
+CONFIG_B43_RFKILL=y
+
+I still can't enable RFKILL_LEDS because I have no clue as to what else 
+needs to be enabled :/
+
+&gt;<i> I think those are all the configuration parameters relating to operation 
+</I>&gt;<i> of the LED.
+</I>&gt;<i> 
+</I>&gt;<i> If you had the problem related to the HP recall, your interface wouldn't 
+</I>&gt;<i> show up in the lspci output. It might be intermittent. Furthermore, if 
+</I>&gt;<i> it were present at boot time so that b43 got loaded, and then 
+</I>&gt;<i> disappeared, the kernel would abort with the &quot;caps lock&quot; light flashing 
+</I>&gt;<i> at 1 Hz.
+</I>&gt;<i> 
+</I>Thanks for the clarification. Will probably flash the bios at least to 
+prevent a future failure.
+
+&gt;<i> If Linus's latest git still has the problem, please do a bisection. I 
+</I>&gt;<i> had a problem with interrupt routing on my other laptop, which kept it 
+</I>&gt;<i> from booting. That problem is now fixed. I thought it only affected the 
+</I>&gt;<i> PCMCIA bridges, but there could have been other side affects. I built 
+</I>&gt;<i> other kernels in the 2.6.25-git sequence, but never booted any of them 
+</I>&gt;<i> till this morning.
+</I>&gt;<i> 
+</I>I will do a bisection then, as the problem is still present.
+
+regards, Richard
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003968.html">Tons of interrupts on driver load
+</A></li>
+	<LI>Next message: <A HREF="003972.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3970">[ date ]</a>
+              <a href="thread.html#3970">[ thread ]</a>
+              <a href="subject.html#3970">[ subject ]</a>
+              <a href="author.html#3970">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

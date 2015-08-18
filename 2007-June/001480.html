@@ -1,0 +1,185 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> F7 with newer kernel
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20F7%20with%20newer%20kernel&In-Reply-To=%3C46841A51.9070502%40wetwork.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001483.html">
+   <LINK REL="Next"  HREF="001484.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>F7 with newer kernel</H1>
+    <B>Ehud Gavron</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20F7%20with%20newer%20kernel&In-Reply-To=%3C46841A51.9070502%40wetwork.net%3E"
+       TITLE="F7 with newer kernel">gavron at wetwork.net
+       </A><BR>
+    <I>Thu Jun 28 22:30:09 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001483.html">Broadcom 4318 with newer bcm43xx&amp;firmware doesn't works
+</A></li>
+        <LI>Next message: <A HREF="001484.html">F7 with newer kernel
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1480">[ date ]</a>
+              <a href="thread.html#1480">[ thread ]</a>
+              <a href="subject.html#1480">[ subject ]</a>
+              <a href="author.html#1480">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I use F7, and having had the same disappointing results upgraded my kernel.
+IF YOU USE NVIDIA VIDEO DRIVERS DO THIS ONLY AFTER FOLLOWING THE 
+PROCEDURE BELOW MY SIGNATURE
+
+Building the latest Larry Linville kernel on F7 systems:
+
+# cd /usr/src
+# git clone 
+<A HREF="git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-dev.git">git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-dev.git</A>
+# ln wireless-dev linux
+# cd /usr/src/linux
+# cp /usr/src/kernels/2.6.21-1.3228.fc7-x86_64/.config ./.config
+# make clean
+# make oldconfig
+(Answer the questions any way you like... hitting enter a bunch of times 
+works.)
+# grep -i bcm43xx .config (mine is included below)
+# time nice make bzImage                (mine takes 9 min)
+# time nice make modules                (mine takes 44 min)
+# time nice make modules_install  (mine takes 1 min)
+# time nice make install                    (mine takes 1 min)
+# sed -i -e &quot;s/default=1/default=0/g&quot; /etc/grub.conf
+
+Note that in the future you'll want to do yum update --exclude=kernel 
+--exclude=kmod-nvidia --exclude=xorg-x11-drv-nvidia until F7 releases a 
+kernel which postdates 2.6.22-rc6 (likely that would be 2.6.22 ;-)
+
+Then reboot... your new kernel will work much better with your wireless 
+driver.
+If you're using a proprietary driver for your graphics card, see the 
+note below.
+
+Ehud
+
+Here's my .config section, and for future searches  F7 .config for 
+kernel 2.6.22-rc6 wireless-dev
+# grep -i bcm43xx .config
+CONFIG_BCM43XX=m
+CONFIG_BCM43XX_DEBUG=y
+CONFIG_BCM43XX_DMA=y
+CONFIG_BCM43XX_PIO=y
+CONFIG_BCM43XX_DMA_AND_PIO_MODE=y
+# CONFIG_BCM43XX_DMA_MODE is not set
+# CONFIG_BCM43XX_PIO_MODE is not set
+CONFIG_BCM43XX_MAC80211=m
+CONFIG_BCM43XX_MAC80211_PCI=y
+CONFIG_BCM43XX_MAC80211_PCMCIA=y
+CONFIG_BCM43XX_MAC80211_DEBUG=y
+CONFIG_BCM43XX_MAC80211_DMA=y
+CONFIG_BCM43XX_MAC80211_PIO=y
+CONFIG_BCM43XX_MAC80211_DMA_AND_PIO_MODE=y
+# CONFIG_BCM43XX_MAC80211_DMA_MODE is not set
+# CONFIG_BCM43XX_MAC80211_PIO_MODE is not set
+
+
+Note on proprietary graphics card drivers and F7.... the Livna and the 
+AT people are really nice about packaging these for the specific F7 
+releases.  However, when you switch off to your own kernel you need to 
+build those packages from source.  Unfortunately the packages from the 
+vendors (mine's Nvidia) put files in different places than the livna 
+ones.  So what I had to do was...
+
+Nvidia Drivers on F7 with alternate kernel, hard work the first time, 
+only one script to run after future kernel upgrades.
+1. rpm -e kmod-nvidia
+2. bring in the nvidia stuff and put it somewhere (I chose 
+/usr/local/src/nvidia)
+3. the first time run the whole thing and let it install its version of 
+libraries, build a kernel module, etc.  (Answer &quot;no&quot; to precompiled 
+module and answer &quot;no&quot; to search website for precompiled module.)
+4. make sure X works, and if you had &quot;Desktop Effects&quot; (compiz) enabled, 
+check to make sure that works.  The problems I encountered were on my 
+64-bit system the Nvidia installer wants to place the files in 
+/usr/lib64/X11R6.... but the Xorg stuff wants it in 
+/usr/lib64/xorg/modules... 
+5. make sure that the whole &quot;Nvidia&quot; startup in /etc/rc.d/init.d is 
+gone.  It will munge your /etc/X11/xorg.conf every boot.
+6. ONCE YOU GET VIDEO WORKING JUST FINE, AND SURVIVING A REBOOT, only 
+then do the procedure above to upgrade your kernel.
+7. Once you reboot with the new kernel, you'll want to run this script:
+#/bin/sh
+# If the kernel version has changed, rebuild the Nvidia package...
+NVDIR=/usr/local/src/nvidia
+#
+if [ ! -f &quot;$NVDIR/kernel_version.txt&quot; ]; then
+   echo &quot;No previous kernel configured&quot; &gt; $NVDIR/kernel_version.txt
+fi
+
+oldkern=`cat $NVDIR/kernel_version.txt&quot;
+newkern=`uname -r`
+if [ &quot;$oldkern&quot; != &quot;$newkern&quot; ]; then
+   # The kernels differ ... build a new one...
+   arch=`arch`
+   file=`ls -C1 $NVDIR/*$arch*.run | tail -1`
+   $NVDIR/$file -sKN &gt;$NVDIR/build.out 2&gt;&amp;1
+   uname -r &gt; $NVDIR/kernel_version.txt
+fi
+
+#end
+Florian Erfurth wrote:
+&gt;<i> Von: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">larry.finger at lwfinger.net</A>&gt;
+</I>&gt;<i>   
+</I>&gt;&gt;<i> Florian Erfurth wrote:
+</I>&gt;&gt;<i>     
+</I>&gt;&gt;&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# dmesg
+</I>&gt;&gt;&gt;<i> [snip]
+</I>&gt;&gt;&gt;<i> bcm43xx driver
+</I>&gt;&gt;&gt;<i> &lt;&lt;&lt;
+</I>&gt;&gt;&gt;<i> Hm... what could be wrong? Did I forgot somewhat?
+</I>&gt;&gt;&gt;<i>       
+</I>&gt;&gt;<i> Did you switch back to V3 firmware? Check dmesg for any diagnostic
+</I>&gt;&gt;<i> messages.
+</I>&gt;&gt;<i>     
+</I>&gt;<i> Yes, I switched back to V3 firmware. In dmesg only 'bcm43xx driver' appears. O_o Ok, I should try to reboot, but I can't do that now. I'll try rebooting later (maybe tommorow in the morning).
+</I>&gt;<i>
+</I>&gt;<i> Thank you for your great help.
+</I>&gt;<i> cu Floh
+</I>&gt;<i>   
+</I>-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/x-pkcs7-signature
+Size: 3283 bytes
+Desc: S/MIME Cryptographic Signature
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070628/277a0f7e/attachment.bin">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070628/277a0f7e/attachment.bin</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001483.html">Broadcom 4318 with newer bcm43xx&amp;firmware doesn't works
+</A></li>
+	<LI>Next message: <A HREF="001484.html">F7 with newer kernel
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1480">[ date ]</a>
+              <a href="thread.html#1480">[ thread ]</a>
+              <a href="subject.html#1480">[ subject ]</a>
+              <a href="author.html#1480">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,146 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Change loglevel of radio-enable message.
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Change%20loglevel%20of%20radio-enable%20message.&In-Reply-To=%3C200709191858.38634.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002455.html">
+   <LINK REL="Next"  HREF="002458.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Change loglevel of radio-enable message.</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Change%20loglevel%20of%20radio-enable%20message.&In-Reply-To=%3C200709191858.38634.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Change loglevel of radio-enable message.">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Sep 19 18:58:38 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002455.html">[PATCH] ssb: Sparse fixes.
+</A></li>
+        <LI>Next message: <A HREF="002458.html">[PATCH] b43: Change loglevel of radio-enable message.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2456">[ date ]</a>
+              <a href="thread.html#2456">[ thread ]</a>
+              <a href="subject.html#2456">[ subject ]</a>
+              <a href="author.html#2456">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Also cleanup the code a bit and remove the inline.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+Index: wireless-dev/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43/main.c	2007-09-19 18:26:34.000000000 +0200
++++ wireless-dev/drivers/net/wireless/b43/main.c	2007-09-19 18:47:04.000000000 +0200
+@@ -2175,6 +2175,21 @@ static void b43_mgmtframe_txantenna(stru
+ 	b43_shm_write16(dev, B43_SHM_SHARED, B43_SHM_SH_PRPHYCTL, tmp);
+ }
+ 
++/* Returns TRUE, if the radio is enabled in hardware. */
++static bool b43_is_hw_radio_enabled(struct b43_wldev *dev)
++{
++	if (dev-&gt;phy.rev &gt;= 3) {
++		if (!(b43_read32(dev, B43_MMIO_RADIO_HWENABLED_HI)
++		      &amp; B43_MMIO_RADIO_HWENABLED_HI_MASK))
++			return 1;
++	} else {
++		if (b43_read16(dev, B43_MMIO_RADIO_HWENABLED_LO)
++		    &amp; B43_MMIO_RADIO_HWENABLED_LO_MASK)
++			return 1;
++	}
++	return 0;
++}
++
+ /* This is the opposite of b43_chip_init() */
+ static void b43_chip_exit(struct b43_wldev *dev)
+ {
+@@ -2214,7 +2229,7 @@ static int b43_chip_init(struct b43_wlde
+ 	b43_radio_turn_on(dev);
+ 	dev-&gt;radio_hw_enable = b43_is_hw_radio_enabled(dev);
+ 	b43dbg(dev-&gt;wl, &quot;Radio %s by hardware\n&quot;,
+-	       (dev-&gt;radio_hw_enable == 0) ? &quot;disabled&quot; : &quot;enabled&quot;);
++	       dev-&gt;radio_hw_enable ? &quot;enabled&quot; : &quot;disabled&quot;);
+ 
+ 	b43_write16(dev, 0x03E6, 0x0000);
+ 	err = b43_phy_init(dev);
+@@ -2373,14 +2388,14 @@ static void b43_periodic_every15sec(stru
+ 
+ static void b43_periodic_every1sec(struct b43_wldev *dev)
+ {
+-	int radio_hw_enable;
++	bool radio_hw_enable;
+ 
+ 	/* check if radio hardware enabled status changed */
+ 	radio_hw_enable = b43_is_hw_radio_enabled(dev);
+ 	if (unlikely(dev-&gt;radio_hw_enable != radio_hw_enable)) {
+ 		dev-&gt;radio_hw_enable = radio_hw_enable;
+-		b43dbg(dev-&gt;wl, &quot;Radio hardware status changed to %s\n&quot;,
+-		       (radio_hw_enable == 0) ? &quot;disabled&quot; : &quot;enabled&quot;);
++		b43info(dev-&gt;wl, &quot;Radio hardware status changed to %s\n&quot;,
++			radio_hw_enable ? &quot;ENABLED&quot; : &quot;DISABLED&quot;);
+ 		b43_leds_update(dev, 0);
+ 	}
+ }
+Index: wireless-dev/drivers/net/wireless/b43/main.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/b43/main.h	2007-09-19 17:15:58.000000000 +0200
++++ wireless-dev/drivers/net/wireless/b43/main.h	2007-09-19 18:40:57.000000000 +0200
+@@ -96,23 +96,6 @@ static inline int b43_is_ofdm_rate(int r
+ 	return !b43_is_cck_rate(rate);
+ }
+ 
+-static inline int b43_is_hw_radio_enabled(struct b43_wldev *dev)
+-{
+-	/* function to return state of hardware enable of radio
+-	 * returns 0 if radio disabled, 1 if radio enabled
+-	 */
+-	struct b43_phy *phy = &amp;dev-&gt;phy;
+-
+-	if (phy-&gt;rev &gt;= 3)
+-		return ((b43_read32(dev, B43_MMIO_RADIO_HWENABLED_HI)
+-			 &amp; B43_MMIO_RADIO_HWENABLED_HI_MASK)
+-			== 0) ? 1 : 0;
+-	else
+-		return ((b43_read16(dev, B43_MMIO_RADIO_HWENABLED_LO)
+-			 &amp; B43_MMIO_RADIO_HWENABLED_LO_MASK)
+-			== 0) ? 0 : 1;
+-}
+-
+ void b43_tsf_read(struct b43_wldev *dev, u64 * tsf);
+ void b43_tsf_write(struct b43_wldev *dev, u64 tsf);
+ 
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002455.html">[PATCH] ssb: Sparse fixes.
+</A></li>
+	<LI>Next message: <A HREF="002458.html">[PATCH] b43: Change loglevel of radio-enable message.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2456">[ date ]</a>
+              <a href="thread.html#2456">[ thread ]</a>
+              <a href="subject.html#2456">[ subject ]</a>
+              <a href="author.html#2456">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

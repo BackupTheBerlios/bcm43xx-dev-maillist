@@ -1,0 +1,158 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Tons of interrupts on driver load
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C4812FE5A.4010700%40coderworld.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003972.html">
+   <LINK REL="Next"  HREF="003974.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Tons of interrupts on driver load</H1>
+    <B>Richard Jonsson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C4812FE5A.4010700%40coderworld.net%3E"
+       TITLE="Tons of interrupts on driver load">richie at coderworld.net
+       </A><BR>
+    <I>Sat Apr 26 12:05:14 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003972.html">Tons of interrupts on driver load
+</A></li>
+        <LI>Next message: <A HREF="003974.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3976">[ date ]</a>
+              <a href="thread.html#3976">[ thread ]</a>
+              <a href="subject.html#3976">[ subject ]</a>
+              <a href="author.html#3976">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Larry Finger skrev:
+&gt;<i> Richard Jonsson wrote:
+</I>&gt;&gt;<i> Larry Finger skrev:
+</I>&gt;&gt;&gt;<i> Richard Jonsson wrote:
+</I>&gt;&gt;&gt;&gt;<i> flipping switch a few times, led unchanged
+</I>&gt;&gt;&gt;&gt;<i> [ 1534.770048] b43-phy0: Radio hardware status changed to ENABLED
+</I>&gt;&gt;&gt;&gt;<i> [ 1550.778511] b43-phy0: Radio hardware status changed to DISABLED
+</I>&gt;&gt;&gt;&gt;<i> [ 1562.783474] b43-phy0: Radio hardware status changed to ENABLED
+</I>&gt;&gt;&gt;&gt;<i> [ 1565.788237] b43-phy0: Radio hardware status changed to DISABLED
+</I>&gt;&gt;&gt;<i> This sounds like an rfkill/led configuration problem. In your 
+</I>&gt;&gt;&gt;<i> .config, you should have
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> CONFIG_MAC80211_LEDS=y
+</I>&gt;&gt;&gt;<i> CONFIG_RFKILL=m
+</I>&gt;&gt;&gt;<i> CONFIG_RFKILL_INPUT=m
+</I>&gt;&gt;&gt;<i> CONFIG_RFKILL_LEDS=y
+</I>&gt;&gt;&gt;<i> CONFIG_B43_LEDS=y
+</I>&gt;&gt;&gt;<i> CONFIG_B43_RFKILL=y
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;<i> Confirmed, but the problem for me is how to select MAC80211_LEDS and 
+</I>&gt;&gt;<i> B43_LEDS. Searching in menuconfig I found this:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Symbol: B43_LEDS [=n]
+</I>&gt;&gt;<i> Symbol: RFKILL_LEDS [=n]
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> with no more info below them.                  Then MAC80211_LEDS 
+</I>&gt;&gt;<i> turned up this:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Symbol: MAC80211_LEDS [=n]  
+</I>&gt;&gt;<i>        Prompt: Enable LED triggers  
+</I>&gt;&gt;<i>        Defined at net/mac80211/Kconfig:74  
+</I>&gt;&gt;<i>           Depends on: NET &amp;&amp; !S390 &amp;&amp; MAC80211 &amp;&amp; LEDS_TRIGGERS  
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Location:
+</I>&gt;&gt;<i>    -&gt; Networking
+</I>&gt;&gt;<i>      -&gt; Networking support (NET [=y])
+</I>&gt;&gt;<i>        -&gt; Wireless
+</I>&gt;&gt;<i>          -&gt; Generic IEEE 802.11 Networking Stack (mac80211) (MAC80211 
+</I>&gt;&gt;<i> [=y])
+</I>&gt;&gt;<i> Selected by: IWL4965_LEDS &amp;&amp; NETDEVICES &amp;&amp; !S390 &amp;&amp; IWL4965 || 
+</I>&gt;&gt;<i> IWL3945_LEDS &amp;&amp; NETDEVICES &amp;&amp; !S390 &amp;&amp; IWL3945
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> So without IWL4965 / IWL3945 MAC80211_LEDS can't be selected!!
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Selecting IWL3945 and IWL3945_LEDS and reloading menuconfig gives me:
+</I>&gt;<i> 
+</I>&gt;<i> I duplicate your results from menuconfig; however, the appropriate 
+</I>&gt;<i> stanza in net/mac80211/Kconfig is
+</I>&gt;<i> 
+</I>&gt;<i> config MAC80211_LEDS
+</I>&gt;<i>         bool &quot;Enable LED triggers&quot;
+</I>&gt;<i>         depends on MAC80211 &amp;&amp; LEDS_TRIGGERS
+</I>&gt;<i>         ---help---
+</I>&gt;<i>           This option enables a few LED triggers for different
+</I>&gt;<i>           packet receive/transmit events.
+</I>&gt;<i> 
+</I>&gt;<i> There is no mention of IWL3945, etc, and only MAC80211 and LEDS_TRIGGERS 
+</I>&gt;<i> (discussed below) are needed.
+</I>&gt;<i> 
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> CONFIG_MAC80211_LEDS=y
+</I>&gt;&gt;<i> CONFIG_RFKILL=m
+</I>&gt;&gt;<i> CONFIG_RFKILL_INPUT=m
+</I>&gt;&gt;<i> CONFIG_RFKILL_LEDS=n
+</I>&gt;&gt;<i> CONFIG_B43_LEDS=y
+</I>&gt;&gt;<i> CONFIG_B43_RFKILL=y
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> I still can't enable RFKILL_LEDS because I have no clue as to what 
+</I>&gt;&gt;<i> else needs to be enabled :/
+</I>&gt;<i> 
+</I>&gt;<i> You get CONFIG_RFKILL_LEDS from Networking -&gt; RF Switch subsystem 
+</I>&gt;<i> support, which has an M, and the &quot;Input layer to RF switch connector&quot; in 
+</I>&gt;<i> the sub-menu, which also should be M. This section is the one that has 
+</I>&gt;<i> LEDS_TRIGGERS.
+</I>&gt;<i> 
+</I>That section has only &quot;Input layer to RF switch connector&quot;.
+I tried with make xconfig, same story. I have these set to M, still no
+option for RFKILL_LEDS show up.
+
+&gt;<i> I only use menuconfig for systems that don't run X, and have never 
+</I>&gt;<i> noticed that the dependencies in the help are messed up there. AFAIK, 
+</I>
+To clarify, I grabbed those lines from the search feature in menuconfig.
+When searching for B43_LEDS in xconfig, there are no hits at all. In
+menuconfig the same search shows up as &quot;Symbol: B43_LEDS [=n]&quot; with no
+more info.
+
+&gt;<i> the Kconfig files are OK, and the problem is in menuconfig's parsing of 
+</I>&gt;<i> those files.
+</I>&gt;<i> 
+</I>
+I grepped the .config and see that B43_RFKILL is somehow enabled. I
+don't think I had LED_TRIGGERS enabled before.
+
+The led now reacts to the switch, thanks!
+
+regards, Richard
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003972.html">Tons of interrupts on driver load
+</A></li>
+	<LI>Next message: <A HREF="003974.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3976">[ date ]</a>
+              <a href="thread.html#3976">[ thread ]</a>
+              <a href="subject.html#3976">[ subject ]</a>
+              <a href="author.html#3976">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

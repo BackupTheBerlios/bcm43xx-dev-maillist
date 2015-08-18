@@ -1,0 +1,180 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix DMA buffer size handling
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20DMA%20buffer%20size%20handling&In-Reply-To=%3C200902192339.27295.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005229.html">
+   <LINK REL="Next"  HREF="005231.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix DMA buffer size handling</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20DMA%20buffer%20size%20handling&In-Reply-To=%3C200902192339.27295.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix DMA buffer size handling">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Feb 19 23:39:26 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005229.html">[PATCH] b43: Move DMA stop sanity check
+</A></li>
+        <LI>Next message: <A HREF="005231.html">[PATCH] b43: Optimize DMA buffers
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5230">[ date ]</a>
+              <a href="thread.html#5230">[ thread ]</a>
+              <a href="subject.html#5230">[ subject ]</a>
+              <a href="author.html#5230">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes hidden bugs in the size handling of the DMA buffers.
+This sets the RX buffer size to the theoretical max packet size and
+fixes passing of the size values to the device (must not subtract the header offset).
+
+These bugs are hidden and don't actually trigger due to the magic +100
+offset for the buffer size.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, no need to push this as bugfix. Just push it with the next round of
+features. This bug has always been there and it's hidden. So it doesn't
+trigger for anybody.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-01-25 15:29:55.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-02-19 22:30:16.000000000 +0100
+@@ -71,14 +71,13 @@ static void op32_fill_descriptor(struct 
+ 	B43_WARN_ON(!(slot &gt;= 0 &amp;&amp; slot &lt; ring-&gt;nr_slots));
+ 
+ 	addr = (u32) (dmaaddr &amp; ~SSB_DMA_TRANSLATION_MASK);
+ 	addrext = (u32) (dmaaddr &amp; SSB_DMA_TRANSLATION_MASK)
+ 	    &gt;&gt; SSB_DMA_TRANSLATION_SHIFT;
+ 	addr |= ssb_dma_translation(ring-&gt;dev-&gt;dev);
+-	ctl = (bufsize - ring-&gt;frameoffset)
+-	    &amp; B43_DMA32_DCTL_BYTECNT;
++	ctl = bufsize &amp; B43_DMA32_DCTL_BYTECNT;
+ 	if (slot == ring-&gt;nr_slots - 1)
+ 		ctl |= B43_DMA32_DCTL_DTABLEEND;
+ 	if (start)
+ 		ctl |= B43_DMA32_DCTL_FRAMESTART;
+ 	if (end)
+ 		ctl |= B43_DMA32_DCTL_FRAMEEND;
+@@ -174,14 +173,13 @@ static void op64_fill_descriptor(struct 
+ 	if (start)
+ 		ctl0 |= B43_DMA64_DCTL0_FRAMESTART;
+ 	if (end)
+ 		ctl0 |= B43_DMA64_DCTL0_FRAMEEND;
+ 	if (irq)
+ 		ctl0 |= B43_DMA64_DCTL0_IRQ;
+-	ctl1 |= (bufsize - ring-&gt;frameoffset)
+-	    &amp; B43_DMA64_DCTL1_BYTECNT;
++	ctl1 |= bufsize &amp; B43_DMA64_DCTL1_BYTECNT;
+ 	ctl1 |= (addrext &lt;&lt; B43_DMA64_DCTL1_ADDREXT_SHIFT)
+ 	    &amp; B43_DMA64_DCTL1_ADDREXT_MASK;
+ 
+ 	desc-&gt;dma64.control0 = cpu_to_le32(ctl0);
+ 	desc-&gt;dma64.control1 = cpu_to_le32(ctl1);
+ 	desc-&gt;dma64.address_low = cpu_to_le32(addrlo);
+@@ -827,15 +825,12 @@ struct b43_dmaring *b43_setup_dmaring(st
+ 		ring-&gt;tx = 1;
+ 		ring-&gt;current_slot = -1;
+ 	} else {
+ 		if (ring-&gt;index == 0) {
+ 			ring-&gt;rx_buffersize = B43_DMA0_RX_BUFFERSIZE;
+ 			ring-&gt;frameoffset = B43_DMA0_RX_FRAMEOFFSET;
+-		} else if (ring-&gt;index == 3) {
+-			ring-&gt;rx_buffersize = B43_DMA3_RX_BUFFERSIZE;
+-			ring-&gt;frameoffset = B43_DMA3_RX_FRAMEOFFSET;
+ 		} else
+ 			B43_WARN_ON(1);
+ 	}
+ 	spin_lock_init(&amp;ring-&gt;lock);
+ #ifdef CONFIG_B43_DEBUG
+ 	ring-&gt;last_injected_overflow = jiffies;
+Index: wireless-testing/drivers/net/wireless/b43/dma.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.h	2008-05-23 23:41:06.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/dma.h	2009-02-19 22:32:21.000000000 +0100
+@@ -1,17 +1,15 @@
+ #ifndef B43_DMA_H_
+ #define B43_DMA_H_
+ 
+-#include &lt;linux/list.h&gt;
++#include &lt;linux/ieee80211.h&gt;
+ #include &lt;linux/spinlock.h&gt;
+-#include &lt;linux/workqueue.h&gt;
+-#include &lt;linux/linkage.h&gt;
+-#include &lt;asm/atomic.h&gt;
+ 
+ #include &quot;b43.h&quot;
+ 
++
+ /* DMA-Interrupt reasons. */
+ #define B43_DMAIRQ_FATALMASK	((1 &lt;&lt; 10) | (1 &lt;&lt; 11) | (1 &lt;&lt; 12) \
+ 					 | (1 &lt;&lt; 14) | (1 &lt;&lt; 15))
+ #define B43_DMAIRQ_NONFATALMASK	(1 &lt;&lt; 13)
+ #define B43_DMAIRQ_RX_DONE		(1 &lt;&lt; 16)
+ 
+@@ -158,20 +156,19 @@ struct b43_dmadesc_generic {
+ 		struct b43_dmadesc64 dma64;
+ 	} __attribute__ ((__packed__));
+ } __attribute__ ((__packed__));
+ 
+ /* Misc DMA constants */
+ #define B43_DMA_RINGMEMSIZE		PAGE_SIZE
+-#define B43_DMA0_RX_FRAMEOFFSET	30
+-#define B43_DMA3_RX_FRAMEOFFSET	0
++#define B43_DMA0_RX_FRAMEOFFSET		30
+ 
+ /* DMA engine tuning knobs */
+ #define B43_TXRING_SLOTS		128
+ #define B43_RXRING_SLOTS		64
+-#define B43_DMA0_RX_BUFFERSIZE	(2304 + 100)
+-#define B43_DMA3_RX_BUFFERSIZE	16
++#define B43_DMA0_RX_BUFFERSIZE		IEEE80211_MAX_FRAME_LEN
++
+ 
+ struct sk_buff;
+ struct b43_private;
+ struct b43_txstatus;
+ 
+ struct b43_dmadesc_meta {
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005229.html">[PATCH] b43: Move DMA stop sanity check
+</A></li>
+	<LI>Next message: <A HREF="005231.html">[PATCH] b43: Optimize DMA buffers
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5230">[ date ]</a>
+              <a href="thread.html#5230">[ thread ]</a>
+              <a href="subject.html#5230">[ subject ]</a>
+              <a href="author.html#5230">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: Ignore ampdu status reports
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Ignore%20ampdu%20status%20reports&In-Reply-To=%3C45c81d43.P6v/adIydh88LL%2Bj%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000341.html">
+   <LINK REL="Next"  HREF="000351.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: Ignore ampdu status reports</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Ignore%20ampdu%20status%20reports&In-Reply-To=%3C45c81d43.P6v/adIydh88LL%2Bj%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] bcm43xx: Ignore ampdu status reports">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Tue Feb  6 07:16:35 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000341.html">RFT:  bcm43xx: Ignore intermediate status reports
+</A></li>
+        <LI>Next message: <A HREF="000351.html">asserts during suspend2ram (bcm43xx blacklisted)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#349">[ date ]</a>
+              <a href="thread.html#349">[ thread ]</a>
+              <a href="subject.html#349">[ subject ]</a>
+              <a href="author.html#349">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+iIf bcm43xx were to process an afterburner (ampdu) status response, Linux would oops. The
+ampdu and intermediate status bits are properly named.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -1453,12 +1453,10 @@ static void handle_irq_transmit_status(s
+ 
+ 		bcm43xx_debugfs_log_txstat(bcm, &amp;stat);
+ 
+-		if (stat.flags &amp; BCM43xx_TXSTAT_FLAG_IGNORE)
++		if (stat.flags &amp; BCM43xx_TXSTAT_FLAG_AMPDU)
++			continue;
++		if (stat.flags &amp; BCM43xx_TXSTAT_FLAG_INTER)
+ 			continue;
+-		if (!(stat.flags &amp; BCM43xx_TXSTAT_FLAG_ACK)) {
+-			//TODO: packet was not acked (was lost)
+-		}
+-		//TODO: There are more (unknown) flags to test. see bcm43xx_main.h
+ 
+ 		if (bcm43xx_using_pio(bcm))
+ 			bcm43xx_pio_handle_xmitstatus(bcm, &amp;stat);
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_xmit.h
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.h
+@@ -137,14 +137,8 @@ struct bcm43xx_xmitstatus {
+ 	u16 unknown; //FIXME
+ };
+ 
+-#define BCM43xx_TXSTAT_FLAG_ACK		0x01
+-//TODO #define BCM43xx_TXSTAT_FLAG_???	0x02
+-//TODO #define BCM43xx_TXSTAT_FLAG_???	0x04
+-//TODO #define BCM43xx_TXSTAT_FLAG_???	0x08
+-//TODO #define BCM43xx_TXSTAT_FLAG_???	0x10
+-#define BCM43xx_TXSTAT_FLAG_IGNORE	0x20
+-//TODO #define BCM43xx_TXSTAT_FLAG_???	0x40
+-//TODO #define BCM43xx_TXSTAT_FLAG_???	0x80
++#define BCM43xx_TXSTAT_FLAG_AMPDU	0x10
++#define BCM43xx_TXSTAT_FLAG_INTER	0x20
+ 
+ u8 bcm43xx_plcp_get_ratecode_cck(const u8 bitrate);
+ u8 bcm43xx_plcp_get_ratecode_ofdm(const u8 bitrate);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000341.html">RFT:  bcm43xx: Ignore intermediate status reports
+</A></li>
+	<LI>Next message: <A HREF="000351.html">asserts during suspend2ram (bcm43xx blacklisted)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#349">[ date ]</a>
+              <a href="thread.html#349">[ thread ]</a>
+              <a href="subject.html#349">[ subject ]</a>
+              <a href="author.html#349">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

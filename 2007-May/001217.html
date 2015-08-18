@@ -1,0 +1,280 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm43xx with 2.6.21 vanilla and larry's combined patch loops;
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm43xx%20with%202.6.21%20vanilla%20and%20larry%27s%20combined%20patch%20loops%3B&In-Reply-To=%3C200705060411.49303.groups%40berebel.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001214.html">
+   <LINK REL="Next"  HREF="001220.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm43xx with 2.6.21 vanilla and larry's combined patch loops;</H1>
+    <B>Denis V Seleznyov</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm43xx%20with%202.6.21%20vanilla%20and%20larry%27s%20combined%20patch%20loops%3B&In-Reply-To=%3C200705060411.49303.groups%40berebel.com%3E"
+       TITLE="bcm43xx with 2.6.21 vanilla and larry's combined patch loops;">groups at berebel.com
+       </A><BR>
+    <I>Sun May  6 02:11:49 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001214.html">bcm43xx with 2.6.21 vanilla and larry's combined patch loops;	with the	bcm-softmac-sa fails to associate [4311]
+</A></li>
+        <LI>Next message: <A HREF="001220.html">bcm43xx with 2.6.21 vanilla and larry's combined patch loops -	SOLVED
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1217">[ date ]</a>
+              <a href="thread.html#1217">[ thread ]</a>
+              <a href="subject.html#1217">[ subject ]</a>
+              <a href="author.html#1217">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Ehud Gavron wrote:
+
+&gt;<i> Ok, so I was bored... and installed the 2.6.21 kernel.
+</I>&gt;<i> I then patch -p1 &lt; combined_2.6.21.patch
+</I>&gt;<i> make
+</I>&gt;<i> make modules_install
+</I>&gt;<i> make install
+</I>&gt;<i> sync &amp;&amp; reboot -f
+</I>&gt;<i> 
+</I>&gt;<i> The bcm43xx modules reports associated... scanning... associated... with
+</I>&gt;<i> another message in the middle, about once every half second without
+</I>&gt;<i> stopping.
+</I>&gt;<i> The dmesg shows radio on, link not ready, link associated, radio off,
+</I>&gt;<i> [repeats]
+</I>
+I have similar problem with 4311 (Dell Inspiron 640m with 1390 mini-wireless
+module). I didn't noticed neither any problems with kernel module inserting
+or removing, nor kernel panic.
+
+Sysinfo:
+Gentoo Linux
+linux-2.6.21 (almost vanilla) + combined_2.6.21.patch
+Asus AM604g adsl router/AP based on Broadcom BCM6348
+wpa_supplicant-0.5.7
+firmware 3.130.20.0
+Network authentication: WPA-PSK with TKIP encryption
+wireless card is eth2
+
+wpa_supplicant.conf:
+
+ap_scan=1
+network={
+        ssid=&quot;myssid&quot;
+        bssid=02:13:d4:XX:XX:XX
+        scan_ssid=1
+        proto=WPA
+        key_mgmt=WPA-PSK
+        pairwise=TKIP
+        group=TKIP
+        psk=&quot;secret&quot;
+}
+
+Running
+`wpa_supplicant -Dwext -ieth2 -c/etc/wpa_supplicant/wpa_supplicant.conf -d`
+gives me following (beware, story continues below):
+
+###################### wpa_supplicant starting ###################
+
+SIOCGIWRANGE: WE(compiled)=22 WE(source)=18 enc_capa=0xf
+  capabilities: key_mgmt 0xf enc 0xf
+WEXT: Operstate: linkmode=1, operstate=5
+Own MAC address: 00:16:ce:7d:8a:c4
+wpa_driver_wext_set_wpa
+wpa_driver_wext_set_key: alg=0 key_idx=0 set_tx=0 seq_len=0 key_len=0
+wpa_driver_wext_set_key: alg=0 key_idx=1 set_tx=0 seq_len=0 key_len=0
+wpa_driver_wext_set_key: alg=0 key_idx=2 set_tx=0 seq_len=0 key_len=0
+wpa_driver_wext_set_key: alg=0 key_idx=3 set_tx=0 seq_len=0 key_len=0
+wpa_driver_wext_set_countermeasures
+wpa_driver_wext_set_drop_unencrypted
+Setting scan request: 0 sec 100000 usec
+ctrl_interface_group=440
+Added interface eth2
+RTM_NEWLINK: operstate=0 ifi_flags=0x1002 ()
+Wireless event: cmd=0x8b06 len=8
+RTM_NEWLINK: operstate=0 ifi_flags=0x11043 ([UP][RUNNING][LOWER_UP])
+RTM_NEWLINK, IFLA_IFNAME: Interface 'eth2' added
+RTM_NEWLINK: operstate=0 ifi_flags=0x11043 ([UP][RUNNING][LOWER_UP])
+RTM_NEWLINK, IFLA_IFNAME: Interface 'eth2' added
+RTM_NEWLINK: operstate=0 ifi_flags=0x11003 ([UP][LOWER_UP])
+RTM_NEWLINK, IFLA_IFNAME: Interface 'eth2' added
+State: DISCONNECTED -&gt; SCANNING
+############### associating process was here #################
+State: ASSOCIATING -&gt; ASSOCIATED
+wpa_driver_wext_set_operstate: operstate 0-&gt;0 (DORMANT)
+WEXT: Operstate: linkmode=-1, operstate=5
+Associated to a new BSS: BSSID=02:13:d4:ff:c2:01
+No keys have been configured - skip key clearing
+Associated with 02:13:d4:ff:c2:01
+WPA: Association event - clear replay counter
+EAPOL: External notification - portEnabled=0
+EAPOL: External notification - portValid=0
+EAPOL: External notification - EAP success=0
+EAPOL: External notification - portEnabled=1
+EAPOL: SUPP_PAE entering state CONNECTING
+EAPOL: SUPP_BE entering state IDLE
+Setting authentication timeout: 10 sec 0 usec
+Cancelling scan request
+RX EAPOL from 02:13:d4:ff:c2:01
+Setting authentication timeout: 10 sec 0 usec
+IEEE 802.1X RX: version=1 type=3 length=95
+  EAPOL-Key type=254
+  key_info 0x89 (ver=1 keyidx=0 rsvd=0 Pairwise Ack)
+  key_length=32 key_data_length=0
+  replay_counter - hexdump(len=8): 00 00 00 00 00 00 00 00
+  key_nonce - hexdump(len=32): 0f ed f8 e0 f3 18 a2 02 63 ad a0 06 ce 06 ff
+0b 5d 3d 56 00 ff 48 93 89 0f 58 51 95 73 0e bb 50
+  key_iv - hexdump(len=16): 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  key_rsc - hexdump(len=8): 00 00 00 00 00 00 00 00
+  key_id (reserved) - hexdump(len=8): 00 00 00 00 00 00 00 00
+  key_mic - hexdump(len=16): 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+State: ASSOCIATED -&gt; 4WAY_HANDSHAKE
+WPA: RX message 1 of 4-Way Handshake from 02:13:d4:ff:c2:01 (ver=1)
+WPA: Renewed SNonce - hexdump(len=32): c5 1a b5 8f b9 5f af 76 bd a7 b1 db
+44 8f bd d9 42 cb 4f 24 37 4e 77 02 41 64 a4 db a8 ed b0 9a
+WPA: PMK - hexdump(len=32): [REMOVED]
+WPA: PTK - hexdump(len=64): [REMOVED]
+WPA: WPA IE for msg 2/4 - hexdump(len=24): dd 16 00 50 f2 01 01 00 00 50 f2
+02 01 00 00 50 f2 02 01 00 00 50 f2 02
+WPA: Sending EAPOL-Key 2/4
+RX EAPOL from 02:13:d4:ff:c2:01
+IEEE 802.1X RX: version=1 type=3 length=121
+  EAPOL-Key type=254
+  key_info 0x1c9 (ver=1 keyidx=0 rsvd=0 Pairwise Install Ack MIC)
+  key_length=32 key_data_length=26
+  replay_counter - hexdump(len=8): 00 00 00 00 00 00 00 01
+  key_nonce - hexdump(len=32): 0f ed f8 e0 f3 18 a2 02 63 ad a0 06 ce 06 ff
+0b 5d 3d 56 00 ff 48 93 89 0f 58 51 95 73 0e bb 50
+  key_iv - hexdump(len=16): 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  key_rsc - hexdump(len=8): 00 00 00 00 00 00 00 00
+  key_id (reserved) - hexdump(len=8): 00 00 00 00 00 00 00 00
+  key_mic - hexdump(len=16): 1c 7c 0d 32 4d f7 80 03 4a 06 35 37 32 84 12 c5
+State: 4WAY_HANDSHAKE -&gt; 4WAY_HANDSHAKE
+WPA: RX message 3 of 4-Way Handshake from 02:13:d4:ff:c2:01 (ver=1)
+WPA: IE KeyData - hexdump(len=26): dd 18 00 50 f2 01 01 00 00 50 f2 02 01 00
+00 50 f2 02 01 00 00 50 f2 02 00 00
+WPA: Sending EAPOL-Key 4/4
+WPA: Installing PTK to the driver.
+WPA: RSC - hexdump(len=6): 00 00 00 00 00 00
+wpa_driver_wext_set_key: alg=2 key_idx=0 set_tx=1 seq_len=6 key_len=32
+
+############## stuble seems to be here #########
+ioctl[SIOCSIWENCODEEXT]: Invalid argument
+Driver did not support SIOCSIWENCODEEXT
+WPA: Failed to set PTK to the driver.
+State: 4WAY_HANDSHAKE -&gt; GROUP_HANDSHAKE
+EAPOL: startWhen --&gt; 0
+EAPOL: SUPP_PAE entering state CONNECTING
+EAPOL: txStart
+WPA: drop TX EAPOL in non-IEEE 802.1X mode (type=1 len=0)
+RTM_NEWLINK: operstate=0 ifi_flags=0x1003 ([UP])
+Wireless event: cmd=0x8b15 len=20
+Wireless event: new AP: 00:00:00:00:00:00
+Setting scan request: 0 sec 100000 usec
+Added BSSID 02:13:d4:ff:c2:01 into blacklist
+CTRL-EVENT-DISCONNECTED - Disconnect event - remove keys
+wpa_driver_wext_set_key: alg=0 key_idx=0 set_tx=0 seq_len=0 key_len=0
+wpa_driver_wext_set_key: alg=0 key_idx=1 set_tx=0 seq_len=0 key_len=0
+wpa_driver_wext_set_key: alg=0 key_idx=2 set_tx=0 seq_len=0 key_len=0
+wpa_driver_wext_set_key: alg=0 key_idx=3 set_tx=0 seq_len=0 key_len=0
+wpa_driver_wext_set_key: alg=0 key_idx=0 set_tx=0 seq_len=0 key_len=0
+State: GROUP_HANDSHAKE -&gt; DISCONNECTED
+wpa_driver_wext_set_operstate: operstate 0-&gt;0 (DORMANT)
+WEXT: Operstate: linkmode=-1, operstate=5
+EAPOL: External notification - portEnabled=0
+EAPOL: SUPP_PAE entering state DISCONNECTED
+EAPOL: SUPP_BE entering state INITIALIZE
+EAPOL: External notification - portValid=0
+EAPOL: External notification - EAP success=0
+RTM_NEWLINK: operstate=0 ifi_flags=0x1003 ([UP])
+RTM_NEWLINK, IFLA_IFNAME: Interface 'eth2' added
+State: DISCONNECTED -&gt; SCANNING
+################ Loop started ######################
+
+
+Now, a pieces of strace wpa_supplicant:
+
+###################### eth2 opens here ###################
+13622      0.000065 [b7f29410] socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 3
+&lt;0.000020&gt;
+13622      0.000051 [b7f29410] socket(PF_NETLINK, SOCK_RAW, 0) = 4
+&lt;0.000012&gt;
+13622      0.000046 [b7f29410] bind(4, {sa_family=AF_NETLINK, pid=0,
+groups=00000001}, 12) = 0 &lt;0.000010&gt;
+13622      0.000048 [b7f29410] ioctl(3, 0x8b36, 0xbf972a9c) = -1 EOPNOTSUPP
+(Operation not supported) &lt;0.000010&gt;
+13622      0.000050 [b7f29410] ioctl(3, SIOCSIWMODE, 0xbf972aa0) = 0
+&lt;0.000012&gt;
+13622      0.000042 [b7f29410] ioctl(3, SIOCGIFFLAGS, {ifr_name=&quot;eth2&quot;,
+ifr_flags=IFF_BROADCAST|IFF_MULTICAST}) = 0 &lt;0.000007&gt;
+13622      0.000049 [b7f29410] ioctl(3, SIOCSIFFLAGS, 0xbf972aa0) = 0
+&lt;0.336692&gt;
+13622      0.336747 [b7f29410] ioctl(3, SIOCGIWRANGE, 0xbf972af8) = 0
+&lt;0.016013&gt;
+13622      0.016071 [b7f29410] write(1, &quot;SIOCGIWRANGE: WE(compiled)=22
+WE(source)=18 enc_capa=0xf\n&quot;, 57) = 57 &lt;0.000240&gt;
+13622      0.000295 [b7f29410] write(1, &quot;  capabilities: key_mgmt 0xf enc
+0xf\n&quot;, 37) = 37 &lt;0.000119&gt;
+
+############################ failed ioctl #################################
+13622      0.000184 [b7f29410] ioctl(3, 0x8b34, 0xbf971f3c) = -1 EINVAL
+(Invalid argument) &lt;0.001710&gt;
+13622      0.001751 [b7f29410] dup(2)   = 7 &lt;0.000006&gt;
+13622      0.000034 [b7f29410] fcntl64(7, F_GETFL) = 0x2 (flags O_RDWR)
+&lt;0.000006&gt;
+13622      0.000036 [b7f29410] fstat64(7, {st_dev=makedev(0, 10), st_ino=17,
+st_mode=S_IFCHR|0600, st_nlink=1, st_uid=1000, st_gid=5, st_blksize=1024,
+st_blocks=0, st_rdev=makedev(136, 15), st_atime=2007/05/05-06:26:05,
+st_mtime=2007/05/05-06:26:06, st_ctime=2007/05/05-03:34:50}) = 0 &lt;0.000007&gt;
+13622      0.000093 [b7f29410] mmap2(NULL, 4096, PROT_READ|PROT_WRITE,
+MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0xb7f0c000 &lt;0.000007&gt;
+13622      0.000040 [b7f29410] _llseek(7, 0, 0xbf971da8, SEEK_CUR) = -1
+ESPIPE (Illegal seek) &lt;0.000006&gt;
+
+
+############################ explanation from wpa_supplicant ##############
+13622      0.000046 [b7f29410] write(7, &quot;ioctl[SIOCSIWENCODEEXT]: Invalid
+argument\n&quot;, 42) = 42 &lt;0.000119&gt;
+13622      0.000161 [b7f29410] close(7) = 0 &lt;0.000006&gt;
+13622      0.000030 [b7f29410] munmap(0xb7f0c000, 4096) = 0 &lt;0.000012&gt;
+13622      0.000042 [b7f29410] write(1, &quot;Driver did not support
+SIOCSIWENCODEEXT\n&quot;, 40) = 40 &lt;0.000096&gt;
+13622      0.000138 [b7f29410] write(1, &quot;WPA: Failed to set PTK to the
+driver.\n&quot;, 38) = 38 &lt;0.000095&gt;
+13622      0.000137 [b7f29410] write(1, &quot;State: 4WAY_HANDSHAKE -&gt;
+GROUP_HANDSHAKE\n&quot;, 41) = 41 &lt;0.000095&gt;
+
+
+If anybody wants to see full strace output (it is really big), or another
+info, I'm glad to work on it.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001214.html">bcm43xx with 2.6.21 vanilla and larry's combined patch loops;	with the	bcm-softmac-sa fails to associate [4311]
+</A></li>
+	<LI>Next message: <A HREF="001220.html">bcm43xx with 2.6.21 vanilla and larry's combined patch loops -	SOLVED
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1217">[ date ]</a>
+              <a href="thread.html#1217">[ thread ]</a>
+              <a href="subject.html#1217">[ subject ]</a>
+              <a href="author.html#1217">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

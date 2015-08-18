@@ -1,0 +1,149 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Tons of interrupts on driver load
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C4812970A.7090407%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003970.html">
+   <LINK REL="Next"  HREF="003976.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Tons of interrupts on driver load</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C4812970A.7090407%40lwfinger.net%3E"
+       TITLE="Tons of interrupts on driver load">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Apr 26 04:44:26 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003970.html">Tons of interrupts on driver load
+</A></li>
+        <LI>Next message: <A HREF="003976.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3972">[ date ]</a>
+              <a href="thread.html#3972">[ thread ]</a>
+              <a href="subject.html#3972">[ subject ]</a>
+              <a href="author.html#3972">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Richard Jonsson wrote:
+&gt;<i> Larry Finger skrev:
+</I>&gt;&gt;<i> Richard Jonsson wrote:
+</I>&gt;&gt;&gt;<i> flipping switch a few times, led unchanged
+</I>&gt;&gt;&gt;<i> [ 1534.770048] b43-phy0: Radio hardware status changed to ENABLED
+</I>&gt;&gt;&gt;<i> [ 1550.778511] b43-phy0: Radio hardware status changed to DISABLED
+</I>&gt;&gt;&gt;<i> [ 1562.783474] b43-phy0: Radio hardware status changed to ENABLED
+</I>&gt;&gt;&gt;<i> [ 1565.788237] b43-phy0: Radio hardware status changed to DISABLED
+</I>&gt;&gt;<i> This sounds like an rfkill/led configuration problem. In your .config, 
+</I>&gt;&gt;<i> you should have
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> CONFIG_MAC80211_LEDS=y
+</I>&gt;&gt;<i> CONFIG_RFKILL=m
+</I>&gt;&gt;<i> CONFIG_RFKILL_INPUT=m
+</I>&gt;&gt;<i> CONFIG_RFKILL_LEDS=y
+</I>&gt;&gt;<i> CONFIG_B43_LEDS=y
+</I>&gt;&gt;<i> CONFIG_B43_RFKILL=y
+</I>&gt;&gt;<i>
+</I>&gt;<i> Confirmed, but the problem for me is how to select MAC80211_LEDS and 
+</I>&gt;<i> B43_LEDS. Searching in menuconfig I found this:
+</I>&gt;<i> 
+</I>&gt;<i> Symbol: B43_LEDS [=n]
+</I>&gt;<i> Symbol: RFKILL_LEDS [=n]
+</I>&gt;<i> 
+</I>&gt;<i> with no more info below them. 
+</I>&gt;<i>                  Then MAC80211_LEDS turned up this:
+</I>&gt;<i> 
+</I>&gt;<i> Symbol: MAC80211_LEDS [=n] 
+</I>&gt;<i>  
+</I>&gt;<i>        Prompt: Enable LED triggers 
+</I>&gt;<i>  
+</I>&gt;<i>        Defined at net/mac80211/Kconfig:74 
+</I>&gt;<i>  
+</I>&gt;<i>           Depends on: NET &amp;&amp; !S390 &amp;&amp; MAC80211 &amp;&amp; LEDS_TRIGGERS 
+</I>&gt;<i>  
+</I>&gt;<i> 
+</I>&gt;<i> Location:
+</I>&gt;<i>    -&gt; Networking 
+</I>&gt;<i> 
+</I>&gt;<i>      -&gt; Networking support (NET [=y]) 
+</I>&gt;<i> 
+</I>&gt;<i>        -&gt; Wireless 
+</I>&gt;<i> 
+</I>&gt;<i>          -&gt; Generic IEEE 802.11 Networking Stack (mac80211) (MAC80211 
+</I>&gt;<i> [=y])
+</I>&gt;<i> Selected by: IWL4965_LEDS &amp;&amp; NETDEVICES &amp;&amp; !S390 &amp;&amp; IWL4965 || 
+</I>&gt;<i> IWL3945_LEDS &amp;&amp; NETDEVICES &amp;&amp; !S390 &amp;&amp; IWL3945
+</I>&gt;<i> 
+</I>&gt;<i> So without IWL4965 / IWL3945 MAC80211_LEDS can't be selected!!
+</I>&gt;<i> 
+</I>&gt;<i> Selecting IWL3945 and IWL3945_LEDS and reloading menuconfig gives me:
+</I>
+I duplicate your results from menuconfig; however, the appropriate 
+stanza in net/mac80211/Kconfig is
+
+config MAC80211_LEDS
+         bool &quot;Enable LED triggers&quot;
+         depends on MAC80211 &amp;&amp; LEDS_TRIGGERS
+         ---help---
+           This option enables a few LED triggers for different
+           packet receive/transmit events.
+
+There is no mention of IWL3945, etc, and only MAC80211 and 
+LEDS_TRIGGERS (discussed below) are needed.
+
+&gt;<i> 
+</I>&gt;<i> CONFIG_MAC80211_LEDS=y
+</I>&gt;<i> CONFIG_RFKILL=m
+</I>&gt;<i> CONFIG_RFKILL_INPUT=m
+</I>&gt;<i> CONFIG_RFKILL_LEDS=n
+</I>&gt;<i> CONFIG_B43_LEDS=y
+</I>&gt;<i> CONFIG_B43_RFKILL=y
+</I>&gt;<i> 
+</I>&gt;<i> I still can't enable RFKILL_LEDS because I have no clue as to what else 
+</I>&gt;<i> needs to be enabled :/
+</I>
+You get CONFIG_RFKILL_LEDS from Networking -&gt; RF Switch subsystem 
+support, which has an M, and the &quot;Input layer to RF switch connector&quot; 
+in the sub-menu, which also should be M. This section is the one that 
+has LEDS_TRIGGERS.
+
+I only use menuconfig for systems that don't run X, and have never 
+noticed that the dependencies in the help are messed up there. AFAIK, 
+the Kconfig files are OK, and the problem is in menuconfig's parsing 
+of those files.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003970.html">Tons of interrupts on driver load
+</A></li>
+	<LI>Next message: <A HREF="003976.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3972">[ date ]</a>
+              <a href="thread.html#3972">[ thread ]</a>
+              <a href="subject.html#3972">[ subject ]</a>
+              <a href="author.html#3972">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

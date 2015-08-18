@@ -1,0 +1,114 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43legacy: Problems with dhclient
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43legacy%3A%20Problems%20with%20dhclient&In-Reply-To=%3CBAY101-W107F934FCAABD2AC5A942786B50%40phx.gbl%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004248.html">
+   <LINK REL="Next"  HREF="004191.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43legacy: Problems with dhclient</H1>
+    <B>David Ellingsworth</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43legacy%3A%20Problems%20with%20dhclient&In-Reply-To=%3CBAY101-W107F934FCAABD2AC5A942786B50%40phx.gbl%3E"
+       TITLE="b43legacy: Problems with dhclient">identd_ at hotmail.com
+       </A><BR>
+    <I>Wed Jun  4 21:02:02 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004248.html">b43 opensource firmware for monitor mode
+</A></li>
+        <LI>Next message: <A HREF="004191.html">b43legacy: Problems with dhclient
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4190">[ date ]</a>
+              <a href="thread.html#4190">[ thread ]</a>
+              <a href="subject.html#4190">[ subject ]</a>
+              <a href="author.html#4190">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+For a while now, I've been experiencing connection stability issues which from
+what I can tell seem to stem from the use of dhclient.
+
+After upgrading to the latest wireless-testing kernel, I noticed the output from
+wpa_supplicant and iwconfig regarding association status differed as well as an
+inability to use dhclient to receive an ip address. In an attempt to resolve
+the issue, I first eliminated the use of dhclient by issuing a static ip address
+for the interface after it was associated with the AP. Doing so resulted in a very
+stable and reliable connection. This led me to believe the issues were a result
+of using dhclient. To verify, I tried dhcpcd in place of dhclient, which once again
+resulted in a stable and reliable connection. Thus confirming my suspicion.
+
+While examining the behavior of dhclient and dhcpcd, I maintained a copy of the
+resulting dmesg output that was produced for comparison. The results of which, as
+shown below, seem to indicate dhclient is causing the interface to be removed and
+then re-added. While I can only speculate at why this happens, I think it may be
+related to the fact that dhclient tries to broadcast on all interfaces related
+to the one that was specified. Thus the command: &quot;dhclient wlan0&quot;, causes dhclient
+to broadcast on wmaster0, moni0(when configured), and wlan0.
+
+Despite the information in demsg, when dhclient is used wpa_supplicant seems to
+maintain information that it is associated with the AP while iwconfig indicates
+otherwise. In any case, the interface enters a state that seems to confuse
+wpa_supplicant. Thus wpa_supplicant needs to be restarted or the AP needs to be
+explicitly specified using iwconfig wlan0 ap .
+
+While dhclient may clearly be at fault here, I have observed similar behavior on 
+2.6.25-wl as well as prior kernels. With 2.6.25-wl the output from both &quot;wpa_cli status&quot;
+and &quot;iwconfig wlan0&quot; indicate there is an association with the AP, when it is apparent
+there is not as a result of the removal and addition of the interface by dhclient. In
+which case, issuing a static ip address to the interface after attempting to use dhclient
+results in transmission timeouts while trying to ping another node on the network.
+Thus indicating that the interface is indeed not associated as otherwise indicated.
+
+Regards,
+
+David Ellingsworth
+
+Output from &quot;uname -r&quot;: 2.6.26-rc4-wl
+
+Output from &quot;lspci -vvn&quot;:
+==================================================================================
+00:09.0 0280: 14e4:4320 (rev 02)
+    Subsystem: 0e11:00e7
+    Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping-
+             SERR- FastB2B- DisINTx-
+    Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast&gt;TAbort- SERR- 
+_________________________________________________________________
+Now you can invite friends from Facebook and other groups to join you on Windows Live&#8482; Messenger. Add now.
+<A HREF="https://www.invite2messenger.net/im/?source=TXT_EML_WLH_AddNow_Now">https://www.invite2messenger.net/im/?source=TXT_EML_WLH_AddNow_Now</A>
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080604/15b69b6e/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080604/15b69b6e/attachment.html</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004248.html">b43 opensource firmware for monitor mode
+</A></li>
+	<LI>Next message: <A HREF="004191.html">b43legacy: Problems with dhclient
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4190">[ date ]</a>
+              <a href="thread.html#4190">[ thread ]</a>
+              <a href="subject.html#4190">[ subject ]</a>
+              <a href="author.html#4190">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

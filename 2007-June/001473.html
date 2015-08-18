@@ -1,0 +1,142 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Broadcom 4318 with newer bcm43xx&amp;firmware doesn't works
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Broadcom%204318%20with%20newer%20bcm43xx%26firmware%20doesn%27t%20works&In-Reply-To=%3C4683F2F6.1010006%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001472.html">
+   <LINK REL="Next"  HREF="001474.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Broadcom 4318 with newer bcm43xx&amp;firmware doesn't works</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Broadcom%204318%20with%20newer%20bcm43xx%26firmware%20doesn%27t%20works&In-Reply-To=%3C4683F2F6.1010006%40lwfinger.net%3E"
+       TITLE="Broadcom 4318 with newer bcm43xx&amp;firmware doesn't works">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Thu Jun 28 19:42:14 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001472.html">Broadcom 4318 with newer bcm43xx&amp;firmware doesn't works
+</A></li>
+        <LI>Next message: <A HREF="001474.html">Broadcom 4318 with newer bcm43xx&amp;firmware doesn't works
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1473">[ date ]</a>
+              <a href="thread.html#1473">[ thread ]</a>
+              <a href="subject.html#1473">[ subject ]</a>
+              <a href="author.html#1473">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Florian Erfurth wrote:
+&gt;<i> Hi, I'm using notebook Acer Aspire 5022 with builtin WLAN Broadcom 4318.
+</I>&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# lspci -v
+</I>&gt;<i> [snip]
+</I>&gt;<i> 
+</I>&gt;<i> 06:05.0 Network controller: Broadcom Corporation BCM4318 [AirForce One 54g]
+</I>&gt;<i> 802.11g Wireless LAN Controller (rev 02)
+</I>&gt;<i>         Subsystem: AMBIT Microsystem Corp. Aspire 3022WLMi, 5024WLMi, 5020
+</I>&gt;<i>         Flags: bus master, fast devsel, latency 64, IRQ 21
+</I>&gt;<i>         Memory at c0204000 (32-bit, non-prefetchable) [size=8K]
+</I>&gt;<i> [snip]
+</I>&gt;<i> &lt;&lt;&lt;
+</I>&gt;<i> My wlan worked well until I upgraded from fedora core 6 to fedora 7. Then
+</I>&gt;<i> bcm43xx-Driver complaints about old firmware version, so I have to get
+</I>--snip--
+
+&gt;<i> There is a warning line, which may be the cause of nonworking. :(
+</I>
+It is a symptom of the cause.
+
+&gt;<i> If I look into iwconfig it shows Link-Quality, Signal- and Noise-level. Does
+</I>&gt;<i> it sound good?
+</I>
+Those values are completely bogus. In the official bcm43xx-mac80211 trees, the code gives more 
+realistic values, but those patches are not in FC7.
+
+&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# iwconfig
+</I>&gt;<i> lo        no wireless extensions.
+</I>&gt;<i> 
+</I>&gt;<i> wmaster0  no wireless extensions.
+</I>&gt;<i> 
+</I>&gt;<i> wlan0     IEEE 802.11g  ESSID:&quot;Guest Access&quot;
+</I>&gt;<i>           Mode:Managed  Frequency:2.462 GHz  Access Point: XX:XX:XX:XX:XX:XX
+</I>&gt;<i>           Bit Rate=18 Mb/s
+</I>&gt;<i>           Retry min limit:7   RTS thr:off   Fragment thr=2346 B
+</I>&gt;<i>           Encryption key:XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX
+</I>&gt;<i>           Link Quality=193/146  Signal level=-238 dBm  Noise level=-73 dBm
+</I>&gt;<i>           Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+</I>&gt;<i>           Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+</I>&gt;<i> 
+</I>&gt;<i> eth0      no wireless extensions.
+</I>&gt;<i> 
+</I>&gt;<i> vmnet8    no wireless extensions.
+</I>&gt;<i> &lt;&lt;&lt;
+</I>&gt;<i> But wait, what the hell is wmaster0? In FC6 there was no wmaster0! Whatever.
+</I>
+That is a feature of mac80211. It supports multiple devices, whereas bcm43xx-softmac (the old one) 
+does not.
+
+&gt;<i> Now look again into ifconfig. You can see that some bytes was sent/received
+</I>&gt;<i> (I think it's from trying getting IP-Adress from dhcp-server):
+</I>&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at Turion</A> ~]# ifconfig wlan0
+</I>&gt;<i> wlan0     Link encap:Ethernet  HWaddr XX:XX:XX:XX:XX:XX
+</I>&gt;<i>           UP BROADCAST MULTICAST  MTU:1500  Metric:1
+</I>&gt;<i>           RX packets:1 errors:0 dropped:0 overruns:0 frame:0
+</I>&gt;<i>           TX packets:29 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;<i>           collisions:0 txqueuelen:1000
+</I>&gt;<i>           RX bytes:346 (346.0 b)  TX bytes:8657 (8.4 KiB)
+</I>&gt;<i> &lt;&lt;&lt;
+</I>&gt;<i> 
+</I>&gt;<i> If I try with 'iwlist scan' the AccessPoints are shown in wlan0 which looks
+</I>&gt;<i> very good. So where is a problem? I hope someone of you could help me.
+</I>&gt;<i> Please!
+</I>
+The problem is one of signal strength/maximum transmission rate with bcm43xx_mac80211. The current 
+state in Michael Beusch's git tree is better than that of FC7, but only a little better. One change 
+is that the driver initializes to 1 Mbs rather than 54 Mbs, which greatly aids the 
+authentication/association process.
+
+&gt;<i> cu Floh
+</I>&gt;<i> PS: With the newer version of bcm43xx there is no need to 'modprobe bcm43xx'
+</I>&gt;<i> (I mean 'bcm43xx' not 'bcm43xx_mac80211'), am I right?
+</I>
+Yes.
+
+&gt;<i> PS2: I've tried with Windows-Vista-driver for broadcom-chip, but
+</I>&gt;<i> unfortunatelly it's too new for fwcutter. :(
+</I>
+Your firmware is not the problem and should be OK.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001472.html">Broadcom 4318 with newer bcm43xx&amp;firmware doesn't works
+</A></li>
+	<LI>Next message: <A HREF="001474.html">Broadcom 4318 with newer bcm43xx&amp;firmware doesn't works
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1473">[ date ]</a>
+              <a href="thread.html#1473">[ thread ]</a>
+              <a href="subject.html#1473">[ subject ]</a>
+              <a href="author.html#1473">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

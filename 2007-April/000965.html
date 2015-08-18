@@ -1,0 +1,123 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: Fix 802.11b/g scan limits to match regulatory	requirements
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20802.11b/g%20scan%20limits%20to%20match%20regulatory%0A%09requirements&In-Reply-To=%3C4617e8eb.8Y1vYMQ0EdBtHlLP%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000964.html">
+   <LINK REL="Next"  HREF="000966.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: Fix 802.11b/g scan limits to match regulatory	requirements</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20802.11b/g%20scan%20limits%20to%20match%20regulatory%0A%09requirements&In-Reply-To=%3C4617e8eb.8Y1vYMQ0EdBtHlLP%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] bcm43xx: Fix 802.11b/g scan limits to match regulatory	requirements">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Apr  7 20:54:35 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000964.html">[PATCH] bcm43xx-mac80211: Fix error in initiallizing max RSSI and	max signal
+</A></li>
+        <LI>Next message: <A HREF="000966.html">[PATCH] bcm43xx: Fix PPC machine checks and update to match	loopback gain specifications
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#965">[ date ]</a>
+              <a href="thread.html#965">[ thread ]</a>
+              <a href="subject.html#965">[ subject ]</a>
+              <a href="author.html#965">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>In 802.11b/g mode, bcm43xx actively scans channels 1-14 no matter what locale has been set,
+either in the sprom or by the locale option. This behaviorviolates regulatory rules
+everywhere in the world except Japan. This patch changes the default range to the correct
+value if the locale has been set, and to channels 1-13 if no locale has been set.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+This should be applied to wireless-2.6.
+
+Larry
+
+ bcm43xx_main.c |   20 +++++++++++++++++++-
+ 1 file changed, 19 insertions(+), 1 deletion(-)
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -946,6 +946,7 @@ static int bcm43xx_geo_init(struct bcm43
+ 	u8 channel;
+ 	struct bcm43xx_phyinfo *phy;
+ 	const char *iso_country;
++	u8 max_bg_channel;
+ 
+ 	geo = kzalloc(sizeof(*geo), GFP_KERNEL);
+ 	if (!geo)
+@@ -967,6 +968,23 @@ static int bcm43xx_geo_init(struct bcm43
+ 	}
+ 	iso_country = bcm43xx_locale_iso(bcm-&gt;sprom.locale);
+ 
++/* set the maximum channel based on locale set in sprom or witle locale option */
++	switch (bcm-&gt;sprom.locale) {
++	case BCM43xx_LOCALE_THAILAND:
++	case BCM43xx_LOCALE_ISRAEL:
++	case BCM43xx_LOCALE_JORDAN:
++	case BCM43xx_LOCALE_USA_CANADA_ANZ:
++	case BCM43xx_LOCALE_USA_LOW:
++		max_bg_channel = 11;
++		break;
++	case BCM43xx_LOCALE_JAPAN:
++	case BCM43xx_LOCALE_JAPAN_HIGH:
++		max_bg_channel = 14;
++		break;
++	default:
++		max_bg_channel = 13;
++	}
++
+  	if (have_a) {
+ 		for (i = 0, channel = IEEE80211_52GHZ_MIN_CHANNEL;
+ 		      channel &lt;= IEEE80211_52GHZ_MAX_CHANNEL; channel++) {
+@@ -978,7 +996,7 @@ static int bcm43xx_geo_init(struct bcm43
+ 	}
+ 	if (have_bg) {
+ 		for (i = 0, channel = IEEE80211_24GHZ_MIN_CHANNEL;
+-		      channel &lt;= IEEE80211_24GHZ_MAX_CHANNEL; channel++) {
++		      channel &lt;= max_bg_channel; channel++) {
+ 			chan = &amp;geo-&gt;bg[i++];
+ 			chan-&gt;freq = bcm43xx_channel_to_freq_bg(channel);
+ 			chan-&gt;channel = channel;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000964.html">[PATCH] bcm43xx-mac80211: Fix error in initiallizing max RSSI and	max signal
+</A></li>
+	<LI>Next message: <A HREF="000966.html">[PATCH] bcm43xx: Fix PPC machine checks and update to match	loopback gain specifications
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#965">[ date ]</a>
+              <a href="thread.html#965">[ thread ]</a>
+              <a href="subject.html#965">[ subject ]</a>
+              <a href="author.html#965">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

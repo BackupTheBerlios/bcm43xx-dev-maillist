@@ -1,0 +1,700 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Assertion failed in bcm43xx_mac80211
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Assertion%20failed%20in%20bcm43xx_mac80211&In-Reply-To=%3C8e6f94720703142209s2cc8b9e3uab73fdc5f420d9d8%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000770.html">
+   <LINK REL="Next"  HREF="000772.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Assertion failed in bcm43xx_mac80211</H1>
+    <B>Will Dyson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Assertion%20failed%20in%20bcm43xx_mac80211&In-Reply-To=%3C8e6f94720703142209s2cc8b9e3uab73fdc5f420d9d8%40mail.gmail.com%3E"
+       TITLE="Assertion failed in bcm43xx_mac80211">will.dyson at gmail.com
+       </A><BR>
+    <I>Thu Mar 15 06:09:43 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000770.html">[PATCH] bcm43xx:Eliminate some 'G Mode Enable' magic numbers
+</A></li>
+        <LI>Next message: <A HREF="000772.html">Assertion failed in bcm43xx_mac80211
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#771">[ date ]</a>
+              <a href="thread.html#771">[ thread ]</a>
+              <a href="subject.html#771">[ subject ]</a>
+              <a href="author.html#771">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi,
+
+I've been testing the mac80211 version of bcm43xx from the
+wireless-dev tree (up to date as of this email). I get assertions when
+I try to scan or associate.
+
+I'm running x86_64 kernel and userspace. Lspci info is attached. So is
+a full dmesg log of booting wireless-dev, scanning and shutting down.
+
+The assertion I'm getting is this:
+
+bcm43xx_mac80211: ASSERTION FAILED (0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1012:parse_cookie()
+
+bcm43xx_mac80211: ASSERTION FAILED (ring &amp;&amp; *slot &gt;= 0 &amp;&amp; *slot &lt;
+ring-&gt;nr_slots) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1015:parse_cookie()
+
+I spent some time looking into the problem this afternoon. My first
+idea, that it was generating bad cookies in generate_cookie(), turned
+out to be wrong. Instead, the cookie is 0 in the txstatus path of
+dma_rx(). dma_rx() checks for the cookie==0 condition and waits up to
+200usecs for it to change, but it never does. I experimented a bit
+with waiting longer (up to 1000 cycles of the wait loop), but this did
+not help.
+
+With the following (lame) debugging patch applied, I can see that
+correct cookies are being generated, and that at least one member
+field of the hwtxstatus is being se to a non-zero valuet. Results are
+after the patch.
+
+I'm a bit lost as to where to look after this.  I note that
+setup_rx_descbuffer() explicitly sets cookie=0, but that must be
+intentional right?
+
+Also, I'm not familiar with DMA programming, but if my understanding
+the dma api is correct, the device is not supposed to be messing with
+the dma buffer after sync_descbuffer_for_cpu() is called. Doesn't that
+mean that the whole idea of waiting for the cookie to no longer be 0
+is wrong?
+
+
+diff --git a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
+b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
+index d53679d..cfbf84f 100644
+--- a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
++++ b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c
+@@ -974,10 +974,15 @@ static u16 generate_cookie(struct bcm43xx_dmaring *ring,
+ 	case 5:
+ 		cookie = 0xF000;
+ 		break;
++	default:
++		dprintk(KERN_ERR PFX &quot;DMA gencookie: crazy ring-&gt;index: %d\n&quot;, ring-&gt;index);
++		assert(0);
+ 	}
+ 	assert(((u16)slot &amp; 0xF000) == 0x0000);
+ 	cookie |= (u16)slot;
+
++	dprintk(KERN_ERR PFX &quot;DMA gencookie: cookie is %hX\n&quot;, cookie);
++
+ 	return cookie;
+ }
+
+@@ -1009,6 +1014,7 @@ struct bcm43xx_dmaring * parse_cookie(struct
+bcm43xx_wldev *dev,
+ 		ring = dma-&gt;tx_ring5;
+ 		break;
+ 	default:
++		dprintk(KERN_ERR PFX &quot;DMA parsecookie: cookie was: %hX\n&quot;, cookie);
+ 		assert(0);
+ 	}
+ 	*slot = (cookie &amp; 0x0FFF);
+@@ -1191,6 +1197,10 @@ static void dma_rx(struct bcm43xx_dmaring *ring,
+ 			udelay(2);
+ 			barrier();
+ 		}
++
++		assert(hw-&gt;cookie != 0);
++		dprintkl(KERN_ERR PFX &quot;DMA RX xmit status: i is %d\n&quot;, i);
++		dprintkl(KERN_ERR PFX &quot;DMA RX hw-&gt;seq is: %hX\n&quot;,  le16_to_cpu(hw-&gt;seq) );
+ 		bcm43xx_handle_hwtxstatus(ring-&gt;dev, hw);
+ 		/* recycle the descriptor buffer. */
+ 		sync_descbuffer_for_device(ring, meta-&gt;dmaaddr, ring-&gt;rx_buffersize);
+
+
+ACPI: PCI Interrupt 0000:02:07.0[A] -&gt; Link [APC2] -&gt; GSI 17 (level,
+low) -&gt; IRQ 17
+
+ssb: Sonics Silicon Backplane found on PCI device 0000:02:07.0
+
+bcm43xx_mac80211: Broadcom 4306 WLAN found
+
+bcm43xx_mac80211: Radio turned off
+
+bcm43xx_mac80211: Adding Interface type 2
+
+bcm43xx_mac80211: Found PHY: Analog 1, Type 2, Revision 1
+
+bcm43xx_mac80211: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+
+bcm43xx_mac80211: !WARNING! Idle-TSSI phy-&gt;cur_idle_tssi measuring
+failed. (cur=0, tgt=62). Disabling TX power adjustment.
+
+bcm43xx_mac80211: Radio turned on
+
+bcm43xx_mac80211: Radio enabled by hardware
+
+bcm43xx_mac80211: Chip initialized
+
+bcm43xx_mac80211: 30-bit DMA initialized
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: TODO: Incomplete code in keymac_write() at
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c:727
+
+bcm43xx_mac80211: Wireless interface started
+
+bcm43xx_mac80211: DMA gencookie: cookie is B000
+
+bcm43xx_mac80211: ASSERTION FAILED (hw-&gt;cookie != 0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1201:dma_rx()
+
+bcm43xx_mac80211: DMA RX xmit status: i is 101
+
+bcm43xx_mac80211: DMA RX hw-&gt;seq is: 6220
+
+bcm43xx_mac80211: DMA gencookie: cookie is B002
+
+bcm43xx_mac80211: ASSERTION FAILED (hw-&gt;cookie != 0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1201:dma_rx()
+
+bcm43xx_mac80211: DMA RX xmit status: i is 101
+
+bcm43xx_mac80211: DMA RX hw-&gt;seq is: 40
+
+bcm43xx_mac80211: DMA parsecookie: cookie was: 0
+
+bcm43xx_mac80211: ASSERTION FAILED (0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1018:parse_cookie()
+
+bcm43xx_mac80211: ASSERTION FAILED (ring &amp;&amp; *slot &gt;= 0 &amp;&amp; *slot &lt;
+ring-&gt;nr_slots) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1021:parse_cookie()
+
+bcm43xx_mac80211: DMA gencookie: cookie is B004
+
+bcm43xx_mac80211: ASSERTION FAILED (hw-&gt;cookie != 0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1201:dma_rx()
+
+bcm43xx_mac80211: DMA RX xmit status: i is 101
+
+bcm43xx_mac80211: DMA RX hw-&gt;seq is: 0
+
+bcm43xx_mac80211: DMA parsecookie: cookie was: 0
+
+bcm43xx_mac80211: ASSERTION FAILED (0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1018:parse_cookie()
+
+bcm43xx_mac80211: ASSERTION FAILED (ring &amp;&amp; *slot &gt;= 0 &amp;&amp; *slot &lt;
+ring-&gt;nr_slots) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1021:parse_cookie()
+
+bcm43xx_mac80211: DMA gencookie: cookie is B006
+
+bcm43xx_mac80211: ASSERTION FAILED (hw-&gt;cookie != 0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1201:dma_rx()
+
+bcm43xx_mac80211: DMA RX xmit status: i is 101
+
+bcm43xx_mac80211: DMA RX hw-&gt;seq is: C4
+
+bcm43xx_mac80211: DMA parsecookie: cookie was: 0
+
+bcm43xx_mac80211: ASSERTION FAILED (0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1018:parse_cookie()
+
+bcm43xx_mac80211: ASSERTION FAILED (ring &amp;&amp; *slot &gt;= 0 &amp;&amp; *slot &lt;
+ring-&gt;nr_slots) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1021:parse_cookie()
+
+bcm43xx_mac80211: DMA gencookie: cookie is B008
+
+bcm43xx_mac80211: ASSERTION FAILED (hw-&gt;cookie != 0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1201:dma_rx()
+
+bcm43xx_mac80211: DMA RX xmit status: i is 101
+
+bcm43xx_mac80211: DMA RX hw-&gt;seq is: 0
+
+bcm43xx_mac80211: DMA parsecookie: cookie was: 0
+
+bcm43xx_mac80211: ASSERTION FAILED (0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1018:parse_cookie()
+
+bcm43xx_mac80211: ASSERTION FAILED (ring &amp;&amp; *slot &gt;= 0 &amp;&amp; *slot &lt;
+ring-&gt;nr_slots) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1021:parse_cookie()
+
+bcm43xx_mac80211: DMA gencookie: cookie is B00A
+
+bcm43xx_mac80211: ASSERTION FAILED (hw-&gt;cookie != 0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1201:dma_rx()
+
+bcm43xx_mac80211: DMA parsecookie: cookie was: 0
+
+bcm43xx_mac80211: ASSERTION FAILED (0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1018:parse_cookie()
+
+bcm43xx_mac80211: ASSERTION FAILED (ring &amp;&amp; *slot &gt;= 0 &amp;&amp; *slot &lt;
+ring-&gt;nr_slots) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1021:parse_cookie()
+
+bcm43xx_mac80211: DMA gencookie: cookie is B00C
+
+bcm43xx_mac80211: ASSERTION FAILED (hw-&gt;cookie != 0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1201:dma_rx()
+
+bcm43xx_mac80211: DMA parsecookie: cookie was: 0
+
+bcm43xx_mac80211: ASSERTION FAILED (0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1018:parse_cookie()
+
+bcm43xx_mac80211: ASSERTION FAILED (ring &amp;&amp; *slot &gt;= 0 &amp;&amp; *slot &lt;
+ring-&gt;nr_slots) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1021:parse_cookie()
+
+bcm43xx_mac80211: DMA gencookie: cookie is B00E
+
+bcm43xx_mac80211: ASSERTION FAILED (hw-&gt;cookie != 0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1201:dma_rx()
+
+bcm43xx_mac80211: DMA parsecookie: cookie was: 0
+
+bcm43xx_mac80211: ASSERTION FAILED (0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1018:parse_cookie()
+
+bcm43xx_mac80211: ASSERTION FAILED (ring &amp;&amp; *slot &gt;= 0 &amp;&amp; *slot &lt;
+ring-&gt;nr_slots) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1021:parse_cookie()
+
+bcm43xx_mac80211: DMA gencookie: cookie is B010
+
+bcm43xx_mac80211: ASSERTION FAILED (hw-&gt;cookie != 0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1201:dma_rx()
+
+bcm43xx_mac80211: DMA parsecookie: cookie was: 0
+
+bcm43xx_mac80211: ASSERTION FAILED (0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1018:parse_cookie()
+
+bcm43xx_mac80211: ASSERTION FAILED (ring &amp;&amp; *slot &gt;= 0 &amp;&amp; *slot &lt;
+ring-&gt;nr_slots) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1021:parse_cookie()
+
+bcm43xx_mac80211: DMA gencookie: cookie is B012
+
+bcm43xx_mac80211: ASSERTION FAILED (hw-&gt;cookie != 0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1201:dma_rx()
+
+bcm43xx_mac80211: DMA parsecookie: cookie was: 0
+
+bcm43xx_mac80211: ASSERTION FAILED (0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1018:parse_cookie()
+
+bcm43xx_mac80211: ASSERTION FAILED (ring &amp;&amp; *slot &gt;= 0 &amp;&amp; *slot &lt;
+ring-&gt;nr_slots) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1021:parse_cookie()
+
+bcm43xx_mac80211: DMA gencookie: cookie is B014
+
+bcm43xx_mac80211: ASSERTION FAILED (hw-&gt;cookie != 0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1201:dma_rx()
+
+bcm43xx_mac80211: DMA parsecookie: cookie was: 0
+
+bcm43xx_mac80211: ASSERTION FAILED (0) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1018:parse_cookie()
+
+bcm43xx_mac80211: ASSERTION FAILED (ring &amp;&amp; *slot &gt;= 0 &amp;&amp; *slot &lt;
+ring-&gt;nr_slots) at:
+drivers/net/wireless/mac80211/bcm43xx/bcm43xx_dma.c:1021:parse_cookie()
+
+bcm43xx_mac80211: Removing Interface type 2
+
+bcm43xx_mac80211: Wireless interface stopped
+
+bcm43xx_mac80211: DMA-32 0x0260 (RX) max used slots: 1/64
+
+bcm43xx_mac80211: DMA-32 0x0200 (RX) max used slots: 1/64
+
+bcm43xx_mac80211: DMA-32 0x02A0 (TX) max used slots: 0/128
+
+bcm43xx_mac80211: DMA-32 0x0280 (TX) max used slots: 0/128
+
+bcm43xx_mac80211: DMA-32 0x0260 (TX) max used slots: 0/128
+
+bcm43xx_mac80211: DMA-32 0x0240 (TX) max used slots: 0/128
+
+bcm43xx_mac80211: DMA-32 0x0220 (TX) max used slots: 22/128
+
+bcm43xx_mac80211: DMA-32 0x0200 (TX) max used slots: 0/128
+
+bcm43xx_mac80211: Radio turned off
+
+bcm43xx_mac80211: Radio turned off
+
+
+-- 
+Will Dyson
+<A HREF="http://www.lucidts.com/">http://www.lucidts.com/</A>
+Linux/Mac/Win consulting
+-------------- next part --------------
+00:00.0 Host bridge: nVidia Corporation nForce3 250Gb Host Bridge (rev a1)
+	Subsystem: Micro-Star International Co., Ltd. Unknown device 0250
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 0
+	Region 0: Memory at &lt;ignored&gt; (32-bit, prefetchable)
+	Capabilities: [44] HyperTransport: Slave or Primary Interface
+		Command: BaseUnitID=0 UnitCnt=14 MastHost- DefDir- DUL-
+		Link Control 0: CFlE+ CST- CFE- &lt;LkFail- Init+ EOC- TXO- &lt;CRCErr=0 IsocEn- LSEn- ExtCTL- 64b-
+		Link Config 0: MLWI=16bit DwFcIn- MLWO=16bit DwFcOut- LWI=16bit DwFcInEn- LWO=16bit DwFcOutEn-
+		Link Control 1: CFlE- CST- CFE- &lt;LkFail+ Init- EOC+ TXO+ &lt;CRCErr=0 IsocEn- LSEn- ExtCTL- 64b-
+		Link Config 1: MLWI=8bit DwFcIn- MLWO=8bit DwFcOut- LWI=8bit DwFcInEn- LWO=8bit DwFcOutEn-
+		Revision ID: 1.03
+		Link Frequency 0: 1.0GHz
+		Link Error 0: &lt;Prot- &lt;Ovfl- &lt;EOC- CTLTm-
+		Link Frequency Capability 0: 200MHz+ 300MHz+ 400MHz+ 500MHz+ 600MHz+ 800MHz+ 1.0GHz- 1.2GHz- 1.4GHz- 1.6GHz- Vend-
+		Feature Capability: IsocFC+ LDTSTOP+ CRCTM- ECTLT- 64bA- UIDRD-
+		Link Frequency 1: 200MHz
+		Link Error 1: &lt;Prot- &lt;Ovfl- &lt;EOC- CTLTm-
+		Link Frequency Capability 1: 200MHz- 300MHz- 400MHz- 500MHz- 600MHz- 800MHz- 1.0GHz- 1.2GHz- 1.4GHz- 1.6GHz- Vend-
+		Error Handling: PFlE- OFlE- PFE- OFE- EOCFE- RFE- CRCFE- SERRFE- CF- RE- PNFE- ONFE- EOCNFE- RNFE- CRCNFE- SERRNFE-
+		Prefetchable memory behind bridge Upper: 00-00
+		Bus Number: 00
+	Capabilities: [c0] AGP version 3.0
+		Status: RQ=32 Iso- ArqSz=2 Cal=0 SBA+ ITACoh- GART64- HTrans- 64bit- FW- AGP3+ Rate=x4,x8
+		Command: RQ=1 ArqSz=0 Cal=0 SBA+ AGP+ GART64- 64bit- FW- Rate=x4
+
+00:01.0 ISA bridge: nVidia Corporation nForce3 250Gb LPC Bridge (rev a2)
+	Subsystem: Micro-Star International Co., Ltd. Unknown device 0250
+	Control: I/O+ Mem+ BusMaster+ SpecCycle+ MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 0
+
+00:01.1 SMBus: nVidia Corporation nForce 250Gb PCI System Management (rev a1)
+	Subsystem: Micro-Star International Co., Ltd. Unknown device 0250
+	Control: I/O+ Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Interrupt: pin A routed to IRQ 11
+	Region 0: I/O ports at fc00 [size=32]
+	Region 4: I/O ports at 4c00 [size=64]
+	Region 5: I/O ports at 4c40 [size=64]
+	Capabilities: [44] Power Management version 2
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+00:02.0 USB Controller: nVidia Corporation CK8S USB Controller (rev a1) (prog-if 10 [OHCI])
+	Subsystem: Micro-Star International Co., Ltd. Unknown device 0250
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 0 (750ns min, 250ns max)
+	Interrupt: pin A routed to IRQ 23
+	Region 0: Memory at fe02f000 (32-bit, non-prefetchable) [size=4K]
+	Capabilities: [44] Power Management version 2
+		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+00:02.1 USB Controller: nVidia Corporation CK8S USB Controller (rev a1) (prog-if 10 [OHCI])
+	Subsystem: Micro-Star International Co., Ltd. Unknown device 0250
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 0 (750ns min, 250ns max)
+	Interrupt: pin B routed to IRQ 22
+	Region 0: Memory at fe02e000 (32-bit, non-prefetchable) [size=4K]
+	Capabilities: [44] Power Management version 2
+		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+00:02.2 USB Controller: nVidia Corporation nForce3 EHCI USB 2.0 Controller (rev a2) (prog-if 20 [EHCI])
+	Subsystem: Micro-Star International Co., Ltd. Unknown device 0250
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 0 (750ns min, 250ns max)
+	Interrupt: pin C routed to IRQ 20
+	Region 0: Memory at fe02d000 (32-bit, non-prefetchable) [size=256]
+	Capabilities: [44] Debug port
+	Capabilities: [80] Power Management version 2
+		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME+
+
+00:05.0 Bridge: nVidia Corporation CK8S Ethernet Controller (rev a2)
+	Subsystem: Micro-Star International Co., Ltd. Unknown device 0250
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 0 (250ns min, 5000ns max)
+	Interrupt: pin A routed to IRQ 23
+	Region 0: Memory at fe02c000 (32-bit, non-prefetchable) [size=4K]
+	Region 1: I/O ports at f000 [size=8]
+	Capabilities: [44] Power Management version 2
+		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+00:06.0 Multimedia audio controller: nVidia Corporation nForce3 250Gb AC'97 Audio Controller (rev a1)
+	Subsystem: Micro-Star International Co., Ltd. Unknown device 7585
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 0 (500ns min, 1250ns max)
+	Interrupt: pin A routed to IRQ 21
+	Region 0: I/O ports at ec00 [size=256]
+	Region 1: I/O ports at e800 [size=128]
+	Region 2: Memory at fe02b000 (32-bit, non-prefetchable) [size=4K]
+	Capabilities: [44] Power Management version 2
+		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+00:08.0 IDE interface: nVidia Corporation CK8S Parallel ATA Controller (v2.5) (rev a2) (prog-if 8a [Master SecP PriP])
+	Subsystem: Micro-Star International Co., Ltd. Unknown device 0250
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 0 (750ns min, 250ns max)
+	Region 0: [virtual] Memory at 000001f0 (32-bit, non-prefetchable) [disabled] [size=8]
+	Region 1: [virtual] Memory at 000003f0 (type 3, non-prefetchable) [disabled] [size=1]
+	Region 2: [virtual] Memory at 00000170 (32-bit, non-prefetchable) [disabled] [size=8]
+	Region 3: [virtual] Memory at 00000370 (type 3, non-prefetchable) [disabled] [size=1]
+	Region 4: I/O ports at dc00 [size=16]
+	Capabilities: [44] Power Management version 2
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+00:09.0 IDE interface: nVidia Corporation CK8S Serial ATA Controller (v2.5) (rev a2) (prog-if 85 [Master SecO PriO])
+	Subsystem: Micro-Star International Co., Ltd. Unknown device 0250
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 0 (750ns min, 250ns max)
+	Interrupt: pin A routed to IRQ 22
+	Region 0: I/O ports at 09e0 [size=8]
+	Region 1: I/O ports at 0be0 [size=4]
+	Region 2: I/O ports at 0960 [size=8]
+	Region 3: I/O ports at 0b60 [size=4]
+	Region 4: I/O ports at c800 [size=16]
+	Region 5: I/O ports at c400 [size=128]
+	Capabilities: [44] Power Management version 2
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+00:0a.0 IDE interface: nVidia Corporation CK8S Serial ATA Controller (v2.5) (rev a2) (prog-if 85 [Master SecO PriO])
+	Subsystem: Micro-Star International Co., Ltd. Unknown device 0250
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 0 (750ns min, 250ns max)
+	Interrupt: pin A routed to IRQ 21
+	Region 0: I/O ports at 09f0 [size=8]
+	Region 1: I/O ports at 0bf0 [size=4]
+	Region 2: I/O ports at 0970 [size=8]
+	Region 3: I/O ports at 0b70 [size=4]
+	Region 4: I/O ports at b000 [size=16]
+	Region 5: I/O ports at ac00 [size=128]
+	Capabilities: [44] Power Management version 2
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+00:0b.0 PCI bridge: nVidia Corporation nForce3 250Gb AGP Host to PCI Bridge (rev a2) (prog-if 00 [Normal decode])
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 16
+	Bus: primary=00, secondary=01, subordinate=01, sec-latency=10
+	I/O behind bridge: 00009000-00009fff
+	Memory behind bridge: fdf00000-fdffffff
+	Prefetchable memory behind bridge: e0000000-efffffff
+	Secondary status: 66MHz+ FastB2B- ParErr- DEVSEL=medium &gt;TAbort- &lt;TAbort- &lt;MAbort- &lt;SERR- &lt;PERR-
+	BridgeCtl: Parity- SERR- NoISA+ VGA+ MAbort- &gt;Reset- FastB2B-
+
+00:0e.0 PCI bridge: nVidia Corporation nForce3 250Gb PCI-to-PCI Bridge (rev a2) (prog-if 00 [Normal decode])
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+	Status: Cap- 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR+ &lt;PERR-
+	Latency: 0
+	Bus: primary=00, secondary=02, subordinate=02, sec-latency=128
+	I/O behind bridge: 00008000-00008fff
+	Memory behind bridge: fde00000-fdefffff
+	Prefetchable memory behind bridge: fdd00000-fddfffff
+	Secondary status: 66MHz- FastB2B+ ParErr- DEVSEL=medium &gt;TAbort- &lt;TAbort+ &lt;MAbort+ &lt;SERR- &lt;PERR-
+	BridgeCtl: Parity- SERR- NoISA+ VGA- MAbort- &gt;Reset- FastB2B-
+
+00:18.0 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] HyperTransport Technology Configuration
+	Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Capabilities: [80] HyperTransport: Host or Secondary Interface
+		!!! Possibly incomplete decoding
+		Command: WarmRst+ DblEnd-
+		Link Control: CFlE- CST- CFE- &lt;LkFail- Init+ EOC- TXO- &lt;CRCErr=0
+		Link Config: MLWI=16bit MLWO=16bit LWI=16bit LWO=16bit
+		Revision ID: 1.02
+
+00:18.1 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] Address Map
+	Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+
+00:18.2 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] DRAM Controller
+	Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+
+00:18.3 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] Miscellaneous Control
+	Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+
+01:00.0 VGA compatible controller: ATI Technologies Inc RV280 [Radeon 9200] (rev 01) (prog-if 00 [VGA])
+	Subsystem: C.P. Technology Co. Ltd Unknown device 2063
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 32 (2000ns min), Cache Line Size: 32 bytes
+	Interrupt: pin A routed to IRQ 16
+	Region 0: Memory at e8000000 (32-bit, prefetchable) [size=128M]
+	Region 1: I/O ports at 9c00 [size=256]
+	Region 2: Memory at fdff0000 (32-bit, non-prefetchable) [size=64K]
+	[virtual] Expansion ROM at fdf00000 [disabled] [size=128K]
+	Capabilities: [58] AGP version 3.0
+		Status: RQ=256 Iso- ArqSz=0 Cal=0 SBA+ ITACoh- GART64- HTrans- 64bit- FW+ AGP3+ Rate=x4,x8
+		Command: RQ=32 ArqSz=2 Cal=0 SBA+ AGP+ GART64- 64bit- FW- Rate=x4
+	Capabilities: [50] Power Management version 2
+		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+01:00.1 Display controller: ATI Technologies Inc RV280 [Radeon 9200] (Secondary) (rev 01)
+	Subsystem: C.P. Technology Co. Ltd Unknown device 2062
+	Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Region 0: Memory at e0000000 (32-bit, prefetchable) [disabled] [size=128M]
+	Region 1: Memory at fdfe0000 (32-bit, non-prefetchable) [disabled] [size=64K]
+	Capabilities: [50] Power Management version 2
+		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+02:07.0 Network controller: Broadcom Corporation BCM4306 802.11b/g Wireless LAN Controller (rev 02)
+	Subsystem: Linksys Unknown device 0013
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort+ &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 32
+	Interrupt: pin A routed to IRQ 17
+	Region 0: Memory at fdefc000 (32-bit, non-prefetchable) [size=8K]
+	Capabilities: [40] Power Management version 2
+		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=2 PME-
+
+02:0a.0 Multimedia audio controller: Creative Labs SB Live! EMU10k1 (rev 05)
+	Subsystem: Creative Labs CT4850 SBLive! Value
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 32 (500ns min, 5000ns max)
+	Interrupt: pin A routed to IRQ 17
+	Region 0: I/O ports at 8c00 [size=32]
+	Capabilities: [dc] Power Management version 1
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+02:0a.1 Input device controller: Creative Labs SB Live! Game Port (rev 05)
+	Subsystem: Creative Labs Gameport Joystick
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 32
+	Region 0: I/O ports at 8800 [size=8]
+	Capabilities: [dc] Power Management version 1
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+02:0c.0 FireWire (IEEE 1394): VIA Technologies, Inc. IEEE 1394 Host Controller (rev 46) (prog-if 10 [OHCI])
+	Subsystem: Unknown device 0574:086c
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping+ SERR- FastB2B-
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 32, Cache Line Size: 32 bytes
+	Interrupt: pin A routed to IRQ 19
+	Region 0: Memory at fdeff000 (32-bit, non-prefetchable) [size=2K]
+	Region 1: I/O ports at 8400 [size=128]
+	Capabilities: [50] Power Management version 2
+		Flags: PMEClk- DSI- D1- D2+ AuxCurrent=0mA PME(D0-,D1-,D2+,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+02:0d.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8169 Gigabit Ethernet (rev 10)
+	Subsystem: Micro-Star International Co., Ltd. Unknown device 025c
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+	Latency: 32 (8000ns min, 16000ns max), Cache Line Size: 64 bytes
+	Interrupt: pin A routed to IRQ 16
+	Region 0: I/O ports at 8000 [size=256]
+	Region 1: Memory at fdefe000 (32-bit, non-prefetchable) [size=256]
+	[virtual] Expansion ROM at fdd00000 [disabled] [size=128K]
+	Capabilities: [dc] Power Management version 2
+		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0-,D1+,D2+,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: bcm_asserts_dma
+Type: application/octet-stream
+Size: 27367 bytes
+Desc: not available
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070315/860032fa/attachment.obj">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070315/860032fa/attachment.obj</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000770.html">[PATCH] bcm43xx:Eliminate some 'G Mode Enable' magic numbers
+</A></li>
+	<LI>Next message: <A HREF="000772.html">Assertion failed in bcm43xx_mac80211
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#771">[ date ]</a>
+              <a href="thread.html#771">[ thread ]</a>
+              <a href="subject.html#771">[ subject ]</a>
+              <a href="author.html#771">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH V2] ssb: Fix case where board flags are unset in SPROM
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20ssb%3A%20Fix%20case%20where%20board%20flags%20are%20unset%20in%20SPROM&In-Reply-To=%3C480a12e4.JW4WMtJZAF8ZXHLq%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003887.html">
+   <LINK REL="Next"  HREF="003891.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH V2] ssb: Fix case where board flags are unset in SPROM</H1>
+    <B>Larry.Finger at lwfinger.net</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%5D%20ssb%3A%20Fix%20case%20where%20board%20flags%20are%20unset%20in%20SPROM&In-Reply-To=%3C480a12e4.JW4WMtJZAF8ZXHLq%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH V2] ssb: Fix case where board flags are unset in SPROM">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Apr 19 17:42:28 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003887.html">[PATCH] b43: Add more btcoexist workarounds
+</A></li>
+        <LI>Next message: <A HREF="003891.html">[PATCH] ssb: Fix all-ones boardflags
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3890">[ date ]</a>
+              <a href="thread.html#3890">[ thread ]</a>
+              <a href="subject.html#3890">[ subject ]</a>
+              <a href="author.html#3890">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The specifications call for the low 16 bits of the board flags to
+be cleared if unset (== 0xFFFF). This step was taken in bcm43xx,
+but was missed when ssb was coded. With this patch, Linksys WMP11
+cards with a BCM4301 now work.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+This is 2.6.26 material.
+
+Larry
+---
+
+
+Index: wireless-testing/drivers/ssb/pci.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/pci.c
++++ wireless-testing/drivers/ssb/pci.c
+@@ -483,6 +483,11 @@ static int sprom_extract(struct ssb_bus 
+ 		if (out-&gt;revision &gt;= 5)
+ 			goto unsupported;
+ 	}
++	/* check for board flags not set (0xFFFF) and make 0 as per specs */
++	if (out-&gt;boardflags_lo == 0xFFFF)
++		out-&gt;boardflags_lo = 0;
++	if (out-&gt;boardflags_hi == 0xFFFF)
++		out-&gt;boardflags_hi = 0;
+ 
+ 	return 0;
+ unsupported:
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003887.html">[PATCH] b43: Add more btcoexist workarounds
+</A></li>
+	<LI>Next message: <A HREF="003891.html">[PATCH] ssb: Fix all-ones boardflags
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3890">[ date ]</a>
+              <a href="thread.html#3890">[ thread ]</a>
+              <a href="subject.html#3890">[ subject ]</a>
+              <a href="author.html#3890">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

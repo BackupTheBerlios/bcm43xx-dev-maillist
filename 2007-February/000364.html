@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Speed measurement and stability issues
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Speed%20measurement%20and%20stability%20issues&In-Reply-To=%3C1170834817.11150.105.camel%40dv%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000491.html">
+   <LINK REL="Next"  HREF="000370.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Speed measurement and stability issues</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Speed%20measurement%20and%20stability%20issues&In-Reply-To=%3C1170834817.11150.105.camel%40dv%3E"
+       TITLE="Speed measurement and stability issues">proski at gnu.org
+       </A><BR>
+    <I>Wed Feb  7 08:53:37 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000491.html">RFT: The real fix for BCM4311 and BCM4312
+</A></li>
+        <LI>Next message: <A HREF="000370.html">Speed measurement and stability issues
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#364">[ date ]</a>
+              <a href="thread.html#364">[ thread ]</a>
+              <a href="subject.html#364">[ subject ]</a>
+              <a href="author.html#364">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello!
+
+I wanted to measure speeds in the softmac driver at all rates, but it
+looks like I have found something more interesting in process.
+
+The station is a BCM4312 in Dell Latitude with an antenna embedded into
+the laptop.  The AP PCI card with Atheros 5212 running current MadWifi
+in 802.11g mode.  Both systems sit on the same desk, about one meter
+apart.
+
+I'm using Michael's git repository with Larry's last patch for high
+rates.
+
+The speed is measured by iperf 2.0.2 in TCP mode (which is the default).
+
+rate:  iperf reports:
+
+1       928 Kbits/sec
+2      1.69 Mbits/sec
+5.5    3.92 Mbits/sec
+6      4.78 Mbits/sec
+9      6.55 Mbits/sec
+11     5.97 Mbits/sec
+12     8.18 Mbits/sec
+18     10.4 Mbits/sec
+24     13.0 Mbits/sec
+36     15.1 Mbits/sec
+48      187 Kbits/sec
+54     N/A
+
+Testing at rate 54 caused this to appear on the console about 100 times
+in a row:
+
+bcm43xx: ASSERTION FAILED (!ring-&gt;suspended)
+at: /home/proski/src/linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.c:71:request_slot()
+
+My attempts to test the UDP mode also lead to such messages.  At some
+point, following was reported to the console:
+
+bcm43xx: Controller RESET (TX timeout) ...
+bcm43xx: IRQ_READY timeout
+bcm43xx: core_up for active 802.11 core failed (-19)
+bcm43xx: Controller restart failed
+bcm43xx: ASSERTION FAILED (!err)
+at: /home/proski/src/linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main
+.c:4057:bcm43xx_net_stop()
+
+After that the system became very slow and I had to reboot it.
+
+Next time I got this during UDP testing:
+
+warning: many lost ticks.
+Your time source seems to be instable or some driver is hogging
+interupts
+rip __do_softirq+0x4d/0xd0
+Falling back to HPET
+
+I could check the connection at 48M in USB mode with low 5Mbsp bandwidth
+limit, and the packet loss is minimal (10 out of 3211 packets are lost),
+so the speed drop must be explained by something else.
+
+There is a clearly a stability problem at the high rates, and perhaps
+there is also another problem that limits the throughput.
+
+802.11g modes are faster relative to the rate, e.g. 9 is faster than 11
+and 12 is much faster than 11.
+
+36Mbps seems to be the fastest for TCP, although I would probably use
+12Mbps to be safe.
+
+-- 
+Regards,
+Pavel Roskin
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000491.html">RFT: The real fix for BCM4311 and BCM4312
+</A></li>
+	<LI>Next message: <A HREF="000370.html">Speed measurement and stability issues
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#364">[ date ]</a>
+              <a href="thread.html#364">[ thread ]</a>
+              <a href="subject.html#364">[ subject ]</a>
+              <a href="author.html#364">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,380 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BCM4311 issues on 2.6.24 kernel
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4311%20issues%20on%202.6.24%20kernel&In-Reply-To=%3Cbfc433f80802020858p79f3769fm9915a6368a2b70d8%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003319.html">
+   <LINK REL="Next"  HREF="003322.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BCM4311 issues on 2.6.24 kernel</H1>
+    <B>Bryan Short</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4311%20issues%20on%202.6.24%20kernel&In-Reply-To=%3Cbfc433f80802020858p79f3769fm9915a6368a2b70d8%40mail.gmail.com%3E"
+       TITLE="BCM4311 issues on 2.6.24 kernel">bryanshort12 at gmail.com
+       </A><BR>
+    <I>Sat Feb  2 17:58:40 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003319.html">BCM4311 issues on 2.6.24 kernel
+</A></li>
+        <LI>Next message: <A HREF="003322.html">Warning in DMA parse_cookie() -&gt; Solution here
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3331">[ date ]</a>
+              <a href="thread.html#3331">[ thread ]</a>
+              <a href="subject.html#3331">[ subject ]</a>
+              <a href="author.html#3331">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Found my problem, it was PEBKAC
+
+needed to remerge wpa_supplicant (didn't run revdep-rebuild after a  world
+update, oops)
+
+Sorry good folks.  great work on the native drivers! :)
+
+On Feb 2, 2008 10:02 AM, Bryan Short &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">bryanshort12 at gmail.com</A>&gt; wrote:
+
+&gt;<i> Yeah sorry, I don't know what ndiswrapper loaded, I've blacklisted it.
+</I>&gt;<i> Anyways here is my info again without ndiswrapper:  Same thing as before:
+</I>&gt;<i>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">bichinh0 at localhost</A> ~ $ lsmod
+</I>&gt;<i> Module                  Size  Used by
+</I>&gt;<i> rfkill_input            6528  0
+</I>&gt;<i> snd_seq_dummy           5508  0
+</I>&gt;<i> snd_seq_oss            33664  0
+</I>&gt;<i> snd_seq_midi_event      9472  1 snd_seq_oss
+</I>&gt;<i> snd_seq                55840  5
+</I>&gt;<i> snd_seq_dummy,snd_seq_oss,snd_seq_midi_event
+</I>&gt;<i> snd_seq_device          9876  3 snd_seq_dummy,snd_seq_oss,snd_seq
+</I>&gt;<i> genrtc                 10892  0
+</I>&gt;<i> vboxdrv              1633248  0
+</I>&gt;<i> nvidia               7007860  36
+</I>&gt;<i> forcedeth              51212  0
+</I>&gt;<i> b43                   149424  0
+</I>&gt;<i> rfkill                  9744  3 rfkill_input,b43
+</I>&gt;<i> mac80211              129164  1 b43
+</I>&gt;<i> led_class               7048  1 b43
+</I>&gt;<i> i2c_nforce2             8064  0
+</I>&gt;<i> input_polldev           6800  1 b43
+</I>&gt;<i> i2c_core               26752  2 nvidia,i2c_nforce2
+</I>&gt;<i> ohci_hcd               28164  0
+</I>&gt;<i> snd_hda_intel         354212  1
+</I>&gt;<i> k8temp                  7424  0
+</I>&gt;<i> ssb                    39300  2 b43,ohci_hcd
+</I>&gt;<i> sdhci                  20100  0
+</I>&gt;<i> mmc_core               55432  1 sdhci
+</I>&gt;<i> pcmcia                 42776  2 b43,ssb
+</I>&gt;<i> joydev                 14464  0
+</I>&gt;<i> e1000                 122816  0
+</I>&gt;<i> scsi_wait_scan          2816  0
+</I>&gt;<i> sl811_hcd              14848  0
+</I>&gt;<i> uhci_hcd               27168  0
+</I>&gt;<i> ehci_hcd               36620  0
+</I>&gt;<i>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">bichinh0 at localhost</A> ~ $ dmesg | grep &quot;b43&quot;
+</I>&gt;<i> [   37.002495] b43-phy0: Broadcom 4311 WLAN found
+</I>&gt;<i> [   37.021519] b43-phy0 debug: Found PHY: Analog 4, Type 2, Revision 9
+</I>&gt;<i> [   37.021538] b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050,
+</I>&gt;<i> Revision 2
+</I>&gt;<i> [   80.931772] input: b43-phy0 as /class/input/input7
+</I>&gt;<i> [   81.394420] b43-phy0 debug: Loading firmware version 351.126(2006-07-29 05:54:02)
+</I>&gt;<i> [   82.805992] b43-phy0 debug: Chip initialized
+</I>&gt;<i> [   82.806338] b43-phy0 debug: 64-bit DMA initialized
+</I>&gt;<i> [   82.815686] Registered led device: b43-phy0:tx
+</I>&gt;<i> [   82.815715] Registered led device: b43-phy0:rx
+</I>&gt;<i> [   82.815738] Registered led device: b43-phy0:radio
+</I>&gt;<i> [   82.815796] b43-phy0 ERROR: PHY transmission error
+</I>&gt;<i> [   82.815803] b43-phy0 debug: Wireless interface started
+</I>&gt;<i> [   82.815809] b43-phy0 debug: Adding Interface type 2
+</I>&gt;<i>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">bichinh0 at localhost</A> ~ $ sudo iwlist wlan0 scan
+</I>&gt;<i> Password:
+</I>&gt;<i> wlan0     Scan completed :
+</I>&gt;<i>           Cell 01 - Address: 00:13:10:C9:B0:0F
+</I>&gt;<i>                     ESSID:&quot;pleasant&quot;
+</I>&gt;<i>                     Mode:Master
+</I>&gt;<i>                     Channel:6
+</I>&gt;<i>                     Frequency:2.437 GHz (Channel 6)
+</I>&gt;<i>                     Quality=76/100  Signal level=-88 dBm  Noise level=-27
+</I>&gt;<i> dBm
+</I>&gt;<i>                     Encryption key:on
+</I>&gt;<i>                     Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 18 Mb/s
+</I>&gt;<i>                               24 Mb/s; 36 Mb/s; 54 Mb/s; 6 Mb/s; 9 Mb/s
+</I>&gt;<i>                               12 Mb/s; 48 Mb/s
+</I>&gt;<i>                     Extra:tsf=000018e0126e9997
+</I>&gt;<i>           Cell 02 - Address: 00:0F:B5:6C:B6:84
+</I>&gt;<i>                     ESSID:&quot;Nosso&quot;
+</I>&gt;<i>                     Mode:Master
+</I>&gt;<i>                     Channel:11
+</I>&gt;<i>                     Frequency:2.462 GHz (Channel 11)
+</I>&gt;<i>                     Quality=93/100  Signal level=-63 dBm  Noise level=-27
+</I>&gt;<i> dBm
+</I>&gt;<i>                     Encryption key:on
+</I>&gt;<i>                     IE: WPA Version 1
+</I>&gt;<i>                         Group Cipher : TKIP
+</I>&gt;<i>                         Pairwise Ciphers (1) : TKIP
+</I>&gt;<i>                         Authentication Suites (1) : PSK
+</I>&gt;<i>                     Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 18 Mb/s
+</I>&gt;<i>                               24 Mb/s; 36 Mb/s; 54 Mb/s; 6 Mb/s; 9 Mb/s
+</I>&gt;<i>                               12 Mb/s; 48 Mb/s
+</I>&gt;<i>                     Extra:tsf=000001253fbee371
+</I>&gt;<i>           Cell 03 - Address: 00:13:10:BC:12:1B
+</I>&gt;<i>                     ESSID:&quot;linksys&quot;
+</I>&gt;<i>                     Mode:Master
+</I>&gt;<i>                     Channel:6
+</I>&gt;<i>                     Frequency:2.437 GHz (Channel 6)
+</I>&gt;<i>                     Quality=83/100  Signal level=-88 dBm  Noise level=-27
+</I>&gt;<i> dBm
+</I>&gt;<i>                     Encryption key:off
+</I>&gt;<i>                     Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 18 Mb/s
+</I>&gt;<i>                               24 Mb/s; 36 Mb/s; 54 Mb/s; 6 Mb/s; 9 Mb/s
+</I>&gt;<i>                               12 Mb/s; 48 Mb/s
+</I>&gt;<i>                     Extra:tsf=0000001e2fd29873
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">bichinh0 at localhost</A> ~ $ sudo ifconfig
+</I>&gt;<i> eth0      Link encap:Ethernet  HWaddr 00:1B:24:54:04:DA
+</I>&gt;<i>           inet addr:192.168.1.3  Bcast:192.168.1.255  Mask:255.255.255.0
+</I>&gt;<i>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+</I>&gt;<i>           RX packets:4297 errors:0 dropped:0 overruns:0 frame:0
+</I>&gt;<i>           TX packets:2856 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;<i>           collisions:0 txqueuelen:1000
+</I>&gt;<i>           RX bytes:5289501 (5.0 Mb)  TX bytes:493621 (482.0 Kb)
+</I>&gt;<i>           Interrupt:20 Base address:0xe000
+</I>&gt;<i>
+</I>&gt;<i> lo        Link encap:Local Loopback
+</I>&gt;<i>           inet addr:127.0.0.1  Mask:255.0.0.0
+</I>&gt;<i>           UP LOOPBACK RUNNING  MTU:16436  Metric:1
+</I>&gt;<i>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+</I>&gt;<i>           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;<i>           collisions:0 txqueuelen:0
+</I>&gt;<i>           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+</I>&gt;<i>
+</I>&gt;<i> wlan0     Link encap:Ethernet  HWaddr 00:1A:73:6B:51:09
+</I>&gt;<i>           UP BROADCAST MULTICAST  MTU:1500  Metric:1
+</I>&gt;<i>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+</I>&gt;<i>           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;<i>           collisions:0 txqueuelen:1000
+</I>&gt;<i>           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+</I>&gt;<i>
+</I>&gt;<i> wmaster0  Link encap:UNSPEC  HWaddr
+</I>&gt;<i> 00-1A-73-6B-51-09-60-5F-00-00-00-00-00-00-00-00
+</I>&gt;<i>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+</I>&gt;<i>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+</I>&gt;<i>           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;<i>           collisions:0 txqueuelen:1000
+</I>&gt;<i>           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+</I>&gt;<i>
+</I>&gt;<i> Anything else you need?  Can't figure this one out.  It seems like it is
+</I>&gt;<i> loading up fine from dmesg, but it won't associate properly.  I have changed
+</I>&gt;<i> my udev rules as instructed by Larry, so I don't think that's it.  I am
+</I>&gt;<i> stumped.
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> On Feb 2, 2008 9:44 AM, Jory A. Pratt &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">geekypenguin at gmail.com</A>&gt; wrote:
+</I>&gt;<i>
+</I>&gt;<i> &gt; Bryan Short wrote:
+</I>&gt;<i> &gt; &gt; Kind folks:
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; I have an HP dv6408nr laptop.  Here are the relevant things:
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">bichinh0 at localhost</A> ~ $ sudo lsmod
+</I>&gt;<i> &gt; &gt; Password:
+</I>&gt;<i> &gt; &gt; Module                  Size  Used by
+</I>&gt;<i> &gt; &gt; b43                   149424  0
+</I>&gt;<i> &gt; &gt; ndiswrapper           207264  0
+</I>&gt;<i> &gt; &gt; rfkill_input            6528  0
+</I>&gt;<i> &gt; &gt; snd_seq_dummy           5508  0
+</I>&gt;<i> &gt; &gt; snd_seq_oss            33664  0
+</I>&gt;<i> &gt; &gt; snd_seq_midi_event      9472  1 snd_seq_oss
+</I>&gt;<i> &gt; &gt; snd_seq                55840  5
+</I>&gt;<i> &gt; &gt; snd_seq_dummy,snd_seq_oss,snd_seq_midi_event
+</I>&gt;<i> &gt; &gt; snd_seq_device          9876  3 snd_seq_dummy,snd_seq_oss,snd_seq
+</I>&gt;<i> &gt; &gt; genrtc                 10892  0
+</I>&gt;<i> &gt; &gt; vboxdrv              1633248  0
+</I>&gt;<i> &gt; &gt; rfkill                  9744  3 b43,rfkill_input
+</I>&gt;<i> &gt; &gt; mac80211              129164  1 b43
+</I>&gt;<i> &gt; &gt; led_class               7048  1 b43
+</I>&gt;<i> &gt; &gt; ohci_hcd               28164  0
+</I>&gt;<i> &gt; &gt; input_polldev           6800  1 b43
+</I>&gt;<i> &gt; &gt; nvidia               7007860  36
+</I>&gt;<i> &gt; &gt; ssb                    39300  2 b43,ohci_hcd
+</I>&gt;<i> &gt; &gt; forcedeth              51212  0
+</I>&gt;<i> &gt; &gt; snd_hda_intel         354212  1
+</I>&gt;<i> &gt; &gt; sdhci                  20100  0
+</I>&gt;<i> &gt; &gt; i2c_nforce2             8064  0
+</I>&gt;<i> &gt; &gt; pcmcia                 42776  2 b43,ssb
+</I>&gt;<i> &gt; &gt; i2c_core               26752  2 nvidia,i2c_nforce2
+</I>&gt;<i> &gt; &gt; mmc_core               55432  1 sdhci
+</I>&gt;<i> &gt; &gt; k8temp                  7424  0
+</I>&gt;<i> &gt; &gt; joydev                 14464  0
+</I>&gt;<i> &gt; &gt; e1000                 122816  0
+</I>&gt;<i> &gt; &gt; scsi_wait_scan          2816  0
+</I>&gt;<i> &gt; &gt; sl811_hcd              14848  0
+</I>&gt;<i> &gt; &gt; uhci_hcd               27168  0
+</I>&gt;<i> &gt; &gt; ehci_hcd               36620  0
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">bichinh0 at localhost</A> ~ $ sudo ifconfig
+</I>&gt;<i> &gt; &gt; eth0      Link encap:Ethernet  HWaddr 00:1B:24:54:04:DA
+</I>&gt;<i> &gt; &gt;           inet addr:192.168.1.3 &lt;<A HREF="http://192.168.1.3">http://192.168.1.3</A>&gt;
+</I>&gt;<i> &gt; &gt; Bcast:192.168.1.255 &lt;<A HREF="http://192.168.1.255">http://192.168.1.255</A>&gt;  Mask:255.255.255.0
+</I>&gt;<i> &gt; &gt; &lt;<A HREF="http://255.255.255.0">http://255.255.255.0</A>&gt;
+</I>&gt;<i> &gt; &gt;           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+</I>&gt;<i> &gt; &gt;           RX packets:4528 errors:0 dropped:0 overruns:0 frame:0
+</I>&gt;<i> &gt; &gt;           TX packets:3797 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;<i> &gt; &gt;           collisions:0 txqueuelen:1000
+</I>&gt;<i> &gt; &gt;           RX bytes:5702598 (5.4 Mb)  TX bytes:525825 (513.5 Kb)
+</I>&gt;<i> &gt; &gt;           Interrupt:20 Base address:0xc000
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; lo        Link encap:Local Loopback
+</I>&gt;<i> &gt; &gt;           inet addr:127.0.0.1 &lt;<A HREF="http://127.0.0.1">http://127.0.0.1</A>&gt;  Mask:255.0.0.0
+</I>&gt;<i> &gt; &gt; &lt;<A HREF="http://255.0.0.0">http://255.0.0.0</A>&gt;
+</I>&gt;<i> &gt; &gt;           UP LOOPBACK RUNNING  MTU:16436  Metric:1
+</I>&gt;<i> &gt; &gt;           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+</I>&gt;<i> &gt; &gt;           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;<i> &gt; &gt;           collisions:0 txqueuelen:0
+</I>&gt;<i> &gt; &gt;           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; wlan0     Link encap:Ethernet  HWaddr 00:1A:73:6B:51:09
+</I>&gt;<i> &gt; &gt;           UP BROADCAST MULTICAST  MTU:1500  Metric:1
+</I>&gt;<i> &gt; &gt;           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+</I>&gt;<i> &gt; &gt;           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;<i> &gt; &gt;           collisions:0 txqueuelen:1000
+</I>&gt;<i> &gt; &gt;           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; wmaster0  Link encap:UNSPEC  HWaddr
+</I>&gt;<i> &gt; &gt; 00-1A-73-6B-51-09-60-5F-00-00-00-00-00-00-00-00
+</I>&gt;<i> &gt; &gt;           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+</I>&gt;<i> &gt; &gt;           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+</I>&gt;<i> &gt; &gt;           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;<i> &gt; &gt;           collisions:0 txqueuelen:1000
+</I>&gt;<i> &gt; &gt;           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">bichinh0 at localhost</A> ~ $ sudo iwlist wlan0 scan
+</I>&gt;<i> &gt; &gt; wlan0     Scan completed :
+</I>&gt;<i> &gt; &gt;           Cell 01 - Address: 00:0F:B5:6C:B6:84
+</I>&gt;<i> &gt; &gt;                     ESSID:&quot;Nosso&quot;
+</I>&gt;<i> &gt; &gt;                     Mode:Master
+</I>&gt;<i> &gt; &gt;                     Channel:11
+</I>&gt;<i> &gt; &gt;                     Frequency:2.462 GHz (Channel 11)
+</I>&gt;<i> &gt; &gt;                     Quality=95/100  Signal level=-63 dBm  Noise
+</I>&gt;<i> &gt; &gt; level=-49 dBm
+</I>&gt;<i> &gt; &gt;                     Encryption key:on
+</I>&gt;<i> &gt; &gt;                     IE: WPA Version 1
+</I>&gt;<i> &gt; &gt;                         Group Cipher : TKIP
+</I>&gt;<i> &gt; &gt;                         Pairwise Ciphers (1) : TKIP
+</I>&gt;<i> &gt; &gt;                         Authentication Suites (1) : PSK
+</I>&gt;<i> &gt; &gt;                     Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 18
+</I>&gt;<i> &gt; Mb/s
+</I>&gt;<i> &gt; &gt;                               24 Mb/s; 36 Mb/s; 54 Mb/s; 6 Mb/s; 9
+</I>&gt;<i> &gt; Mb/s
+</I>&gt;<i> &gt; &gt;                               12 Mb/s; 48 Mb/s
+</I>&gt;<i> &gt; &gt;                     Extra:tsf=00000124b60aef13
+</I>&gt;<i> &gt; &gt;           Cell 02 - Address: 00:17:3F:64:D8:92
+</I>&gt;<i> &gt; &gt;                     ESSID:&quot;vjrk&quot;
+</I>&gt;<i> &gt; &gt;                     Mode:Master
+</I>&gt;<i> &gt; &gt;                     Channel:11
+</I>&gt;<i> &gt; &gt;                     Frequency:2.462 GHz (Channel 11)
+</I>&gt;<i> &gt; &gt;                     Quality=81/100  Signal level=-88 dBm  Noise
+</I>&gt;<i> &gt; &gt; level=-49 dBm
+</I>&gt;<i> &gt; &gt;                     Encryption key:on
+</I>&gt;<i> &gt; &gt;                     IE: WPA Version 1
+</I>&gt;<i> &gt; &gt;                         Group Cipher : TKIP
+</I>&gt;<i> &gt; &gt;                         Pairwise Ciphers (1) : TKIP
+</I>&gt;<i> &gt; &gt;                         Authentication Suites (1) : PSK
+</I>&gt;<i> &gt; &gt;                     Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 6
+</I>&gt;<i> &gt; Mb/s
+</I>&gt;<i> &gt; &gt;                               9 Mb/s; 12 Mb/s; 18 Mb/s; 24 Mb/s; 36
+</I>&gt;<i> &gt; Mb/s
+</I>&gt;<i> &gt; &gt;                               48 Mb/s; 54 Mb/s
+</I>&gt;<i> &gt; &gt;                     Extra:tsf=0000037ffee2bff4
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; [136110.201872] b43-phy5: Broadcom 4311 WLAN found
+</I>&gt;<i> &gt; &gt; [136110.219394] b43-phy5 debug: Found PHY: Analog 4, Type 2, Revision
+</I>&gt;<i> &gt; 9
+</I>&gt;<i> &gt; &gt; [136110.219419] b43-phy5 debug: Found Radio: Manuf 0x17F, Version
+</I>&gt;<i> &gt; &gt; 0x2050, Revision 2
+</I>&gt;<i> &gt; &gt; [136110.228889] phy5: Selected rate control algorithm 'simple'
+</I>&gt;<i> &gt; &gt; [136110.314214] input: b43-phy5 as /class/input/input12
+</I>&gt;<i> &gt; &gt; [136110.617686] b43-phy5 debug: Loading firmware version 351.126
+</I>&gt;<i> &gt; &gt; (2006-07-29 05:54:02)
+</I>&gt;<i> &gt; &gt; [136112.014689] b43-phy5 debug: Chip initialized
+</I>&gt;<i> &gt; &gt; [136112.015259] b43-phy5 debug: 64-bit DMA initialized
+</I>&gt;<i> &gt; &gt; [136112.024984] Registered led device: b43-phy5:tx
+</I>&gt;<i> &gt; &gt; [136112.025118] Registered led device: b43-phy5:rx
+</I>&gt;<i> &gt; &gt; [136112.025222] Registered led device: b43-phy5:radio
+</I>&gt;<i> &gt; &gt; [136112.025360] b43-phy5 ERROR: PHY transmission error
+</I>&gt;<i> &gt; &gt; [136112.025371] b43-phy5 debug: Wireless interface started
+</I>&gt;<i> &gt; &gt; [136112.047527] b43-phy5 debug: Adding Interface type 2
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">bichinh0 at localhost</A> ~ $ sudo uname -a
+</I>&gt;<i> &gt; &gt; Linux localhost 2.6.24-gentoo #1 SMP Tue Jan 29 17:09:18 EST 2008
+</I>&gt;<i> &gt; &gt; x86_64 AMD Turion(tm) 64 X2 Mobile Technology TL-56 AuthenticAMD
+</I>&gt;<i> &gt; GNU/Linux
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; P.S. using Larry's patch
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">bichinh0 at localhost</A> ~ $ sudo lspci -nvv | grep 14e4:43
+</I>&gt;<i> &gt; &gt; 03:00.0 0280: 14e4:4311 (rev 02)
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; Any help is greatly appreciated.  The card is up and working (sort of)
+</I>&gt;<i> &gt; &gt; but it won't associate.  Any ideas?
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; Thanks
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; Bryan
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; ------------------------------------------------------------------------
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; &gt; _______________________________________________
+</I>&gt;<i> &gt; &gt; Bcm43xx-dev mailing list
+</I>&gt;<i> &gt; &gt; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> &gt; &gt; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>&gt;<i> &gt; &gt;
+</I>&gt;<i> &gt; choose either b43 or ndiswrapper not both!!! Once you fix that retest
+</I>&gt;<i> &gt; and report back.
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; -Jory
+</I>&gt;<i> &gt;
+</I>&gt;<i>
+</I>&gt;<i>
+</I>-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080202/d0647e5d/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080202/d0647e5d/attachment.html</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003319.html">BCM4311 issues on 2.6.24 kernel
+</A></li>
+	<LI>Next message: <A HREF="003322.html">Warning in DMA parse_cookie() -&gt; Solution here
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3331">[ date ]</a>
+              <a href="thread.html#3331">[ thread ]</a>
+              <a href="subject.html#3331">[ subject ]</a>
+              <a href="author.html#3331">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

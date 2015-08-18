@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add LP PHY Analog Switch Support
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20LP%20PHY%20Analog%20Switch%20Support&In-Reply-To=%3C200909142307.05860.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006078.html">
+   <LINK REL="Next"  HREF="006080.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add LP PHY Analog Switch Support</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20LP%20PHY%20Analog%20Switch%20Support&In-Reply-To=%3C200909142307.05860.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add LP PHY Analog Switch Support">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Sep 14 23:07:04 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006078.html">[PATCH] b43: Add LP PHY Analog Switch Support
+</A></li>
+        <LI>Next message: <A HREF="006080.html">[PATCH] b43: Don't abuse wl-&gt;current_dev in the led work
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6079">[ date ]</a>
+              <a href="thread.html#6079">[ thread ]</a>
+              <a href="subject.html#6079">[ subject ]</a>
+              <a href="author.html#6079">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 14 September 2009 23:01:33 Thomas Ilnseher wrote:
+&gt;<i> The current verison of b43 uses &quot;b43_phyop_switch_analog_generic&quot; for A,
+</I>&gt;<i> G and LP phys.
+</I>&gt;<i> 
+</I>&gt;<i> According to the spec, this is the wrong behaviour for the LP PHY
+</I>&gt;<i> (see: <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/Anacore">http://bcm-v4.sipsolutions.net/802.11/PHY/Anacore</A> )
+</I>&gt;<i> 
+</I>&gt;<i> While no problems on the x86 plattform where seen, this leads to a crash
+</I>&gt;<i> on the BCM5354 SoC (MIPS 32 LE plattform).
+</I>&gt;<i> This patch implements the analog switch for LP PHYs according to the
+</I>&gt;<i> specs. It fixes the crash
+</I>&gt;<i> 
+</I>&gt;<i> signed-off-by: Thomas Ilnseher &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">illth at gmx.de</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i> diff -uNr b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;<i> --- b/drivers/net/wireless/b43/phy_lp.c 2009-09-14 06:14:18.000000000 +0200
+</I>&gt;<i> +++ a/drivers/net/wireless/b43/phy_lp.c 2009-09-14 21:03:15.158507573 +0200
+</I>&gt;<i> @@ -2228,6 +2228,16 @@
+</I>&gt;<i>         return B43_TXPWR_RES_DONE;
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i> +void b43_lpphy_op_switch_analog(struct b43_wldev *dev, bool on)
+</I>&gt;<i> +{
+</I>&gt;<i> +       if (on) {
+</I>&gt;<i> +               b43_phy_mask(dev, B43_LPPHY_AFE_CTL_OVR, 0xfff8);
+</I>&gt;<i> +       } else {
+</I>&gt;<i> +               b43_phy_set(dev, B43_LPPHY_AFE_CTL_OVRVAL, 0x0007);
+</I>&gt;<i> +               b43_phy_set(dev, B43_LPPHY_AFE_CTL_OVR, 0x0007);
+</I>&gt;<i> +       }
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i>  const struct b43_phy_operations b43_phyops_lp = {
+</I>&gt;<i>         .allocate               = b43_lpphy_op_allocate,
+</I>&gt;<i>         .free                   = b43_lpphy_op_free,
+</I>&gt;<i> @@ -2239,7 +2249,7 @@
+</I>&gt;<i>         .radio_read             = b43_lpphy_op_radio_read,
+</I>&gt;<i>         .radio_write            = b43_lpphy_op_radio_write,
+</I>&gt;<i>         .software_rfkill        = b43_lpphy_op_software_rfkill,
+</I>&gt;<i> -       .switch_analog          = b43_phyop_switch_analog_generic,
+</I>&gt;<i> +       .switch_analog          = b43_lpphy_op_switch_analog,
+</I>&gt;<i>         .switch_channel         = b43_lpphy_op_switch_channel,
+</I>&gt;<i>         .get_default_chan       = b43_lpphy_op_get_default_chan,
+</I>&gt;<i>         .set_rx_antenna         = b43_lpphy_op_set_rx_antenna,
+</I>&gt;<i> 
+</I>
+ack
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006078.html">[PATCH] b43: Add LP PHY Analog Switch Support
+</A></li>
+	<LI>Next message: <A HREF="006080.html">[PATCH] b43: Don't abuse wl-&gt;current_dev in the led work
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6079">[ date ]</a>
+              <a href="thread.html#6079">[ thread ]</a>
+              <a href="subject.html#6079">[ subject ]</a>
+              <a href="author.html#6079">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

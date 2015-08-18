@@ -1,0 +1,179 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Port of bcm43xx from softmac to mac80211 is available for testing
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Port%20of%20bcm43xx%20from%20softmac%20to%20mac80211%20is%20available%20for%20testing&In-Reply-To=%3C200708052115.51758.richie%40coderworld.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001777.html">
+   <LINK REL="Next"  HREF="001788.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Port of bcm43xx from softmac to mac80211 is available for testing</H1>
+    <B>Richard Jonsson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Port%20of%20bcm43xx%20from%20softmac%20to%20mac80211%20is%20available%20for%20testing&In-Reply-To=%3C200708052115.51758.richie%40coderworld.net%3E"
+       TITLE="Port of bcm43xx from softmac to mac80211 is available for testing">richie at coderworld.net
+       </A><BR>
+    <I>Sun Aug  5 21:15:51 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001777.html">Port of bcm43xx from softmac to mac80211 is available for testing
+</A></li>
+        <LI>Next message: <A HREF="001788.html">Port of bcm43xx from softmac to mac80211 is available for testing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1787">[ date ]</a>
+              <a href="thread.html#1787">[ thread ]</a>
+              <a href="subject.html#1787">[ subject ]</a>
+              <a href="author.html#1787">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday 05 August 2007 01:26:52 Larry Finger wrote:
+&gt;<i> The port of bcm43xx from softmac to mac80211 is available for testing.
+</I>&gt;<i> There are two patch sets that can be downloaded from
+</I>&gt;<i> <A HREF="ftp://lwfinger.dynalias.org/patches">ftp://lwfinger.dynalias.org/patches</A> and be applied to kernel 2.6.23-rc1 or
+</I>&gt;<i> -rc2, the mainstream git tree (Linus's), and Linville's wireless-2.6 git
+</I>&gt;<i> tree.
+</I>&gt;<i>
+</I>&gt;<i> The two files are <A HREF="ftp://lwfinger.dynalias.org/patches/SSB_Final,">ftp://lwfinger.dynalias.org/patches/SSB_Final,</A> which
+</I>&gt;<i> installs the SSB driver, and
+</I>&gt;<i> <A HREF="ftp://lwfinger.dynalias.org/patches/port_to_mac80211,">ftp://lwfinger.dynalias.org/patches/port_to_mac80211,</A> which has the changes
+</I>&gt;<i> for the bcm43xx driver. The resulting driver will use V3 firmware.
+</I>&gt;<i>
+</I>&gt;<i> These patches are similar to the 4301 test driver that was circulated
+</I>&gt;<i> earlier. The major change is that the earlier version was trying to set the
+</I>&gt;<i> power too low. Once that was fixed, performance has become quite good, as
+</I>&gt;<i> shown below. I'm still working on the power setup, which may help the
+</I>&gt;<i> BCM4306.
+</I>&gt;<i>
+</I>&gt;<i> Transker rates (xmit/recv in Mbs), obtained by using an Iperf server on my
+</I>&gt;<i> LAN
+</I>&gt;<i>
+</I>&gt;<i> Bit Rate	BCM4311		BCM4318		BCM4306
+</I>&gt;<i> set (Mbs)
+</I>&gt;<i> 1		1.17/8.66	1.22/9.39	1.22/3.73
+</I>&gt;<i> 2		1.96/11.2	1.98/12.5	1.90/4.98
+</I>&gt;<i> 5.5		4.15/17.7	4.19/17.7	3.98/5.09
+</I>&gt;<i> 6		4.86/17.3	4.86/19.9	2.66/4.94
+</I>&gt;<i> 9		6.58/17.7	6.56/19.9	3.26/5.01
+</I>&gt;<i> 11		6.57/14.2	6.54/18.5	6.07/5.20
+</I>&gt;<i> 18		10.7/19.6	10.7/20.2	4.74/5.05
+</I>&gt;<i> 24		12.6/19.6	12.8/20.0	4.12/5.34
+</I>&gt;<i> 36		16.2/20.1	15.9/20.1	4.76/4.90
+</I>&gt;<i> 48		17.9/20.0	15.1/19.6	3.70/4.18
+</I>&gt;<i> 54		19.0/19.8	15.1/20.0	1.83/2.64
+</I>&gt;<i>
+</I>&gt;<i> These results look rather good for the later models - my BCM4306 has a PHY
+</I>&gt;<i> rev of 1. On this version, much more is required in the PHY setup, and we
+</I>&gt;<i> clearly have more work for that device.
+</I>&gt;<i>
+</I>&gt;<i> Please let me know of any problems in applying the patches, or any oops's
+</I>&gt;<i> that occur.
+</I>&gt;<i>
+</I>&gt;<i> Larry
+</I>
+I have tried these patches on 2.6.23-rc2 and find perceived performance to be 
+about the same as for the bcm4301 mac80211 driver. I use this script to 
+stresstest the connection:
+
+iperf -c 192.168.0.1 -t 3600 &gt; /dev/null &amp;
+watch --interval .1 &quot;dmesg|grep phy[0-9]|tail -n1 \
+&amp;&amp; ifconfig eth1 \
+&amp;&amp; iwconfig eth1 2&gt;&amp;1&quot;
+
+iwconfig:
+eth1      IEEE 802.11g  ESSID:&quot;NETGEAR&quot;
+          Mode:Managed  Frequency:2.442 GHz  Access Point: 00:0F:B5:3D:4B:E2
+          Bit Rate=2 Mb/s
+          Retry min limit:7   RTS thr:off   Fragment thr=2346 B
+          Encryption key:off
+          Link Quality=65/100  Signal level=-60 dBm  Noise level=-70 dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+dmesg|grep &quot;TX power&quot;
+[  755.816434] bcm43xx-phy0 debug: Current TX power output: 10.25 dBm, Desired 
+TX power output: 10.0 dBm
+[  763.339286] bcm43xx-phy0 debug: Current TX power output: 9.0 dBm, Desired 
+TX power output: 10.0 dBm
+[  770.840137] bcm43xx-phy0 debug: Current TX power output: 10.50 dBm, Desired 
+TX power output: 10.0 dBm
+[  778.343126] bcm43xx-phy0 debug: Current TX power output: 9.0 dBm, Desired 
+TX power output: 10.0 dBm
+[  785.842109] bcm43xx-phy0 debug: Current TX power output: 10.50 dBm, Desired 
+TX power output: 10.0 dBm
+[  793.347213] bcm43xx-phy0 debug: Current TX power output: 10.25 dBm, Desired 
+TX power output: 10.0 dBm
+
+Isn't Desired TX power supposed to adapt so that higher bitrates are possible, 
+with Bit Rate going lower if that is not enough to keep a good connection?
+
+When next to AP I get 54Mbps when connection is idle or has low utilisation, 
+but when running iperf the Bit rate instantly changes to 1Mbps. While running 
+iperf it jumps between 1, 2, 5.5 and 11Mbps. When manually setting it to 54M 
+it will work with good thoughput. I think it fails at 11M and starts over 
+from 1 again.
+
+Performance next to AP	 (iperf -c 192.168.0.1):
+1M	721K
+2M	1.64M
+5.5M	3.72M
+6M	5.66M
+9M	7.62M
+11M	---
+12M	9.28M
+18M	11.9M
+24M	14.0M
+36M	17.2M
+48M	18.5M
+54M	18.4M
+auto	451K
+
+When 10 meters away from AP anything higher than 5.5 is unusable, often 5.5M 
+too.
+
+11M mode is unusable at all distances, 12M works fine. This probably breaks 
+rate scaling for me.
+
+&quot;rmmod bcm43xx&quot; when kde is running hangs rmmod and prevents a clean shutdown. 
+I tried to find which program causes this while using bcm4301 driver, but so 
+far no luck. System shuts down fine if I don't try to rmmod first. rmmod 
+works fine from runlevel 3 aside from this message when inserting module 
+again:
+&quot;net eth1: device_rename: sysfs_create_symlink failed (-17)&quot;
+
+Nitpicking:
+When changing bitrate manually it will not show up with iwconfig before any 
+traffic has occured.
+Sometimes iwconfig link quality shows values in the whole 0-255 range.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001777.html">Port of bcm43xx from softmac to mac80211 is available for testing
+</A></li>
+	<LI>Next message: <A HREF="001788.html">Port of bcm43xx from softmac to mac80211 is available for testing
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1787">[ date ]</a>
+              <a href="thread.html#1787">[ thread ]</a>
+              <a href="subject.html#1787">[ subject ]</a>
+              <a href="author.html#1787">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

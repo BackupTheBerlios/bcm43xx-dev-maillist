@@ -1,0 +1,237 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix radio LED problem
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20radio%20LED%20problem&In-Reply-To=%3C474dfe58.85Rcj/BwOPxQm8eE%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002948.html">
+   <LINK REL="Next"  HREF="002950.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix radio LED problem</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20radio%20LED%20problem&In-Reply-To=%3C474dfe58.85Rcj/BwOPxQm8eE%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43: Fix radio LED problem">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Thu Nov 29 00:48:40 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002948.html">assertions on try connect
+</A></li>
+        <LI>Next message: <A HREF="002950.html">[PATCH] b43: Fix radio LED problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2949">[ date ]</a>
+              <a href="thread.html#2949">[ thread ]</a>
+              <a href="subject.html#2949">[ subject ]</a>
+              <a href="author.html#2949">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Since addition of the rfkill callback, the LED associated with the off
+switch on the radio has not worked for several reasons:
+
+(1) Essential data in the rfkill structure were missing.
+(2) The rfkill structure was initialized after the LED initialization.
+(3) There was a minor memory leak if the radio LED structure was inited.
+
+Once the above problems were fixed, additional difficulties were noted:
+
+(4) The radio LED was in the wrong state at startup.
+(5) The radio switch had to be manipulated twice for each state change.
+(6) A circular mutex locking situation existed.
+
+This patch fixes all of the above.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John and Michael,
+
+These changes are mostly obvious. The most complicated is the fixing of the
+circular locking between the rfkill and wl_dev mutexes. This was acomplished
+by moving the rfkill_init() call to the beginning of b43_op_start() and the
+rfkill_exit() call to the end of b43_op_stop().
+
+Techically, these changes are fixes for the radio LED regression between
+bcm43xx and b43. It doesn't matter to me if they are pushed into 2.6.24, or
+left for 2.6.25.
+
+Larry
+---
+
+ leds.c   |    1 +
+ main.c   |   25 +++++++++++++++----------
+ rfkill.c |   14 ++++++++++++--
+ 3 files changed, 28 insertions(+), 12 deletions(-)
+
+
+Index: wireless-2.6/drivers/net/wireless/b43/rfkill.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/rfkill.c
++++ wireless-2.6/drivers/net/wireless/b43/rfkill.c
+@@ -60,8 +60,12 @@ static void b43_rfkill_poll(struct input
+ 	}
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+-	if (unlikely(report_change))
+-		input_report_key(poll_dev-&gt;input, KEY_WLAN, enabled);
++	/* send the radio switch event to the system - note both a key press
++	 * and a release are required */
++	if (unlikely(report_change)) {
++		input_report_key(poll_dev-&gt;input, KEY_WLAN, 1);
++		input_report_key(poll_dev-&gt;input, KEY_WLAN, 0);
++	}
+ }
+ 
+ /* Called when the RFKILL toggled in software. */
+@@ -133,6 +137,12 @@ void b43_rfkill_init(struct b43_wldev *d
+ 	rfk-&gt;poll_dev-&gt;poll = b43_rfkill_poll;
+ 	rfk-&gt;poll_dev-&gt;poll_interval = 1000; /* msecs */
+ 
++	rfk-&gt;poll_dev-&gt;input-&gt;name = rfk-&gt;name;
++	rfk-&gt;poll_dev-&gt;input-&gt;id.bustype = BUS_HOST;
++	rfk-&gt;poll_dev-&gt;input-&gt;id.vendor = dev-&gt;dev-&gt;bus-&gt;boardinfo.vendor;
++	rfk-&gt;poll_dev-&gt;input-&gt;evbit[0] = BIT(EV_KEY);
++	set_bit(KEY_WLAN, rfk-&gt;poll_dev-&gt;input-&gt;keybit);
++
+ 	err = rfkill_register(rfk-&gt;rfkill);
+ 	if (err)
+ 		goto err_free_polldev;
+Index: wireless-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/main.c
++++ wireless-2.6/drivers/net/wireless/b43/main.c
+@@ -2156,7 +2156,6 @@ static void b43_mgmtframe_txantenna(stru
+ static void b43_chip_exit(struct b43_wldev *dev)
+ {
+ 	b43_radio_turn_off(dev, 1);
+-	b43_leds_exit(dev);
+ 	b43_gpio_cleanup(dev);
+ 	/* firmware is released later */
+ }
+@@ -2184,11 +2183,10 @@ static int b43_chip_init(struct b43_wlde
+ 	err = b43_gpio_init(dev);
+ 	if (err)
+ 		goto out;	/* firmware is released later */
+-	b43_leds_init(dev);
+ 
+ 	err = b43_upload_initvals(dev);
+ 	if (err)
+-		goto err_leds_exit;
++		goto err_gpio_clean;
+ 	b43_radio_turn_on(dev);
+ 
+ 	b43_write16(dev, 0x03E6, 0x0000);
+@@ -2267,8 +2265,7 @@ out:
+ 
+ err_radio_off:
+ 	b43_radio_turn_off(dev, 1);
+-err_leds_exit:
+-	b43_leds_exit(dev);
++err_gpio_clean:
+ 	b43_gpio_cleanup(dev);
+ 	return err;
+ }
+@@ -2703,7 +2700,8 @@ static int b43_antenna_from_ieee80211(u8
+ static int b43_op_config(struct ieee80211_hw *hw, struct ieee80211_conf *conf)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+-	struct b43_wldev *dev;
++	struct b43_rfkill *rfk = &amp;(wl-&gt;rfkill);
++	struct b43_wldev *uninitialized_var(dev);
+ 	struct b43_phy *phy;
+ 	unsigned long flags;
+ 	unsigned int new_phymode = 0xFFFF;
+@@ -2802,6 +2800,13 @@ static int b43_op_config(struct ieee8021
+       out_unlock_mutex:
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
++	/* if a LED is devoted to the radio and the switch is on, send
++	 * KEY_WLAN press/release keystrokes */
++	if (!err &amp;&amp; dev-&gt;radio_hw_enable &amp;&amp; &amp;dev-&gt;led_radio) {
++		input_report_key(rfk-&gt;poll_dev-&gt;input, KEY_WLAN, 1);
++		input_report_key(rfk-&gt;poll_dev-&gt;input, KEY_WLAN, 0);
++	}
++
+ 	return err;
+ }
+ 
+@@ -3284,9 +3289,7 @@ static void b43_wireless_core_exit(struc
+ 		return;
+ 	b43_set_status(dev, B43_STAT_UNINIT);
+ 
+-	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
+-	b43_rfkill_exit(dev);
+-	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
++	b43_leds_exit(dev);
+ 
+ 	b43_rng_exit(dev-&gt;wl);
+ 	b43_pio_free(dev);
+@@ -3409,8 +3412,8 @@ static int b43_wireless_core_init(struct
+ 	memset(wl-&gt;mac_addr, 0, ETH_ALEN);
+ 	b43_upload_card_macaddress(dev);
+ 	b43_security_init(dev);
+-	b43_rfkill_init(dev);
+ 	b43_rng_init(wl);
++	b43_leds_init(dev);
+ 
+ 	b43_set_status(dev, B43_STAT_INITIALIZED);
+ 
+@@ -3503,6 +3506,7 @@ static int b43_op_start(struct ieee80211
+ 	int did_init = 0;
+ 	int err = 0;
+ 
++	b43_rfkill_init(dev);
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 
+ 	if (b43_status(dev) &lt; B43_STAT_INITIALIZED) {
+@@ -3537,6 +3541,7 @@ static void b43_op_stop(struct ieee80211
+ 		b43_wireless_core_stop(dev);
+ 	b43_wireless_core_exit(dev);
+ 	mutex_unlock(&amp;wl-&gt;mutex);
++	b43_rfkill_exit(dev);
+ }
+ 
+ static int b43_op_set_retry_limit(struct ieee80211_hw *hw,
+Index: wireless-2.6/drivers/net/wireless/b43/leds.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/leds.c
++++ wireless-2.6/drivers/net/wireless/b43/leds.c
+@@ -232,4 +232,5 @@ void b43_leds_exit(struct b43_wldev *dev
+ 	b43_unregister_led(&amp;dev-&gt;led_tx);
+ 	b43_unregister_led(&amp;dev-&gt;led_rx);
+ 	b43_unregister_led(&amp;dev-&gt;led_assoc);
++	b43_unregister_led(&amp;dev-&gt;led_radio);
+ }
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002948.html">assertions on try connect
+</A></li>
+	<LI>Next message: <A HREF="002950.html">[PATCH] b43: Fix radio LED problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2949">[ date ]</a>
+              <a href="thread.html#2949">[ thread ]</a>
+              <a href="subject.html#2949">[ subject ]</a>
+              <a href="author.html#2949">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

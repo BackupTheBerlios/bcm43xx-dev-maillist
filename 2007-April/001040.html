@@ -1,0 +1,190 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx-mac80211: Fix machine checks on PPC with rev 1 PHYs
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx-mac80211%3A%20Fix%20machine%20checks%20on%20PPC%20with%20rev%201%0A%20PHYs&In-Reply-To=%3C461d0815.ip3FDr8RDQXyCT4U%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001037.html">
+   <LINK REL="Next"  HREF="001043.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx-mac80211: Fix machine checks on PPC with rev 1 PHYs</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx-mac80211%3A%20Fix%20machine%20checks%20on%20PPC%20with%20rev%201%0A%20PHYs&In-Reply-To=%3C461d0815.ip3FDr8RDQXyCT4U%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] bcm43xx-mac80211: Fix machine checks on PPC with rev 1 PHYs">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Wed Apr 11 18:08:53 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001037.html">Packet Injection
+</A></li>
+        <LI>Next message: <A HREF="001043.html">[PATCH] bcm43xx-mac80211: Fix machine checks on PPC with rev 1	PHYs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1040">[ date ]</a>
+              <a href="thread.html#1040">[ thread ]</a>
+              <a href="subject.html#1040">[ subject ]</a>
+              <a href="author.html#1040">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On PPC architecture with phy-&gt;rev == 1, machine checks occur during
+initialization of the &quot;Extended G PHY registers&quot;. This problem was
+also seen on bcm43xx-softmac, and was fixed by conditionally skipping
+over certain reads/writes of these registers.  The same solution has been
+applied here with testing by David Woodhouse.  Note: These modifications
+are not found in the specifications, but are needed for PPC.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John and Michael,
+
+This patch will apply to both the wireless-dev and the mb trees.
+
+Larry
+
+ bcm43xx_phy.c |   50 +++++++++++++++++++++++++++++---------------------
+ 1 file changed, 29 insertions(+), 21 deletions(-)
+
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
+@@ -1362,7 +1362,7 @@ static void bcm43xx_phy_initb6(struct bc
+ static void bcm43xx_calc_loopback_gain(struct bcm43xx_wldev *dev)
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+-	u16 backup_phy[16];
++	u16 backup_phy[16] = {0};
+ 	u16 backup_radio[3];
+ 	u16 backup_bband;
+ 	u16 i, j, loop_i_max;
+@@ -1373,8 +1373,10 @@ static void bcm43xx_calc_loopback_gain(s
+ 	backup_phy[1] = bcm43xx_phy_read(dev, BCM43xx_PHY_CCKBBANDCFG);
+ 	backup_phy[2] = bcm43xx_phy_read(dev, BCM43xx_PHY_RFOVER);
+ 	backup_phy[3] = bcm43xx_phy_read(dev, BCM43xx_PHY_RFOVERVAL);
+-	backup_phy[4] = bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVER);
+-	backup_phy[5] = bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVERVAL);
++	if (phy-&gt;rev != 1) {
++		backup_phy[4] = bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVER);
++		backup_phy[5] = bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVERVAL);
++	}
+ 	backup_phy[6] = bcm43xx_phy_read(dev, BCM43xx_PHY_BASE(0x5A));
+ 	backup_phy[7] = bcm43xx_phy_read(dev, BCM43xx_PHY_BASE(0x59));
+ 	backup_phy[8] = bcm43xx_phy_read(dev, BCM43xx_PHY_BASE(0x58));
+@@ -1402,14 +1404,16 @@ static void bcm43xx_calc_loopback_gain(s
+ 			  bcm43xx_phy_read(dev, BCM43xx_PHY_RFOVER) | 0x0001);
+ 	bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVERVAL,
+ 			  bcm43xx_phy_read(dev, BCM43xx_PHY_RFOVERVAL) &amp; 0xFFFE);
+-	bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVER,
+-			  bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVER) | 0x0001);
+-	bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVERVAL,
+-			  bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVERVAL) &amp; 0xFFFE);
+-	bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVER,
+-			  bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVER) | 0x0002);
+-	bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVERVAL,
+-			  bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVERVAL) &amp; 0xFFFD);
++	if (phy-&gt;rev != 1) {
++		bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVER,
++				  bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVER) | 0x0001);
++		bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVERVAL,
++				  bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVERVAL) &amp; 0xFFFE);
++		bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVER,
++				  bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVER) | 0x0002);
++		bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVERVAL,
++				  bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVERVAL) &amp; 0xFFFD);
++	}
+ 	bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVER,
+ 			  bcm43xx_phy_read(dev, BCM43xx_PHY_RFOVER) | 0x000C);
+ 	bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVER,
+@@ -1426,10 +1430,12 @@ static void bcm43xx_calc_loopback_gain(s
+ 
+ 	bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x0A),
+ 			  bcm43xx_phy_read(dev, BCM43xx_PHY_BASE(0x0A)) | 0x2000);
+-	bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVER,
+-			  bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVER) | 0x0004);
+-	bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVERVAL,
+-			  bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVERVAL) &amp; 0xFFFB);
++	if (phy-&gt;rev != 1) {
++		bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVER,
++				  bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVER) | 0x0004);
++		bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVERVAL,
++				  bcm43xx_phy_read(dev, BCM43xx_PHY_ANALOGOVERVAL) &amp; 0xFFFB);
++	}
+ 	bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x03),
+ 			  (bcm43xx_phy_read(dev, BCM43xx_PHY_BASE(0x03))
+ 			   &amp; 0xFF9F) | 0x40);
+@@ -1522,8 +1528,10 @@ exit_loop1:
+ 		trsw_rx = 0x18;
+ exit_loop2:
+ 
+-	bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVER, backup_phy[4]);
+-	bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVERVAL, backup_phy[5]);
++	if (phy-&gt;rev != 1) {
++		bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVER, backup_phy[4]);
++		bcm43xx_phy_write(dev, BCM43xx_PHY_ANALOGOVERVAL, backup_phy[5]);
++	}
+ 	bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x5A), backup_phy[6]);
+ 	bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x59), backup_phy[7]);
+ 	bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x58), backup_phy[8]);
+@@ -1576,7 +1584,7 @@ static void bcm43xx_phy_initg(struct bcm
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_RFOVER, 0x400);
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_PGACTL, 0xC0);
+ 	}
+-	if (phy-&gt;gmode) {
++	if (phy-&gt;gmode &amp;&amp; phy-&gt;rev &gt;= 2) {
+ 		tmp = bcm43xx_phy_read(dev, BCM43xx_PHY_VERSION_OFDM);
+ 		tmp &amp;= BCM43xx_PHYVER_VERSION;
+ 		if (tmp == 3 || tmp == 5) {
+@@ -1635,7 +1643,7 @@ static void bcm43xx_phy_initg(struct bcm
+ 		else
+ 			bcm43xx_phy_write(dev, BCM43xx_PHY_BASE(0x2F), 0x202);
+ 	}
+-	if (phy-&gt;gmode) {
++	if (phy-&gt;gmode &amp;&amp; phy-&gt;rev != 1) {
+ 		bcm43xx_lo_adjust(dev);
+ 		bcm43xx_phy_write(dev, BCM43xx_PHY_LO_MASK, 0x8078);
+ 	}
+@@ -1649,8 +1657,8 @@ static void bcm43xx_phy_initg(struct bcm
+ 		 */
+ 		bcm43xx_nrssi_hw_update(dev, 0xFFFF);//FIXME?
+ 		bcm43xx_calc_nrssi_threshold(dev);
+-	} else {
+-		if (phy-&gt;gmode &amp;&amp; phy-&gt;nrssi[0] == -1000) {
++	} else if (phy-&gt;gmode &amp;&amp; phy-&gt;rev != 1) {
++		if (phy-&gt;nrssi[0] == -1000) {
+ 			assert(phy-&gt;nrssi[1] == -1000);
+ 			bcm43xx_calc_nrssi_slope(dev);
+ 		} else
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001037.html">Packet Injection
+</A></li>
+	<LI>Next message: <A HREF="001043.html">[PATCH] bcm43xx-mac80211: Fix machine checks on PPC with rev 1	PHYs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1040">[ date ]</a>
+              <a href="thread.html#1040">[ thread ]</a>
+              <a href="subject.html#1040">[ subject ]</a>
+              <a href="author.html#1040">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,145 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] bcm43xx: Replacement of TODO statements in keymac_write
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20bcm43xx%3A%20Replacement%20of%20TODO%20statements%20in%20keymac_write&In-Reply-To=%3C200707312011.48799.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001639.html">
+   
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] bcm43xx: Replacement of TODO statements in keymac_write</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20bcm43xx%3A%20Replacement%20of%20TODO%20statements%20in%20keymac_write&In-Reply-To=%3C200707312011.48799.mb%40bu3sch.de%3E"
+       TITLE="[RFC] bcm43xx: Replacement of TODO statements in keymac_write">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Jul 31 20:11:48 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001639.html">[RFC] bcm43xx: Replacement of TODO statements in keymac_write
+</A></li>
+        
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1640">[ date ]</a>
+              <a href="thread.html#1640">[ thread ]</a>
+              <a href="subject.html#1640">[ subject ]</a>
+              <a href="author.html#1640">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tuesday 31 July 2007 17:06:04 Larry Finger wrote:
+&gt;<i> Routine keymac_write in bcm43xx has two TODO statements that generate lots of
+</I>&gt;<i> useless log output for early chip versions. This patch replaces them with code
+</I>&gt;<i> to store the keys.
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i> Michael,
+</I>&gt;<i> 
+</I>&gt;<i> Is this correct? The whole business of words versus bytes in shared memory
+</I>&gt;<i> is very confusing.
+</I>
+No, it's completely broken. It's broken like all the other
+hwcrypto stuff in the softmac driver. :)
+Please simply remove all that hwcrypto stuff and always force
+swcrypto.
+
+&gt;<i> Larry
+</I>&gt;<i> 
+</I>&gt;<i> ---------
+</I>&gt;<i> 
+</I>&gt;<i>  bcm43xx.h      |    1 +
+</I>&gt;<i>  bcm43xx_main.c |   21 +++++++++++++++++----
+</I>&gt;<i>  2 files changed, 18 insertions(+), 4 deletions(-)
+</I>&gt;<i> 
+</I>&gt;<i> Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx.h
+</I>&gt;<i> +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
+</I>&gt;<i> @@ -156,6 +156,7 @@
+</I>&gt;<i>  /* MacFilter offsets. */
+</I>&gt;<i>  #define BCM43xx_MACFILTER_SELF		0x0000
+</I>&gt;<i>  #define BCM43xx_MACFILTER_ASSOC		0x0003
+</I>&gt;<i> +#define BCM43xx_MACFILTER_MAC		0x0010
+</I>&gt;<i>  
+</I>&gt;<i>  /* Chipcommon registers. */
+</I>&gt;<i>  #define BCM43xx_CHIPCOMMON_CAPABILITIES 	0x04
+</I>&gt;<i> Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> @@ -378,6 +378,7 @@ static void bcm43xx_macfilter_clear(stru
+</I>&gt;<i>  	const u8 zero_addr[ETH_ALEN] = { 0 };
+</I>&gt;<i>  
+</I>&gt;<i>  	bcm43xx_macfilter_set(bcm, offset, zero_addr);
+</I>&gt;<i> +	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, 0x003E, 0);
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i>  static void bcm43xx_write_mac_bssid_templates(struct bcm43xx_private *bcm)
+</I>&gt;<i> @@ -1108,12 +1109,24 @@ static void keymac_write(struct bcm43xx_
+</I>&gt;<i>  				    (index * 2) + 1,
+</I>&gt;<i>  				    cpu_to_be16(*((u16 *)(addr + 1))));
+</I>&gt;<i>  	} else {
+</I>&gt;<i> -		if (index &lt; 8) {
+</I>&gt;<i> -			TODO(); /* Put them in the macaddress filter */
+</I>&gt;<i> +		if (index &lt; 4) {
+</I>&gt;<i> +			bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_MAC +
+</I>&gt;<i> +					      index * 6, (const u8 *)addr);
+</I>&gt;<i>  		} else {
+</I>&gt;<i> -			TODO();
+</I>&gt;<i>  			/* Put them BCM43xx_SHM_SHARED, stating index 0x0120.
+</I>&gt;<i> -			   Keep in mind to update the count of keymacs in 0x003E as well! */
+</I>&gt;<i> +			   Update the count of keymacs in 0x003E as well */
+</I>&gt;<i> +			bcm43xx_shm_write32(bcm,
+</I>&gt;<i> +					    BCM43xx_SHM_SHARED,
+</I>&gt;<i> +					    (index - 4) * 6 + 0x120,
+</I>&gt;<i> +					    cpu_to_be32(*addr));
+</I>&gt;<i> +			bcm43xx_shm_write16(bcm,
+</I>&gt;<i> +					    BCM43xx_SHM_SHARED,
+</I>&gt;<i> +					    (index - 4) * 6 + 0x124,
+</I>&gt;<i> +					    cpu_to_be16(*((u16 *)(addr + 1))));
+</I>&gt;<i> +			bcm43xx_shm_write32(bcm,	/* update count */
+</I>&gt;<i> +					    BCM43xx_SHM_SHARED, 0x003E,
+</I>&gt;<i> +					    bcm43xx_shm_read32(bcm,
+</I>&gt;<i> +					    BCM43xx_SHM_SHARED, 0x003E) + 1);
+</I>&gt;<i>  		}
+</I>&gt;<i>  	}
+</I>&gt;<i>  }
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001639.html">[RFC] bcm43xx: Replacement of TODO statements in keymac_write
+</A></li>
+	
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1640">[ date ]</a>
+              <a href="thread.html#1640">[ thread ]</a>
+              <a href="subject.html#1640">[ subject ]</a>
+              <a href="author.html#1640">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,177 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 2/3] b43: N-PHY: add b43_nphy_iq_cal_gain_params
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/3%5D%20b43%3A%20N-PHY%3A%20add%20b43_nphy_iq_cal_gain_params&In-Reply-To=%3Cop.u6fp56sg9lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006739.html">
+   <LINK REL="Next"  HREF="006732.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 2/3] b43: N-PHY: add b43_nphy_iq_cal_gain_params</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%202/3%5D%20b43%3A%20N-PHY%3A%20add%20b43_nphy_iq_cal_gain_params&In-Reply-To=%3Cop.u6fp56sg9lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 2/3] b43: N-PHY: add b43_nphy_iq_cal_gain_params">zajec5 at gmail.com
+       </A><BR>
+    <I>Tue Jan 12 20:38:20 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006739.html">[PATCH 1/3] b43: N-PHY: add b43_nphy_rx_iq_est and 	b43_nphy_tx_iq_workaround
+</A></li>
+        <LI>Next message: <A HREF="006732.html">[PATCH 3/3] b43: N-PHY: add RX IQ calculation for rev &lt; 3
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6731">[ date ]</a>
+              <a href="thread.html#6731">[ thread ]</a>
+              <a href="subject.html#6731">[ subject ]</a>
+              <a href="author.html#6731">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+  drivers/net/wireless/b43/phy_n.c       |   40 ++++++++++++++++++++++++++++++++
+  drivers/net/wireless/b43/tables_nphy.c |   25 ++++++++++++++++++++
+  drivers/net/wireless/b43/tables_nphy.h |    1 +
+  3 files changed, 66 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 7b2468d..ea1af25 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -31,6 +31,8 @@
+
+
+  struct nphy_txgains { u16 txgm[2]; u16 pga[2]; u16 pad[2]; u16 ipa[2]; };
++struct nphy_iqcal_params { u16 txgm; u16 pga; u16 pad; u16 ipa; u16 cal_gain;
++				u16 ncorr[5]; };
+  struct nphy_iq_est { s32 iq0_prod; u32 i0_pwr; u32 q0_pwr; s32 iq1_prod;
+  			u32 i1_pwr; u32 q1_pwr; };
+
+@@ -512,6 +514,44 @@ static void b43_nphy_rx_iq_est(struct b43_wldev *dev, struct nphy_iq_est *est,
+  	memset(est, 0, sizeof(*est));
+  }
+
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/IqCalGainParams">http://bcm-v4.sipsolutions.net/802.11/PHY/N/IqCalGainParams</A> */
++static void b43_nphy_iq_cal_gain_params(struct b43_wldev *dev, u16 core,
++					struct nphy_txgains target,
++					struct nphy_iqcal_params *params)
++{
++	int i, j, indx;
++	u16 gain;
++
++	if (dev-&gt;phy.rev &gt;= 3) {
++		params-&gt;txgm = target.txgm[core];
++		params-&gt;pga = target.pga[core];
++		params-&gt;pad = target.pad[core];
++		params-&gt;ipa = target.ipa[core];
++		params-&gt;cal_gain = (params-&gt;txgm &lt;&lt; 12) | (params-&gt;pga &lt;&lt; 8) |
++					(params-&gt;pad &lt;&lt; 4) | (params-&gt;ipa);
++		for (j = 0; j &lt; 5; j++)
++			params-&gt;ncorr[j] = 0x79;
++	} else {
++		gain = (target.pad[core]) | (target.pga[core] &lt;&lt; 4) |
++			(target.txgm[core] &lt;&lt; 8);
++
++		indx = (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ) ?
++			1 : 0;
++		for (i = 0; i &lt; 9; i++)
++			if (tbl_iqcal_gainparams[indx][i][0] == gain)
++				break;
++		i = min(i, 8);
++
++		params-&gt;txgm = tbl_iqcal_gainparams[indx][i][1];
++		params-&gt;pga = tbl_iqcal_gainparams[indx][i][2];
++		params-&gt;pad = tbl_iqcal_gainparams[indx][i][3];
++		params-&gt;cal_gain = (params-&gt;txgm &lt;&lt; 7) | (params-&gt;pga &lt;&lt; 4) |
++					(params-&gt;pad &lt;&lt; 2);
++		for (j = 0; j &lt; 4; j++)
++			params-&gt;ncorr[j] = tbl_iqcal_gainparams[indx][i][4 + j];
++	}
++}
++
+  /* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/TxIqWar">http://bcm-v4.sipsolutions.net/802.11/PHY/N/TxIqWar</A> */
+  static void b43_nphy_tx_iq_workaround(struct b43_wldev *dev)
+  {
+diff --git a/drivers/net/wireless/b43/tables_nphy.c b/drivers/net/wireless/b43/tables_nphy.c
+index 3779f1d..de8a609 100644
+--- a/drivers/net/wireless/b43/tables_nphy.c
++++ b/drivers/net/wireless/b43/tables_nphy.c
+@@ -2721,6 +2721,31 @@ const u32 txpwrctrl_tx_gain_ipa_5g[] = {
+  	0x70f70021, 0x70f70020, 0x70f70020, 0x70f7001f,
+  };
+
++const u16 tbl_iqcal_gainparams[2][9][8] = {
++	{
++		{ 0x000, 0, 0, 2, 0x69, 0x69, 0x69, 0x69 },
++		{ 0x700, 7, 0, 0, 0x69, 0x69, 0x69, 0x69 },
++		{ 0x710, 7, 1, 0, 0x68, 0x68, 0x68, 0x68 },
++		{ 0x720, 7, 2, 0, 0x67, 0x67, 0x67, 0x67 },
++		{ 0x730, 7, 3, 0, 0x66, 0x66, 0x66, 0x66 },
++		{ 0x740, 7, 4, 0, 0x65, 0x65, 0x65, 0x65 },
++		{ 0x741, 7, 4, 1, 0x65, 0x65, 0x65, 0x65 },
++		{ 0x742, 7, 4, 2, 0x65, 0x65, 0x65, 0x65 },
++		{ 0x743, 7, 4, 3, 0x65, 0x65, 0x65, 0x65 }
++	},
++	{
++		{ 0x000, 7, 0, 0, 0x79, 0x79, 0x79, 0x79 },
++		{ 0x700, 7, 0, 0, 0x79, 0x79, 0x79, 0x79 },
++		{ 0x710, 7, 1, 0, 0x79, 0x79, 0x79, 0x79 },
++		{ 0x720, 7, 2, 0, 0x78, 0x78, 0x78, 0x78 },
++		{ 0x730, 7, 3, 0, 0x78, 0x78, 0x78, 0x78 },
++		{ 0x740, 7, 4, 0, 0x78, 0x78, 0x78, 0x78 },
++		{ 0x741, 7, 4, 1, 0x78, 0x78, 0x78, 0x78 },
++		{ 0x742, 7, 4, 2, 0x78, 0x78, 0x78, 0x78 },
++		{ 0x743, 7, 4, 3, 0x78, 0x78, 0x78, 0x78 }
++	}
++};
++
+  static inline void assert_ntab_array_sizes(void)
+  {
+  #undef check
+diff --git a/drivers/net/wireless/b43/tables_nphy.h b/drivers/net/wireless/b43/tables_nphy.h
+index 62b1745..86c394c 100644
+--- a/drivers/net/wireless/b43/tables_nphy.h
++++ b/drivers/net/wireless/b43/tables_nphy.h
+@@ -141,5 +141,6 @@ extern const u32 txpwrctrl_tx_gain_ipa[];
+  extern const u32 txpwrctrl_tx_gain_ipa_rev5[];
+  extern const u32 txpwrctrl_tx_gain_ipa_rev6[];
+  extern const u32 txpwrctrl_tx_gain_ipa_5g[];
++extern const u16 tbl_iqcal_gainparams[2][9][8];
+
+  #endif /* B43_TABLES_NPHY_H_ */
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006739.html">[PATCH 1/3] b43: N-PHY: add b43_nphy_rx_iq_est and 	b43_nphy_tx_iq_workaround
+</A></li>
+	<LI>Next message: <A HREF="006732.html">[PATCH 3/3] b43: N-PHY: add RX IQ calculation for rev &lt; 3
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6731">[ date ]</a>
+              <a href="thread.html#6731">[ thread ]</a>
+              <a href="subject.html#6731">[ subject ]</a>
+              <a href="author.html#6731">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

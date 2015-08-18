@@ -1,0 +1,178 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb-pcmcia: IRQ and DMA related fixes
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb-pcmcia%3A%20IRQ%20and%20DMA%20related%20fixes&In-Reply-To=%3C200803281034.55731.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003655.html">
+   <LINK REL="Next"  HREF="003657.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb-pcmcia: IRQ and DMA related fixes</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb-pcmcia%3A%20IRQ%20and%20DMA%20related%20fixes&In-Reply-To=%3C200803281034.55731.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] ssb-pcmcia: IRQ and DMA related fixes">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Mar 28 10:34:55 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003655.html">More on ASUS WL-138G V2
+</A></li>
+        <LI>Next message: <A HREF="003657.html">[PATCH] b43: Add DMA mapping failure messages
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3656">[ date ]</a>
+              <a href="thread.html#3656">[ thread ]</a>
+              <a href="subject.html#3656">[ subject ]</a>
+              <a href="author.html#3656">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Here come some IRQ and DMA related fixes for the ssb PCMCIA-host code.
+Not much to say, actually. I think the patch explains itself.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+For 2.6.25
+
+Index: wireless-testing/drivers/ssb/pcmcia.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/pcmcia.c	2008-03-28 10:23:09.000000000 +0100
++++ wireless-testing/drivers/ssb/pcmcia.c	2008-03-28 10:25:00.000000000 +0100
+@@ -25,17 +25,12 @@
+ 
+ /* Define the following to 1 to enable a printk on each coreswitch. */
+ #define SSB_VERBOSE_PCMCIACORESWITCH_DEBUG		0
+ 
+ 
+ /* PCMCIA configuration registers */
+-#define SSB_PCMCIA_CORECTL		0x00
+-#define  SSB_PCMCIA_CORECTL_RESET	0x80 /* Core reset */
+-#define  SSB_PCMCIA_CORECTL_IRQEN	0x04 /* IRQ enable */
+-#define  SSB_PCMCIA_CORECTL_FUNCEN	0x01 /* Function enable */
+-#define SSB_PCMCIA_CORECTL2		0x80
+ #define SSB_PCMCIA_ADDRESS0		0x2E
+ #define SSB_PCMCIA_ADDRESS1		0x30
+ #define SSB_PCMCIA_ADDRESS2		0x32
+ #define SSB_PCMCIA_MEMSEG		0x34
+ #define SSB_PCMCIA_SPROMCTL		0x36
+ #define  SSB_PCMCIA_SPROMCTL_IDLE	0
+@@ -668,42 +663,55 @@ static ssize_t ssb_pcmcia_attr_sprom_sto
+ }
+ 
+ static DEVICE_ATTR(ssb_sprom, 0600,
+ 		   ssb_pcmcia_attr_sprom_show,
+ 		   ssb_pcmcia_attr_sprom_store);
+ 
++static int ssb_pcmcia_cor_setup(struct ssb_bus *bus, u8 cor)
++{
++	u8 val;
++	int err;
++
++	err = ssb_pcmcia_cfg_read(bus, cor, &amp;val);
++	if (err)
++		return err;
++	val &amp;= ~COR_SOFT_RESET;
++	val |= COR_FUNC_ENA | COR_IREQ_ENA | COR_LEVEL_REQ;
++	err = ssb_pcmcia_cfg_write(bus, cor, val);
++	if (err)
++		return err;
++	msleep(40);
++
++	return 0;
++}
++
+ void ssb_pcmcia_exit(struct ssb_bus *bus)
+ {
+ 	if (bus-&gt;bustype != SSB_BUSTYPE_PCMCIA)
+ 		return;
+ 
+ 	device_remove_file(&amp;bus-&gt;host_pcmcia-&gt;dev, &amp;dev_attr_ssb_sprom);
+ }
+ 
+ int ssb_pcmcia_init(struct ssb_bus *bus)
+ {
+-	u8 val, offset;
+ 	int err;
+ 
+ 	if (bus-&gt;bustype != SSB_BUSTYPE_PCMCIA)
+ 		return 0;
+ 
+ 	/* Switch segment to a known state and sync
+ 	 * bus-&gt;mapped_pcmcia_seg with hardware state. */
+ 	ssb_pcmcia_switch_segment(bus, 0);
+ 
+-	/* Init IRQ routing */
+-	if (bus-&gt;chip_id == 0x4306)
+-		offset = SSB_PCMCIA_CORECTL;
+-	else
+-		offset = SSB_PCMCIA_CORECTL2;
+-	err = ssb_pcmcia_cfg_read(bus, offset, &amp;val);
++	/* Init the COR register. */
++	err = ssb_pcmcia_cor_setup(bus, CISREG_COR);
+ 	if (err)
+ 		goto error;
+-	val |= SSB_PCMCIA_CORECTL_IRQEN | SSB_PCMCIA_CORECTL_FUNCEN;
+-	err = ssb_pcmcia_cfg_write(bus, offset, val);
++	/* Some cards also need this register to get poked. */
++	err = ssb_pcmcia_cor_setup(bus, CISREG_COR + 0x80);
+ 	if (err)
+ 		goto error;
+ 
+ 	bus-&gt;sprom_size = SSB_PCMCIA_SPROM_SIZE;
+ 	mutex_init(&amp;bus-&gt;sprom_mutex);
+ 	err = device_create_file(&amp;bus-&gt;host_pcmcia-&gt;dev, &amp;dev_attr_ssb_sprom);
+Index: wireless-testing/drivers/ssb/main.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/main.c	2008-03-28 10:23:21.000000000 +0100
++++ wireless-testing/drivers/ssb/main.c	2008-03-28 10:25:00.000000000 +0100
+@@ -1061,15 +1061,15 @@ void ssb_device_disable(struct ssb_devic
+ EXPORT_SYMBOL(ssb_device_disable);
+ 
+ u32 ssb_dma_translation(struct ssb_device *dev)
+ {
+ 	switch (dev-&gt;bus-&gt;bustype) {
+ 	case SSB_BUSTYPE_SSB:
++	case SSB_BUSTYPE_PCMCIA:
+ 		return 0;
+ 	case SSB_BUSTYPE_PCI:
+-	case SSB_BUSTYPE_PCMCIA:
+ 		return SSB_PCI_DMA;
+ 	}
+ 	return 0;
+ }
+ EXPORT_SYMBOL(ssb_dma_translation);
+ 
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003655.html">More on ASUS WL-138G V2
+</A></li>
+	<LI>Next message: <A HREF="003657.html">[PATCH] b43: Add DMA mapping failure messages
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3656">[ date ]</a>
+              <a href="thread.html#3656">[ thread ]</a>
+              <a href="subject.html#3656">[ subject ]</a>
+              <a href="author.html#3656">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,150 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Feedback on ASUS WL-138G V2
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Feedback%20on%20ASUS%20WL-138G%20V2&In-Reply-To=%3CBAY107-W181B3C39CEF64E405A44ACA0E00%40phx.gbl%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003928.html">
+   <LINK REL="Next"  HREF="003930.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Feedback on ASUS WL-138G V2</H1>
+    <B>kala mazoo</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Feedback%20on%20ASUS%20WL-138G%20V2&In-Reply-To=%3CBAY107-W181B3C39CEF64E405A44ACA0E00%40phx.gbl%3E"
+       TITLE="Feedback on ASUS WL-138G V2">myheadblewoff at hotmail.com
+       </A><BR>
+    <I>Tue Apr 22 17:15:05 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003928.html">Problems with bcm4318 wlan card on debian unstable (linux kernel	2.6.24)
+</A></li>
+        <LI>Next message: <A HREF="003930.html">Feedback on ASUS WL-138G V2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3929">[ date ]</a>
+              <a href="thread.html#3929">[ thread ]</a>
+              <a href="subject.html#3929">[ subject ]</a>
+              <a href="author.html#3929">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+Greets,
+             Still using my 32bit machine fitted with this card and finding
+a couple of strange quirks. Current 'state of play' on this machine is
+as follows;
+
+  linux-2.6.25
+  compat-wireless-2008-04-20 + Michael's patch series 'mb-wl-20080420-1630'
+
+ rewrote original ssb_sprom image back into card
+
+
+The card now initializes fine with original (shipped) sprom, caveat the rx/tx leds ;
+
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 32-bit DMA initialized
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+b43-phy0 debug: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:1e:2a:61:7d:2c
+wlan0: RX authentication from 00:1e:2a:61:7d:2c (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:1e:2a:61:7d:2c
+wlan0: RX AssocResp from 00:1e:2a:61:7d:2c (capab=0x431 status=0 aid=2)
+wlan0: associated
+ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+wlan0: no IPv6 routers present
+
+
+Notice the lack of led devices registering here (as I mentioned before). Indeed,
+the behaviour of the leds is totally different -- now, they come ON and stay
+ON when the card is 'active'...ie; ifconfig wlan0 up. Converse is true ; doing
+'ifconfig wlan0 down' turns the leds off again.
+
+If I dump the sprom image Stefanik provided back into the card, the led device
+registration lines reappear in debug, and the leds blink in that sympathetic way
+rx/tx leds do. Is there yet another funky value in sprom responsible for this?
+
+
+Previously I had mentioned dropped/duplicate packets being observed (I think
+Stefanik noted likewise), and at the time I thought it was my error -- late night,
+running on autopilot, typed in a conflicting IP address...something like this. I
+have since discovered something else is at play here.
+
+[from the 'host' box with the asus card]
+
+1212 packets transmitted, 1200 packets received, 0% packet loss
+round-trip min/avg/max/stddev = 0.821/1.192/5.801/0.366 ms
+
+...???.....I would've expected almost 1% packet loss (having lost 12 packets)
+
+[from the remote box pinging host box via netgear wgr614 AP]
+
+1175 packets transmitted, 1161 received, 1% packet loss, time 1174031ms
+rtt min/avg/max/mdev = 0.943/1.180/7.979/0.469 ms
+
+
+If I ping the host box from my machine here, the packets have to go out
+my eth0 interface into a netgear wr602 in client mode which is associated
+with the wgr614 AP down the hall (which is the AP the host is associated
+with also). In this case, I get ;
+
+
+354 packets transmitted, 348 packets received, +115 duplicates, 1% packet loss
+round-trip min/avg/max/stddev = 1.126/1.861/17.681/1.222 ms
+
+
+..and from the host machine pinging the same route back to me;
+
+
+350 packets transmitted, 344 packets received, +140 duplicates, 1% packet loss
+round-trip min/avg/max/stddev = 1.222/1.893/4.296/0.443 ms
+
+
+Has anyone any idea what's going on here? 
+
+
+Otherwise the card seems to be working 'as expected', although the duplicates
+&amp; dropped packets *only* via that specific hardware route make for a jerky
+ride if one tries to (eg) stream video across it. 
+
+Regards,
+
+             Donald
+_________________________________________________________________
+Are you paid what you're worth? Find out: SEEK Salary Centre
+<A HREF="http://a.ninemsn.com.au/b.aspx?URL=http%3A%2F%2Fninemsn%2Eseek%2Ecom%2Eau%2Fcareer%2Dresources%2Fsalary%2Dcentre%2F%3Ftracking%3Dsk%3Ahet%3Asc%3Anine%3A0%3Ahot%3Atext&amp;_t=764565661&amp;_r=OCT07_endtext_salary&amp;_m=EXT">http://a.ninemsn.com.au/b.aspx?URL=http%3A%2F%2Fninemsn%2Eseek%2Ecom%2Eau%2Fcareer%2Dresources%2Fsalary%2Dcentre%2F%3Ftracking%3Dsk%3Ahet%3Asc%3Anine%3A0%3Ahot%3Atext&amp;_t=764565661&amp;_r=OCT07_endtext_salary&amp;_m=EXT</A>
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003928.html">Problems with bcm4318 wlan card on debian unstable (linux kernel	2.6.24)
+</A></li>
+	<LI>Next message: <A HREF="003930.html">Feedback on ASUS WL-138G V2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3929">[ date ]</a>
+              <a href="thread.html#3929">[ thread ]</a>
+              <a href="subject.html#3929">[ subject ]</a>
+              <a href="author.html#3929">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

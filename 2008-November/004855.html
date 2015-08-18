@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Stack trace on a 4318 CF
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Stack%20trace%20on%20a%204318%20CF&In-Reply-To=%3C491C7B89.90109%40verizon.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004857.html">
+   <LINK REL="Next"  HREF="004856.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Stack trace on a 4318 CF</H1>
+    <B>Tex</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Stack%20trace%20on%20a%204318%20CF&In-Reply-To=%3C491C7B89.90109%40verizon.net%3E"
+       TITLE="Stack trace on a 4318 CF">ccmcphe at verizon.net
+       </A><BR>
+    <I>Thu Nov 13 20:10:01 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004857.html">4318 in AP mode
+</A></li>
+        <LI>Next message: <A HREF="004856.html">Stack trace on a 4318 CF
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4855">[ date ]</a>
+              <a href="thread.html#4855">[ thread ]</a>
+              <a href="subject.html#4855">[ subject ]</a>
+              <a href="author.html#4855">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I am getting stack traces (see below) on my broadcom 4318 card, they are 
+always started off at b43/xmit.c:76 (function  
+b43_plcp_get_bitrate_idx_ofdm) and mac80211/rx.c:2183 (function 
+__ieee80211_rx) both are hitting the WARN_ON macro references.  Does 
+anyone know why this may be happening? It doesn't seem to cause any trouble.
+
+The code blocks are:
+
+__ieee802111_rx:
+ if (!sband ||
+            status-&gt;rate_idx &lt; 0 ||
+            status-&gt;rate_idx &gt;= sband-&gt;n_bitrates) {
+                WARN_ON(1);
+                return;
+        }
+
+and
+
+xmit.c:
+        case 0xB:
+                return base + 0;
+        case 0xF:
+                return base + 1;
+        case 0xA:
+                return base + 2;
+        case 0xE:
+                return base + 3;
+        case 0x9:
+                return base + 4;
+        case 0xD:
+                return base + 5;
+        case 0x8:
+                return base + 6;
+        case 0xC:
+                return base + 7;
+        }
+        B43_WARN_ON(1);
+        return -1;
+
+I am using Linux 2.6.26 on an ARM processor. The uname -m is armv5tel, 
+uname -r is 2.6.26.
+lspcmcia info is:
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at nomad</A>:~$ pccardctl info
+PRODID_1=&quot;Broadcom&quot;
+PRODID_2=&quot;802.11g SC CF&quot;
+PRODID_3=&quot;4.0&quot;
+PRODID_4=&quot;&quot;
+MANFID=02d0,0448
+FUNCID=6
+
+
+
+
+
+Nov 13 12:52:15 nomad user.warn kernel: WARNING: at 
+drivers/net/wireless/b43/xmit.c:76 b43_rx+0x544/0x644 [b43]()
+Nov 13 12:52:15 nomad user.warn kernel: Modules linked in: b43 arc4 ssb 
+rng_core mac80211 cfg80211 pxa2xx_cs pxa2xx_core
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;c002d250&gt;] 
+(dump_stack+0x0/0x14) from [&lt;c00433ac&gt;] (warn_on_slowpath+0x4c/0x68)
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;c0043360&gt;] 
+(warn_on_slowpath+0x0/0x68) from [&lt;bf11160c&gt;] (b43_rx+0x544/0x644 [b
+Nov 13 12:52:15 nomad user.warn kernel:  r6:00000002 r5:00000000 r4:00000001
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;bf1110c8&gt;] (b43_rx+0x0/0x644 
+[b43]) from [&lt;bf119520&gt;] (b43_pio_rx_work+0x418/0x
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;bf119108&gt;] 
+(b43_pio_rx_work+0x0/0x470 [b43]) from [&lt;c0053fd8&gt;] (run_workqueue+0
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;c0053f2c&gt;] 
+(run_workqueue+0x0/0x160) from [&lt;c0054afc&gt;] (worker_thread+0xa4/0x12
+Nov 13 12:52:15 nomad user.warn kernel:  r6:c7518e40 r5:c7518e48 r4:c62e8000
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;c0054a58&gt;] 
+(worker_thread+0x0/0x128) from [&lt;c0057b5c&gt;] (kthread+0x50/0x7c)
+Nov 13 12:52:15 nomad user.warn kernel:  r7:00000000 r6:00000000 
+r5:c0054a58 r4:fffffffc
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;c0057b0c&gt;] (kthread+0x0/0x7c) 
+from [&lt;c0046a80&gt;] (do_exit+0x0/0x6c8)
+Nov 13 12:52:15 nomad user.warn kernel:  r5:00000000 r4:00000000
+Nov 13 12:52:15 nomad user.warn kernel: ---[ end trace 2c396510d06afaac ]---
+Nov 13 12:52:15 nomad user.warn kernel: ------------[ cut here ]------------
+Nov 13 12:52:15 nomad user.warn kernel: WARNING: at 
+net/mac80211/rx.c:2183 __ieee80211_rx+0x1a8/0x58c [mac80211]()
+Nov 13 12:52:15 nomad user.warn kernel: Modules linked in: b43 arc4 ssb 
+rng_core mac80211 cfg80211 pxa2xx_cs pxa2xx_core
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;c002d250&gt;] 
+(dump_stack+0x0/0x14) from [&lt;c00433ac&gt;] (warn_on_slowpath+0x4c/0x68)
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;c0043360&gt;] 
+(warn_on_slowpath+0x0/0x68) from [&lt;bf0df114&gt;] (__ieee80211_rx+0x1a8/
+Nov 13 12:52:15 nomad user.warn kernel:  r6:c7c6ed80 r5:c7c6ed80 r4:c62e9e40
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;bf0def6c&gt;] 
+(__ieee80211_rx+0x0/0x58c [mac80211]) from [&lt;bf0ccb94&gt;] (ieee80211_t
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;bf0ccab8&gt;] 
+(ieee80211_tasklet_handler+0x0/0x14c [mac80211]) from [&lt;c0048c6c&gt;] (
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;c0048bf4&gt;] 
+(tasklet_action+0x0/0xf4) from [&lt;c0048b10&gt;] (__do_softirq+0x70/0xe0)
+Nov 13 12:52:15 nomad user.warn kernel:  r6:0000000a r5:c0346c0c r4:00000005
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;c0048aa0&gt;] 
+(__do_softirq+0x0/0xe0) from [&lt;c0048ec8&gt;] (irq_exit+0x48/0x50)
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;c0048e80&gt;] (irq_exit+0x0/0x50) 
+from [&lt;c0028048&gt;] (__exception_text_start+0x48/0
+Nov 13 12:52:15 nomad user.warn kernel: [&lt;c0028000&gt;] 
+(__exception_text_start+0x0/0x5c) from [&lt;c0028710&gt;] (__irq_svc+0x30/
+Nov 13 12:52:15 nomad user.warn kernel: Exception stack(0xc62e9ef0 to 
+0xc62e9f38)
+Nov 13 12:52:15 nomad user.warn kernel: 
+9ee0:                                     00000001 c62e8000 00000002 
+60000013
+Nov 13 12:52:15 nomad user.warn kernel: 9f00: 00000001 c62196e0 000005f2 
+c7c6ed80 c62e6400 000005f4 00000026 c62e9f84
+- messages 1/110 0%
+
+Thanks much
+Tex
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004857.html">4318 in AP mode
+</A></li>
+	<LI>Next message: <A HREF="004856.html">Stack trace on a 4318 CF
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4855">[ date ]</a>
+              <a href="thread.html#4855">[ thread ]</a>
+              <a href="subject.html#4855">[ subject ]</a>
+              <a href="author.html#4855">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

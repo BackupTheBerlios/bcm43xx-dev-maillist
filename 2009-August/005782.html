@@ -1,0 +1,130 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix sparse warnings
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20sparse%20warnings&In-Reply-To=%3C4a84906b.%2BIYGhiNLKPSjrrR7%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005814.html">
+   <LINK REL="Next"  HREF="005813.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix sparse warnings</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20sparse%20warnings&In-Reply-To=%3C4a84906b.%2BIYGhiNLKPSjrrR7%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43: Fix sparse warnings">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Aug 14 00:15:07 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005814.html">[PATCH] b43: LP-PHY: Implement channel switching for rev2+/B2063	radio
+</A></li>
+        <LI>Next message: <A HREF="005813.html">[PATCH] b43: Fix sparse warnings
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5782">[ date ]</a>
+              <a href="thread.html#5782">[ thread ]</a>
+              <a href="subject.html#5782">[ subject ]</a>
+              <a href="author.html#5782">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The b43 driver generates the following sparse warnings:
+
+  CHECK   drivers/net/wireless/b43/phy_g.c
+drivers/net/wireless/b43/phy_g.c:974:35: warning: cast truncates bits from constant value (ffff7fff becomes 7fff)
+  CHECK   drivers/net/wireless/b43/wa.c
+drivers/net/wireless/b43/wa.c:385:53: warning: cast truncates bits from constant value (ffff00ff becomes ff)
+drivers/net/wireless/b43/wa.c:403:48: warning: cast truncates bits from constant value (ffff00ff becomes ff)
+drivers/net/wireless/b43/wa.c:405:48: warning: cast truncates bits from constant value (ffff00ff becomes ff)
+drivers/net/wireless/b43/wa.c:415:50: warning: cast truncates bits from constant value (ffff0fff becomes fff)
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+There is no hurry for this material.
+
+Larry
+---
+
+Index: wireless-testing/drivers/net/wireless/b43/phy_g.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_g.c
++++ wireless-testing/drivers/net/wireless/b43/phy_g.c
+@@ -971,7 +971,7 @@ b43_radio_interference_mitigation_enable
+ 		b43_phy_maskset(dev, 0x04A2, 0xFFF0, 0x000B);
+ 
+ 		if (phy-&gt;rev &gt;= 3) {
+-			b43_phy_mask(dev, 0x048A, (u16)~0x8000);
++			b43_phy_mask(dev, 0x048A, (u16)(~0x8000 &amp; 0xFFFF));
+ 			b43_phy_maskset(dev, 0x0415, 0x8000, 0x36D8);
+ 			b43_phy_maskset(dev, 0x0416, 0x8000, 0x36D8);
+ 			b43_phy_maskset(dev, 0x0417, 0xFE00, 0x016D);
+Index: wireless-testing/drivers/net/wireless/b43/wa.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/wa.c
++++ wireless-testing/drivers/net/wireless/b43/wa.c
+@@ -382,7 +382,8 @@ static void b43_wa_altagc(struct b43_wld
+ 		b43_ofdmtab_write16(dev, B43_OFDMTAB_AGC1, 3, 25);
+ 	}
+ 
+-	b43_phy_maskset(dev, B43_PHY_CCKSHIFTBITS_WA, (u16)~0xFF00, 0x5700);
++	b43_phy_maskset(dev, B43_PHY_CCKSHIFTBITS_WA, (u16)(~0xFF00 &amp; 0xFFFF),
++			0x5700);
+ 	b43_phy_maskset(dev, B43_PHY_OFDM(0x1A), ~0x007F, 0x000F);
+ 	b43_phy_maskset(dev, B43_PHY_OFDM(0x1A), ~0x3F80, 0x2B80);
+ 	b43_phy_maskset(dev, B43_PHY_ANTWRSETT, 0xF0FF, 0x0300);
+@@ -400,9 +401,9 @@ static void b43_wa_altagc(struct b43_wld
+ 	b43_phy_maskset(dev, B43_PHY_OFDM(0x89), ~0x00FF, 0x0020);
+ 	b43_phy_maskset(dev, B43_PHY_OFDM(0x89), ~0x3F00, 0x0200);
+ 	b43_phy_maskset(dev, B43_PHY_OFDM(0x82), ~0x00FF, 0x002E);
+-	b43_phy_maskset(dev, B43_PHY_OFDM(0x96), (u16)~0xFF00, 0x1A00);
++	b43_phy_maskset(dev, B43_PHY_OFDM(0x96), (u16)(~0xFF00 &amp; 0xFFFF), 0x1A00);
+ 	b43_phy_maskset(dev, B43_PHY_OFDM(0x81), ~0x00FF, 0x0028);
+-	b43_phy_maskset(dev, B43_PHY_OFDM(0x81), (u16)~0xFF00, 0x2C00);
++	b43_phy_maskset(dev, B43_PHY_OFDM(0x81), (u16)(~0xFF00 &amp; 0xFFFF), 0x2C00);
+ 	if (phy-&gt;rev == 1) {
+ 		b43_phy_write(dev, B43_PHY_PEAK_COUNT, 0x092B);
+ 		b43_phy_maskset(dev, B43_PHY_OFDM(0x1B), ~0x001E, 0x0002);
+@@ -412,7 +413,8 @@ static void b43_wa_altagc(struct b43_wld
+ 		b43_phy_maskset(dev, B43_PHY_LPFGAINCTL, ~0x000F, 0x0004);
+ 		if (phy-&gt;rev &gt;= 6) {
+ 			b43_phy_write(dev, B43_PHY_OFDM(0x22), 0x287A);
+-			b43_phy_maskset(dev, B43_PHY_LPFGAINCTL, (u16)~0xF000, 0x3000);
++			b43_phy_maskset(dev, B43_PHY_LPFGAINCTL, (u16)(~0xF000 &amp;
++					0xFFFF), 0x3000);
+ 		}
+ 	}
+ 	b43_phy_maskset(dev, B43_PHY_DIVSRCHIDX, 0x8080, 0x7874);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005814.html">[PATCH] b43: LP-PHY: Implement channel switching for rev2+/B2063	radio
+</A></li>
+	<LI>Next message: <A HREF="005813.html">[PATCH] b43: Fix sparse warnings
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5782">[ date ]</a>
+              <a href="thread.html#5782">[ thread ]</a>
+              <a href="subject.html#5782">[ subject ]</a>
+              <a href="author.html#5782">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,1373 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Patch for bcm4301 driver (PHY and radio from bcm43xx,	uses mac80211 as MAC layer)
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Patch%20for%20bcm4301%20driver%20%28PHY%20and%20radio%20from%20bcm43xx%2C%0A%09uses%20mac80211%20as%20MAC%20layer%29&In-Reply-To=%3C200707292353.24897.richie%40coderworld.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001612.html">
+   <LINK REL="Next"  HREF="001635.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Patch for bcm4301 driver (PHY and radio from bcm43xx,	uses mac80211 as MAC layer)</H1>
+    <B>Richard Jonsson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Patch%20for%20bcm4301%20driver%20%28PHY%20and%20radio%20from%20bcm43xx%2C%0A%09uses%20mac80211%20as%20MAC%20layer%29&In-Reply-To=%3C200707292353.24897.richie%40coderworld.net%3E"
+       TITLE="Patch for bcm4301 driver (PHY and radio from bcm43xx,	uses mac80211 as MAC layer)">richie at coderworld.net
+       </A><BR>
+    <I>Sun Jul 29 23:53:24 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001612.html">Patch for bcm4301 driver (PHY and radio from bcm43xx, uses mac80211	as MAC layer)
+</A></li>
+        <LI>Next message: <A HREF="001635.html">Patch for bcm4301 driver (PHY and radio from bcm43xx,	uses mac80211 as MAC layer)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1627">[ date ]</a>
+              <a href="thread.html#1627">[ thread ]</a>
+              <a href="subject.html#1627">[ subject ]</a>
+              <a href="author.html#1627">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I have tried using this patch applied to kernel 2.6.22.1 on a 4311 chip. The 
+module loads fine, but when attempting to associate the computer hangs.
+
+I'm doing fine with bcm43xx, but was tempted to try bcm4301 since the numbers 
+looked so promising.
+-------------- next part --------------
+[    0.000000] Linux version 2.6.22.1 (<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at richie-laptop</A>) (gcc version 4.1.2 (Ubuntu 4.1.2-0ubuntu4)) #2 SMP Sun Jul 29 22:19:43 CEST 2007
+[    0.000000] Command line: root=UUID=4083c050-c184-47b7-b25d-a154c0c2a074 ro single
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000]  BIOS-e820: 0000000000000000 - 000000000009dc00 (usable)
+[    0.000000]  BIOS-e820: 000000000009dc00 - 00000000000a0000 (reserved)
+[    0.000000]  BIOS-e820: 00000000000d2000 - 0000000000100000 (reserved)
+[    0.000000]  BIOS-e820: 0000000000100000 - 000000003bf00000 (usable)
+[    0.000000]  BIOS-e820: 000000003bf00000 - 000000003bf17000 (ACPI data)
+[    0.000000]  BIOS-e820: 000000003bf17000 - 000000003bf80000 (ACPI NVS)
+[    0.000000]  BIOS-e820: 000000003bf80000 - 0000000040000000 (reserved)
+[    0.000000]  BIOS-e820: 00000000e0000000 - 00000000f0000000 (reserved)
+[    0.000000]  BIOS-e820: 00000000fec00000 - 00000000fec10000 (reserved)
+[    0.000000]  BIOS-e820: 00000000fed00000 - 00000000fed00400 (reserved)
+[    0.000000]  BIOS-e820: 00000000fee00000 - 00000000fee01000 (reserved)
+[    0.000000]  BIOS-e820: 00000000fff80000 - 0000000100000000 (reserved)
+[    0.000000] Entering add_active_range(0, 0, 157) 0 entries of 3200 used
+[    0.000000] Entering add_active_range(0, 256, 245504) 1 entries of 3200 used
+[    0.000000] end_pfn_map = 1048576
+[    0.000000] DMI present.
+[    0.000000] ACPI: RSDP 000F87A0, 0024 (r3 HPQOEM)
+[    0.000000] ACPI: XSDT 3BF10031, 005C (r1 HPQOEM SLIC-MPC  6040000  LTP        0)
+[    0.000000] ACPI: FACP 3BF16AA6, 00F4 (r3 HPQOEM SLIC-MPC  6040000 PTL     F4240)
+[    0.000000] ACPI: DSDT 3BF1008D, 6A19 (r1 HPQOEM SLIC-MPC  6040000 MSFT  100000E)
+[    0.000000] ACPI: FACS 3BF17FC0, 0040
+[    0.000000] ACPI: SLIC 3BF16C0E, 0176 (r1 HPQOEM SLIC-MPC  6040000 HPQ         1)
+[    0.000000] ACPI: MCFG 3BF16D84, 003C (r1 HPQOEM SLIC-MPC  6040000  LTP        0)
+[    0.000000] ACPI: HPET 3BF16DC0, 0038 (r1 HPQOEM SLIC-MPC  6040000  LTP        1)
+[    0.000000] ACPI: APIC 3BF16DF8, 005E (r1 HPQOEM SLIC-MPC  6040000  LTP        0)
+[    0.000000] ACPI: BOOT 3BF16E56, 0028 (r1 HPQOEM SLIC-MPC  6040000  LTP        1)
+[    0.000000] ACPI: SSDT 3BF16E7E, 0182 (r1 HPQOEM SLIC-MPC  6040000  LTP        1)
+[    0.000000] Scanning NUMA topology in Northbridge 24
+[    0.000000] No NUMA configuration found
+[    0.000000] Faking a node at 0000000000000000-000000003bf00000
+[    0.000000] Entering add_active_range(0, 0, 157) 0 entries of 3200 used
+[    0.000000] Entering add_active_range(0, 256, 245504) 1 entries of 3200 used
+[    0.000000] Bootmem setup node 0 0000000000000000-000000003bf00000
+[    0.000000] Zone PFN ranges:
+[    0.000000]   DMA             0 -&gt;     4096
+[    0.000000]   DMA32        4096 -&gt;  1048576
+[    0.000000]   Normal    1048576 -&gt;  1048576
+[    0.000000] early_node_map[2] active PFN ranges
+[    0.000000]     0:        0 -&gt;      157
+[    0.000000]     0:      256 -&gt;   245504
+[    0.000000] On node 0 totalpages: 245405
+[    0.000000]   DMA zone: 56 pages used for memmap
+[    0.000000]   DMA zone: 1368 pages reserved
+[    0.000000]   DMA zone: 2573 pages, LIFO batch:0
+[    0.000000]   DMA32 zone: 3300 pages used for memmap
+[    0.000000]   DMA32 zone: 238108 pages, LIFO batch:31
+[    0.000000]   Normal zone: 0 pages used for memmap
+[    0.000000] ACPI: PM-Timer IO Port: 0x1008
+[    0.000000] ACPI: Local APIC address 0xfee00000
+[    0.000000] ACPI: LAPIC (acpi_id[0x00] lapic_id[0x00] enabled)
+[    0.000000] Processor #0 (Bootup-CPU)
+[    0.000000] ACPI: LAPIC (acpi_id[0x01] lapic_id[0x01] enabled)
+[    0.000000] Processor #1
+[    0.000000] ACPI: LAPIC_NMI (acpi_id[0x00] high edge lint[0x1])
+[    0.000000] ACPI: LAPIC_NMI (acpi_id[0x01] high edge lint[0x1])
+[    0.000000] ACPI: IOAPIC (id[0x02] address[0xfec00000] gsi_base[0])
+[    0.000000] IOAPIC[0]: apic_id 2, address 0xfec00000, GSI 0-23
+[    0.000000] ACPI: INT_SRC_OVR (bus 0 bus_irq 0 global_irq 2 dfl dfl)
+[    0.000000] ACPI: IRQ0 used by override.
+[    0.000000] ACPI: IRQ2 used by override.
+[    0.000000] ACPI: IRQ9 used by override.
+[    0.000000] Setting APIC routing to flat
+[    0.000000] ACPI: HPET id: 0x10de8201 base: 0xfed00000
+[    0.000000] Using ACPI (MADT) for SMP configuration information
+[    0.000000] swsusp: Registered nosave memory region: 000000000009d000 - 000000000009e000
+[    0.000000] swsusp: Registered nosave memory region: 000000000009e000 - 00000000000a0000
+[    0.000000] swsusp: Registered nosave memory region: 00000000000a0000 - 00000000000d2000
+[    0.000000] swsusp: Registered nosave memory region: 00000000000d2000 - 0000000000100000
+[    0.000000] Allocating PCI resources starting at 50000000 (gap: 40000000:a0000000)
+[    0.000000] SMP: Allowing 2 CPUs, 0 hotplug CPUs
+[    0.000000] PERCPU: Allocating 34056 bytes of per cpu data
+[    0.000000] Built 1 zonelists.  Total pages: 240681
+[    0.000000] Kernel command line: root=UUID=4083c050-c184-47b7-b25d-a154c0c2a074 ro single
+[    0.000000] Initializing CPU#0
+[    0.000000] PID hash table entries: 4096 (order: 12, 32768 bytes)
+[    0.000000] Extended CMOS year: 2000
+[    0.000000] Marking TSC unstable due to TSCs unsynchronized
+[   17.163806] time.c: Detected 1607.316 MHz processor.
+[   17.166954] Console: colour VGA+ 80x25
+[   17.170272] Checking aperture...
+[   17.170323] CPU 0: aperture @ 2000000000 size 32 MB
+[   17.170374] Aperture too small (32 MB)
+[   17.177457] No AGP bridge found
+[   17.189446] Memory: 958604k/982016k available (2885k kernel code, 23016k reserved, 1637k data, 316k init)
+[   17.269571] Calibrating delay using timer specific routine.. 3217.41 BogoMIPS (lpj=6434834)
+[   17.269717] Security Framework v1.0.0 initialized
+[   17.269772] SELinux:  Disabled at boot.
+[   17.269939] Dentry cache hash table entries: 131072 (order: 8, 1048576 bytes)
+[   17.270739] Inode-cache hash table entries: 65536 (order: 7, 524288 bytes)
+[   17.271063] Mount-cache hash table entries: 256
+[   17.271224] CPU: L1 I Cache: 64K (64 bytes/line), D cache 64K (64 bytes/line)
+[   17.271279] CPU: L2 Cache: 512K (64 bytes/line)
+[   17.271330] CPU 0/0 -&gt; Node 0
+[   17.271379] CPU: Physical Processor ID: 0
+[   17.271428] CPU: Processor Core ID: 0
+[   17.271494] SMP alternatives: switching to UP code
+[   17.271714] ACPI: Core revision 20070126
+[   17.497421] Using local APIC timer interrupts.
+[   17.559681] result 12557153
+[   17.559730] Detected 12.557 MHz APIC timer.
+[   17.561637] SMP alternatives: switching to SMP code
+[   17.561818] Booting processor 1/2 APIC 0x1
+[   17.574130] Initializing CPU#1
+[   17.651697] Calibrating delay using timer specific routine.. 3214.72 BogoMIPS (lpj=6429452)
+[   17.651705] CPU: L1 I Cache: 64K (64 bytes/line), D cache 64K (64 bytes/line)
+[   17.651708] CPU: L2 Cache: 512K (64 bytes/line)
+[   17.651711] CPU 1/1 -&gt; Node 0
+[   17.651713] CPU: Physical Processor ID: 0
+[   17.651714] CPU: Processor Core ID: 1
+[   17.651807] AMD Turion(tm) 64 X2  stepping 02
+[   17.653526] Brought up 2 CPUs
+[   17.760066] migration_cost=299
+[   17.758097] PM: Adding info for No Bus:platform
+[   17.758224] NET: Registered protocol family 16
+[   17.758309] PM: Adding info for No Bus:vtcon0
+[   17.758369] ACPI: bus type pci registered
+[   17.758676] PCI: Using MMCONFIG at e0000000 - e04fffff
+[   17.758761] PCI: No mmconfig possible on device 00:18
+[   17.758940] PCI: No mmconfig possible on device 05:09
+[   17.762782] ACPI: System BIOS is requesting _OSI(Linux)
+[   17.762836] ACPI: Please test with &quot;acpi_osi=!Linux&quot;
+[   17.762837] Please send dmidecode to <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linux-acpi at vger.kernel.org</A>
+[   17.763287] ACPI: Interpreter enabled
+[   17.763337] ACPI: (supports S0 S3 S4 S5)
+[   17.763582] ACPI: Using IOAPIC for interrupt routing
+[   17.763727] PM: Adding info for acpi:acpi_system:00
+[   17.763779] PM: Adding info for acpi:button_power:00
+[   17.763820] PM: Adding info for acpi:ACPI0007:00
+[   17.763860] PM: Adding info for acpi:ACPI0007:01
+[   17.763915] PM: Adding info for acpi:device:00
+[   17.764037] PM: Adding info for acpi:HPQ0006:00
+[   17.764091] PM: Adding info for acpi:PNP0C14:00
+[   17.764245] PM: Adding info for acpi:PNP0C0D:00
+[   17.764297] PM: Adding info for acpi:PNP0C0E:00
+[   17.764418] PM: Adding info for acpi:PNP0C0C:00
+[   17.764546] PM: Adding info for acpi:PNP0A03:00
+[   17.764607] PM: Adding info for acpi:video:00
+[   17.764657] PM: Adding info for acpi:device:01
+[   17.764711] PM: Adding info for acpi:device:02
+[   17.764767] PM: Adding info for acpi:device:03
+[   17.764819] PM: Adding info for acpi:device:04
+[   17.764866] PM: Adding info for acpi:PNP0C02:00
+[   17.764918] PM: Adding info for acpi:PNP0C02:01
+[   17.764974] PM: Adding info for acpi:PNP0C02:02
+[   17.765024] PM: Adding info for acpi:PNP0000:00
+[   17.765072] PM: Adding info for acpi:PNP0100:00
+[   17.765128] PM: Adding info for acpi:PNP0200:00
+[   17.765177] PM: Adding info for acpi:PNP0800:00
+[   17.765230] PM: Adding info for acpi:PNP0B00:00
+[   17.765280] PM: Adding info for acpi:PNP0C04:00
+[   17.765568] PM: Adding info for acpi:PNP0103:00
+[   17.766261] PM: Adding info for acpi:PNP0303:00
+[   17.767654] PM: Adding info for acpi:SYN0127:00
+[   17.767795] PM: Adding info for acpi:PNP0C09:00
+[   17.767960] PM: Adding info for acpi:PNP0C32:00
+[   17.768110] PM: Adding info for acpi:PNP0C32:01
+[   17.768261] PM: Adding info for acpi:PNP0C32:02
+[   17.768412] PM: Adding info for acpi:PNP0C32:03
+[   17.768563] PM: Adding info for acpi:PNP0C32:04
+[   17.768711] PM: Adding info for acpi:PNP0C32:05
+[   17.770055] PM: Adding info for acpi:PNP0C0A:00
+[   17.770183] PM: Adding info for acpi:ACPI0003:00
+[   17.770242] PM: Adding info for acpi:device:05
+[   17.770295] PM: Adding info for acpi:device:06
+[   17.770350] PM: Adding info for acpi:device:07
+[   17.770403] PM: Adding info for acpi:device:08
+[   17.770459] PM: Adding info for acpi:device:09
+[   17.770512] PM: Adding info for acpi:device:0a
+[   17.770565] PM: Adding info for acpi:device:0b
+[   17.770694] PM: Adding info for acpi:device:0c
+[   17.770806] PM: Adding info for acpi:device:0d
+[   17.770865] PM: Adding info for acpi:device:0e
+[   17.770917] PM: Adding info for acpi:device:0f
+[   17.770967] PM: Adding info for acpi:device:10
+[   17.771025] PM: Adding info for acpi:device:11
+[   17.771077] PM: Adding info for acpi:device:12
+[   17.771128] PM: Adding info for acpi:device:13
+[   17.771184] PM: Adding info for acpi:device:14
+[   17.771243] PM: Adding info for acpi:device:15
+[   17.771293] PM: Adding info for acpi:device:16
+[   17.771346] PM: Adding info for acpi:device:17
+[   17.771401] PM: Adding info for acpi:device:18
+[   17.771458] PM: Adding info for acpi:device:19
+[   17.771588] PM: Adding info for acpi:device:1a
+[   17.771719] PM: Adding info for acpi:device:1b
+[   17.771778] PM: Adding info for acpi:device:1c
+[   17.771907] PM: Adding info for acpi:device:1d
+[   17.771963] PM: Adding info for acpi:device:1e
+[   17.772122] PM: Adding info for acpi:PNP0C0F:00
+[   17.772264] PM: Adding info for acpi:PNP0C0F:01
+[   17.772409] PM: Adding info for acpi:PNP0C0F:02
+[   17.772555] PM: Adding info for acpi:PNP0C0F:03
+[   17.772703] PM: Adding info for acpi:PNP0C0F:04
+[   17.772849] PM: Adding info for acpi:PNP0C0F:05
+[   17.772994] PM: Adding info for acpi:PNP0C0F:06
+[   17.773141] PM: Adding info for acpi:PNP0C0F:07
+[   17.773285] PM: Adding info for acpi:PNP0C0F:08
+[   17.773431] PM: Adding info for acpi:PNP0C0F:09
+[   17.773614] PM: Adding info for acpi:PNP0C0F:0a
+[   17.773761] PM: Adding info for acpi:PNP0C0F:0b
+[   17.773906] PM: Adding info for acpi:PNP0C0F:0c
+[   17.774052] PM: Adding info for acpi:PNP0C0F:0d
+[   17.774201] PM: Adding info for acpi:PNP0C0F:0e
+[   17.774349] PM: Adding info for acpi:PNP0C0F:0f
+[   17.774498] PM: Adding info for acpi:PNP0C0F:10
+[   17.774645] PM: Adding info for acpi:PNP0C0F:11
+[   17.774796] PM: Adding info for acpi:PNP0C0F:12
+[   17.774849] PM: Adding info for acpi:thermal:00
+[   17.774894] PM: Adding info for acpi:thermal:01
+[   17.774942] PM: Adding info for acpi:thermal:02
+[   17.785796] ACPI: PCI Root Bridge [PCI0] (0000:00)
+[   17.785858] PCI: Probing PCI hardware (bus 00)
+[   17.785872] PM: Adding info for No Bus:pci0000:00
+[   17.786958] PCI: Transparent bridge - 0000:00:10.0
+[   17.787036] ACPI: PCI Interrupt Routing Table [\_SB_.PCI0._PRT]
+[   17.787175] ACPI: PCI Interrupt Routing Table [\_SB_.PCI0.P2P0._PRT]
+[   17.787230] ACPI: PCI Interrupt Routing Table [\_SB_.PCI0.XVR1._PRT]
+[   17.787273] ACPI: PCI Interrupt Routing Table [\_SB_.PCI0.XVR2._PRT]
+[   17.791289] PM: Adding info for pci:0000:00:00.0
+[   17.795307] PM: Adding info for pci:0000:00:00.1
+[   17.799091] PM: Adding info for pci:0000:00:00.2
+[   17.803011] PM: Adding info for pci:0000:00:00.3
+[   17.806562] PM: Adding info for pci:0000:00:00.4
+[   17.810370] PM: Adding info for pci:0000:00:00.5
+[   17.813853] PM: Adding info for pci:0000:00:00.6
+[   17.818591] PM: Adding info for pci:0000:00:00.7
+[   17.822511] PM: Adding info for pci:0000:00:02.0
+[   17.826062] PM: Adding info for pci:0000:00:03.0
+[   17.830108] PM: Adding info for pci:0000:00:05.0
+[   17.833598] PM: Adding info for pci:0000:00:09.0
+[   17.838023] PM: Adding info for pci:0000:00:0a.0
+[   17.841894] PM: Adding info for pci:0000:00:0a.1
+[   17.845367] PM: Adding info for pci:0000:00:0a.3
+[   17.849229] PM: Adding info for pci:0000:00:0b.0
+[   17.852788] PM: Adding info for pci:0000:00:0b.1
+[   17.857026] PM: Adding info for pci:0000:00:0d.0
+[   17.861064] PM: Adding info for pci:0000:00:0e.0
+[   17.864620] PM: Adding info for pci:0000:00:10.0
+[   17.868421] PM: Adding info for pci:0000:00:10.1
+[   17.871974] PM: Adding info for pci:0000:00:14.0
+[   17.876279] PM: Adding info for pci:0000:00:18.0
+[   17.879813] PM: Adding info for pci:0000:00:18.1
+[   17.883810] PM: Adding info for pci:0000:00:18.2
+[   17.887804] PM: Adding info for pci:0000:00:18.3
+[   17.887859] PM: Adding info for pci:0000:01:00.0
+[   17.887902] PM: Adding info for pci:0000:05:09.0
+[   17.887947] PM: Adding info for pci:0000:05:09.1
+[   17.887989] PM: Adding info for pci:0000:05:09.2
+[   17.888032] PM: Adding info for pci:0000:05:09.3
+[   17.888075] PM: Adding info for pci:0000:05:09.4
+[   17.888401] ACPI: PCI Interrupt Link [LNK1] (IRQs 16 17 18 22 23) *0, disabled.
+[   17.889017] ACPI: PCI Interrupt Link [LNK2] (IRQs 16 17 18 22 23) *10
+[   17.889587] ACPI: PCI Interrupt Link [LNK3] (IRQs 5 7 10 *11 14 15)
+[   17.890152] ACPI: PCI Interrupt Link [LNK4] (IRQs 5 7 10 11 14 15) *0, disabled.
+[   17.890796] ACPI: PCI Interrupt Link [LK1E] (IRQs 20) *0, disabled.
+[   17.891253] ACPI: PCI Interrupt Link [LK2E] (IRQs 19) *10
+[   17.891677] ACPI: PCI Interrupt Link [LK3E] (IRQs 21) *10
+[   17.892098] ACPI: PCI Interrupt Link [LK4E] (IRQs 16 17 18 22 23) *0, disabled.
+[   17.892707] ACPI: PCI Interrupt Link [LSMB] (IRQs 16 17 18 22 23) *10
+[   17.893276] ACPI: PCI Interrupt Link [LSMU] (IRQs 16 17 18 22 23) *11
+[   17.893841] ACPI: PCI Interrupt Link [LUS0] (IRQs 16 17 18 22 23) *11
+[   17.894409] ACPI: PCI Interrupt Link [LUS2] (IRQs 16 17 18 22 23) *7
+[   17.894976] ACPI: PCI Interrupt Link [LMAC] (IRQs 16 17 18 22 23) *11
+[   17.895547] ACPI: PCI Interrupt Link [LAZA] (IRQs 16 17 18 22 23) *0, disabled.
+[   17.896163] ACPI: PCI Interrupt Link [LACI] (IRQs 16 17 18 22 23) *0, disabled.
+[   17.896773] ACPI: PCI Interrupt Link [LMCI] (IRQs 16 17 18 22 23) *0, disabled.
+[   17.897385] ACPI: PCI Interrupt Link [LPID] (IRQs 16 17 18 22 23) *0, disabled.
+[   17.898004] ACPI: PCI Interrupt Link [LTID] (IRQs 16 17 18 22 23) *5
+[   17.898575] ACPI: PCI Interrupt Link [LSI1] (IRQs 16 17 18 22 23) *0
+[   17.899012] Linux Plug and Play Support v0.97 (c) Adam Belay
+[   17.899073] pnp: PnP ACPI init
+[   17.899128] PM: Adding info for No Bus:pnp0
+[   17.899136] ACPI: bus type pnp registered
+[   17.899479] PM: Adding info for pnp:00:00
+[   17.899572] PM: Adding info for pnp:00:01
+[   17.899869] PM: Adding info for pnp:00:02
+[   17.899925] PM: Adding info for pnp:00:03
+[   17.899980] PM: Adding info for pnp:00:04
+[   17.900025] PM: Adding info for pnp:00:05
+[   17.900118] PM: Adding info for pnp:00:06
+[   17.900179] PM: Adding info for pnp:00:07
+[   17.900345] PM: Adding info for pnp:00:08
+[   17.900401] PM: Adding info for pnp:00:09
+[   17.900462] PM: Adding info for pnp:00:0a
+[   17.902794] pnp: PnP ACPI: found 11 devices
+[   17.902847] ACPI: ACPI bus type pnp unregistered
+[   17.903027] SCSI subsystem initialized
+[   17.903124] libata version 2.21 loaded.
+[   17.903173] PCI: Using ACPI for IRQ routing
+[   17.903225] PCI: If a device doesn't work, try &quot;pci=routeirq&quot;.  If it helps, post a report
+[   17.903380] NET: Registered protocol family 8
+[   17.903431] NET: Registered protocol family 20
+[   17.903599] ACPI: RTC can wake from S4
+[   17.903667] Time: hpet clocksource has been installed.
+[   17.903778] pnp: 00:01: iomem range 0xe0000000-0xefffffff could not be reserved
+[   17.903845] pnp: 00:02: ioport range 0x1000-0x107f has been reserved
+[   17.903899] pnp: 00:02: ioport range 0x1080-0x10ff has been reserved
+[   17.903952] pnp: 00:02: ioport range 0x1400-0x147f has been reserved
+[   17.904006] pnp: 00:02: ioport range 0x1480-0x14ff has been reserved
+[   17.904059] pnp: 00:02: ioport range 0x1800-0x187f has been reserved
+[   17.904113] pnp: 00:02: ioport range 0x1880-0x18ff has been reserved
+[   17.904166] pnp: 00:02: ioport range 0x2000-0x203f has been reserved
+[   17.904236] PM: Adding info for No Bus:mem
+[   17.904273] PM: Adding info for No Bus:kmem
+[   17.904304] PM: Adding info for No Bus:null
+[   17.904333] PM: Adding info for No Bus:port
+[   17.904366] PM: Adding info for No Bus:zero
+[   17.904397] PM: Adding info for No Bus:full
+[   17.904427] PM: Adding info for No Bus:random
+[   17.904456] PM: Adding info for No Bus:urandom
+[   17.904491] PM: Adding info for No Bus:kmsg
+[   17.904546] PCI: Bridge: 0000:00:02.0
+[   17.904595]   IO window: disabled.
+[   17.904646]   MEM window: b3000000-b30fffff
+[   17.904697]   PREFETCH window: disabled.
+[   17.904746] PCI: Bridge: 0000:00:03.0
+[   17.904796]   IO window: 4000-4fff
+[   17.904846]   MEM window: b4000000-b7ffffff
+[   17.904898]   PREFETCH window: d0000000-d01fffff
+[   17.904950] PCI: Bridge: 0000:00:10.0
+[   17.904998]   IO window: disabled.
+[   17.905049]   MEM window: b8000000-b80fffff
+[   17.905100]   PREFETCH window: disabled.
+[   17.905157] PCI: Setting latency timer of device 0000:00:02.0 to 64
+[   17.905162] PCI: Setting latency timer of device 0000:00:03.0 to 64
+[   17.905169] PCI: Setting latency timer of device 0000:00:10.0 to 64
+[   17.905269] NET: Registered protocol family 2
+[   17.951737] IP route cache hash table entries: 32768 (order: 6, 262144 bytes)
+[   17.952289] TCP established hash table entries: 131072 (order: 9, 3145728 bytes)
+[   17.954481] TCP bind hash table entries: 65536 (order: 8, 1048576 bytes)
+[   17.955149] TCP: Hash tables configured (established 131072 bind 65536)
+[   17.955204] TCP reno registered
+[   17.971812] checking if image is initramfs... it is
+[   18.363117] Freeing initrd memory: 3951k freed
+[   18.365904] Simple Boot Flag at 0x36 set to 0x1
+[   18.366061] PM: Adding info for No Bus:mcelog
+[   18.366436] PM: Adding info for platform:pcspkr
+[   18.366561] PM: Adding info for No Bus:snapshot
+[   18.366593] audit: initializing netlink socket (disabled)
+[   18.366657] audit(1185751119.964:1): initialized
+[   18.366877] VFS: Disk quotas dquot_6.5.1
+[   18.366937] Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+[   18.367102] io scheduler noop registered
+[   18.367152] io scheduler anticipatory registered
+[   18.367202] io scheduler deadline registered
+[   18.367265] io scheduler cfq registered (default)
+[   18.367328] Boot video device is 0000:00:05.0
+[   18.584126] PCI: Setting latency timer of device 0000:00:02.0 to 64
+[   18.584144] assign_interrupt_mode Found MSI capability
+[   18.584211] Allocate Port Service[0000:00:02.0:pcie00]
+[   18.584220] PM: Adding info for pci_express:0000:00:02.0:pcie00
+[   18.584254] Allocate Port Service[0000:00:02.0:pcie03]
+[   18.584260] PM: Adding info for pci_express:0000:00:02.0:pcie03
+[   18.584311] PCI: Setting latency timer of device 0000:00:03.0 to 64
+[   18.584326] assign_interrupt_mode Found MSI capability
+[   18.584389] Allocate Port Service[0000:00:03.0:pcie00]
+[   18.584397] PM: Adding info for pci_express:0000:00:03.0:pcie00
+[   18.584427] Allocate Port Service[0000:00:03.0:pcie03]
+[   18.584433] PM: Adding info for pci_express:0000:00:03.0:pcie03
+[   18.584679] ACPI: Processor [CPU0] (supports 8 throttling states)
+[   18.584867] ACPI: Processor [CPU1] (supports 8 throttling states)
+[   18.603001] ACPI: Thermal Zone [TZS0] (67 C)
+[   18.608097] ACPI: Thermal Zone [TZS1] (70 C)
+[   18.608170] PM: Adding info for No Bus:tty
+[   18.608206] PM: Adding info for No Bus:console
+[   18.608241] PM: Adding info for No Bus:ptmx
+[   18.608272] PM: Adding info for No Bus:tty0
+[   18.608313] PM: Adding info for No Bus:vcs
+[   18.608346] PM: Adding info for No Bus:vcsa
+[   18.608379] PM: Adding info for No Bus:tty1
+[   18.608410] PM: Adding info for No Bus:tty2
+[   18.608441] PM: Adding info for No Bus:tty3
+[   18.608475] PM: Adding info for No Bus:tty4
+[   18.608505] PM: Adding info for No Bus:tty5
+[   18.608539] PM: Adding info for No Bus:tty6
+[   18.608573] PM: Adding info for No Bus:tty7
+[   18.608604] PM: Adding info for No Bus:tty8
+[   18.608634] PM: Adding info for No Bus:tty9
+[   18.608666] PM: Adding info for No Bus:tty10
+[   18.608701] PM: Adding info for No Bus:tty11
+[   18.608734] PM: Adding info for No Bus:tty12
+[   18.608768] PM: Adding info for No Bus:tty13
+[   18.608803] PM: Adding info for No Bus:tty14
+[   18.608836] PM: Adding info for No Bus:tty15
+[   18.608867] PM: Adding info for No Bus:tty16
+[   18.608899] PM: Adding info for No Bus:tty17
+[   18.608934] PM: Adding info for No Bus:tty18
+[   18.608967] PM: Adding info for No Bus:tty19
+[   18.609000] PM: Adding info for No Bus:tty20
+[   18.609035] PM: Adding info for No Bus:tty21
+[   18.609067] PM: Adding info for No Bus:tty22
+[   18.609100] PM: Adding info for No Bus:tty23
+[   18.609132] PM: Adding info for No Bus:tty24
+[   18.609167] PM: Adding info for No Bus:tty25
+[   18.609199] PM: Adding info for No Bus:tty26
+[   18.609232] PM: Adding info for No Bus:tty27
+[   18.609268] PM: Adding info for No Bus:tty28
+[   18.609300] PM: Adding info for No Bus:tty29
+[   18.609332] PM: Adding info for No Bus:tty30
+[   18.609364] PM: Adding info for No Bus:tty31
+[   18.609401] PM: Adding info for No Bus:tty32
+[   18.609433] PM: Adding info for No Bus:tty33
+[   18.609466] PM: Adding info for No Bus:tty34
+[   18.609503] PM: Adding info for No Bus:tty35
+[   18.609535] PM: Adding info for No Bus:tty36
+[   18.609568] PM: Adding info for No Bus:tty37
+[   18.609600] PM: Adding info for No Bus:tty38
+[   18.609636] PM: Adding info for No Bus:tty39
+[   18.609670] PM: Adding info for No Bus:tty40
+[   18.609702] PM: Adding info for No Bus:tty41
+[   18.609740] PM: Adding info for No Bus:tty42
+[   18.609773] PM: Adding info for No Bus:tty43
+[   18.609808] PM: Adding info for No Bus:tty44
+[   18.609841] PM: Adding info for No Bus:tty45
+[   18.609876] PM: Adding info for No Bus:tty46
+[   18.609910] PM: Adding info for No Bus:tty47
+[   18.609944] PM: Adding info for No Bus:tty48
+[   18.609981] PM: Adding info for No Bus:tty49
+[   18.610016] PM: Adding info for No Bus:tty50
+[   18.610050] PM: Adding info for No Bus:tty51
+[   18.610085] PM: Adding info for No Bus:tty52
+[   18.610123] PM: Adding info for No Bus:tty53
+[   18.610157] PM: Adding info for No Bus:tty54
+[   18.610191] PM: Adding info for No Bus:tty55
+[   18.610228] PM: Adding info for No Bus:tty56
+[   18.610263] PM: Adding info for No Bus:tty57
+[   18.610298] PM: Adding info for No Bus:tty58
+[   18.610334] PM: Adding info for No Bus:tty59
+[   18.610371] PM: Adding info for No Bus:tty60
+[   18.610406] PM: Adding info for No Bus:tty61
+[   18.610439] PM: Adding info for No Bus:tty62
+[   18.610476] PM: Adding info for No Bus:tty63
+[   18.610555] PM: Adding info for No Bus:ptyp0
+[   18.610590] PM: Adding info for No Bus:ptyp1
+[   18.610624] PM: Adding info for No Bus:ptyp2
+[   18.610662] PM: Adding info for No Bus:ptyp3
+[   18.610697] PM: Adding info for No Bus:ptyp4
+[   18.610732] PM: Adding info for No Bus:ptyp5
+[   18.610770] PM: Adding info for No Bus:ptyp6
+[   18.610805] PM: Adding info for No Bus:ptyp7
+[   18.610841] PM: Adding info for No Bus:ptyp8
+[   18.610875] PM: Adding info for No Bus:ptyp9
+[   18.610912] PM: Adding info for No Bus:ptypa
+[   18.610948] PM: Adding info for No Bus:ptypb
+[   18.610982] PM: Adding info for No Bus:ptypc
+[   18.611020] PM: Adding info for No Bus:ptypd
+[   18.611055] PM: Adding info for No Bus:ptype
+[   18.611092] PM: Adding info for No Bus:ptypf
+[   18.611126] PM: Adding info for No Bus:ptyq0
+[   18.611163] PM: Adding info for No Bus:ptyq1
+[   18.611198] PM: Adding info for No Bus:ptyq2
+[   18.611233] PM: Adding info for No Bus:ptyq3
+[   18.611271] PM: Adding info for No Bus:ptyq4
+[   18.611306] PM: Adding info for No Bus:ptyq5
+[   18.611344] PM: Adding info for No Bus:ptyq6
+[   18.611379] PM: Adding info for No Bus:ptyq7
+[   18.611417] PM: Adding info for No Bus:ptyq8
+[   18.611452] PM: Adding info for No Bus:ptyq9
+[   18.611488] PM: Adding info for No Bus:ptyqa
+[   18.611527] PM: Adding info for No Bus:ptyqb
+[   18.611571] PM: Adding info for No Bus:ptyqc
+[   18.611607] PM: Adding info for No Bus:ptyqd
+[   18.611644] PM: Adding info for No Bus:ptyqe
+[   18.611685] PM: Adding info for No Bus:ptyqf
+[   18.611720] PM: Adding info for No Bus:ptyr0
+[   18.611755] PM: Adding info for No Bus:ptyr1
+[   18.611793] PM: Adding info for No Bus:ptyr2
+[   18.611832] PM: Adding info for No Bus:ptyr3
+[   18.611869] PM: Adding info for No Bus:ptyr4
+[   18.611907] PM: Adding info for No Bus:ptyr5
+[   18.611945] PM: Adding info for No Bus:ptyr6
+[   18.611983] PM: Adding info for No Bus:ptyr7
+[   18.612019] PM: Adding info for No Bus:ptyr8
+[   18.612057] PM: Adding info for No Bus:ptyr9
+[   18.612093] PM: Adding info for No Bus:ptyra
+[   18.612131] PM: Adding info for No Bus:ptyrb
+[   18.612169] PM: Adding info for No Bus:ptyrc
+[   18.612209] PM: Adding info for No Bus:ptyrd
+[   18.612245] PM: Adding info for No Bus:ptyre
+[   18.612282] PM: Adding info for No Bus:ptyrf
+[   18.612322] PM: Adding info for No Bus:ptys0
+[   18.612358] PM: Adding info for No Bus:ptys1
+[   18.612395] PM: Adding info for No Bus:ptys2
+[   18.612435] PM: Adding info for No Bus:ptys3
+[   18.612476] PM: Adding info for No Bus:ptys4
+[   18.612512] PM: Adding info for No Bus:ptys5
+[   18.612549] PM: Adding info for No Bus:ptys6
+[   18.612591] PM: Adding info for No Bus:ptys7
+[   18.612627] PM: Adding info for No Bus:ptys8
+[   18.612664] PM: Adding info for No Bus:ptys9
+[   18.612702] PM: Adding info for No Bus:ptysa
+[   18.612745] PM: Adding info for No Bus:ptysb
+[   18.612783] PM: Adding info for No Bus:ptysc
+[   18.612820] PM: Adding info for No Bus:ptysd
+[   18.612861] PM: Adding info for No Bus:ptyse
+[   18.612900] PM: Adding info for No Bus:ptysf
+[   18.612938] PM: Adding info for No Bus:ptyt0
+[   18.612975] PM: Adding info for No Bus:ptyt1
+[   18.613021] PM: Adding info for No Bus:ptyt2
+[   18.613060] PM: Adding info for No Bus:ptyt3
+[   18.613097] PM: Adding info for No Bus:ptyt4
+[   18.613137] PM: Adding info for No Bus:ptyt5
+[   18.613174] PM: Adding info for No Bus:ptyt6
+[   18.613213] PM: Adding info for No Bus:ptyt7
+[   18.613251] PM: Adding info for No Bus:ptyt8
+[   18.613293] PM: Adding info for No Bus:ptyt9
+[   18.613333] PM: Adding info for No Bus:ptyta
+[   18.613374] PM: Adding info for No Bus:ptytb
+[   18.613416] PM: Adding info for No Bus:ptytc
+[   18.613453] PM: Adding info for No Bus:ptytd
+[   18.613491] PM: Adding info for No Bus:ptyte
+[   18.613531] PM: Adding info for No Bus:ptytf
+[   18.613572] PM: Adding info for No Bus:ptyu0
+[   18.613611] PM: Adding info for No Bus:ptyu1
+[   18.613649] PM: Adding info for No Bus:ptyu2
+[   18.613695] PM: Adding info for No Bus:ptyu3
+[   18.613735] PM: Adding info for No Bus:ptyu4
+[   18.613776] PM: Adding info for No Bus:ptyu5
+[   18.613816] PM: Adding info for No Bus:ptyu6
+[   18.613859] PM: Adding info for No Bus:ptyu7
+[   18.613899] PM: Adding info for No Bus:ptyu8
+[   18.613938] PM: Adding info for No Bus:ptyu9
+[   18.613980] PM: Adding info for No Bus:ptyua
+[   18.614023] PM: Adding info for No Bus:ptyub
+[   18.614062] PM: Adding info for No Bus:ptyuc
+[   18.614102] PM: Adding info for No Bus:ptyud
+[   18.614145] PM: Adding info for No Bus:ptyue
+[   18.614187] PM: Adding info for No Bus:ptyuf
+[   18.614228] PM: Adding info for No Bus:ptyv0
+[   18.614271] PM: Adding info for No Bus:ptyv1
+[   18.614310] PM: Adding info for No Bus:ptyv2
+[   18.614350] PM: Adding info for No Bus:ptyv3
+[   18.614390] PM: Adding info for No Bus:ptyv4
+[   18.614434] PM: Adding info for No Bus:ptyv5
+[   18.614474] PM: Adding info for No Bus:ptyv6
+[   18.614517] PM: Adding info for No Bus:ptyv7
+[   18.614564] PM: Adding info for No Bus:ptyv8
+[   18.614606] PM: Adding info for No Bus:ptyv9
+[   18.614647] PM: Adding info for No Bus:ptyva
+[   18.614689] PM: Adding info for No Bus:ptyvb
+[   18.614733] PM: Adding info for No Bus:ptyvc
+[   18.614772] PM: Adding info for No Bus:ptyvd
+[   18.614814] PM: Adding info for No Bus:ptyve
+[   18.614860] PM: Adding info for No Bus:ptyvf
+[   18.614901] PM: Adding info for No Bus:ptyw0
+[   18.614942] PM: Adding info for No Bus:ptyw1
+[   18.614982] PM: Adding info for No Bus:ptyw2
+[   18.615027] PM: Adding info for No Bus:ptyw3
+[   18.615070] PM: Adding info for No Bus:ptyw4
+[   18.615112] PM: Adding info for No Bus:ptyw5
+[   18.615158] PM: Adding info for No Bus:ptyw6
+[   18.615201] PM: Adding info for No Bus:ptyw7
+[   18.615242] PM: Adding info for No Bus:ptyw8
+[   18.615283] PM: Adding info for No Bus:ptyw9
+[   18.615330] PM: Adding info for No Bus:ptywa
+[   18.615373] PM: Adding info for No Bus:ptywb
+[   18.615415] PM: Adding info for No Bus:ptywc
+[   18.615461] PM: Adding info for No Bus:ptywd
+[   18.615503] PM: Adding info for No Bus:ptywe
+[   18.615546] PM: Adding info for No Bus:ptywf
+[   18.615593] PM: Adding info for No Bus:ptyx0
+[   18.615638] PM: Adding info for No Bus:ptyx1
+[   18.615681] PM: Adding info for No Bus:ptyx2
+[   18.615726] PM: Adding info for No Bus:ptyx3
+[   18.615772] PM: Adding info for No Bus:ptyx4
+[   18.615815] PM: Adding info for No Bus:ptyx5
+[   18.615857] PM: Adding info for No Bus:ptyx6
+[   18.615901] PM: Adding info for No Bus:ptyx7
+[   18.615947] PM: Adding info for No Bus:ptyx8
+[   18.615991] PM: Adding info for No Bus:ptyx9
+[   18.616033] PM: Adding info for No Bus:ptyxa
+[   18.616081] PM: Adding info for No Bus:ptyxb
+[   18.616126] PM: Adding info for No Bus:ptyxc
+[   18.616168] PM: Adding info for No Bus:ptyxd
+[   18.616211] PM: Adding info for No Bus:ptyxe
+[   18.616265] PM: Adding info for No Bus:ptyxf
+[   18.616308] PM: Adding info for No Bus:ptyy0
+[   18.616351] PM: Adding info for No Bus:ptyy1
+[   18.616397] PM: Adding info for No Bus:ptyy2
+[   18.616443] PM: Adding info for No Bus:ptyy3
+[   18.616486] PM: Adding info for No Bus:ptyy4
+[   18.616529] PM: Adding info for No Bus:ptyy5
+[   18.616577] PM: Adding info for No Bus:ptyy6
+[   18.616623] PM: Adding info for No Bus:ptyy7
+[   18.616665] PM: Adding info for No Bus:ptyy8
+[   18.616712] PM: Adding info for No Bus:ptyy9
+[   18.616757] PM: Adding info for No Bus:ptyya
+[   18.616803] PM: Adding info for No Bus:ptyyb
+[   18.616846] PM: Adding info for No Bus:ptyyc
+[   18.616896] PM: Adding info for No Bus:ptyyd
+[   18.616940] PM: Adding info for No Bus:ptyye
+[   18.616987] PM: Adding info for No Bus:ptyyf
+[   18.617034] PM: Adding info for No Bus:ptyz0
+[   18.617079] PM: Adding info for No Bus:ptyz1
+[   18.617127] PM: Adding info for No Bus:ptyz2
+[   18.617173] PM: Adding info for No Bus:ptyz3
+[   18.617221] PM: Adding info for No Bus:ptyz4
+[   18.617265] PM: Adding info for No Bus:ptyz5
+[   18.617309] PM: Adding info for No Bus:ptyz6
+[   18.617358] PM: Adding info for No Bus:ptyz7
+[   18.617403] PM: Adding info for No Bus:ptyz8
+[   18.617451] PM: Adding info for No Bus:ptyz9
+[   18.617496] PM: Adding info for No Bus:ptyza
+[   18.617545] PM: Adding info for No Bus:ptyzb
+[   18.617595] PM: Adding info for No Bus:ptyzc
+[   18.617639] PM: Adding info for No Bus:ptyzd
+[   18.617687] PM: Adding info for No Bus:ptyze
+[   18.617734] PM: Adding info for No Bus:ptyzf
+[   18.617780] PM: Adding info for No Bus:ptya0
+[   18.617827] PM: Adding info for No Bus:ptya1
+[   18.617876] PM: Adding info for No Bus:ptya2
+[   18.617926] PM: Adding info for No Bus:ptya3
+[   18.617975] PM: Adding info for No Bus:ptya4
+[   18.618026] PM: Adding info for No Bus:ptya5
+[   18.618071] PM: Adding info for No Bus:ptya6
+[   18.618119] PM: Adding info for No Bus:ptya7
+[   18.618167] PM: Adding info for No Bus:ptya8
+[   18.618216] PM: Adding info for No Bus:ptya9
+[   18.618261] PM: Adding info for No Bus:ptyaa
+[   18.618309] PM: Adding info for No Bus:ptyab
+[   18.618359] PM: Adding info for No Bus:ptyac
+[   18.618406] PM: Adding info for No Bus:ptyad
+[   18.618451] PM: Adding info for No Bus:ptyae
+[   18.618503] PM: Adding info for No Bus:ptyaf
+[   18.618552] PM: Adding info for No Bus:ptyb0
+[   18.618598] PM: Adding info for No Bus:ptyb1
+[   18.618645] PM: Adding info for No Bus:ptyb2
+[   18.618697] PM: Adding info for No Bus:ptyb3
+[   18.618743] PM: Adding info for No Bus:ptyb4
+[   18.618791] PM: Adding info for No Bus:ptyb5
+[   18.618839] PM: Adding info for No Bus:ptyb6
+[   18.618890] PM: Adding info for No Bus:ptyb7
+[   18.618937] PM: Adding info for No Bus:ptyb8
+[   18.618984] PM: Adding info for No Bus:ptyb9
+[   18.619037] PM: Adding info for No Bus:ptyba
+[   18.619088] PM: Adding info for No Bus:ptybb
+[   18.619134] PM: Adding info for No Bus:ptybc
+[   18.619182] PM: Adding info for No Bus:ptybd
+[   18.619234] PM: Adding info for No Bus:ptybe
+[   18.619287] PM: Adding info for No Bus:ptybf
+[   18.619334] PM: Adding info for No Bus:ptyc0
+[   18.619385] PM: Adding info for No Bus:ptyc1
+[   18.619432] PM: Adding info for No Bus:ptyc2
+[   18.619482] PM: Adding info for No Bus:ptyc3
+[   18.619530] PM: Adding info for No Bus:ptyc4
+[   18.619617] PM: Adding info for No Bus:ptyc5
+[   18.619727] PM: Adding info for No Bus:ptyc6
+[   18.619775] PM: Adding info for No Bus:ptyc7
+[   18.619827] PM: Adding info for No Bus:ptyc8
+[   18.619875] PM: Adding info for No Bus:ptyc9
+[   18.619922] PM: Adding info for No Bus:ptyca
+[   18.619971] PM: Adding info for No Bus:ptycb
+[   18.620030] PM: Adding info for No Bus:ptycc
+[   18.620078] PM: Adding info for No Bus:ptycd
+[   18.620126] PM: Adding info for No Bus:ptyce
+[   18.620178] PM: Adding info for No Bus:ptycf
+[   18.620227] PM: Adding info for No Bus:ptyd0
+[   18.620276] PM: Adding info for No Bus:ptyd1
+[   18.620325] PM: Adding info for No Bus:ptyd2
+[   18.620378] PM: Adding info for No Bus:ptyd3
+[   18.620429] PM: Adding info for No Bus:ptyd4
+[   18.620478] PM: Adding info for No Bus:ptyd5
+[   18.620531] PM: Adding info for No Bus:ptyd6
+[   18.620582] PM: Adding info for No Bus:ptyd7
+[   18.620631] PM: Adding info for No Bus:ptyd8
+[   18.620680] PM: Adding info for No Bus:ptyd9
+[   18.620733] PM: Adding info for No Bus:ptyda
+[   18.620785] PM: Adding info for No Bus:ptydb
+[   18.620834] PM: Adding info for No Bus:ptydc
+[   18.620886] PM: Adding info for No Bus:ptydd
+[   18.620936] PM: Adding info for No Bus:ptyde
+[   18.620986] PM: Adding info for No Bus:ptydf
+[   18.621037] PM: Adding info for No Bus:ptye0
+[   18.621091] PM: Adding info for No Bus:ptye1
+[   18.621143] PM: Adding info for No Bus:ptye2
+[   18.621193] PM: Adding info for No Bus:ptye3
+[   18.621249] PM: Adding info for No Bus:ptye4
+[   18.621300] PM: Adding info for No Bus:ptye5
+[   18.621351] PM: Adding info for No Bus:ptye6
+[   18.621402] PM: Adding info for No Bus:ptye7
+[   18.621457] PM: Adding info for No Bus:ptye8
+[   18.621507] PM: Adding info for No Bus:ptye9
+[   18.621560] PM: Adding info for No Bus:ptyea
+[   18.621615] PM: Adding info for No Bus:ptyeb
+[   18.621666] PM: Adding info for No Bus:ptyec
+[   18.621717] PM: Adding info for No Bus:ptyed
+[   18.621770] PM: Adding info for No Bus:ptyee
+[   18.621826] PM: Adding info for No Bus:ptyef
+[   18.621885] PM: Adding info for No Bus:ttyp0
+[   18.621939] PM: Adding info for No Bus:ttyp1
+[   18.621993] PM: Adding info for No Bus:ttyp2
+[   18.622047] PM: Adding info for No Bus:ttyp3
+[   18.622097] PM: Adding info for No Bus:ttyp4
+[   18.622146] PM: Adding info for No Bus:ttyp5
+[   18.622200] PM: Adding info for No Bus:ttyp6
+[   18.622250] PM: Adding info for No Bus:ttyp7
+[   18.622303] PM: Adding info for No Bus:ttyp8
+[   18.622357] PM: Adding info for No Bus:ttyp9
+[   18.622408] PM: Adding info for No Bus:ttypa
+[   18.622459] PM: Adding info for No Bus:ttypb
+[   18.622510] PM: Adding info for No Bus:ttypc
+[   18.622565] PM: Adding info for No Bus:ttypd
+[   18.622618] PM: Adding info for No Bus:ttype
+[   18.622670] PM: Adding info for No Bus:ttypf
+[   18.622725] PM: Adding info for No Bus:ttyq0
+[   18.622777] PM: Adding info for No Bus:ttyq1
+[   18.622828] PM: Adding info for No Bus:ttyq2
+[   18.622880] PM: Adding info for No Bus:ttyq3
+[   18.622936] PM: Adding info for No Bus:ttyq4
+[   18.622987] PM: Adding info for No Bus:ttyq5
+[   18.623038] PM: Adding info for No Bus:ttyq6
+[   18.623095] PM: Adding info for No Bus:ttyq7
+[   18.623145] PM: Adding info for No Bus:ttyq8
+[   18.623197] PM: Adding info for No Bus:ttyq9
+[   18.623247] PM: Adding info for No Bus:ttyqa
+[   18.623304] PM: Adding info for No Bus:ttyqb
+[   18.623357] PM: Adding info for No Bus:ttyqc
+[   18.623409] PM: Adding info for No Bus:ttyqd
+[   18.623467] PM: Adding info for No Bus:ttyqe
+[   18.623520] PM: Adding info for No Bus:ttyqf
+[   18.623579] PM: Adding info for No Bus:ttyr0
+[   18.623631] PM: Adding info for No Bus:ttyr1
+[   18.623688] PM: Adding info for No Bus:ttyr2
+[   18.623741] PM: Adding info for No Bus:ttyr3
+[   18.623794] PM: Adding info for No Bus:ttyr4
+[   18.623850] PM: Adding info for No Bus:ttyr5
+[   18.623908] PM: Adding info for No Bus:ttyr6
+[   18.623962] PM: Adding info for No Bus:ttyr7
+[   18.624015] PM: Adding info for No Bus:ttyr8
+[   18.624071] PM: Adding info for No Bus:ttyr9
+[   18.624124] PM: Adding info for No Bus:ttyra
+[   18.624179] PM: Adding info for No Bus:ttyrb
+[   18.624236] PM: Adding info for No Bus:ttyrc
+[   18.624290] PM: Adding info for No Bus:ttyrd
+[   18.624344] PM: Adding info for No Bus:ttyre
+[   18.624400] PM: Adding info for No Bus:ttyrf
+[   18.624456] PM: Adding info for No Bus:ttys0
+[   18.624510] PM: Adding info for No Bus:ttys1
+[   18.624563] PM: Adding info for No Bus:ttys2
+[   18.624620] PM: Adding info for No Bus:ttys3
+[   18.624676] PM: Adding info for No Bus:ttys4
+[   18.624730] PM: Adding info for No Bus:ttys5
+[   18.624785] PM: Adding info for No Bus:ttys6
+[   18.624845] PM: Adding info for No Bus:ttys7
+[   18.624901] PM: Adding info for No Bus:ttys8
+[   18.624956] PM: Adding info for No Bus:ttys9
+[   18.625015] PM: Adding info for No Bus:ttysa
+[   18.625071] PM: Adding info for No Bus:ttysb
+[   18.625131] PM: Adding info for No Bus:ttysc
+[   18.625189] PM: Adding info for No Bus:ttysd
+[   18.625247] PM: Adding info for No Bus:ttyse
+[   18.625304] PM: Adding info for No Bus:ttysf
+[   18.625359] PM: Adding info for No Bus:ttyt0
+[   18.625418] PM: Adding info for No Bus:ttyt1
+[   18.625473] PM: Adding info for No Bus:ttyt2
+[   18.625530] PM: Adding info for No Bus:ttyt3
+[   18.625588] PM: Adding info for No Bus:ttyt4
+[   18.625646] PM: Adding info for No Bus:ttyt5
+[   18.625701] PM: Adding info for No Bus:ttyt6
+[   18.625757] PM: Adding info for No Bus:ttyt7
+[   18.625817] PM: Adding info for No Bus:ttyt8
+[   18.625874] PM: Adding info for No Bus:ttyt9
+[   18.625931] PM: Adding info for No Bus:ttyta
+[   18.625988] PM: Adding info for No Bus:ttytb
+[   18.626052] PM: Adding info for No Bus:ttytc
+[   18.626109] PM: Adding info for No Bus:ttytd
+[   18.626164] PM: Adding info for No Bus:ttyte
+[   18.626227] PM: Adding info for No Bus:ttytf
+[   18.626284] PM: Adding info for No Bus:ttyu0
+[   18.626339] PM: Adding info for No Bus:ttyu1
+[   18.626396] PM: Adding info for No Bus:ttyu2
+[   18.626457] PM: Adding info for No Bus:ttyu3
+[   18.626518] PM: Adding info for No Bus:ttyu4
+[   18.626574] PM: Adding info for No Bus:ttyu5
+[   18.626633] PM: Adding info for No Bus:ttyu6
+[   18.626691] PM: Adding info for No Bus:ttyu7
+[   18.626750] PM: Adding info for No Bus:ttyu8
+[   18.626809] PM: Adding info for No Bus:ttyu9
+[   18.626870] PM: Adding info for No Bus:ttyua
+[   18.626928] PM: Adding info for No Bus:ttyub
+[   18.626986] PM: Adding info for No Bus:ttyuc
+[   18.627047] PM: Adding info for No Bus:ttyud
+[   18.627105] PM: Adding info for No Bus:ttyue
+[   18.627163] PM: Adding info for No Bus:ttyuf
+[   18.627223] PM: Adding info for No Bus:ttyv0
+[   18.627283] PM: Adding info for No Bus:ttyv1
+[   18.627342] PM: Adding info for No Bus:ttyv2
+[   18.627400] PM: Adding info for No Bus:ttyv3
+[   18.627462] PM: Adding info for No Bus:ttyv4
+[   18.627521] PM: Adding info for No Bus:ttyv5
+[   18.627584] PM: Adding info for No Bus:ttyv6
+[   18.627652] PM: Adding info for No Bus:ttyv7
+[   18.627715] PM: Adding info for No Bus:ttyv8
+[   18.627773] PM: Adding info for No Bus:ttyv9
+[   18.627830] PM: Adding info for No Bus:ttyva
+[   18.627892] PM: Adding info for No Bus:ttyvb
+[   18.627954] PM: Adding info for No Bus:ttyvc
+[   18.628012] PM: Adding info for No Bus:ttyvd
+[   18.628070] PM: Adding info for No Bus:ttyve
+[   18.628134] PM: Adding info for No Bus:ttyvf
+[   18.628197] PM: Adding info for No Bus:ttyw0
+[   18.628256] PM: Adding info for No Bus:ttyw1
+[   18.628321] PM: Adding info for No Bus:ttyw2
+[   18.628381] PM: Adding info for No Bus:ttyw3
+[   18.628441] PM: Adding info for No Bus:ttyw4
+[   18.628501] PM: Adding info for No Bus:ttyw5
+[   18.628566] PM: Adding info for No Bus:ttyw6
+[   18.628625] PM: Adding info for No Bus:ttyw7
+[   18.628687] PM: Adding info for No Bus:ttyw8
+[   18.628750] PM: Adding info for No Bus:ttyw9
+[   18.628811] PM: Adding info for No Bus:ttywa
+[   18.628872] PM: Adding info for No Bus:ttywb
+[   18.628932] PM: Adding info for No Bus:ttywc
+[   18.628996] PM: Adding info for No Bus:ttywd
+[   18.629057] PM: Adding info for No Bus:ttywe
+[   18.629118] PM: Adding info for No Bus:ttywf
+[   18.629181] PM: Adding info for No Bus:ttyx0
+[   18.629241] PM: Adding info for No Bus:ttyx1
+[   18.629300] PM: Adding info for No Bus:ttyx2
+[   18.629362] PM: Adding info for No Bus:ttyx3
+[   18.629426] PM: Adding info for No Bus:ttyx4
+[   18.629488] PM: Adding info for No Bus:ttyx5
+[   18.629550] PM: Adding info for No Bus:ttyx6
+[   18.629613] PM: Adding info for No Bus:ttyx7
+[   18.629676] PM: Adding info for No Bus:ttyx8
+[   18.629736] PM: Adding info for No Bus:ttyx9
+[   18.629796] PM: Adding info for No Bus:ttyxa
+[   18.629861] PM: Adding info for No Bus:ttyxb
+[   18.629925] PM: Adding info for No Bus:ttyxc
+[   18.629986] PM: Adding info for No Bus:ttyxd
+[   18.630052] PM: Adding info for No Bus:ttyxe
+[   18.630114] PM: Adding info for No Bus:ttyxf
+[   18.630176] PM: Adding info for No Bus:ttyy0
+[   18.630237] PM: Adding info for No Bus:ttyy1
+[   18.630301] PM: Adding info for No Bus:ttyy2
+[   18.630363] PM: Adding info for No Bus:ttyy3
+[   18.630427] PM: Adding info for No Bus:ttyy4
+[   18.630491] PM: Adding info for No Bus:ttyy5
+[   18.630553] PM: Adding info for No Bus:ttyy6
+[   18.630615] PM: Adding info for No Bus:ttyy7
+[   18.630677] PM: Adding info for No Bus:ttyy8
+[   18.630746] PM: Adding info for No Bus:ttyy9
+[   18.630807] PM: Adding info for No Bus:ttyya
+[   18.630873] PM: Adding info for No Bus:ttyyb
+[   18.630940] PM: Adding info for No Bus:ttyyc
+[   18.631002] PM: Adding info for No Bus:ttyyd
+[   18.631063] PM: Adding info for No Bus:ttyye
+[   18.631125] PM: Adding info for No Bus:ttyyf
+[   18.631193] PM: Adding info for No Bus:ttyz0
+[   18.631254] PM: Adding info for No Bus:ttyz1
+[   18.631319] PM: Adding info for No Bus:ttyz2
+[   18.631387] PM: Adding info for No Bus:ttyz3
+[   18.631450] PM: Adding info for No Bus:ttyz4
+[   18.631512] PM: Adding info for No Bus:ttyz5
+[   18.631581] PM: Adding info for No Bus:ttyz6
+[   18.631842] PM: Adding info for No Bus:ttyz7
+[   18.631904] PM: Adding info for No Bus:ttyz8
+[   18.631966] PM: Adding info for No Bus:ttyz9
+[   18.632036] PM: Adding info for No Bus:ttyza
+[   18.632099] PM: Adding info for No Bus:ttyzb
+[   18.632161] PM: Adding info for No Bus:ttyzc
+[   18.632224] PM: Adding info for No Bus:ttyzd
+[   18.632290] PM: Adding info for No Bus:ttyze
+[   18.632353] PM: Adding info for No Bus:ttyzf
+[   18.632416] PM: Adding info for No Bus:ttya0
+[   18.632483] PM: Adding info for No Bus:ttya1
+[   18.632545] PM: Adding info for No Bus:ttya2
+[   18.632608] PM: Adding info for No Bus:ttya3
+[   18.632672] PM: Adding info for No Bus:ttya4
+[   18.632739] PM: Adding info for No Bus:ttya5
+[   18.632801] PM: Adding info for No Bus:ttya6
+[   18.632864] PM: Adding info for No Bus:ttya7
+[   18.632932] PM: Adding info for No Bus:ttya8
+[   18.632995] PM: Adding info for No Bus:ttya9
+[   18.633058] PM: Adding info for No Bus:ttyaa
+[   18.633122] PM: Adding info for No Bus:ttyab
+[   18.633188] PM: Adding info for No Bus:ttyac
+[   18.633251] PM: Adding info for No Bus:ttyad
+[   18.633314] PM: Adding info for No Bus:ttyae
+[   18.633382] PM: Adding info for No Bus:ttyaf
+[   18.633447] PM: Adding info for No Bus:ttyb0
+[   18.633510] PM: Adding info for No Bus:ttyb1
+[   18.633574] PM: Adding info for No Bus:ttyb2
+[   18.633645] PM: Adding info for No Bus:ttyb3
+[   18.633711] PM: Adding info for No Bus:ttyb4
+[   18.633776] PM: Adding info for No Bus:ttyb5
+[   18.633844] PM: Adding info for No Bus:ttyb6
+[   18.633910] PM: Adding info for No Bus:ttyb7
+[   18.633975] PM: Adding info for No Bus:ttyb8
+[   18.634038] PM: Adding info for No Bus:ttyb9
+[   18.634106] PM: Adding info for No Bus:ttyba
+[   18.634174] PM: Adding info for No Bus:ttybb
+[   18.634238] PM: Adding info for No Bus:ttybc
+[   18.634306] PM: Adding info for No Bus:ttybd
+[   18.634373] PM: Adding info for No Bus:ttybe
+[   18.634439] PM: Adding info for No Bus:ttybf
+[   18.634505] PM: Adding info for No Bus:ttyc0
+[   18.634573] PM: Adding info for No Bus:ttyc1
+[   18.634638] PM: Adding info for No Bus:ttyc2
+[   18.634704] PM: Adding info for No Bus:ttyc3
+[   18.634773] PM: Adding info for No Bus:ttyc4
+[   18.634839] PM: Adding info for No Bus:ttyc5
+[   18.634907] PM: Adding info for No Bus:ttyc6
+[   18.634974] PM: Adding info for No Bus:ttyc7
+[   18.635044] PM: Adding info for No Bus:ttyc8
+[   18.635111] PM: Adding info for No Bus:ttyc9
+[   18.635177] PM: Adding info for No Bus:ttyca
+[   18.635248] PM: Adding info for No Bus:ttycb
+[   18.635316] PM: Adding info for No Bus:ttycc
+[   18.635383] PM: Adding info for No Bus:ttycd
+[   18.635449] PM: Adding info for No Bus:ttyce
+[   18.635519] PM: Adding info for No Bus:ttycf
+[   18.635594] PM: Adding info for No Bus:ttyd0
+[   18.635661] PM: Adding info for No Bus:ttyd1
+[   18.635732] PM: Adding info for No Bus:ttyd2
+[   18.635801] PM: Adding info for No Bus:ttyd3
+[   18.635869] PM: Adding info for No Bus:ttyd4
+[   18.635937] PM: Adding info for No Bus:ttyd5
+[   18.636007] PM: Adding info for No Bus:ttyd6
+[   18.636076] PM: Adding info for No Bus:ttyd7
+[   18.636143] PM: Adding info for No Bus:ttyd8
+[   18.636214] PM: Adding info for No Bus:ttyd9
+[   18.636281] PM: Adding info for No Bus:ttyda
+[   18.636349] PM: Adding info for No Bus:ttydb
+[   18.636418] PM: Adding info for No Bus:ttydc
+[   18.636493] PM: Adding info for No Bus:ttydd
+[   18.636560] PM: Adding info for No Bus:ttyde
+[   18.636634] PM: Adding info for No Bus:ttydf
+[   18.636705] PM: Adding info for No Bus:ttye0
+[   18.636773] PM: Adding info for No Bus:ttye1
+[   18.636840] PM: Adding info for No Bus:ttye2
+[   18.636911] PM: Adding info for No Bus:ttye3
+[   18.636982] PM: Adding info for No Bus:ttye4
+[   18.637051] PM: Adding info for No Bus:ttye5
+[   18.637119] PM: Adding info for No Bus:ttye6
+[   18.637192] PM: Adding info for No Bus:ttye7
+[   18.637263] PM: Adding info for No Bus:ttye8
+[   18.637332] PM: Adding info for No Bus:ttye9
+[   18.637403] PM: Adding info for No Bus:ttyea
+[   18.637478] PM: Adding info for No Bus:ttyeb
+[   18.637548] PM: Adding info for No Bus:ttyec
+[   18.637617] PM: Adding info for No Bus:ttyed
+[   18.637689] PM: Adding info for No Bus:ttyee
+[   18.637759] PM: Adding info for No Bus:ttyef
+[   18.637813] PM: Adding info for No Bus:rtc
+[   18.637860] Real Time Clock Driver v1.12ac
+[   18.637943] Linux agpgart interface v0.102 (c) Dave Jones
+[   18.638592] RAMDISK driver initialized: 16 RAM disks of 65536K size 1024 blocksize
+[   18.638691] PM: Adding info for No Bus:lo
+[   18.638738] Uniform Multi-Platform E-IDE driver Revision: 7.00alpha2
+[   18.638792] ide: Assuming 33MHz system bus speed for PIO modes; override with idebus=xx
+[   18.638893] NFORCE-MCP51: IDE controller at PCI slot 0000:00:0d.0
+[   18.638961] NFORCE-MCP51: chipset revision 241
+[   18.639011] NFORCE-MCP51: not 100% native mode: will probe irqs later
+[   18.639067] NFORCE-MCP51: 0000:00:0d.0 (rev f1) UDMA133 controller
+[   18.639124]     ide0: BM-DMA at 0x3080-0x3087, BIOS settings: hda:pio, hdb:pio
+[   18.639264]     ide1: BM-DMA at 0x3088-0x308f, BIOS settings: hdc:pio, hdd:pio
+[   18.639402] Probing IDE interface ide0...
+[   19.207492] Probing IDE interface ide1...
+[   19.943596] hdc: HL-DT-ST DVDRAM GMA-4082N, ATAPI CD/DVD-ROM drive
+[   19.943765] PM: Adding info for No Bus:ide1
+[   20.280676] ide1 at 0x170-0x177,0x376 on irq 15
+[   20.283850] PM: Adding info for ide:1.0
+[   20.283957] Probing IDE interface ide0...
+[   20.853401] hdc: ATAPI 24X DVD-ROM DVD-R-RAM CD-R/RW drive, 2048kB Cache, DMA
+[   20.853743] Uniform CD-ROM driver Revision: 3.20
+[   20.861142] sata_nv 0000:00:0e.0: version 3.4
+[   20.861152] PCI: Enabling device 0000:00:0e.0 (0005 -&gt; 0007)
+[   20.861579] ACPI: PCI Interrupt Link [LTID] enabled at IRQ 23
+[   20.861639] ACPI: PCI Interrupt 0000:00:0e.0[A] -&gt; Link [LTID] -&gt; GSI 23 (level, high) -&gt; IRQ 23
+[   20.862010] PCI: Setting latency timer of device 0000:00:0e.0 to 64
+[   20.862105] scsi0 : sata_nv
+[   20.862176] PM: Adding info for No Bus:host0
+[   20.862271] scsi1 : sata_nv
+[   20.862323] PM: Adding info for No Bus:host1
+[   20.862363] ata1: SATA max UDMA/133 cmd 0x00000000000130b0 ctl 0x00000000000130a6 bmdma 0x0000000000013090 irq 23
+[   20.862431] ata2: SATA max UDMA/133 cmd 0x00000000000130a8 ctl 0x00000000000130a2 bmdma 0x0000000000013098 irq 23
+[   21.337039] ata1: SATA link up 1.5 Gbps (SStatus 113 SControl 300)
+[   21.347529] ata1.00: ATA-7: SAMSUNG HM160JI, AD100-16, max UDMA/100
+[   21.347584] ata1.00: 312581808 sectors, multi 16: LBA48 NCQ (depth 0/32)
+[   21.363521] ata1.00: configured for UDMA/100
+[   21.680981] ata2: SATA link down (SStatus 0 SControl 300)
+[   21.693844] PM: Adding info for No Bus:target0:0:0
+[   21.693915] scsi 0:0:0:0: Direct-Access     ATA      SAMSUNG HM160JI  AD10 PQ: 0 ANSI: 5
+[   21.693987] PM: Adding info for scsi:0:0:0:0
+[   21.694084] sd 0:0:0:0: [sda] 312581808 512-byte hardware sectors (160042 MB)
+[   21.694147] sd 0:0:0:0: [sda] Write Protect is off
+[   21.694199] sd 0:0:0:0: [sda] Mode Sense: 00 3a 00 00
+[   21.694214] sd 0:0:0:0: [sda] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   21.694320] sd 0:0:0:0: [sda] 312581808 512-byte hardware sectors (160042 MB)
+[   21.694381] sd 0:0:0:0: [sda] Write Protect is off
+[   21.694433] sd 0:0:0:0: [sda] Mode Sense: 00 3a 00 00
+[   21.694447] sd 0:0:0:0: [sda] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   21.694515]  sda: sda1 sda2 sda3 sda4
+[   21.745613] sd 0:0:0:0: [sda] Attached SCSI disk
+[   21.745735] sd 0:0:0:0: Attached scsi generic sg0 type 0
+[   21.745896] PNP: PS/2 Controller [PNP0303:KBD0,PNP0f13:PS2M] at 0x60,0x64 irq 1,12
+[   21.745997] PM: Adding info for platform:i8042
+[   21.746260] i8042.c: Detected active multiplexing controller, rev 1.1.
+[   21.746383] serio: i8042 KBD port at 0x60,0x64 irq 1
+[   21.746437] serio: i8042 AUX0 port at 0x60,0x64 irq 12
+[   21.744279] PM: Adding info for serio:serio0
+[   21.746491] serio: i8042 AUX1 port at 0x60,0x64 irq 12
+[   21.744341] PM: Adding info for serio:serio1
+[   21.746545] serio: i8042 AUX2 port at 0x60,0x64 irq 12
+[   21.744378] PM: Adding info for serio:serio2
+[   21.746599] serio: i8042 AUX3 port at 0x60,0x64 irq 12
+[   21.744429] PM: Adding info for serio:serio3
+[   21.744484] PM: Adding info for serio:serio4
+[   21.746700] PM: Adding info for No Bus:psaux
+[   21.746731] mice: PS/2 mouse device common for all mice
+[   21.746878] Advanced Linux Sound Architecture Driver Version 1.0.14 (Thu May 31 09:03:25 2007 UTC).
+[   21.746949] PM: Adding info for No Bus:timer
+[   21.747486] ACPI: PCI Interrupt Link [LAZA] enabled at IRQ 22
+[   21.747546] ACPI: PCI Interrupt 0000:00:10.1[B] -&gt; Link [LAZA] -&gt; GSI 22 (level, high) -&gt; IRQ 22
+[   21.747881] PCI: Setting latency timer of device 0000:00:10.1 to 64
+[   21.747255] input: AT Translated Set 2 keyboard as /class/input/input0
+[   21.923142] PM: Adding info for No Bus:pcmC0D1p
+[   21.923199] PM: Adding info for No Bus:pcmC0D0p
+[   21.923238] PM: Adding info for No Bus:pcmC0D0c
+[   21.923281] PM: Adding info for No Bus:controlC0
+[   21.923333] ALSA device list:
+[   21.923386]   #0: HDA NVidia at 0xb0000000 irq 22
+[   21.923505] TCP cubic registered
+[   21.923561] NET: Registered protocol family 1
+[   21.923661] powernow-k8: Found 2 AMD Turion(tm) 64 X2  processors (version 2.00.00)
+[   21.921585] powernow-k8:    0 : fid 0x8 (1600 MHz), vid 0x12
+[   21.921639] powernow-k8:    1 : fid 0x0 (800 MHz), vid 0x1e
+[   21.921911] drivers/rtc/hctosys.c: unable to open rtc device (rtc0)
+[   21.921970] Freeing unused kernel memory: 316k freed
+[   21.922473] PM: Adding info for No Bus:vcs1
+[   21.922551] PM: Adding info for No Bus:vcsa1
+[   21.998355] PM: Adding info for No Bus:vcs2
+[   21.998412] PM: Adding info for No Bus:vcsa2
+[   21.998816] PM: Removing info for No Bus:vcs2
+[   21.998857] PM: Removing info for No Bus:vcsa2
+[   22.002713] PM: Adding info for No Bus:vcs2
+[   22.002778] PM: Adding info for No Bus:vcsa2
+[   22.006092] PM: Removing info for No Bus:vcs2
+[   22.006149] PM: Removing info for No Bus:vcsa2
+[   22.005014] PM: Adding info for No Bus:vcs2
+[   22.005067] PM: Adding info for No Bus:vcsa2
+[   22.006064] PM: Removing info for No Bus:vcs2
+[   22.006102] PM: Removing info for No Bus:vcsa2
+[   22.006894] PM: Adding info for No Bus:vcs3
+[   22.006934] PM: Adding info for No Bus:vcsa3
+[   22.007316] PM: Removing info for No Bus:vcs3
+[   22.007351] PM: Removing info for No Bus:vcsa3
+[   22.011273] PM: Adding info for No Bus:vcs3
+[   22.011329] PM: Adding info for No Bus:vcsa3
+[   22.014577] PM: Removing info for No Bus:vcs3
+[   22.014631] PM: Removing info for No Bus:vcsa3
+[   22.015806] PM: Adding info for No Bus:vcs3
+[   22.015852] PM: Adding info for No Bus:vcsa3
+[   22.016803] PM: Removing info for No Bus:vcs3
+[   22.016858] PM: Removing info for No Bus:vcsa3
+[   22.017613] PM: Adding info for No Bus:vcs4
+[   22.017656] PM: Adding info for No Bus:vcsa4
+[   22.018010] PM: Removing info for No Bus:vcs4
+[   22.018049] PM: Removing info for No Bus:vcsa4
+[   22.019644] PM: Adding info for No Bus:vcs4
+[   22.019697] PM: Adding info for No Bus:vcsa4
+[   22.022946] PM: Removing info for No Bus:vcs4
+[   22.022999] PM: Removing info for No Bus:vcsa4
+[   22.021883] PM: Adding info for No Bus:vcs4
+[   22.021931] PM: Adding info for No Bus:vcsa4
+[   22.022890] PM: Removing info for No Bus:vcs4
+[   22.022957] PM: Removing info for No Bus:vcsa4
+[   22.023708] PM: Adding info for No Bus:vcs5
+[   22.023754] PM: Adding info for No Bus:vcsa5
+[   22.024112] PM: Removing info for No Bus:vcs5
+[   22.024152] PM: Removing info for No Bus:vcsa5
+[   22.027987] PM: Adding info for No Bus:vcs5
+[   22.028043] PM: Adding info for No Bus:vcsa5
+[   22.031325] PM: Removing info for No Bus:vcs5
+[   22.031378] PM: Removing info for No Bus:vcsa5
+[   22.030220] PM: Adding info for No Bus:vcs5
+[   22.030268] PM: Adding info for No Bus:vcsa5
+[   22.031207] PM: Removing info for No Bus:vcs5
+[   22.031273] PM: Removing info for No Bus:vcsa5
+[   22.032000] PM: Adding info for No Bus:vcs6
+[   22.032044] PM: Adding info for No Bus:vcsa6
+[   22.032399] PM: Removing info for No Bus:vcs6
+[   22.032439] PM: Removing info for No Bus:vcsa6
+[   22.036305] PM: Adding info for No Bus:vcs6
+[   22.036362] PM: Adding info for No Bus:vcsa6
+[   22.039619] PM: Removing info for No Bus:vcs6
+[   22.039673] PM: Removing info for No Bus:vcsa6
+[   22.038504] PM: Adding info for No Bus:vcs6
+[   22.038548] PM: Adding info for No Bus:vcsa6
+[   22.039492] PM: Removing info for No Bus:vcs6
+[   22.039558] PM: Removing info for No Bus:vcsa6
+[   22.478565] kjournald starting.  Commit interval 5 seconds
+[   22.480753] EXT3-fs: mounted filesystem with ordered data mode.
+[   22.822678] PM: Removing info for No Bus:vcs1
+[   22.822709] PM: Removing info for No Bus:vcsa1
+[   22.822755] PM: Adding info for No Bus:vcs1
+[   22.822769] PM: Adding info for No Bus:vcsa1
+[   30.595743] PM: Adding info for No Bus:vcs2
+[   30.595773] PM: Adding info for No Bus:vcsa2
+[   30.596873] PM: Removing info for No Bus:vcs2
+[   30.596902] PM: Removing info for No Bus:vcsa2
+[   30.597031] PM: Adding info for No Bus:vcs3
+[   30.597047] PM: Adding info for No Bus:vcsa3
+[   30.598151] PM: Removing info for No Bus:vcs3
+[   30.598181] PM: Removing info for No Bus:vcsa3
+[   30.598310] PM: Adding info for No Bus:vcs4
+[   30.598329] PM: Adding info for No Bus:vcsa4
+[   30.599377] PM: Removing info for No Bus:vcs4
+[   30.599393] PM: Removing info for No Bus:vcsa4
+[   30.599482] PM: Adding info for No Bus:vcs5
+[   30.599497] PM: Adding info for No Bus:vcsa5
+[   30.600538] PM: Removing info for No Bus:vcs5
+[   30.600554] PM: Removing info for No Bus:vcsa5
+[   30.600644] PM: Adding info for No Bus:vcs6
+[   30.600659] PM: Adding info for No Bus:vcsa6
+[   30.601702] PM: Removing info for No Bus:vcs6
+[   30.601718] PM: Removing info for No Bus:vcsa6
+[   33.000410] PM: Adding info for No Bus:i2c-0
+[   33.000432] i2c-adapter i2c-0: nForce2 SMBus adapter at 0x3040
+[   33.000495] PM: Adding info for No Bus:i2c-1
+[   33.000509] i2c-adapter i2c-1: nForce2 SMBus adapter at 0x3000
+[   33.024692] ACPI: PCI Interrupt Link [LNK1] enabled at IRQ 18
+[   33.024758] ACPI: PCI Interrupt 0000:05:09.0[A] -&gt; Link [LNK1] -&gt; GSI 18 (level, high) -&gt; IRQ 18
+[   33.024922] PM: Adding info for ieee1394:fw-host0
+[   33.077637] ohci1394: fw-host0: OHCI-1394 1.1 (PCI): IRQ=[18]  MMIO=[b8000000-b80007ff]  Max Packet=[2048]  IR/IT contexts=[4/4]
+[   33.110231] forcedeth.c: Reverse Engineered nForce ethernet driver. Version 0.60.
+[   33.110751] ACPI: PCI Interrupt Link [LMAC] enabled at IRQ 17
+[   33.110813] ACPI: PCI Interrupt 0000:00:14.0[A] -&gt; Link [LMAC] -&gt; GSI 17 (level, high) -&gt; IRQ 17
+[   33.110953] PCI: Setting latency timer of device 0000:00:14.0 to 64
+[   33.110963] forcedeth: using HIGHDMA
+[   33.122247] usbcore: registered new interface driver usbfs
+[   33.122323] usbcore: registered new interface driver hub
+[   33.122404] usbcore: registered new device driver usb
+[   33.135236] sdhci: Secure Digital Host Controller Interface driver
+[   33.135293] sdhci: Copyright(c) Pierre Ossman
+[   33.144751] pci_hotplug: PCI Hot Plug PCI Core version: 0.5
+[   33.189355] ohci_hcd: 2006 August 04 USB 1.1 'Open' Host Controller (OHCI) Driver
+[   33.624804] Synaptics Touchpad, model: 1, fw: 6.2, id: 0x1a0b1, caps: 0xa04713/0x200000
+[   33.629785] PM: Adding info for No Bus:eth0
+[   33.629865] eth0: forcedeth.c: subsystem: 0103c:30b5 bound to 0000:00:14.0
+[   33.630332] sdhci: SDHCI controller found at 0000:05:09.1 [1180:0822] (rev 19)
+[   33.630807] ACPI: PCI Interrupt Link [LNK2] enabled at IRQ 16
+[   33.630867] ACPI: PCI Interrupt 0000:05:09.1[B] -&gt; Link [LNK2] -&gt; GSI 16 (level, high) -&gt; IRQ 16
+[   33.631254] PM: Adding info for No Bus:mmc0
+[   33.631318] mmc0: SDHCI at 0xb8000800 irq 16 DMA
+[   33.633424] shpchp: Standard Hot Plug PCI Controller Driver version: 0.4
+[   33.633961] ACPI: PCI Interrupt Link [LUS0] enabled at IRQ 23
+[   33.634016] ACPI: PCI Interrupt 0000:00:0b.0[A] -&gt; Link [LUS0] -&gt; GSI 23 (level, high) -&gt; IRQ 23
+[   33.634289] PCI: Setting latency timer of device 0000:00:0b.0 to 64
+[   33.634296] ohci_hcd 0000:00:0b.0: OHCI Host Controller
+[   33.634789] ohci_hcd 0000:00:0b.0: new USB bus registered, assigned bus number 1
+[   33.634868] ohci_hcd 0000:00:0b.0: irq 23, io mem 0xb0004000
+[   33.643081] eth0: no link during initialization.
+[   33.654848] input: SynPS/2 Synaptics TouchPad as /class/input/input1
+[   33.695427] PM: Adding info for usb:usb1
+[   33.695542] PM: Adding info for No Bus:usbdev1.1_ep00
+[   33.695577] usb usb1: configuration #1 chosen from 1 choice
+[   33.695641] PM: Adding info for usb:1-0:1.0
+[   33.695674] hub 1-0:1.0: USB hub found
+[   33.695734] hub 1-0:1.0: 8 ports detected
+[   33.797545] PM: Adding info for No Bus:usbdev1.1_ep81
+[   33.798221] ACPI: PCI Interrupt Link [LUS2] enabled at IRQ 22
+[   33.798277] ACPI: PCI Interrupt 0000:00:0b.1[B] -&gt; Link [LUS2] -&gt; GSI 22 (level, high) -&gt; IRQ 22
+[   33.798631] PCI: Setting latency timer of device 0000:00:0b.1 to 64
+[   33.798638] ehci_hcd 0000:00:0b.1: EHCI Host Controller
+[   33.798790] ehci_hcd 0000:00:0b.1: new USB bus registered, assigned bus number 2
+[   33.798885] ehci_hcd 0000:00:0b.1: debug port 1
+[   33.798938] PCI: cache line size of 64 is not supported by device 0000:00:0b.1
+[   33.798946] ehci_hcd 0000:00:0b.1: irq 22, io mem 0xb0005000
+[   33.799003] ehci_hcd 0000:00:0b.1: USB 2.0 started, EHCI 1.00, driver 10 Dec 2004
+[   33.799092] PM: Adding info for usb:usb2
+[   33.799160] PM: Adding info for No Bus:usbdev2.1_ep00
+[   33.799194] usb usb2: configuration #1 chosen from 1 choice
+[   33.799255] PM: Adding info for usb:2-0:1.0
+[   33.799287] hub 2-0:1.0: USB hub found
+[   33.799343] hub 2-0:1.0: 8 ports detected
+[   33.901524] PM: Adding info for No Bus:usbdev2.1_ep81
+[   33.906674] ACPI: PCI Interrupt Link [LK2E] enabled at IRQ 19
+[   33.906739] ACPI: PCI Interrupt 0000:01:00.0[A] -&gt; Link [LK2E] -&gt; GSI 19 (level, high) -&gt; IRQ 19
+[   33.906881] PCI: Setting latency timer of device 0000:01:00.0 to 64
+[   33.929517] ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x11, vendor 0x4243)
+[   33.929584] ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x0A, vendor 0x4243)
+[   33.929654] ssb: Core 2 found: USB 1.1 Host (cc 0x817, rev 0x03, vendor 0x4243)
+[   33.929724] ssb: Core 3 found: PCI-E (cc 0x820, rev 0x01, vendor 0x4243)
+[   33.929784] ssb: Switching to ChipCommon core, index 0
+[   33.931611] ssb: Switching to PCI-E core, index 3
+[   33.934262] PM: Adding info for ssb:ssb0:0
+[   33.934336] PM: Adding info for ssb:ssb0:1
+[   33.934361] ssb: Sonics Silicon Backplane found on PCI device 0000:01:00.0
+[   33.934463] bcm4301-phy0: Broadcom 4311 WLAN found
+[   33.934551] ssb: Switching to IEEE 802.11 core, index 1
+[   33.961312] bcm4301-phy0 debug: Found PHY: Analog 4, Type 2, Revision 8
+[   33.961333] bcm4301-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+[   33.981494] bcm4301-phy0 debug: Radio turned off
+[   33.981538] PM: Adding info for No Bus:phy0
+[   33.981791] PM: Adding info for No Bus:wmaster0
+[   33.981829] wmaster0: Selected rate control algorithm 'simple'
+[   33.994750] PM: Adding info for No Bus:wlan0
+[   34.009115] bcm4301-phy0 debug: Adding Interface type 2
+[   34.059325] ssb: Switching to PCI-E core, index 3
+[   34.059386] ssb: Switching to IEEE 802.11 core, index 1
+[   34.059460] PM: Adding info for No Bus:ssb0:0
+[   34.095385] PM: Removing info for No Bus:ssb0:0
+[   34.095836] bcm4301: Microcode bcm43xx_microcode5.fw3.fw loaded
+[   34.095921] PM: Adding info for No Bus:ssb0:0
+[   34.100089] PM: Removing info for No Bus:ssb0:0
+[   34.100524] PM: Adding info for No Bus:ssb0:0
+[   34.108623] PM: Removing info for No Bus:ssb0:0
+[   34.109032] PM: Adding info for No Bus:ssb0:0
+[   34.117044] PM: Removing info for No Bus:ssb0:0
+[   34.176961] bcm4301-phy0 debug: Loading firmware version 0x127, patch level 14 (2005-04-18 02:36:27)
+[   34.176972] ssb: Switching to ChipCommon core, index 0
+[   34.177040] ssb: Switching to IEEE 802.11 core, index 1
+[   34.199107] bcm4301-phy0 debug: Radio turned on
+[   34.199118] bcm4301-phy0 debug: Radio enabled by hardware
+[   34.213278] usb 2-8: new high speed USB device using ehci_hcd and address 2
+[   34.256353] EXT3 FS on sda3, internal journal
+[   34.361441] PM: Adding info for ieee1394:06e40a00870f5042
+[   34.361489] ieee1394: Host added: ID:BUS[0-00:1023]  GUID[06e40a00870f5042]
+[   34.360441] PM: Adding info for usb:2-8
+[   34.360514] PM: Adding info for No Bus:usbdev2.2_ep00
+[   34.360536] usb 2-8: configuration #1 chosen from 1 choice
+[   34.360801] PM: Adding info for usb:2-8:1.0
+[   34.361418] PM: Adding info for No Bus:usbdev2.2_ep83
+[   34.361440] PM: Adding info for usb:2-8:1.1
+[   34.443763] bcm4301-phy0 debug: Chip initialized
+[   34.443995] bcm4301-phy0 debug: 32-bit DMA initialized
+[   34.464934] kjournald starting.  Commit interval 5 seconds
+[   34.464943] EXT3-fs warning: maximal mount count reached, running e2fsck is recommended
+[   34.465326] EXT3 FS on sda4, internal journal
+[   34.465331] EXT3-fs: mounted filesystem with ordered data mode.
+[   34.471428] PM: Adding info for No Bus:hw_random
+[   34.471478] bcm4301-phy0 debug: Wireless interface started
+[   34.472729] HW CONFIG: channel=1 freq=2412 phymode=3
+[   34.799484] PM: Adding info for No Bus:vcs2
+[   34.801477] PM: Adding info for No Bus:vcsa2
+[   34.804305] PM: Removing info for No Bus:vcs2
+[   34.803041] PM: Removing info for No Bus:vcsa2
+[   34.804318] PM: Adding info for No Bus:vcs2
+[   34.804351] PM: Adding info for No Bus:vcsa2
+[   34.808494] PM: Removing info for No Bus:vcs2
+[   34.808530] PM: Removing info for No Bus:vcsa2
+[   34.808797] PM: Adding info for No Bus:vcs3
+[   34.808813] PM: Adding info for No Bus:vcsa3
+[   34.809723] PM: Removing info for No Bus:vcs3
+[   34.809754] PM: Removing info for No Bus:vcsa3
+[   34.819406] PM: Adding info for No Bus:vcs3
+[   34.819438] PM: Adding info for No Bus:vcsa3
+[   34.823610] PM: Removing info for No Bus:vcs3
+[   34.823643] PM: Removing info for No Bus:vcsa3
+[   34.823903] PM: Adding info for No Bus:vcs4
+[   34.823919] PM: Adding info for No Bus:vcsa4
+[   34.824839] PM: Removing info for No Bus:vcs4
+[   34.824869] PM: Removing info for No Bus:vcsa4
+[   34.826283] PM: Adding info for No Bus:vcs4
+[   34.826309] PM: Adding info for No Bus:vcsa4
+[   34.830476] PM: Removing info for No Bus:vcs4
+[   34.830507] PM: Removing info for No Bus:vcsa4
+[   34.830771] PM: Adding info for No Bus:vcs5
+[   34.830788] PM: Adding info for No Bus:vcsa5
+[   34.838306] PM: Removing info for No Bus:vcs5
+[   34.838343] PM: Removing info for No Bus:vcsa5
+[   34.839650] PM: Adding info for No Bus:vcs5
+[   34.839682] PM: Adding info for No Bus:vcsa5
+[   34.843860] PM: Removing info for No Bus:vcs5
+[   34.844139] PM: Removing info for No Bus:vcsa5
+[   34.844529] PM: Adding info for No Bus:vcs6
+[   34.848134] PM: Adding info for No Bus:vcsa6
+[   34.849054] PM: Removing info for No Bus:vcs6
+[   34.849082] PM: Removing info for No Bus:vcsa6
+[   34.848272] PM: Adding info for No Bus:vcs6
+[   34.848299] PM: Adding info for No Bus:vcsa6
+[   34.857303] PM: Removing info for No Bus:vcs6
+[   34.857338] PM: Removing info for No Bus:vcsa6
+[   34.861905] PM: Adding info for No Bus:vcs2
+[   34.861934] PM: Adding info for No Bus:vcsa2
+[   34.863170] PM: Removing info for No Bus:vcs2
+[   34.863208] PM: Removing info for No Bus:vcsa2
+[   34.863359] PM: Adding info for No Bus:vcs3
+[   34.863374] PM: Adding info for No Bus:vcsa3
+[   34.864553] PM: Removing info for No Bus:vcs3
+[   34.864589] PM: Removing info for No Bus:vcsa3
+[   34.864732] PM: Adding info for No Bus:vcs4
+[   34.864747] PM: Adding info for No Bus:vcsa4
+[   34.865978] PM: Removing info for No Bus:vcs4
+[   34.866009] PM: Removing info for No Bus:vcsa4
+[   34.866152] PM: Adding info for No Bus:vcs5
+[   34.866170] PM: Adding info for No Bus:vcsa5
+[   34.867372] PM: Removing info for No Bus:vcs5
+[   34.867404] PM: Removing info for No Bus:vcsa5
+[   34.868511] PM: Adding info for No Bus:vcs6
+[   34.868539] PM: Adding info for No Bus:vcsa6
+[   34.869768] PM: Removing info for No Bus:vcs6
+[   34.869802] PM: Removing info for No Bus:vcsa6
+[   35.753007] NET: Registered protocol family 17
+[   52.718652] atkbd.c: Unknown key pressed (translated set 2, code 0xd9 on isa0060/serio0).
+[   52.718657] atkbd.c: Use 'setkeycodes e059 &lt;keycode&gt;' to make it known.
+[   52.719331] atkbd.c: Unknown key released (translated set 2, code 0xd9 on isa0060/serio0).
+[   52.719334] atkbd.c: Use 'setkeycodes e059 &lt;keycode&gt;' to make it known.
+[   54.318086] NET: Registered protocol family 10
+[   54.318177] lo: Disabled Privacy Extensions
+[   54.318355] ADDRCONF(NETDEV_UP): eth0: link is not ready
+[   54.318390] ADDRCONF(NETDEV_UP): eth1: link is not ready
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001612.html">Patch for bcm4301 driver (PHY and radio from bcm43xx, uses mac80211	as MAC layer)
+</A></li>
+	<LI>Next message: <A HREF="001635.html">Patch for bcm4301 driver (PHY and radio from bcm43xx,	uses mac80211 as MAC layer)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1627">[ date ]</a>
+              <a href="thread.html#1627">[ thread ]</a>
+              <a href="subject.html#1627">[ subject ]</a>
+              <a href="author.html#1627">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

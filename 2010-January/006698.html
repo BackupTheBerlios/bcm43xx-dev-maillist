@@ -1,0 +1,127 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/4] b43: N-PHY: correct CCA resets
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/4%5D%20b43%3A%20N-PHY%3A%20correct%20CCA%20resets&In-Reply-To=%3Cop.u59nroc09lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006697.html">
+   <LINK REL="Next"  HREF="006699.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/4] b43: N-PHY: correct CCA resets</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/4%5D%20b43%3A%20N-PHY%3A%20correct%20CCA%20resets&In-Reply-To=%3Cop.u59nroc09lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 1/4] b43: N-PHY: correct CCA resets">zajec5 at gmail.com
+       </A><BR>
+    <I>Sat Jan  9 14:00:51 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006697.html">PHY: where to put forcing gater clocks function
+</A></li>
+        <LI>Next message: <A HREF="006699.html">[PATCH 2/4] b43: N-PHY: add b43_nphy_pa_override
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6698">[ date ]</a>
+              <a href="thread.html#6698">[ thread ]</a>
+              <a href="subject.html#6698">[ subject ]</a>
+              <a href="author.html#6698">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+  drivers/net/wireless/b43/phy_n.c |   35 +++++++++++++++++++++++++++++++----
+  1 files changed, 31 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index c4c39de..5cd4b1a 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -314,11 +314,34 @@ static void b43_nphy_workarounds(struct b43_wldev *dev)
+  	b43_phy_write(dev, B43_NPHY_PHASETR_B2, 0x20);
+  }
+
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/BmacPhyClkFgc">http://bcm-v4.sipsolutions.net/802.11/PHY/N/BmacPhyClkFgc</A> */
++void b43_nphy_bmac_clock_fgc(struct b43_wldev *dev, bool force)
++{
++	u32 tmslow;
++
++	if (dev-&gt;phy.type != B43_PHYTYPE_N)
++		return;
++
++	tmslow = ssb_read32(dev-&gt;dev, SSB_TMSLOW);
++	if (force)
++		tmslow |= SSB_TMSLOW_FGC;
++	else
++		tmslow &amp;= ~SSB_TMSLOW_FGC;
++	ssb_write32(dev-&gt;dev, SSB_TMSLOW, tmslow);
++}
++
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/CCA">http://bcm-v4.sipsolutions.net/802.11/PHY/N/CCA</A> */
+  static void b43_nphy_reset_cca(struct b43_wldev *dev)
+  {
+-	u16 bbcfg = b43_phy_read(dev, B43_NPHY_BBCFG);
++	u16 bbcfg;
++
++	b43_nphy_bmac_clock_fgc(dev, 1);
++	bbcfg = b43_phy_read(dev, B43_NPHY_BBCFG);
+  	b43_phy_write(dev, B43_NPHY_BBCFG, bbcfg | B43_NPHY_BBCFG_RSTCCA);
++	udelay(1);
+  	b43_phy_write(dev, B43_NPHY_BBCFG, bbcfg &amp; ~B43_NPHY_BBCFG_RSTCCA);
++	b43_nphy_bmac_clock_fgc(dev, 0);
++	//TODO: N PHY Force RF Seq with argument 2
+  }
+
+  /* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/clip-detection">http://bcm-v4.sipsolutions.net/802.11/PHY/N/clip-detection</A> */
+@@ -631,9 +654,13 @@ int b43_phy_initn(struct b43_wldev *dev)
+
+  	b43_nphy_workarounds(dev);
+
+-	//TODO N PHY BMAC Clock FGC with argument 1
+-	b43_nphy_reset_cca(dev);
+-	//TODO N PHY BMAC Clock FGC with argument 0
++	/* Reset CCA, in init code it differs from standard way a little */
++	b43_nphy_bmac_clock_fgc(dev, 1);
++	tmp = b43_phy_read(dev, B43_NPHY_BBCFG);
++	b43_phy_write(dev, B43_NPHY_BBCFG, tmp | B43_NPHY_BBCFG_RSTCCA);
++	b43_phy_write(dev, B43_NPHY_BBCFG, tmp &amp; ~B43_NPHY_BBCFG_RSTCCA);
++	b43_nphy_bmac_clock_fgc(dev, 0);
++
+  	//TODO N PHY MAC PHY Clock Set with argument 1
+  	//TODO Disable PA Override
+  	b43_nphy_force_rf_sequence(dev, B43_RFSEQ_RX2TX);
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006697.html">PHY: where to put forcing gater clocks function
+</A></li>
+	<LI>Next message: <A HREF="006699.html">[PATCH 2/4] b43: N-PHY: add b43_nphy_pa_override
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6698">[ date ]</a>
+              <a href="thread.html#6698">[ thread ]</a>
+              <a href="subject.html#6698">[ subject ]</a>
+              <a href="author.html#6698">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

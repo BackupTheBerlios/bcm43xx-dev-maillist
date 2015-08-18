@@ -1,0 +1,160 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20fix%20b43_plcp_get_bitrate_idx_ofdm%20return%20type&In-Reply-To=%3C3F73F990-A5B7-496C-A4E9-1BDC2ABA4997%40ing.unibs.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005347.html">
+   <LINK REL="Next"  HREF="005350.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type</H1>
+    <B>Francesco Gringoli</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20fix%20b43_plcp_get_bitrate_idx_ofdm%20return%20type&In-Reply-To=%3C3F73F990-A5B7-496C-A4E9-1BDC2ABA4997%40ing.unibs.it%3E"
+       TITLE="[PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type">francesco.gringoli at ing.unibs.it
+       </A><BR>
+    <I>Thu Mar 26 20:42:29 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005347.html">[PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+</A></li>
+        <LI>Next message: <A HREF="005350.html">[PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5349">[ date ]</a>
+              <a href="thread.html#5349">[ thread ]</a>
+              <a href="subject.html#5349">[ subject ]</a>
+              <a href="author.html#5349">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Mar 26, 2009, at 5:44 PM, Michael Buesch wrote:
+
+&gt;<i> On Tuesday 24 March 2009 19:57:33 Francesco Gringoli wrote:
+</I>&gt;&gt;<i> The bad thing is that sometimes a bad alignment is not resolved in a
+</I>&gt;&gt;<i> rate_idx = -1 as the first byte of the plcp (which is not actually  
+</I>&gt;&gt;<i> the
+</I>&gt;&gt;<i> first since the pad was wrong) is mistakenly resolved to a valid
+</I>&gt;&gt;<i> encoding.
+</I>&gt;<i>
+</I>&gt;<i> I think this case is extremely rare and this is nothing we need to  
+</I>&gt;<i> worry about.
+</I>&gt;<i> A checksum is no guarantee either that the frame really is not  
+</I>&gt;<i> corrupt. So
+</I>&gt;<i> we already live with the assumption that there may be a bad frame of  
+</I>&gt;<i> one
+</I>&gt;<i> million or something like that.
+</I>Hi Michael,
+
+I spent more time debugging this issue. I found something interesting:  
+when we ask the firmware to pass corrupted frames, it can happen  
+(actually it happens frequently if traffic is high) that the firmware  
+detects something was received even if the internal rx buffer is  
+completely empty while SPR_RXE_FRAMELEN is &gt; 0. In this case, the  
+firmware jumps to push_frame_into_fifo anyway and raises a rx irq. The  
+kernel handles this dma event and b43 thinks that a frame has been  
+received, instead the dma buffer is filled with random data (sometimes  
+with data of a previous packet), at the end a skb with something that  
+was not a packet is passed to mac80211. This happens with both  
+original and open firmwares.
+
+I wrote this patch so that b43 can understand if something was  
+actually transferred during the dma event: basically, it always fills  
+the plcp part of the dma buffer with impossible data, so if this  
+impossible data is still there after dma event this means that nothing  
+was transferred. This avoid fake packets to be feed into the rx queue  
+(e.g., for those interested in capturing corrupted frames).
+
+Cheers,
+-FG
+
+Signed-off-by: Francesco Gringoli &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">francesco.gringoli at ing.unibs.it</A>&gt;
+
+Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- drivers/net/wireless/b43/dma.c      2009-03-26 19:31:37.000000000  
++0100
++++ drivers/net/wireless/b43/dma.c      2009-03-26 20:08:34.000000000  
++0100
+@@ -568,6 +568,7 @@
+         skb = __dev_alloc_skb(ring-&gt;rx_buffersize, gfp_flags);
+         if (unlikely(!skb))
+                 return -ENOMEM;
++       memset(skb-&gt;data + ring-&gt;frameoffset, 0xff, 8);
+         dmaaddr = map_descbuffer(ring, skb-&gt;data, ring- 
+ &gt;rx_buffersize, 0);
+         if (b43_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize,  
+0)) {
+                 /* ugh. try to realloc in zone_dma */
+@@ -578,6 +579,7 @@
+                 skb = __dev_alloc_skb(ring-&gt;rx_buffersize, gfp_flags);
+                 if (unlikely(!skb))
+                         return -ENOMEM;
++               memset(skb-&gt;data + ring-&gt;frameoffset, 0xff, 8);
+                 dmaaddr = map_descbuffer(ring, skb-&gt;data,
+                                          ring-&gt;rx_buffersize, 0);
+                 if (b43_dma_mapping_error(ring, dmaaddr, ring- 
+ &gt;rx_buffersize, 0)) {
+--- drivers/net/wireless/b43/xmit.c     2009-03-26 19:41:53.000000000  
++0100
++++ drivers/net/wireless/b43/xmit.c     2009-03-26 20:08:16.000000000  
++0100
+@@ -527,6 +527,7 @@
+         u16 chanid;
+         u16 phytype;
+         int padding;
++       u8 *plcp_check;
+
+         memset(&amp;status, 0, sizeof(status));
+
+@@ -560,6 +561,17 @@
+                 goto drop;
+         }
+         plcp = (struct b43_plcp_hdr6 *)(skb-&gt;data + padding);
++       plcp_check = (u8*) plcp;
++       if(plcp_check[0] == 0xff &amp;&amp;
++               plcp_check[1] == 0xff &amp;&amp;
++               plcp_check[2] == 0xff &amp;&amp;
++               plcp_check[3] == 0xff &amp;&amp;
++               plcp_check[4] == 0xff &amp;&amp;
++               plcp_check[5] == 0xff) {
++               b43dbg(dev-&gt;wl, &quot;RX: no packet received?\n&quot;);
++               goto drop;
++       }
++
+         skb_pull(skb, sizeof(struct b43_plcp_hdr6) + padding);
+         /* The skb contains the Wireless Header + payload data now */
+         if (unlikely(skb-&gt;len &lt; (2 + 2 + 6 /*minimum hdr */  +  
+FCS_LEN))) {
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005347.html">[PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+</A></li>
+	<LI>Next message: <A HREF="005350.html">[PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5349">[ date ]</a>
+              <a href="thread.html#5349">[ thread ]</a>
+              <a href="subject.html#5349">[ subject ]</a>
+              <a href="author.html#5349">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

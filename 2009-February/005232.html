@@ -1,0 +1,97 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add slot count compiletime assertion
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20slot%20count%20compiletime%20assertion&In-Reply-To=%3C200902200009.42967.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005231.html">
+   <LINK REL="Next"  HREF="005233.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add slot count compiletime assertion</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20slot%20count%20compiletime%20assertion&In-Reply-To=%3C200902200009.42967.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add slot count compiletime assertion">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Feb 20 00:09:42 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005231.html">[PATCH] b43: Optimize DMA buffers
+</A></li>
+        <LI>Next message: <A HREF="005233.html">[PATCH] b43: Add slot count compiletime assertion
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5232">[ date ]</a>
+              <a href="thread.html#5232">[ thread ]</a>
+              <a href="subject.html#5232">[ subject ]</a>
+              <a href="author.html#5232">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds a compiletime assertion for a recently introduced
+assumption on the slot counts.
+The tx header cache handling code assumes that the TX slot count
+can be divided evenly by the number of TX slots per frame.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+Please queue on top of the DMA optimizations.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-02-19 23:34:25.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-02-20 00:03:30.000000000 +0100
+@@ -839,12 +839,16 @@ struct b43_dmaring *b43_setup_dmaring(st
+ 	spin_lock_init(&amp;ring-&gt;lock);
+ #ifdef CONFIG_B43_DEBUG
+ 	ring-&gt;last_injected_overflow = jiffies;
+ #endif
+ 
+ 	if (for_tx) {
++		/* Assumption: B43_TXRING_SLOTS can be divided by TX_SLOTS_PER_FRAME */
++		BUILD_BUG_ON((B43_TXRING_SLOTS * 1000000) / TX_SLOTS_PER_FRAME !=
++			     (B43_TXRING_SLOTS / TX_SLOTS_PER_FRAME) * 1000000);
++
+ 		ring-&gt;txhdr_cache = kcalloc(ring-&gt;nr_slots / TX_SLOTS_PER_FRAME,
+ 					    b43_txhdr_size(dev),
+ 					    GFP_KERNEL);
+ 		if (!ring-&gt;txhdr_cache)
+ 			goto err_kfree_meta;
+ 
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005231.html">[PATCH] b43: Optimize DMA buffers
+</A></li>
+	<LI>Next message: <A HREF="005233.html">[PATCH] b43: Add slot count compiletime assertion
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5232">[ date ]</a>
+              <a href="thread.html#5232">[ thread ]</a>
+              <a href="subject.html#5232">[ subject ]</a>
+              <a href="author.html#5232">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

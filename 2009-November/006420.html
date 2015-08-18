@@ -1,0 +1,256 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Rewrite DMA Tx status handling sanity checks
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Rewrite%20DMA%20Tx%20status%20handling%20sanity%20checks&In-Reply-To=%3C200911192224.29491.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006419.html">
+   <LINK REL="Next"  HREF="006451.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Rewrite DMA Tx status handling sanity checks</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Rewrite%20DMA%20Tx%20status%20handling%20sanity%20checks&In-Reply-To=%3C200911192224.29491.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Rewrite DMA Tx status handling sanity checks">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Nov 19 22:24:29 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006419.html">[PATCH V2] ssb: Unconditionally log results of core scans
+</A></li>
+        <LI>Next message: <A HREF="006451.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6420">[ date ]</a>
+              <a href="thread.html#6420">[ thread ]</a>
+              <a href="subject.html#6420">[ subject ]</a>
+              <a href="author.html#6420">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This rewrites the error handling policies in the TX status handler.
+It tries to be error-tolerant as in &quot;try hard to not crash the machine&quot;.
+It won't recover from errors (that are bugs in the firmware or driver),
+because that's impossible. However, it will return a more or less useful
+error message and bail out. It also tries hard to use rate-limited messages
+to not flood the syslog in case of a failure.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+This patch also adds the skb pointer poisoning. I think it's not
+strictly needed to catch firmware bugs anymore, because those should
+be caught by the in-order check. However, we love defensive coding, so
+we try to make the code as robust as possible.
+
+I did not try with openfirmware, but I guess it blows up in the
+in-order check there pretty quickly.
+Would be cool if somebody could stress this on openfirmware.
+
+Note that if the ordering sanity check fails that can mean three things:
+- Either the report ordering on one engine is wrong.
+- We missed one report on the engine.
+- Or we reported the status to the wrong engine.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-11-18 19:21:17.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-11-19 21:40:45.000000000 +0100
+@@ -874,7 +874,7 @@ static void free_all_descbuffers(struct 
+ 	for (i = 0; i &lt; ring-&gt;nr_slots; i++) {
+ 		desc = ring-&gt;ops-&gt;idx2desc(ring, i, &amp;meta);
+ 
+-		if (!meta-&gt;skb) {
++		if (!meta-&gt;skb || b43_dma_ptr_is_poisoned(meta-&gt;skb)) {
+ 			B43_WARN_ON(!ring-&gt;tx);
+ 			continue;
+ 		}
+@@ -926,7 +926,7 @@ struct b43_dmaring *b43_setup_dmaring(st
+ 				      enum b43_dmatype type)
+ {
+ 	struct b43_dmaring *ring;
+-	int err;
++	int i, err;
+ 	dma_addr_t dma_test;
+ 
+ 	ring = kzalloc(sizeof(*ring), GFP_KERNEL);
+@@ -941,6 +941,8 @@ struct b43_dmaring *b43_setup_dmaring(st
+ 			     GFP_KERNEL);
+ 	if (!ring-&gt;meta)
+ 		goto err_kfree_ring;
++	for (i = 0; i &lt; ring-&gt;nr_slots; i++)
++		ring-&gt;meta-&gt;skb = B43_DMA_PTR_POISON;
+ 
+ 	ring-&gt;type = type;
+ 	ring-&gt;dev = dev;
+@@ -1251,11 +1253,13 @@ struct b43_dmaring *parse_cookie(struct 
+ 	case 0x5000:
+ 		ring = dma-&gt;tx_ring_mcast;
+ 		break;
+-	default:
+-		B43_WARN_ON(1);
+ 	}
+ 	*slot = (cookie &amp; 0x0FFF);
+-	B43_WARN_ON(!(ring &amp;&amp; *slot &gt;= 0 &amp;&amp; *slot &lt; ring-&gt;nr_slots));
++	if (unlikely(!ring || *slot &lt; 0 || *slot &gt;= ring-&gt;nr_slots)) {
++		b43dbg(dev-&gt;wl, &quot;TX-status contains &quot;
++		       &quot;invalid cookie: 0x%04X\n&quot;, cookie);
++		return NULL;
++	}
+ 
+ 	return ring;
+ }
+@@ -1494,19 +1498,40 @@ void b43_dma_handle_txstatus(struct b43_
+ 	struct b43_dmaring *ring;
+ 	struct b43_dmadesc_generic *desc;
+ 	struct b43_dmadesc_meta *meta;
+-	int slot;
++	int slot, firstused;
+ 	bool frame_succeed;
+ 
+ 	ring = parse_cookie(dev, status-&gt;cookie, &amp;slot);
+ 	if (unlikely(!ring))
+ 		return;
+-
+ 	B43_WARN_ON(!ring-&gt;tx);
++
++	/* Sanity check: TX packets are processed in-order on one ring.
++	 * Check if the slot deduced from the cookie really is the first
++	 * used slot. */
++	firstused = ring-&gt;current_slot - ring-&gt;used_slots + 1;
++	if (firstused &lt; 0)
++		firstused = ring-&gt;nr_slots + firstused;
++	if (unlikely(slot != firstused)) {
++		/* This possibly is a firmware bug and will result in
++		 * malfunction, memory leaks and/or stall of DMA functionality. */
++		b43dbg(dev-&gt;wl, &quot;Out of order TX status report on DMA ring %d. &quot;
++		       &quot;Expected %d, but got %d\n&quot;,
++		       ring-&gt;index, firstused, slot);
++		return;
++	}
++
+ 	ops = ring-&gt;ops;
+ 	while (1) {
+-		B43_WARN_ON(!(slot &gt;= 0 &amp;&amp; slot &lt; ring-&gt;nr_slots));
++		B43_WARN_ON(slot &lt; 0 || slot &gt;= ring-&gt;nr_slots);
+ 		desc = ops-&gt;idx2desc(ring, slot, &amp;meta);
+ 
++		if (b43_dma_ptr_is_poisoned(meta-&gt;skb)) {
++			b43dbg(dev-&gt;wl, &quot;Poisoned TX slot %d (first=%d) &quot;
++			       &quot;on ring %d\n&quot;,
++			       slot, firstused, ring-&gt;index);
++			break;
++		}
+ 		if (meta-&gt;skb) {
+ 			struct b43_private_tx_info *priv_info =
+ 				b43_get_priv_tx_info(IEEE80211_SKB_CB(meta-&gt;skb));
+@@ -1522,7 +1547,14 @@ void b43_dma_handle_txstatus(struct b43_
+ 		if (meta-&gt;is_last_fragment) {
+ 			struct ieee80211_tx_info *info;
+ 
+-			BUG_ON(!meta-&gt;skb);
++			if (unlikely(!meta-&gt;skb)) {
++				/* This is a scatter-gather fragment of a frame, so
++				 * the skb pointer must not be NULL. */
++				b43dbg(dev-&gt;wl, &quot;TX status unexpected NULL skb &quot;
++				       &quot;at slot %d (first=%d) on ring %d\n&quot;,
++				       slot, firstused, ring-&gt;index);
++				break;
++			}
+ 
+ 			info = IEEE80211_SKB_CB(meta-&gt;skb);
+ 
+@@ -1540,20 +1572,29 @@ void b43_dma_handle_txstatus(struct b43_
+ #endif /* DEBUG */
+ 			ieee80211_tx_status(dev-&gt;wl-&gt;hw, meta-&gt;skb);
+ 
+-			/* skb is freed by ieee80211_tx_status() */
+-			meta-&gt;skb = NULL;
++			/* skb will be freed by ieee80211_tx_status().
++			 * Poison our pointer. */
++			meta-&gt;skb = B43_DMA_PTR_POISON;
+ 		} else {
+ 			/* No need to call free_descriptor_buffer here, as
+ 			 * this is only the txhdr, which is not allocated.
+ 			 */
+-			B43_WARN_ON(meta-&gt;skb);
++			if (unlikely(meta-&gt;skb)) {
++				b43dbg(dev-&gt;wl, &quot;TX status unexpected non-NULL skb &quot;
++				       &quot;at slot %d (first=%d) on ring %d\n&quot;,
++				       slot, firstused, ring-&gt;index);
++				break;
++			}
+ 		}
+ 
+ 		/* Everything unmapped and free'd. So it's not used anymore. */
+ 		ring-&gt;used_slots--;
+ 
+-		if (meta-&gt;is_last_fragment)
++		if (meta-&gt;is_last_fragment) {
++			/* This is the last scatter-gather
++			 * fragment of the frame. We are done. */
+ 			break;
++		}
+ 		slot = next_slot(ring, slot);
+ 	}
+ 	if (ring-&gt;stopped) {
+Index: wireless-testing/drivers/net/wireless/b43/dma.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.h	2009-11-18 19:29:49.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/dma.h	2009-11-19 21:16:54.000000000 +0100
+@@ -1,7 +1,7 @@
+ #ifndef B43_DMA_H_
+ #define B43_DMA_H_
+ 
+-#include &lt;linux/ieee80211.h&gt;
++#include &lt;linux/err.h&gt;
+ 
+ #include &quot;b43.h&quot;
+ 
+@@ -164,6 +164,10 @@ struct b43_dmadesc_generic {
+ #define B43_RXRING_SLOTS		64
+ #define B43_DMA0_RX_BUFFERSIZE		IEEE80211_MAX_FRAME_LEN
+ 
++/* Pointer poison */
++#define B43_DMA_PTR_POISON		((void *)ERR_PTR(-ENOMEM))
++#define b43_dma_ptr_is_poisoned(ptr)	(unlikely((ptr) == B43_DMA_PTR_POISON))
++
+ 
+ struct sk_buff;
+ struct b43_private;
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006419.html">[PATCH V2] ssb: Unconditionally log results of core scans
+</A></li>
+	<LI>Next message: <A HREF="006451.html">[PATCH] b43: Rewrite DMA Tx status handling sanity checks
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6420">[ date ]</a>
+              <a href="thread.html#6420">[ thread ]</a>
+              <a href="subject.html#6420">[ subject ]</a>
+              <a href="author.html#6420">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

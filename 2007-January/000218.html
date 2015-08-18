@@ -1,0 +1,108 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BCM4311 and Hidden SSIDs?
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4311%20and%20Hidden%20SSIDs%3F&In-Reply-To=%3C8e5b27790701261618m6272d4d5v8a629b71bbfc0445%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000215.html">
+   <LINK REL="Next"  HREF="000219.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BCM4311 and Hidden SSIDs?</H1>
+    <B>Paul Marks</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4311%20and%20Hidden%20SSIDs%3F&In-Reply-To=%3C8e5b27790701261618m6272d4d5v8a629b71bbfc0445%40mail.gmail.com%3E"
+       TITLE="BCM4311 and Hidden SSIDs?">pmarks at purdue.edu
+       </A><BR>
+    <I>Sat Jan 27 01:18:30 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000215.html">BCM4311 and Hidden SSIDs?
+</A></li>
+        <LI>Next message: <A HREF="000219.html">BCM4311 and Hidden SSIDs?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#218">[ date ]</a>
+              <a href="thread.html#218">[ thread ]</a>
+              <a href="subject.html#218">[ subject ]</a>
+              <a href="author.html#218">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 1/26/07, Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">larry.finger at lwfinger.net</A>&gt; wrote:
+&gt;<i> Paul Marks wrote:
+</I>&gt;<i> &gt; I have a BCM4311 card, and ever since the PCI-E interrupts patch, I've been
+</I>&gt;<i> &gt; able to associate just fine with my own WPA2-PSK access point, using
+</I>&gt;<i> &gt; wpa_supplicant with ap_scan=1.
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; However, the access points at my school (Purdue) are all WPA-Enterprise with
+</I>&gt;<i> &gt; a hidden SSID, and I so far haven't had any luck getting bcm43xx to connect
+</I>&gt;<i> &gt; to these.  If I use ndiswrapper instead, then these APs work as expected.
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; Am I doing something wrong, or is this a limitation in the driver?  Has
+</I>&gt;<i> &gt; anyone gotten bcm43xx to work in a hidden-SSID situation?
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; -snip-
+</I>&gt;<i>
+</I>&gt;<i> It should work. I just hid my SSID and had no trouble seeing the AP when scanning nor any problem
+</I>&gt;<i> with associating or authenticating.
+</I>&gt;<i>
+</I>&gt;<i> How close are you to the AP at Purdue? The 4311's don't broadcast with much power and you might not
+</I>&gt;<i> be in reach. I'm also not sure about the ap_scan=2 in your .conf file. Please try a value of 1.
+</I>&gt;<i>
+</I>&gt;<i> One other thing to test. Once the system is trying to authenticate, do an 'iwlist s' command to see
+</I>&gt;<i> if any scans are getting through. It doesn't seem as if they are, but this is another way to see.
+</I>
+In order to get around the (possible) transmit power problem, I set my
+own AP to have a hidden SSID, and it's currently sitting about 1 meter
+from the laptop.
+
+I've been skimming through the wpa_supplicant source code to try to
+get a handle on what's going on.   When ap_scan is set to 1,
+wpa_supplicant will walk through all of the entries in the config file
+that have &quot;scan_ssid=1&quot; set.  For each of these SSIDs, it tells the
+driver to scan for that specific SSID, and when the results come back,
+it compares each resulting SSID with the SSID that it was originally
+scanning for, looking for an exact string match.
+
+So, it looks like it's the driver's job to scan for a specific SSID,
+and insert its name into one of the fields that would ordinarily be
+&quot;&lt;hidden&gt;&quot;.  The problem is, even after scanning for a specific SSID,
+the results from the driver never contain the SSID that we searched
+for.  In the debug output for wpa_supplicant, I see:
+
+0: 00:16:01:11:42:11 ssid='&lt;hidden&gt;' wpa_ie_len=26 rsn_ie_len=22 caps=0x11
+   skip - SSID mismatch
+
+That's definitely my access point, but as you can see, the driver
+never inserted the correct SSID.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000215.html">BCM4311 and Hidden SSIDs?
+</A></li>
+	<LI>Next message: <A HREF="000219.html">BCM4311 and Hidden SSIDs?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#218">[ date ]</a>
+              <a href="thread.html#218">[ thread ]</a>
+              <a href="subject.html#218">[ subject ]</a>
+              <a href="author.html#218">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

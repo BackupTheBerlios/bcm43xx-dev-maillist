@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm 4315
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm%204315&In-Reply-To=%3C2263254.125251210804985234.JavaMail.root%40cdptpa-web09-z02%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004096.html">
+   <LINK REL="Next"  HREF="004098.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm 4315</H1>
+    <B>fbicknel at nc.rr.com</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm%204315&In-Reply-To=%3C2263254.125251210804985234.JavaMail.root%40cdptpa-web09-z02%3E"
+       TITLE="bcm 4315">fbicknel at nc.rr.com
+       </A><BR>
+    <I>Thu May 15 00:43:05 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004096.html">b43 sometimes hangs on 4318 with nice conditions
+</A></li>
+        <LI>Next message: <A HREF="004098.html">bcm 4315
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4097">[ date ]</a>
+              <a href="thread.html#4097">[ thread ]</a>
+              <a href="subject.html#4097">[ subject ]</a>
+              <a href="author.html#4097">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Here are what seem to be the pertinent portions of dmesg output.  Let me know if you want the whole thing and I'll send it directly.
+
+I don't know what all that corrupt SPROM CRC stuff is all about.  I followed the directions to extract the firmware to /lib/firmware using b43-fwcutter.  Not sure if that's the same thing, though.
+
+Linux version 2.6.24-gentoo-r4 (<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at tink</A>) (gcc version 4.1.2 (Gentoo 4.1.2 p1.1)) #1 SMP Wed May 14 18:11:04 EDT 2008
+[snip]
+PCI: Setting latency timer of device 0000:02:00.0 to 64
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x16, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x0F, vendor 0x4243)
+ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x0A, vendor 0x4243)
+ssb: Core 3 found: PCI-E (cc 0x820, rev 0x09, vendor 0x4243)
+ssb: WARNING: Invalid SPROM CRC (corrupt SPROM)
+ssb: Unsupported SPROM revision 255 detected. Will extract v1
+WARNING: at drivers/ssb/main.c:883 ssb_tmslow_reject_bitmask()
+Pid: 5404, comm: modprobe Not tainted 2.6.24-gentoo-r4 #1
+ [&lt;f96423a5&gt;]  [&lt;f9643293&gt;]  [&lt;f9645381&gt;]  [&lt;f9642981&gt;]  [&lt;f96446a5&gt;]  [&lt;f964420f&gt;]  [&lt;f9642e63&gt;]  [&lt;f9643f7c&gt;]  [&lt;f9642f67&gt;]  [&lt;c0339d7d&gt;]  [&lt;f96447cd&gt;]  [&lt;c033b853&gt;]  [&lt;c0398838&gt;]  [&lt;c0468689&gt;]  [&lt;c0398948&gt;]  [&lt;c039898e&gt;]  [&lt;c0397e4b&gt;]  [&lt;c039869f&gt;]  [&lt;c0398948&gt;]  [&lt;c03980f6&gt;]  [&lt;c033b990&gt;]  [&lt;f90c9040&gt;]  [&lt;c013717c&gt;]  [&lt;c013fded&gt;]  [&lt;f967c914&gt;]  [&lt;c03982a1&gt;]  [&lt;c0103dc2&gt;]  =======================
+ssb: Sonics Silicon Backplane found on PCI device 0000:02:00.0
+[snip]
+
+lspci -nnv output (for completeness)
+
+02:00.0 Network controller [0280]: Broadcom Corporation BCM4310 USB Controller [14e4:4315] (rev 01)
+	Subsystem: Hewlett-Packard Company Unknown device [103c:137c]
+	Flags: bus master, fast devsel, latency 0, IRQ 17
+	Memory at f4000000 (64-bit, non-prefetchable) [size=16K]
+	Capabilities: [40] Power Management version 3
+	Capabilities: [58] Vendor Specific Information &lt;?&gt;
+	Capabilities: [e8] Message Signalled Interrupts: Mask- 64bit+ Queue=0/0 Enable-
+	Capabilities: [d0] Express Endpoint, MSI 00
+	Capabilities: [100] Advanced Error Reporting &lt;?&gt;
+	Capabilities: [13c] Virtual Channel &lt;?&gt;
+	Capabilities: [160] Device Serial Number 21-00-04-ff-ff-00-76-37
+	Capabilities: [16c] Power Budgeting &lt;?&gt;
+	Kernel driver in use: b43-pci-bridge
+	Kernel modules: ssb
+
+Here's what happens when I load b43:
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">fbicknel at tink</A> ~ $ sudo b43load b43
+Disabling bcm43xx ...	[OK]	Module disabled:
+/lib/modules/2.6.24-gentoo-r4/kernel/drivers/net/wireless/bcm43xx/bcm43xx.ko
+b43 loaded successfully
+b43legacy loaded successfully
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">fbicknel at tink</A> ~ $ 
+
+modprobe -r b43 and modprobe -r b43legacy, then b43load b43 will add the following in dmesg, but this looks to be the same as before:
+
+PCI: Setting latency timer of device 0000:02:00.0 to 64
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x16, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x0F, vendor 0x4243)
+ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x0A, vendor 0x4243)
+ssb: Core 3 found: PCI-E (cc 0x820, rev 0x09, vendor 0x4243)
+ssb: WARNING: Invalid SPROM CRC (corrupt SPROM)
+ssb: Unsupported SPROM revision 255 detected. Will extract v1
+WARNING: at drivers/ssb/main.c:883 ssb_tmslow_reject_bitmask()
+Pid: 8904, comm: modprobe Not tainted 2.6.24-gentoo-r4 #1
+ [&lt;f96423a5&gt;]  [&lt;f9643293&gt;]  [&lt;f9645381&gt;]  [&lt;f9642981&gt;]  [&lt;f96446a5&gt;]  [&lt;f964420f&gt;]  [&lt;f9642e63&gt;]  [&lt;f9643f7c&gt;]  [&lt;f9642f67&gt;]  [&lt;c0339d7d&gt;]  [&lt;f96447cd&gt;]  [&lt;c033b853&gt;]  [&lt;c0398838&gt;]  [&lt;c0468689&gt;]  [&lt;c0398948&gt;]  [&lt;c039898e&gt;]  [&lt;c0397e4b&gt;]  [&lt;c039869f&gt;]  [&lt;c0398948&gt;]  [&lt;c03980f6&gt;]  [&lt;c033b990&gt;]  [&lt;f8926040&gt;]  [&lt;c013717c&gt;]  [&lt;c013fded&gt;]  [&lt;c03982a1&gt;]  [&lt;c0103dc2&gt;]  =======================
+ssb: Sonics Silicon Backplane found on PCI device 0000:02:00.0
+
+
+Thanks in advance.
+
+---- Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; wrote: 
+&gt;<i> On Wednesday 07 May 2008 22:33:23 <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">fbicknel at nc.rr.com</A> wrote:
+</I>&gt;<i> &gt; My apologies if I'm spamming the wrong list; please reply privately and I'll take this elsewhere if so.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; I have a Bcm 4315 (not 18, not 03....) and it seems that this model is not listed anywhere in any references I can find; not even Broadcom's site.  Is it an OEM version of some other model by chance?
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Anyone hear of lspci returning 4315?
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; 02:00.0 0280: 14e4:4315 (rev 01) 
+</I>&gt;<i> 
+</I>&gt;<i> Please apply the following patch and enable &quot;Sonics Silicon Backplane Debugging&quot;
+</I>&gt;<i> and &quot;b43 debugging&quot;. Then send me the dmesg output.
+</I>&gt;<i> 
+</I>&gt;<i> Index: wireless-testing/drivers/ssb/b43_pci_bridge.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/ssb/b43_pci_bridge.c	2008-02-16 19:08:13.000000000 +0100
+</I>&gt;<i> +++ wireless-testing/drivers/ssb/b43_pci_bridge.c	2008-05-08 14:55:38.000000000 +0200
+</I>&gt;<i> @@ -21,6 +21,7 @@ static const struct pci_device_id b43_pc
+</I>&gt;<i>  	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4307) },
+</I>&gt;<i>  	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4311) },
+</I>&gt;<i>  	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4312) },
+</I>&gt;<i> +	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4315) },
+</I>&gt;<i>  	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4318) },
+</I>&gt;<i>  	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4319) },
+</I>&gt;<i>  	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4320) },
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> -- 
+</I>&gt;<i> Greetings Michael.
+</I>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004096.html">b43 sometimes hangs on 4318 with nice conditions
+</A></li>
+	<LI>Next message: <A HREF="004098.html">bcm 4315
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4097">[ date ]</a>
+              <a href="thread.html#4097">[ thread ]</a>
+              <a href="subject.html#4097">[ subject ]</a>
+              <a href="author.html#4097">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

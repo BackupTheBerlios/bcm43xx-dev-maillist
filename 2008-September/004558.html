@@ -1,0 +1,306 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Move Analog switching into phy code
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Move%20Analog%20switching%20into%20phy%20code&In-Reply-To=%3C200809031212.21143.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004563.html">
+   <LINK REL="Next"  HREF="004559.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Move Analog switching into phy code</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Move%20Analog%20switching%20into%20phy%20code&In-Reply-To=%3C200809031212.21143.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Move Analog switching into phy code">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Sep  3 12:12:20 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004563.html">[OT] Git trouble
+</A></li>
+        <LI>Next message: <A HREF="004559.html">[PATCH] b43: Replace hardcoded Analog switch
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4558">[ date ]</a>
+              <a href="thread.html#4558">[ thread ]</a>
+              <a href="subject.html#4558">[ subject ]</a>
+              <a href="author.html#4558">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This moves the Analog switching code into the PHY files.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, please queue for the next merge window.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/phy_a.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_a.c	2008-09-02 12:39:53.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy_a.c	2008-09-03 11:53:47.000000000 +0200
+@@ -629,12 +629,13 @@ const struct b43_phy_operations b43_phyo
+ 	.phy_read		= b43_aphy_op_read,
+ 	.phy_write		= b43_aphy_op_write,
+ 	.radio_read		= b43_aphy_op_radio_read,
+ 	.radio_write		= b43_aphy_op_radio_write,
+ 	.supports_hwpctl	= b43_aphy_op_supports_hwpctl,
+ 	.software_rfkill	= b43_aphy_op_software_rfkill,
++	.switch_analog		= b43_phyop_switch_analog_generic,
+ 	.switch_channel		= b43_aphy_op_switch_channel,
+ 	.get_default_chan	= b43_aphy_op_get_default_chan,
+ 	.set_rx_antenna		= b43_aphy_op_set_rx_antenna,
+ 	.recalc_txpower		= b43_aphy_op_recalc_txpower,
+ 	.adjust_txpower		= b43_aphy_op_adjust_txpower,
+ 	.pwork_15sec		= b43_aphy_op_pwork_15sec,
+Index: wireless-testing/drivers/net/wireless/b43/phy_common.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_common.c	2008-09-02 02:37:28.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy_common.c	2008-09-03 11:52:50.000000000 +0200
+@@ -371,6 +371,11 @@ int b43_phy_shm_tssi_read(struct b43_wld
+ 		    &amp; B43_HF_CCKBOOST)
+ 			average = (average &gt;= 13) ? (average - 13) : 0;
+ 	}
+ 
+ 	return average;
+ }
++
++void b43_phyop_switch_analog_generic(struct b43_wldev *dev, bool on)
++{
++	b43_write16(dev, B43_MMIO_PHY0, on ? 0 : 0xF4);
++}
+Index: wireless-testing/drivers/net/wireless/b43/phy_common.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_common.h	2008-09-02 02:37:28.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy_common.h	2008-09-03 11:51:53.000000000 +0200
+@@ -105,12 +105,14 @@ enum b43_txpwr_result {
+  * 			If NULL, hwpctl is assumed to be never supported.
+  * @software_rfkill:	Turn the radio ON or OFF.
+  * 			Possible state values are
+  * 			RFKILL_STATE_SOFT_BLOCKED or
+  * 			RFKILL_STATE_UNBLOCKED
+  * 			Must not be NULL.
++ * @switch_analog:	Turn the Analog on/off.
++ * 			Must not be NULL.
+  * @switch_channel:	Switch the radio to another channel.
+  * 			Must not be NULL.
+  * @get_default_chan:	Just returns the default channel number.
+  * 			Must not be NULL.
+  * @set_rx_antenna:	Set the antenna used for RX.
+  * 			Can be NULL, if not supported.
+@@ -155,12 +157,13 @@ struct b43_phy_operations {
+ 	u16 (*radio_read)(struct b43_wldev *dev, u16 reg);
+ 	void (*radio_write)(struct b43_wldev *dev, u16 reg, u16 value);
+ 
+ 	/* Radio */
+ 	bool (*supports_hwpctl)(struct b43_wldev *dev);
+ 	void (*software_rfkill)(struct b43_wldev *dev, enum rfkill_state state);
++	void (*switch_analog)(struct b43_wldev *dev, bool on);
+ 	int (*switch_channel)(struct b43_wldev *dev, unsigned int new_channel);
+ 	unsigned int (*get_default_chan)(struct b43_wldev *dev);
+ 	void (*set_rx_antenna)(struct b43_wldev *dev, int antenna);
+ 	int (*interf_mitigation)(struct b43_wldev *dev,
+ 				 enum b43_interference_mitigation new_mode);
+ 
+@@ -394,8 +397,17 @@ void b43_phy_txpower_adjust_work(struct 
+  * @shm_offset:		The SHM address to read the values from.
+  *
+  * Returns the average of the 4 TSSI values, or a negative error code.
+  */
+ int b43_phy_shm_tssi_read(struct b43_wldev *dev, u16 shm_offset);
+ 
++/**
++ * b43_phy_switch_analog_generic - Generic PHY operation for switching the Analog.
++ *
++ * It does the switching based on the PHY0 core register.
++ * Do _not_ call this directly. Only use it as a switch_analog callback
++ * for struct b43_phy_operations.
++ */
++void b43_phyop_switch_analog_generic(struct b43_wldev *dev, bool on);
++
+ 
+ #endif /* LINUX_B43_PHY_COMMON_H_ */
+Index: wireless-testing/drivers/net/wireless/b43/phy_g.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_g.c	2008-09-02 12:40:51.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy_g.c	2008-09-03 11:54:09.000000000 +0200
+@@ -3268,12 +3268,13 @@ const struct b43_phy_operations b43_phyo
+ 	.phy_read		= b43_gphy_op_read,
+ 	.phy_write		= b43_gphy_op_write,
+ 	.radio_read		= b43_gphy_op_radio_read,
+ 	.radio_write		= b43_gphy_op_radio_write,
+ 	.supports_hwpctl	= b43_gphy_op_supports_hwpctl,
+ 	.software_rfkill	= b43_gphy_op_software_rfkill,
++	.switch_analog		= b43_phyop_switch_analog_generic,
+ 	.switch_channel		= b43_gphy_op_switch_channel,
+ 	.get_default_chan	= b43_gphy_op_get_default_chan,
+ 	.set_rx_antenna		= b43_gphy_op_set_rx_antenna,
+ 	.interf_mitigation	= b43_gphy_op_interf_mitigation,
+ 	.recalc_txpower		= b43_gphy_op_recalc_txpower,
+ 	.adjust_txpower		= b43_gphy_op_adjust_txpower,
+Index: wireless-testing/drivers/net/wireless/b43/phy_lp.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_lp.c	2008-09-02 02:37:28.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy_lp.c	2008-09-03 11:54:30.000000000 +0200
+@@ -143,12 +143,13 @@ const struct b43_phy_operations b43_phyo
+ 	.init			= b43_lpphy_op_init,
+ 	.phy_read		= b43_lpphy_op_read,
+ 	.phy_write		= b43_lpphy_op_write,
+ 	.radio_read		= b43_lpphy_op_radio_read,
+ 	.radio_write		= b43_lpphy_op_radio_write,
+ 	.software_rfkill	= b43_lpphy_op_software_rfkill,
++	.switch_analog		= b43_phyop_switch_analog_generic,
+ 	.switch_channel		= b43_lpphy_op_switch_channel,
+ 	.get_default_chan	= b43_lpphy_op_get_default_chan,
+ 	.set_rx_antenna		= b43_lpphy_op_set_rx_antenna,
+ 	.recalc_txpower		= b43_lpphy_op_recalc_txpower,
+ 	.adjust_txpower		= b43_lpphy_op_adjust_txpower,
+ };
+Index: wireless-testing/drivers/net/wireless/b43/phy_n.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_n.c	2008-09-02 02:37:28.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy_n.c	2008-09-03 11:55:35.000000000 +0200
+@@ -580,12 +580,18 @@ static void b43_nphy_op_radio_write(stru
+ 
+ static void b43_nphy_op_software_rfkill(struct b43_wldev *dev,
+ 					enum rfkill_state state)
+ {//TODO
+ }
+ 
++static void b43_nphy_op_switch_analog(struct b43_wldev *dev, bool on)
++{
++	b43_phy_write(dev, B43_NPHY_AFECTL_OVER,
++		      on ? 0 : 0x7FFF);
++}
++
+ static int b43_nphy_op_switch_channel(struct b43_wldev *dev,
+ 				      unsigned int new_channel)
+ {
+ 	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
+ 		if ((new_channel &lt; 1) || (new_channel &gt; 14))
+ 			return -EINVAL;
+@@ -611,11 +617,12 @@ const struct b43_phy_operations b43_phyo
+ 	.init			= b43_nphy_op_init,
+ 	.phy_read		= b43_nphy_op_read,
+ 	.phy_write		= b43_nphy_op_write,
+ 	.radio_read		= b43_nphy_op_radio_read,
+ 	.radio_write		= b43_nphy_op_radio_write,
+ 	.software_rfkill	= b43_nphy_op_software_rfkill,
++	.switch_analog		= b43_nphy_op_switch_analog,
+ 	.switch_channel		= b43_nphy_op_switch_channel,
+ 	.get_default_chan	= b43_nphy_op_get_default_chan,
+ 	.recalc_txpower		= b43_nphy_op_recalc_txpower,
+ 	.adjust_txpower		= b43_nphy_op_adjust_txpower,
+ };
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-09-02 12:13:57.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-09-03 11:58:23.000000000 +0200
+@@ -1049,29 +1049,12 @@ void b43_power_saving_ctl_bits(struct b4
+ 				break;
+ 			udelay(10);
+ 		}
+ 	}
+ }
+ 
+-/* Turn the Analog ON/OFF */
+-static void b43_switch_analog(struct b43_wldev *dev, int on)
+-{
+-	switch (dev-&gt;phy.type) {
+-	case B43_PHYTYPE_A:
+-	case B43_PHYTYPE_G:
+-		b43_write16(dev, B43_MMIO_PHY0, on ? 0 : 0xF4);
+-		break;
+-	case B43_PHYTYPE_N:
+-		b43_phy_write(dev, B43_NPHY_AFECTL_OVER,
+-			      on ? 0 : 0x7FFF);
+-		break;
+-	default:
+-		B43_WARN_ON(1);
+-	}
+-}
+-
+ void b43_wireless_core_reset(struct b43_wldev *dev, u32 flags)
+ {
+ 	u32 tmslow;
+ 	u32 macctl;
+ 
+ 	flags |= B43_TMSLOW_PHYCLKEN;
+@@ -1093,13 +1076,13 @@ void b43_wireless_core_reset(struct b43_
+ 
+ 	/* Turn Analog ON, but only if we already know the PHY-type.
+ 	 * This protects against very early setup where we don't know the
+ 	 * PHY-type, yet. wireless_core_reset will be called once again later,
+ 	 * when we know the PHY-type. */
+ 	if (dev-&gt;phy.ops)
+-		b43_switch_analog(dev, 1);
++		dev-&gt;phy.ops-&gt;switch_analog(dev, 1);
+ 
+ 	macctl = b43_read32(dev, B43_MMIO_MACCTL);
+ 	macctl &amp;= ~B43_MACCTL_GMODE;
+ 	if (flags &amp; B43_TMSLOW_GMODE)
+ 		macctl |= B43_MACCTL_GMODE;
+ 	macctl |= B43_MACCTL_IHR_ENABLED;
+@@ -3949,13 +3932,13 @@ static void b43_wireless_core_exit(struc
+ 		b43_leds_exit(dev);
+ 		b43_rng_exit(dev-&gt;wl);
+ 	}
+ 	b43_dma_free(dev);
+ 	b43_pio_free(dev);
+ 	b43_chip_exit(dev);
+-	b43_switch_analog(dev, 0);
++	dev-&gt;phy.ops-&gt;switch_analog(dev, 0);
+ 	if (dev-&gt;wl-&gt;current_beacon) {
+ 		dev_kfree_skb_any(dev-&gt;wl-&gt;current_beacon);
+ 		dev-&gt;wl-&gt;current_beacon = NULL;
+ 	}
+ 
+ 	ssb_device_disable(dev-&gt;dev, 0);
+@@ -4434,13 +4417,13 @@ static int b43_wireless_core_attach(stru
+ 
+ 	/* Now set some default &quot;current_dev&quot; */
+ 	if (!wl-&gt;current_dev)
+ 		wl-&gt;current_dev = dev;
+ 	INIT_WORK(&amp;dev-&gt;restart_work, b43_chip_reset);
+ 
+-	b43_switch_analog(dev, 0);
++	dev-&gt;phy.ops-&gt;switch_analog(dev, 0);
+ 	ssb_device_disable(dev-&gt;dev, 0);
+ 	ssb_bus_may_powerdown(bus);
+ 
+ out:
+ 	return err;
+ 
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004563.html">[OT] Git trouble
+</A></li>
+	<LI>Next message: <A HREF="004559.html">[PATCH] b43: Replace hardcoded Analog switch
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4558">[ date ]</a>
+              <a href="thread.html#4558">[ thread ]</a>
+              <a href="subject.html#4558">[ subject ]</a>
+              <a href="author.html#4558">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

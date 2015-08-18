@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] mac80211: Sort supported rates in scan output
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20mac80211%3A%20Sort%20supported%20rates%20in%20scan%20output&In-Reply-To=%3C46284d71.8kVOR3LhjxSoo7lb%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001137.html">
+   <LINK REL="Next"  HREF="001155.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] mac80211: Sort supported rates in scan output</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20mac80211%3A%20Sort%20supported%20rates%20in%20scan%20output&In-Reply-To=%3C46284d71.8kVOR3LhjxSoo7lb%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] mac80211: Sort supported rates in scan output">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Apr 20 07:19:45 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001137.html">[PATCH 3/3] bcm43xx-mac80211: Fix machine check on PPC for	phy-&gt;rev == 1
+</A></li>
+        <LI>Next message: <A HREF="001155.html">[PATCH] mac80211: Sort supported rates in scan output
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1142">[ date ]</a>
+              <a href="thread.html#1142">[ thread ]</a>
+              <a href="subject.html#1142">[ subject ]</a>
+              <a href="author.html#1142">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>In mac80211, the results of a scan show basic rates followed by extended
+rates, thus values are not listed in any particular order. This patch sorts
+all rates in increasing value.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: wireless-dev/net/mac80211/ieee80211_sta.c
+===================================================================
+--- wireless-dev.orig/net/mac80211/ieee80211_sta.c
++++ wireless-dev/net/mac80211/ieee80211_sta.c
+@@ -3013,7 +3017,8 @@ ieee80211_sta_scan_result(struct net_dev
+ 	if (bss &amp;&amp; bss-&gt;supp_rates_len &gt; 0) {
+ 		/* display all supported rates in readable format */
+ 		char *p = current_ev + IW_EV_LCP_LEN;
+-		int i;
++		int i, j, tmp;
++		int trial_rate, cur_rate = 0;
+ 
+ 		memset(&amp;iwe, 0, sizeof(iwe));
+ 		iwe.cmd = SIOCGIWRATE;
+@@ -3021,8 +3026,14 @@ ieee80211_sta_scan_result(struct net_dev
+ 		iwe.u.bitrate.fixed = iwe.u.bitrate.disabled = 0;
+ 
+ 		for (i = 0; i &lt; bss-&gt;supp_rates_len; i++) {
+-			iwe.u.bitrate.value = ((bss-&gt;supp_rates[i] &amp;
+-							0x7f) * 500000);
++			trial_rate = 99999999;
++			for (j = 0; j &lt; bss-&gt;supp_rates_len; j++) {
++				tmp = bss-&gt;supp_rates[j] &amp; 0x7f;
++				if (tmp &gt; cur_rate &amp;&amp; tmp &lt; trial_rate)
++					trial_rate = tmp;
++			}
++			cur_rate = trial_rate;
++			iwe.u.bitrate.value = cur_rate * 500000;
+ 			p = iwe_stream_add_value(current_ev, p,
+ 					end_buf, &amp;iwe, IW_EV_PARAM_LEN);
+ 		}
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001137.html">[PATCH 3/3] bcm43xx-mac80211: Fix machine check on PPC for	phy-&gt;rev == 1
+</A></li>
+	<LI>Next message: <A HREF="001155.html">[PATCH] mac80211: Sort supported rates in scan output
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1142">[ date ]</a>
+              <a href="thread.html#1142">[ thread ]</a>
+              <a href="subject.html#1142">[ subject ]</a>
+              <a href="author.html#1142">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

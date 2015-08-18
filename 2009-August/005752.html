@@ -1,0 +1,240 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Refactor TX gain table I/O
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Refactor%20TX%20gain%20table%20I/O&In-Reply-To=%3C4A81D376.5020405%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005751.html">
+   <LINK REL="Next"  HREF="005753.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Refactor TX gain table I/O</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Refactor%20TX%20gain%20table%20I/O&In-Reply-To=%3C4A81D376.5020405%40gmail.com%3E"
+       TITLE="[PATCH] b43: LP-PHY: Refactor TX gain table I/O">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Tue Aug 11 22:24:22 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005751.html">[PATCH] b43: Implement RC calibration for rev.2+ LP PHYs
+</A></li>
+        <LI>Next message: <A HREF="005753.html">[RFC] b43: LP-PHY: Initialize SW TX power control
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5752">[ date ]</a>
+              <a href="thread.html#5752">[ thread ]</a>
+              <a href="subject.html#5752">[ subject ]</a>
+              <a href="author.html#5752">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Make it possible to write individual gain table entries.
+Allow gain table entries to be written outside gain table init.
+Add version-agnostic helpers for writing gain tables.
+Use the new TX gain table helpers during table init.
+
+Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/tables_lpphy.c |   85 +++++++++++++++++--------------
+ drivers/net/wireless/b43/tables_lpphy.h |    9 +++
+ 2 files changed, 55 insertions(+), 39 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/tables_lpphy.c b/drivers/net/wireless/b43/tables_lpphy.c
+index 3507515..5fdb175 100644
+--- a/drivers/net/wireless/b43/tables_lpphy.c
++++ b/drivers/net/wireless/b43/tables_lpphy.c
+@@ -1058,10 +1058,6 @@ static const u32 lpphy_papd_mult_table[] = {
+ 	0x00036963, 0x000339f2, 0x00030a89, 0x0002db28,
+ };
+ 
+-struct lpphy_tx_gain_table_entry {
+-	u8 gm,  pga,  pad,  dac,  bb_mult;
+-};
+-
+ static struct lpphy_tx_gain_table_entry lpphy_rev0_nopa_tx_gain_table[] = {
+ 	{ .gm = 7, .pga = 15, .pad = 14, .dac = 0, .bb_mult = 152, },
+ 	{ .gm = 7, .pga = 15, .pad = 14, .dac = 0, .bb_mult = 147, },
+@@ -2345,44 +2341,55 @@ void lpphy_rev2plus_table_init(struct b43_wldev *dev)
+ 	}
+ }
+ 
+-
+-static void lpphy_rev0_1_write_gain_table(struct b43_wldev *dev,
+-				struct lpphy_tx_gain_table_entry *table)
++static void lpphy_rev0_1_write_gain_table(struct b43_wldev *dev, int offset,
++				struct lpphy_tx_gain_table_entry data)
+ {
+-	int i;
+ 	u32 tmp;
+ 
+ 	B43_WARN_ON(dev-&gt;phy.rev &gt;= 2);
+ 
+-	for (i = 0; i &lt; 128; i++) {
+-		tmp  = table[i].pad &lt;&lt; 11;
+-		tmp |= table[i].pga &lt;&lt; 7;
+-		tmp |= table[i].gm  &lt;&lt; 4;
+-		tmp |= table[i].dac;
+-		b43_lptab_write(dev, B43_LPTAB32(10, 0xC0 + i), tmp);
+-		tmp  = table[i].bb_mult &lt;&lt; 20;
+-		b43_lptab_write(dev, B43_LPTAB32(10, 0x140 + i), tmp);
+-	}
++	tmp  = data.pad &lt;&lt; 11;
++	tmp |= data.pga &lt;&lt; 7;
++	tmp |= data.gm  &lt;&lt; 4;
++	tmp |= data.dac;
++	b43_lptab_write(dev, B43_LPTAB32(10, 0xC0 + offset), tmp);
++	tmp  = data.bb_mult &lt;&lt; 20;
++	b43_lptab_write(dev, B43_LPTAB32(10, 0x140 + offset), tmp);
+ }
+ 
+-static void lpphy_rev2plus_write_gain_table(struct b43_wldev *dev,
+-				struct lpphy_tx_gain_table_entry *table)
++static void lpphy_rev2plus_write_gain_table(struct b43_wldev *dev, int offset,
++				struct lpphy_tx_gain_table_entry data)
+ {
+-	int i;
+ 	u32 tmp;
+ 
+ 	B43_WARN_ON(dev-&gt;phy.rev &lt; 2);
+ 
+-	for (i = 0; i &lt; 128; i++) {
+-		tmp  = table[i].pad &lt;&lt; 16;
+-		tmp |= table[i].pga &lt;&lt; 8;
+-		tmp |= table[i].gm;
+-		tmp |= 0x7f000000;
+-		b43_lptab_write(dev, B43_LPTAB32(7, 0xC0 + i), tmp);
+-		tmp  = table[i].bb_mult &lt;&lt; 20;
+-		tmp |= table[i].dac &lt;&lt; 28;
+-		b43_lptab_write(dev, B43_LPTAB32(7, 0x140 + i), tmp);
+-	}
++	tmp  = data.pad &lt;&lt; 16;
++	tmp |= data.pga &lt;&lt; 8;
++	tmp |= data.gm;
++	tmp |= 0x7f000000;
++	b43_lptab_write(dev, B43_LPTAB32(7, 0xC0 + offset), tmp);
++	tmp  = data.bb_mult &lt;&lt; 20;
++	tmp |= data.dac &lt;&lt; 28;
++	b43_lptab_write(dev, B43_LPTAB32(7, 0x140 + offset), tmp);
++}
++
++void lpphy_write_gain_table(struct b43_wldev *dev, int offset,
++			    struct lpphy_tx_gain_table_entry data)
++{
++	if (dev-&gt;phy.rev &gt;= 2)
++		lpphy_rev2plus_write_gain_table(dev, offset, data);
++	else
++		lpphy_rev0_1_write_gain_table(dev, offset, data);
++}
++
++void lpphy_write_gain_table_bulk(struct b43_wldev *dev, int offset, int count,
++				 struct lpphy_tx_gain_table_entry *table)
++{
++	int i;
++
++	for (i = offset; i &lt; count; i++)
++		lpphy_write_gain_table(dev, i, table[i]);
+ }
+ 
+ void lpphy_init_tx_gain_table(struct b43_wldev *dev)
+@@ -2393,36 +2400,36 @@ void lpphy_init_tx_gain_table(struct b43_wldev *dev)
+ 	case 0:
+ 		if ((bus-&gt;sprom.boardflags_hi &amp; B43_BFH_NOPA) ||
+ 		    (bus-&gt;sprom.boardflags_lo &amp; B43_BFL_HGPA))
+-			lpphy_rev0_1_write_gain_table(dev,
++			lpphy_write_gain_table_bulk(dev, 0, 128,
+ 					lpphy_rev0_nopa_tx_gain_table);
+ 		else if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)
+-			lpphy_rev0_1_write_gain_table(dev,
++			lpphy_write_gain_table_bulk(dev, 0, 128,
+ 					lpphy_rev0_2ghz_tx_gain_table);
+ 		else
+-			lpphy_rev0_1_write_gain_table(dev,
++			lpphy_write_gain_table_bulk(dev, 0, 128,
+ 					lpphy_rev0_5ghz_tx_gain_table);
+ 		break;
+ 	case 1:
+ 		if ((bus-&gt;sprom.boardflags_hi &amp; B43_BFH_NOPA) ||
+ 		    (bus-&gt;sprom.boardflags_lo &amp; B43_BFL_HGPA))
+-			lpphy_rev0_1_write_gain_table(dev,
++			lpphy_write_gain_table_bulk(dev, 0, 128,
+ 					lpphy_rev1_nopa_tx_gain_table);
+ 		else if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)
+-			lpphy_rev0_1_write_gain_table(dev,
++			lpphy_write_gain_table_bulk(dev, 0, 128,
+ 					lpphy_rev1_2ghz_tx_gain_table);
+ 		else
+-			lpphy_rev0_1_write_gain_table(dev,
++			lpphy_write_gain_table_bulk(dev, 0, 128,
+ 					lpphy_rev1_5ghz_tx_gain_table);
+ 		break;
+ 	default:
+ 		if (bus-&gt;sprom.boardflags_hi &amp; B43_BFH_NOPA)
+-			lpphy_rev2plus_write_gain_table(dev,
++			lpphy_write_gain_table_bulk(dev, 0, 128,
+ 					lpphy_rev2_nopa_tx_gain_table);
+ 		else if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)
+-			lpphy_rev2plus_write_gain_table(dev,
++			lpphy_write_gain_table_bulk(dev, 0, 128,
+ 					lpphy_rev2_2ghz_tx_gain_table);
+ 		else
+-			lpphy_rev2plus_write_gain_table(dev,
++			lpphy_write_gain_table_bulk(dev, 0, 128,
+ 					lpphy_rev2_5ghz_tx_gain_table);
+ 	}
+ }
+diff --git a/drivers/net/wireless/b43/tables_lpphy.h b/drivers/net/wireless/b43/tables_lpphy.h
+index b5024b6..84f1d26 100644
+--- a/drivers/net/wireless/b43/tables_lpphy.h
++++ b/drivers/net/wireless/b43/tables_lpphy.h
+@@ -28,6 +28,15 @@ void b43_lptab_write_bulk(struct b43_wldev *dev, u32 offset,
+ void b2062_upload_init_table(struct b43_wldev *dev);
+ void b2063_upload_init_table(struct b43_wldev *dev);
+ 
++struct lpphy_tx_gain_table_entry {
++	u8 gm,  pga,  pad,  dac,  bb_mult;
++};
++
++void lpphy_write_gain_table(struct b43_wldev *dev, int offset,
++			    struct lpphy_tx_gain_table_entry data);
++void lpphy_write_gain_table_bulk(struct b43_wldev *dev, int offset, int count,
++				 struct lpphy_tx_gain_table_entry *table);
++
+ void lpphy_rev0_1_table_init(struct b43_wldev *dev);
+ void lpphy_rev2plus_table_init(struct b43_wldev *dev);
+ void lpphy_init_tx_gain_table(struct b43_wldev *dev);
+-- 
+1.6.2.4
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005751.html">[PATCH] b43: Implement RC calibration for rev.2+ LP PHYs
+</A></li>
+	<LI>Next message: <A HREF="005753.html">[RFC] b43: LP-PHY: Initialize SW TX power control
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5752">[ date ]</a>
+              <a href="thread.html#5752">[ thread ]</a>
+              <a href="subject.html#5752">[ subject ]</a>
+              <a href="author.html#5752">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

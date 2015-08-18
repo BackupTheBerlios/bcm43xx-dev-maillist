@@ -1,0 +1,114 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Regression%20in%202.6.27-rcX%20caused%20by%20commit%0A%09bc19d6e0b74ef03a3baf035412c95192b54dfc6f&In-Reply-To=%3C200809171619.33377.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004667.html">
+   <LINK REL="Next"  HREF="004665.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Regression%20in%202.6.27-rcX%20caused%20by%20commit%0A%09bc19d6e0b74ef03a3baf035412c95192b54dfc6f&In-Reply-To=%3C200809171619.33377.mb%40bu3sch.de%3E"
+       TITLE="Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Sep 17 16:19:33 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004667.html">Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+        <LI>Next message: <A HREF="004665.html">Regression in 2.6.27-rcX caused by commit 	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4680">[ date ]</a>
+              <a href="thread.html#4680">[ thread ]</a>
+              <a href="subject.html#4680">[ subject ]</a>
+              <a href="author.html#4680">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tuesday 16 September 2008 23:09:20 Matthew Garrett wrote:
+&gt;<i> Oh, hey, I suck. This one might stand a better chance of not falling 
+</I>&gt;<i> over.
+</I>&gt;<i> 
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/rfkill.c b/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> index fec5645..991e318 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/rfkill.c
+</I>&gt;<i> @@ -49,21 +49,18 @@ static void b43_rfkill_update_state(struct b43_wldev *dev)
+</I>&gt;<i>  	struct b43_rfkill *rfk = &amp;(dev-&gt;wl-&gt;rfkill);
+</I>&gt;<i>  
+</I>&gt;<i>  	if (!dev-&gt;radio_hw_enable) {
+</I>&gt;<i> -		rfk-&gt;rfkill-&gt;state = RFKILL_STATE_HARD_BLOCKED;
+</I>&gt;<i> +		rfkill_force_state(rfk-&gt;rfkill, RFKILL_STATE_HARD_BLOCKED);
+</I>&gt;<i>  		return;
+</I>&gt;<i>  	}
+</I>&gt;<i>  
+</I>&gt;<i>  	if (!dev-&gt;phy.radio_on)
+</I>&gt;<i> -		rfk-&gt;rfkill-&gt;state = RFKILL_STATE_SOFT_BLOCKED;
+</I>&gt;<i> +		rfkill_force_state(rfk-&gt;rfkill, RFKILL_STATE_SOFT_BLOCKED);
+</I>&gt;<i>  	else
+</I>&gt;<i> -		rfk-&gt;rfkill-&gt;state = RFKILL_STATE_UNBLOCKED;
+</I>&gt;<i> -
+</I>&gt;<i> +		rfkill_force_state(rfk-&gt;rfkill, RFKILL_STATE_UNBLOCKED);
+</I>&gt;<i>  }
+</I>
+I still thing that it is really wrong to check and change the software
+rfkill state from within the _hardware_ rfkill state handler.
+So let's say this handler sets the state to SOFT_BLOCKED. Who is going
+to set it back to unblocked, if the user unblocks the radio?
+
+We can turn the radio on/off from the mac80211 config callback. Possibly
+we must tell rfkill about it (I'm not sure. I don't understand the API).
+I think this is pretty hard to get right, actually. HW-block and SW-block
+are two completely independent states in b43. You can HW-block and SW-block
+the device at the same time. So one must make sure that at any time the rfkill
+is in a sane state if _either_ HW-block or SW-block changes. Currently I think
+we only change rfkill state if HW-block state changes. Which is wrong.
+
+
+In the end, I do not care about this crap anymore.
+Feel free to remove my copyright notice from that file and put yours in
+there. So feel free to send any patch to the rfkill code to john, but please
+handle any regressions resulting from it. If not, I will handle them by reverting
+patches until it starts to work again. ;)
+
+-- 
+Greetings Michael.
+--
+To unsubscribe from this list: send the line &quot;unsubscribe linux-kernel&quot; in
+the body of a message to <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">majordomo at vger.kernel.org</A>
+More majordomo info at  <A HREF="http://vger.kernel.org/majordomo-info.html">http://vger.kernel.org/majordomo-info.html</A>
+Please read the FAQ at  <A HREF="http://www.tux.org/lkml/">http://www.tux.org/lkml/</A>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004667.html">Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+	<LI>Next message: <A HREF="004665.html">Regression in 2.6.27-rcX caused by commit 	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4680">[ date ]</a>
+              <a href="thread.html#4680">[ thread ]</a>
+              <a href="subject.html#4680">[ subject ]</a>
+              <a href="author.html#4680">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

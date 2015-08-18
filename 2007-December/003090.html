@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.24-rc5 the LED does not come on after a switch-off switch-on
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.24-rc5%20the%20LED%20does%20not%20come%20on%20after%20a%20switch-off%20switch-on&In-Reply-To=%3C47675DE0.3030001%40wetwork.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003089.html">
+   <LINK REL="Next"  HREF="003091.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.24-rc5 the LED does not come on after a switch-off switch-on</H1>
+    <B>Ehud Gavron</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.24-rc5%20the%20LED%20does%20not%20come%20on%20after%20a%20switch-off%20switch-on&In-Reply-To=%3C47675DE0.3030001%40wetwork.net%3E"
+       TITLE="2.6.24-rc5 the LED does not come on after a switch-off switch-on">gavron at wetwork.net
+       </A><BR>
+    <I>Tue Dec 18 06:42:56 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003089.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+        <LI>Next message: <A HREF="003091.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3090">[ date ]</a>
+              <a href="thread.html#3090">[ thread ]</a>
+              <a href="subject.html#3090">[ subject ]</a>
+              <a href="author.html#3090">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>A little test code answered my own question.  I don't know if this is 
+the best way to do it, but this patch fixes the problem.
+
+Ehud
+
+--- drivers/net/wireless/b43/rfkill.c.orig      2007-12-17 
+22:39:31.000000000 -0700
++++ drivers/net/wireless/b43/rfkill.c   2007-12-17 22:39:54.000000000 -0700
+@@ -68,6 +68,7 @@ static void b43_rfkill_poll(struct input
+        /* send the radio switch event to the system - note both a key press
+         * and a release are required */
+        if (unlikely(report_change)) {
++               msleep(1);      /* sleep 400usec to allow slow hardware 
+to enable the LED */
+                input_report_key(poll_dev-&gt;input, KEY_WLAN, 1);
+                input_report_key(poll_dev-&gt;input, KEY_WLAN, 0);
+        }
+
+
+Ehud Gavron wrote:
+&gt;<i> We worked out the SPROM is the same... but here are some interesting twists.
+</I>&gt;<i>
+</I>&gt;<i> When switched off
+</I>&gt;<i> 1. The LED is switched off by hardware, not b43
+</I>&gt;<i> 2. B43 does send the event as expected but the LED is already off
+</I>&gt;<i>
+</I>&gt;<i> When switch on
+</I>&gt;<i> 1. The LED is not switched on by hardware
+</I>&gt;<i> 2. B43 does send the event as expected but the LED does not turn on
+</I>&gt;<i>
+</I>&gt;<i> When the code to pop the LED is triggered more often as in
+</I>&gt;<i> When I changed in rfkill.c
+</I>&gt;<i> if (unlikely(report_change)) {
+</I>&gt;<i>
+</I>&gt;<i> to
+</I>&gt;<i> if (!unlikely(report_change)) {
+</I>&gt;<i>
+</I>&gt;<i> Then the LED came on and off every two seconds or so until I set the 
+</I>&gt;<i> switch to OFF at which point the LED stayed off but the events kept 
+</I>&gt;<i> happening.  (I put debug messages before and after also spitting out 
+</I>&gt;<i> poll_dev-&gt;input to check its value for corruption.  It was all good).
+</I>&gt;<i>
+</I>&gt;<i> I can manually trigger the event (on or off) using setkeycodes, so I suspect
+</I>&gt;<i> a possible DELAY of the LED coming on after a B43 enable event... for 
+</I>&gt;<i> hardware that needs it... would fix it.
+</I>&gt;<i>
+</I>&gt;<i> Thoughts?
+</I>&gt;<i>
+</I>&gt;<i> Ehud
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Larry Finger wrote:
+</I>&gt;<i>   
+</I>&gt;&gt;<i> Ehud,
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> One possibility that I didn't think about before is that your LED mapping in the SPROM has some
+</I>&gt;&gt;<i> quirk that is not handled properly. Please run the following two commands
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> SSB_SPROM=$(find /sys -name ssb_sprom)
+</I>&gt;&gt;<i> sudo cat $SSB_SPROM &gt; sprom.txt
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> and mail me the file sprom.txt that results.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Thanks,
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Larry
+</I>&gt;&gt;<i>   
+</I>&gt;&gt;<i>     
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Bcm43xx-dev mailing list
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>&gt;<i>   
+</I>
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003089.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+	<LI>Next message: <A HREF="003091.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3090">[ date ]</a>
+              <a href="thread.html#3090">[ thread ]</a>
+              <a href="subject.html#3090">[ subject ]</a>
+              <a href="author.html#3090">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

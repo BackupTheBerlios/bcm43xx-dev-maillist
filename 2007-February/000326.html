@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm43xx-softmac issue
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm43xx-softmac%20issue&In-Reply-To=%3C45C6BD18.4080706%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000321.html">
+   <LINK REL="Next"  HREF="000327.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm43xx-softmac issue</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm43xx-softmac%20issue&In-Reply-To=%3C45C6BD18.4080706%40lwfinger.net%3E"
+       TITLE="bcm43xx-softmac issue">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Mon Feb  5 06:14:00 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000321.html">OFDM Rates : Possible Initialization Problem
+</A></li>
+        <LI>Next message: <A HREF="000327.html">bcm43xx-softmac issue
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#326">[ date ]</a>
+              <a href="thread.html#326">[ thread ]</a>
+              <a href="subject.html#326">[ subject ]</a>
+              <a href="author.html#326">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Joseph Jezak wrote:
+&gt;<i> Hi Larry,
+</I>&gt;<i> 
+</I>&gt;<i> I got a report of a user having an issue with 2.6.20 and IRQ issues, and
+</I>&gt;<i> I can reproduce it.  And I have a fix. :)  (The best kind of bug!)
+</I>&gt;<i> 
+</I>&gt;<i> I've attached the oops.  Basically, increasing the number of IRQ tries
+</I>&gt;<i> (BCM43xx_IRQWAIT_MAX_RETRIES) from 50 to 100 seems to fix the problem. 
+</I>&gt;<i> There's probably something else going on here, but I'm not sure what
+</I>&gt;<i> yet.  This at least papers over the problem. :p
+</I>&gt;<i> 
+</I>&gt;<i> Back to working on 4318 now... I'm through most of the init code and
+</I>&gt;<i> nothing I've fixed has fixed the issue in wireless-dev yet :p
+</I>
+Joe,
+
+As you have probably read in the bcm43xx list, I cannot test the suspend/resume code as my graphics
+card basically locks up when I try to suspend, but others have reported an oops on resume. I have
+added the mailing list and one of the people with the problem to the cc's.
+
+Perhaps, the bcm43xx needs a bit more settling time before we try to resume. Could you please
+change IRQWAIT_MAX_RETRIES back to the original value and try the following patch? If it works,
+perhaps you could try reducing the msleep time. An extra 50 times through the loop in chip_init is
+only 500 usec, and it is likely that msleep(1) will be sufficient. If it works with the msleep, then
+we won't spin the system the way a udelay does.
+
+Good luck with the 4318 problem.
+
+Thanks,
+
+Larry
+
+=========================
+
+Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -4266,6 +4266,7 @@ static int bcm43xx_resume(struct pci_dev
+
+ 	dprintk(KERN_INFO PFX &quot;Resuming...\n&quot;);
+
++	msleep(1000);
+ 	pci_set_power_state(pdev, 0);
+ 	err = pci_enable_device(pdev);
+ 	if (err) {
+
+
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: test_delay
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070204/1fbcec93/attachment.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070204/1fbcec93/attachment.ksh</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000321.html">OFDM Rates : Possible Initialization Problem
+</A></li>
+	<LI>Next message: <A HREF="000327.html">bcm43xx-softmac issue
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#326">[ date ]</a>
+              <a href="thread.html#326">[ thread ]</a>
+              <a href="subject.html#326">[ subject ]</a>
+              <a href="author.html#326">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

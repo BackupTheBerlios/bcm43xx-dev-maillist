@@ -1,0 +1,496 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] mac80211: Report correct wireless statistics
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20mac80211%3A%20Report%20correct%20wireless%20statistics&In-Reply-To=%3C461AE160.6060404%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001005.html">
+   <LINK REL="Next"  HREF="001024.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] mac80211: Report correct wireless statistics</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20mac80211%3A%20Report%20correct%20wireless%20statistics&In-Reply-To=%3C461AE160.6060404%40lwfinger.net%3E"
+       TITLE="[PATCH] mac80211: Report correct wireless statistics">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Tue Apr 10 02:59:12 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001005.html">[PATCH] mac80211: Report correct wireless statistics
+</A></li>
+        <LI>Next message: <A HREF="001024.html">problems with advanced wpa
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1011">[ date ]</a>
+              <a href="thread.html#1011">[ thread ]</a>
+              <a href="subject.html#1011">[ subject ]</a>
+              <a href="author.html#1011">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Wu wrote:
+&gt;&gt;<i>
+</I>&gt;<i> Absolutely - it is confusing since dBm can also be specified in addition to 
+</I>&gt;<i> RSSI. Renaming signal to qual or something along those lines would also be 
+</I>&gt;<i> useful IMHO, but if you're okay with it as it stands, I don't mind it.
+</I>
+I changed signal to qual and (r)ssi to level. Once these changes were made, iwconfig gives me the 
+following:
+
+Link Quality=57/100  Signal level=-37 dBm  Noise level=-70 dBm
+
+The patch is pretty large and touches a lot of files, but if one is to be able to bisect around it, 
+it has to be a single commit. As the patch entitled &quot;[PATCH] bcm43xx-mac80211: Fix error in 
+initiallizing max RSSI and max signal&quot; has been accepted into Michael Buesch's tree, I have assumed 
+that it is already included.
+
+Larry
+---
+
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
+@@ -3760,7 +3760,7 @@ static int bcm43xx_wireless_init(struct
+  		    IEEE80211_HW_MONITOR_DURING_OPER |
+  		    IEEE80211_HW_DEVICE_HIDES_WEP |
+  		    IEEE80211_HW_WEP_INCLUDE_IV;
+-	hw-&gt;max_signal = -110;
++	hw-&gt;max_qual = 100;
+  	hw-&gt;max_rssi = BCM43xx_RX_MAX_SSI;
+  	hw-&gt;max_noise = -110;
+  	hw-&gt;queues = 1;
+Index: wireless-dev/include/net/mac80211.h
+===================================================================
+--- wireless-dev.orig/include/net/mac80211.h
++++ wireless-dev/include/net/mac80211.h
+@@ -227,8 +227,8 @@ struct ieee80211_rx_status {
+  	int freq; /* receive frequency in Mhz */
+  	int channel;
+  	int phymode;
+-	int ssi;
+-	int signal; /* used as qual in statistics reporting */
++	int level;  /* used in statistics reporting */
++	int qual; /* used in statistics reporting */
+  	int noise;
+  	int antenna;
+  	int rate;
+@@ -540,7 +540,7 @@ struct ieee80211_hw {
+  	/* Maximum values for various statistics.
+  	 * Leave at 0 to indicate no support. Use negative numbers for dBm. */
+  	s8 max_rssi;
+-	s8 max_signal;
++	s8 max_qual;
+  	s8 max_noise;
+
+  	/* Number of available hardware TX queues for data packets.
+Index: wireless-dev/net/mac80211/ieee80211.c
+===================================================================
+--- wireless-dev.orig/net/mac80211/ieee80211.c
++++ wireless-dev/net/mac80211/ieee80211.c
+@@ -2705,7 +2705,7 @@ ieee80211_fill_frame_info(struct ieee802
+  		fi-&gt;antenna = htonl(status-&gt;antenna);
+  		fi-&gt;priority = 0xffffffff; /* no clue */
+  		fi-&gt;ssi_type = htonl(ieee80211_ssi_raw);
+-		fi-&gt;ssi_signal = htonl(status-&gt;ssi);
++		fi-&gt;ssi_signal = htonl(status-&gt;level);
+  		fi-&gt;ssi_noise = 0x00000000;
+  		fi-&gt;encoding = 0;
+  	} else {
+@@ -3352,10 +3352,10 @@ ieee80211_rx_h_sta_process(struct ieee80
+
+  	sta-&gt;rx_fragments++;
+  	sta-&gt;rx_bytes += rx-&gt;skb-&gt;len;
+-	sta-&gt;last_rssi = (sta-&gt;last_rssi * 15 +
+-			  rx-&gt;u.rx.status-&gt;ssi) / 16;
+-	sta-&gt;last_signal = (sta-&gt;last_signal * 15 +
+-			    rx-&gt;u.rx.status-&gt;signal) / 16;
++	sta-&gt;last_level = (sta-&gt;last_level * 15 +
++			  rx-&gt;u.rx.status-&gt;level) / 16;
++	sta-&gt;last_qual = (sta-&gt;last_qual * 15 +
++			    rx-&gt;u.rx.status-&gt;qual) / 16;
+  	sta-&gt;last_noise = (sta-&gt;last_noise * 15 +
+  			   rx-&gt;u.rx.status-&gt;noise) / 16;
+
+@@ -4643,7 +4643,7 @@ int ieee80211_register_hw(struct ieee802
+
+  	local-&gt;wstats_flags |= local-&gt;hw.max_rssi ?
+  			       IW_QUAL_LEVEL_UPDATED : IW_QUAL_LEVEL_INVALID;
+-	local-&gt;wstats_flags |= local-&gt;hw.max_signal ?
++	local-&gt;wstats_flags |= local-&gt;hw.max_qual ?
+  			       IW_QUAL_QUAL_UPDATED : IW_QUAL_QUAL_INVALID;
+  	local-&gt;wstats_flags |= local-&gt;hw.max_noise ?
+  			       IW_QUAL_NOISE_UPDATED : IW_QUAL_NOISE_INVALID;
+Index: wireless-dev/net/mac80211/ieee80211_sta.c
+===================================================================
+--- wireless-dev.orig/net/mac80211/ieee80211_sta.c
++++ wireless-dev/net/mac80211/ieee80211_sta.c
+@@ -1192,8 +1192,8 @@ static void ieee80211_rx_mgmt_assoc_resp
+  		}
+  		bss = ieee80211_rx_bss_get(dev, ifsta-&gt;bssid);
+  		if (bss) {
+-			sta-&gt;last_rssi = bss-&gt;rssi;
+-			sta-&gt;last_signal = bss-&gt;signal;
++			sta-&gt;last_level = bss-&gt;level;
++			sta-&gt;last_qual = bss-&gt;qual;
+  			sta-&gt;last_noise = bss-&gt;noise;
+  			ieee80211_rx_bss_put(dev, bss);
+  		}
+@@ -1582,8 +1582,8 @@ static void ieee80211_rx_bss_info(struct
+  	}
+  	bss-&gt;timestamp = timestamp;
+  	bss-&gt;last_update = jiffies;
+-	bss-&gt;rssi = rx_status-&gt;ssi;
+-	bss-&gt;signal = rx_status-&gt;signal;
++	bss-&gt;level = rx_status-&gt;level;
++	bss-&gt;qual = rx_status-&gt;qual;
+  	bss-&gt;noise = rx_status-&gt;noise;
+  	if (!beacon)
+  		bss-&gt;probe_resp++;
+@@ -2060,7 +2060,7 @@ static int ieee80211_sta_config_auth(str
+  	struct ieee80211_local *local = wdev_priv(dev-&gt;ieee80211_ptr);
+  	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+  	struct ieee80211_sta_bss *bss, *selected = NULL;
+-	int top_rssi = 0, freq;
++	int top_level = 0, freq;
+
+  	if (!ifsta-&gt;auto_channel_sel &amp;&amp; !ifsta-&gt;auto_bssid_sel &amp;&amp;
+  	    !ifsta-&gt;auto_ssid_sel) {
+@@ -2090,9 +2090,9 @@ static int ieee80211_sta_config_auth(str
+  		    !ieee80211_sta_match_ssid(ifsta, bss-&gt;ssid, bss-&gt;ssid_len))
+  			continue;
+
+-		if (top_rssi &lt; bss-&gt;rssi) {
++		if (top_level &lt; bss-&gt;level) {
+  			selected = bss;
+-			top_rssi = bss-&gt;rssi;
++			top_level = bss-&gt;level;
+  		}
+  	}
+  	if (selected)
+@@ -2822,8 +2822,8 @@ ieee80211_sta_scan_result(struct net_dev
+
+  	memset(&amp;iwe, 0, sizeof(iwe));
+  	iwe.cmd = IWEVQUAL;
+-	iwe.u.qual.qual = bss-&gt;signal;
+-	iwe.u.qual.level = bss-&gt;rssi;
++	iwe.u.qual.qual = bss-&gt;qual;
++	iwe.u.qual.level = bss-&gt;level;
+  	iwe.u.qual.noise = bss-&gt;noise;
+  	iwe.u.qual.updated = local-&gt;wstats_flags;
+  	current_ev = iwe_stream_add_event(current_ev, end_buf, &amp;iwe,
+@@ -2908,7 +2908,7 @@ ieee80211_sta_scan_result(struct net_dev
+
+  		memset(&amp;iwe, 0, sizeof(iwe));
+  		iwe.cmd = IWEVCUSTOM;
+-		sprintf(buf, &quot;rssi=%d&quot;, bss-&gt;rssi);
++		sprintf(buf, &quot;level=%d&quot;, bss-&gt;level);
+  		iwe.u.data.length = strlen(buf);
+  		current_ev = iwe_stream_add_point(current_ev, end_buf, &amp;iwe,
+  						  buf);
+Index: wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_xmit.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_xmit.c
++++ wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_xmit.c
+@@ -460,7 +460,7 @@ void bcm43xx_rx(struct bcm43xx_wldev *de
+  	u16 phystat0, phystat3, chanstat, mactime;
+  	u32 macstat;
+  	u16 chanid;
+-	u8 jssi;
++	u8 qual;
+  	int padding;
+
+  	memset(&amp;status, 0, sizeof(status));
+@@ -468,7 +468,7 @@ void bcm43xx_rx(struct bcm43xx_wldev *de
+  	/* Get metadata about the frame from the header. */
+  	phystat0 = le16_to_cpu(rxhdr-&gt;phy_status0);
+  	phystat3 = le16_to_cpu(rxhdr-&gt;phy_status3);
+-	jssi = rxhdr-&gt;jssi;
++	qual = rxhdr-&gt;jssi;
+  	macstat = le32_to_cpu(rxhdr-&gt;mac_status);
+  	mactime = le16_to_cpu(rxhdr-&gt;mac_time);
+  	chanstat = le16_to_cpu(rxhdr-&gt;channel);
+@@ -529,12 +529,12 @@ void bcm43xx_rx(struct bcm43xx_wldev *de
+  		}
+  	}
+
+-	status.signal = bcm43xx_rssi_postprocess(dev, jssi,
++	status.level = bcm43xx_rssi_postprocess(dev, qual,
+  					      (phystat0 &amp; BCM43xx_RX_PHYST0_OFDM),
+  					      (phystat0 &amp; BCM43xx_RX_PHYST0_GAINCTL),
+  					      (phystat3 &amp; BCM43xx_RX_PHYST3_TRSTATE));
+  	status.noise = dev-&gt;stats.link_noise;
+-	status.ssi = jssi;
++	status.qual = qual;
+  	if (phystat0 &amp; BCM43xx_RX_PHYST0_OFDM)
+  		status.rate = bcm43xx_plcp_get_bitrate_ofdm(plcp);
+  	else
+Index: wireless-dev/net/mac80211/debugfs_sta.c
+===================================================================
+--- wireless-dev.orig/net/mac80211/debugfs_sta.c
++++ wireless-dev/net/mac80211/debugfs_sta.c
+@@ -76,8 +76,8 @@ STA_FILE(txrate, txrate, RATE);
+  STA_FILE(last_txrate, last_txrate, RATE);
+  STA_FILE(tx_retry_failed, tx_retry_failed, LU);
+  STA_FILE(tx_retry_count, tx_retry_count, LU);
+-STA_FILE(last_rssi, last_rssi, D);
+-STA_FILE(last_signal, last_signal, D);
++STA_FILE(last_level, last_level, D);
++STA_FILE(last_qual, last_qual, D);
+  STA_FILE(last_noise, last_noise, D);
+  STA_FILE(channel_use, channel_use, D);
+  STA_FILE(wep_weak_iv_count, wep_weak_iv_count, D);
+Index: wireless-dev/net/mac80211/ieee80211_i.h
+===================================================================
+--- wireless-dev.orig/net/mac80211/ieee80211_i.h
++++ wireless-dev/net/mac80211/ieee80211_i.h
+@@ -82,7 +82,7 @@ struct ieee80211_sta_bss {
+  	int hw_mode;
+  	int channel;
+  	int freq;
+-	int rssi, signal, noise;
++	int level, qual, noise;
+  	u8 *wpa_ie;
+  	size_t wpa_ie_len;
+  	u8 *rsn_ie;
+Index: wireless-dev/net/mac80211/ieee80211_ioctl.c
+===================================================================
+--- wireless-dev.orig/net/mac80211/ieee80211_ioctl.c
++++ wireless-dev/net/mac80211/ieee80211_ioctl.c
+@@ -445,7 +445,7 @@ static int ieee80211_ioctl_get_info_sta(
+  		skb_queue_len(&amp;sta-&gt;ps_tx_buf);
+  	param-&gt;u.get_info_sta.tx_retry_failed = sta-&gt;tx_retry_failed;
+  	param-&gt;u.get_info_sta.tx_retry_count = sta-&gt;tx_retry_count;
+-	param-&gt;u.get_info_sta.last_rssi = sta-&gt;last_rssi;
++	param-&gt;u.get_info_sta.last_rssi = sta-&gt;last_level;
+  	param-&gt;u.get_info_sta.last_ack_rssi = sta-&gt;last_ack_rssi[2];
+
+  	sta_info_put(sta);
+@@ -1593,12 +1593,12 @@ static int ieee80211_ioctl_giwrange(stru
+  	range-&gt;min_frag = 256;
+  	range-&gt;max_frag = 2346;
+
+-	range-&gt;max_qual.qual = local-&gt;hw.max_signal;
++	range-&gt;max_qual.qual = local-&gt;hw.max_qual;
+  	range-&gt;max_qual.level = local-&gt;hw.max_rssi;
+  	range-&gt;max_qual.noise = local-&gt;hw.max_noise;
+  	range-&gt;max_qual.updated = local-&gt;wstats_flags;
+
+-	range-&gt;avg_qual.qual = local-&gt;hw.max_signal/2;
++	range-&gt;avg_qual.qual = local-&gt;hw.max_qual/2;
+  	range-&gt;avg_qual.level = 0;
+  	range-&gt;avg_qual.noise = 0;
+  	range-&gt;avg_qual.updated = local-&gt;wstats_flags;
+@@ -3084,8 +3084,8 @@ static struct iw_statistics *ieee80211_g
+  		wstats-&gt;qual.noise = 0;
+  		wstats-&gt;qual.updated = IW_QUAL_ALL_INVALID;
+  	} else {
+-		wstats-&gt;qual.level = sta-&gt;last_rssi;
+-		wstats-&gt;qual.qual = sta-&gt;last_signal;
++		wstats-&gt;qual.level = sta-&gt;last_level;
++		wstats-&gt;qual.qual = sta-&gt;last_qual;
+  		wstats-&gt;qual.noise = sta-&gt;last_noise;
+  		wstats-&gt;qual.updated = local-&gt;wstats_flags;
+  		sta_info_put(sta);
+Index: wireless-dev/net/mac80211/sta_info.h
+===================================================================
+--- wireless-dev.orig/net/mac80211/sta_info.h
++++ wireless-dev/net/mac80211/sta_info.h
+@@ -82,8 +82,8 @@ struct sta_info {
+  	unsigned long rx_fragments; /* number of received MPDUs */
+  	unsigned long rx_dropped; /* number of dropped MPDUs from this STA */
+
+-	int last_rssi; /* RSSI of last received frame from this STA */
+-	int last_signal; /* signal of last received frame from this STA */
++	int last_level; /* level of last received frame from this STA */
++	int last_qual; /* qual of last received frame from this STA */
+  	int last_noise; /* noise of last received frame from this STA */
+  	int last_ack_rssi[3]; /* RSSI of last received ACKs from this STA */
+  	unsigned long last_ack;
+Index: wireless-dev/drivers/net/wireless/mac80211/adm8211/adm8211.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/adm8211/adm8211.c
++++ wireless-dev/drivers/net/wireless/mac80211/adm8211/adm8211.c
+@@ -540,9 +540,9 @@ static void adm8211_interrupt_rci(struct
+  			struct ieee80211_rx_status rx_status = {0};
+
+  			if (priv-&gt;revid &lt; ADM8211_REV_CA)
+-				rx_status.ssi = rssi;
++				rx_status.level = rssi;
+  			else
+-				rx_status.ssi = 100 - rssi;
++				rx_status.level = 100 - rssi;
+
+  			if (rate &lt;= 4)
+  				rx_status.rate = rate_tbl[rate];
+Index: wireless-dev/drivers/net/wireless/mac80211/p54/prism54common.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/p54/prism54common.c
++++ wireless-dev/drivers/net/wireless/mac80211/p54/prism54common.c
+@@ -282,7 +282,7 @@ static void p54_rx_data(struct ieee80211
+  	struct ieee80211_rx_status rx_status = {0};
+  	u16 freq = le16_to_cpu(hdr-&gt;freq);
+
+-	rx_status.ssi = hdr-&gt;rssi;	/* TODO: check this */
++	rx_status.level = hdr-&gt;rssi;	/* TODO: check this */
+  	rx_status.rate = min(hdr-&gt;rate + 1, 12);	/* TODO: check this */
+  	rx_status.channel = freq == 2484 ? 14 : (freq - 2407)/5;
+  	rx_status.freq = freq;
+Index: wireless-dev/drivers/net/wireless/mac80211/rt2x00/rt2500pci.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/rt2x00/rt2500pci.c
++++ wireless-dev/drivers/net/wireless/mac80211/rt2x00/rt2500pci.c
+@@ -1742,7 +1742,7 @@ static void rt2500pci_rxdone(struct work
+  		 * Update link statistics
+  		 */
+  		rt2x00_update_link_rssi(&amp;rt2x00dev-&gt;link,
+-			rt2x00dev-&gt;rx_status.ssi);
++			rt2x00dev-&gt;rx_status.level);
+
+  skip_entry:
+  		rt2x00_set_field32(&amp;word0, RXD_W0_OWNER_NIC, 1);
+Index: wireless-dev/drivers/net/wireless/mac80211/rt2x00/rt2500usb.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/rt2x00/rt2500usb.c
++++ wireless-dev/drivers/net/wireless/mac80211/rt2x00/rt2500usb.c
+@@ -1702,7 +1702,7 @@ static void rt2500usb_interrupt_rxdone(s
+  	/*
+  	 * Update link statistics
+  	 */
+-	rt2x00_update_link_rssi(&amp;rt2x00dev-&gt;link, rt2x00dev-&gt;rx_status.ssi);
++	rt2x00_update_link_rssi(&amp;rt2x00dev-&gt;link, rt2x00dev-&gt;rx_status.level);
+
+  skip_entry:
+  	if (!GET_FLAG(ring-&gt;rt2x00dev, DEVICE_ENABLED_RADIO))
+Index: wireless-dev/drivers/net/wireless/mac80211/rt2x00/rt2x00dev.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/rt2x00/rt2x00dev.c
++++ wireless-dev/drivers/net/wireless/mac80211/rt2x00/rt2x00dev.c
+@@ -157,7 +157,7 @@ void rt2x00lib_update_rx_stats(struct rt
+  	}
+
+  	rt2x00dev-&gt;rx_status.rate = val;
+-	rt2x00dev-&gt;rx_status.ssi = rssi;
++	rt2x00dev-&gt;rx_status.level = rssi;
+  	rt2x00dev-&gt;rx_status.noise = rt2x00_get_link_noise(&amp;rt2x00dev-&gt;link);
+  }
+  EXPORT_SYMBOL_GPL(rt2x00lib_update_rx_stats);
+Index: wireless-dev/drivers/net/wireless/mac80211/rt2x00/rt61pci.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/rt2x00/rt61pci.c
++++ wireless-dev/drivers/net/wireless/mac80211/rt2x00/rt61pci.c
+@@ -2047,7 +2047,7 @@ static void rt61pci_rxdone(struct work_s
+  		 * Update link statistics
+  		 */
+  		rt2x00_update_link_rssi(&amp;rt2x00dev-&gt;link,
+-			rt2x00dev-&gt;rx_status.ssi);
++			rt2x00dev-&gt;rx_status.level);
+
+  skip_entry:
+  		rt2x00_set_field32(&amp;word0, RXD_W0_OWNER_NIC, 1);
+Index: wireless-dev/drivers/net/wireless/mac80211/rt2x00/rt73usb.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/rt2x00/rt73usb.c
++++ wireless-dev/drivers/net/wireless/mac80211/rt2x00/rt73usb.c
+@@ -1858,7 +1858,7 @@ static void rt73usb_interrupt_rxdone(str
+  	/*
+  	 * Update link statistics
+  	 */
+-	rt2x00_update_link_rssi(&amp;rt2x00dev-&gt;link, rt2x00dev-&gt;rx_status.ssi);
++	rt2x00_update_link_rssi(&amp;rt2x00dev-&gt;link, rt2x00dev-&gt;rx_status.level);
+
+  skip_entry:
+  	if (!GET_FLAG(ring-&gt;rt2x00dev, DEVICE_ENABLED_RADIO))
+Index: wireless-dev/drivers/net/wireless/mac80211/rtl818x/rtl8187_dev.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/rtl818x/rtl8187_dev.c
++++ wireless-dev/drivers/net/wireless/mac80211/rtl818x/rtl8187_dev.c
+@@ -161,8 +161,8 @@ static void rtl8187_rx_cb(struct urb *ur
+  	}
+
+  	rx_status.antenna = (hdr-&gt;signal &gt;&gt; 7) &amp; 1;
+-	rx_status.signal = 64 - min(hdr-&gt;noise, (u8)64);
+-	rx_status.ssi = signal;
++	rx_status.qual = 64 - min(hdr-&gt;noise, (u8)64);
++	rx_status.level = signal;
+  	rx_status.rate = priv-&gt;rates[rate].rate;
+  	rx_status.freq = dev-&gt;conf.freq;
+  	rx_status.channel = dev-&gt;conf.channel;
+@@ -609,7 +609,7 @@ static int __devinit rtl8187_probe(struc
+  	dev-&gt;extra_tx_headroom = sizeof(struct rtl8187_tx_hdr);
+  	dev-&gt;queues = 1;
+  	dev-&gt;max_rssi = 65;
+-	dev-&gt;max_signal = 64;
++	dev-&gt;max_qual = 64;
+
+  	for (i = 0; i &lt; 2; i++)
+  		if ((err = ieee80211_register_hwmode(dev, &amp;priv-&gt;modes[i])))
+Index: wireless-dev/drivers/net/wireless/mac80211/zd1211rw/zd_mac.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/mac80211/zd1211rw/zd_mac.c
++++ wireless-dev/drivers/net/wireless/mac80211/zd1211rw/zd_mac.c
+@@ -407,8 +407,8 @@ static int fill_rx_stats(struct ieee8021
+  	stats-&gt;channel = _zd_chip_get_channel(&amp;mac-&gt;chip);
+  	stats-&gt;freq = zd_channels[stats-&gt;channel - 1].freq;
+  	stats-&gt;phymode = MODE_IEEE80211G;
+-	stats-&gt;ssi = zd_rx_strength_percent(status-&gt;signal_strength);
+-	stats-&gt;signal = zd_rx_qual_percent(buffer,
++	stats-&gt;level = zd_rx_strength_percent(status-&gt;signal_strength);
++	stats-&gt;qual = zd_rx_qual_percent(buffer,
+  		                          length - sizeof(struct rx_status),
+  		                          status);
+  	stats-&gt;rate = zd_rx_rate(buffer, status);
+@@ -453,7 +453,7 @@ static int filter_ack(struct ieee80211_h
+  	if (control) {
+  		memcpy(&amp;status.control, control, sizeof(status.control));
+  		status.flags = IEEE80211_TX_STATUS_ACK;
+-		status.ack_signal = stats-&gt;ssi;
++		status.ack_signal = stats-&gt;level;
+  		ieee80211_tx_status_irqsafe(dev, skb, &amp;status);
+  		kfree(control);
+  	} else
+@@ -631,7 +631,7 @@ struct ieee80211_hw *zd_mac_alloc(struct
+  	dev-&gt;flags = IEEE80211_HW_RX_INCLUDES_FCS |
+  		     IEEE80211_HW_WEP_INCLUDE_IV;
+  	dev-&gt;max_rssi = 100;
+-	dev-&gt;max_signal = 100;
++	dev-&gt;max_qual = 100;
+
+  	dev-&gt;queues = 1;
+  	dev-&gt;extra_tx_headroom = sizeof(struct zd_ctrlset);
+
+----
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001005.html">[PATCH] mac80211: Report correct wireless statistics
+</A></li>
+	<LI>Next message: <A HREF="001024.html">problems with advanced wpa
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1011">[ date ]</a>
+              <a href="thread.html#1011">[ thread ]</a>
+              <a href="subject.html#1011">[ subject ]</a>
+              <a href="author.html#1011">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

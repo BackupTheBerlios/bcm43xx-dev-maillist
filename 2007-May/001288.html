@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> IPV6 autoconf problems
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20IPV6%20autoconf%20problems&In-Reply-To=%3C1180135028.8303.215.camel%40shinybook.infradead.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001279.html">
+   <LINK REL="Next"  HREF="001289.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>IPV6 autoconf problems</H1>
+    <B>David Woodhouse</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20IPV6%20autoconf%20problems&In-Reply-To=%3C1180135028.8303.215.camel%40shinybook.infradead.org%3E"
+       TITLE="IPV6 autoconf problems">dwmw2 at infradead.org
+       </A><BR>
+    <I>Sat May 26 01:17:08 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001279.html">BCM4318 doesn't get DHCPOFFERS
+</A></li>
+        <LI>Next message: <A HREF="001289.html">BUG: at net/mac80211/ieee80211.c:1280 ieee80211_tx()
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1288">[ date ]</a>
+              <a href="thread.html#1288">[ thread ]</a>
+              <a href="subject.html#1288">[ subject ]</a>
+              <a href="author.html#1288">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Fri, 2007-05-25 at 20:13 +0100, Steve Hill wrote:
+&gt;<i> On Fri, 25 May 2007, Johannes Berg wrote:
+</I>&gt;<i> 
+</I>&gt;<i> &gt; I'd like to have packet dumps of the master interface, a monitor
+</I>&gt;<i> &gt; interface and the actual interface that has the problem simultaneously,
+</I>&gt;<i> 
+</I>&gt;<i> <A HREF="http://www.nexusuk.org/~steve/iwl3945-ipv6/ap.pcap">http://www.nexusuk.org/~steve/iwl3945-ipv6/ap.pcap</A>
+</I>&gt;<i> <A HREF="http://www.nexusuk.org/~steve/iwl3945-ipv6/wlan0.pcap">http://www.nexusuk.org/~steve/iwl3945-ipv6/wlan0.pcap</A>
+</I>&gt;<i> 
+</I>&gt;<i> The set up I have is:
+</I>&gt;<i> 
+</I>&gt;<i>    Internet=====Router=====AccessPoint-----Notebook
+</I>&gt;<i> 
+</I>&gt;<i> (===== is 100Mbps ethernet, ----- is 802.11g)
+</I>&gt;<i> 
+</I>&gt;<i> The router is doing IPv6 router advertisements, the notebook is supposed 
+</I>&gt;<i> to be using them to configure the IPv6 address on it's wlan0 interface (an 
+</I>&gt;<i> iwl3945).  The access point is a LinkSys WRT54GL running OpenWRT 
+</I>&gt;<i> WhiteRussian and is just bridging the wired network to the wireless 
+</I>&gt;<i> network.
+</I>&gt;<i> 
+</I>&gt;<i> So, ap.pcap is a dump from the 802.11 interface on the access point. 
+</I>&gt;<i> wlan0.pcap is a dump from the 802.11 interface on the notebook.
+</I>&gt;<i> 
+</I>&gt;<i> The sequence of events is basically:
+</I>&gt;<i> 1. Router sends advertisement
+</I>&gt;<i> 2. Notebook receives advertisement
+</I>&gt;<i> 3. Notebook picks an IP address and sends a neighbor solicitation to see 
+</I>&gt;<i> if anyone else is already using that address.
+</I>&gt;<i> 
+</I>&gt;<i> (these 3 steps happen twice in these network dumps).
+</I>&gt;<i> 
+</I>&gt;<i> The dump taken on the access point clearly shows that the notebook sends 
+</I>&gt;<i> just one neighbor solicitation for each router advertisement it receives. 
+</I>&gt;<i> However, the dump taken on the notebook shows two neighbor solicitation 
+</I>&gt;<i> messages for each router advertisement.
+</I>&gt;<i> 
+</I>&gt;<i> Seems reasonably conclusive - it looks like the notebook is sending a 
+</I>&gt;<i> neighbor solicitation and is then receiving it's own data again.
+</I>
+Seems like a reasonable conclusion. Does this 'fix' it?
+
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index d8b3645..289375c 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -716,7 +716,7 @@ static void ndisc_recv_ns(struct sk_buff *skb)
+ 
+ 		if (ifp-&gt;flags &amp; (IFA_F_TENTATIVE|IFA_F_OPTIMISTIC)) {
+ 			if (dad) {
+-				if (dev-&gt;type == ARPHRD_IEEE802_TR) {
++				if (1) {
+ 					const unsigned char *sadr;
+ 					sadr = skb_mac_header(skb);
+ 					if (((sadr[8] ^ dev-&gt;dev_addr[0]) &amp; 0x7f) == 0 &amp;&amp;
+
+-- 
+dwmw2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001279.html">BCM4318 doesn't get DHCPOFFERS
+</A></li>
+	<LI>Next message: <A HREF="001289.html">BUG: at net/mac80211/ieee80211.c:1280 ieee80211_tx()
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1288">[ date ]</a>
+              <a href="thread.html#1288">[ thread ]</a>
+              <a href="subject.html#1288">[ subject ]</a>
+              <a href="author.html#1288">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

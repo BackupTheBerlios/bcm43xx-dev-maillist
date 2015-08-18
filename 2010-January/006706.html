@@ -1,0 +1,187 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 5/6] b43: N-PHY: add calibration restore
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%205/6%5D%20b43%3A%20N-PHY%3A%20add%20calibration%20restore&In-Reply-To=%3Cop.u6b71gdb9lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006705.html">
+   <LINK REL="Next"  HREF="006707.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 5/6] b43: N-PHY: add calibration restore</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%205/6%5D%20b43%3A%20N-PHY%3A%20add%20calibration%20restore&In-Reply-To=%3Cop.u6b71gdb9lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 5/6] b43: N-PHY: add calibration restore">zajec5 at gmail.com
+       </A><BR>
+    <I>Sun Jan 10 23:13:54 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006705.html">[PATCH 4/6] b43: N-PHY: add b43_nphy_rx_iq_coeffs and	b43_nphy_tx_lp_fbw
+</A></li>
+        <LI>Next message: <A HREF="006707.html">[PATCH 6/6] b43: N-PHY: little fixes in init code
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6706">[ date ]</a>
+              <a href="thread.html#6706">[ thread ]</a>
+              <a href="subject.html#6706">[ subject ]</a>
+              <a href="author.html#6706">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>
+---
+  drivers/net/wireless/b43/phy_n.c |   70 +++++++++++++++++++++++++++++++++++++-
+  drivers/net/wireless/b43/phy_n.h |   11 ++++++
+  2 files changed, 80 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 22e7432..577c626 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -1073,6 +1073,74 @@ static void b43_nphy_restore_rssi_cal(struct b43_wldev *dev)
+  	b43_phy_write(dev, B43_NPHY_RSSIMC_1Q_RSSI_Y, rssical_phy_regs[11]);
+  }
+
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/RestoreCal">http://bcm-v4.sipsolutions.net/802.11/PHY/N/RestoreCal</A> */
++static void b43_nphy_restore_cal(struct b43_wldev *dev)
++{
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
++
++	u16 coef[4];
++	u16 *loft = NULL;
++	u16 *table = NULL;
++
++	int i;
++	u16 *txcal_radio_regs = NULL;
++	struct b43_phy_n_iq_comp *rxcal_coeffs = NULL;
++
++	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
++		if (nphy-&gt;iqcal_chanspec_2G == 0)
++			return;
++		table = nphy-&gt;cal_cache.txcal_coeffs_2G;
++		loft = &amp;nphy-&gt;cal_cache.txcal_coeffs_2G[5];
++	} else {
++		if (nphy-&gt;iqcal_chanspec_5G == 0)
++			return;
++		table = nphy-&gt;cal_cache.txcal_coeffs_5G;
++		loft = &amp;nphy-&gt;cal_cache.txcal_coeffs_5G[5];
++	}
++
++	//TODO: Write an N PHY table with ID 15, length 4, offset 80, width 16, and data from table
++
++	for (i = 0; i &lt; 4; i++) {
++		if (dev-&gt;phy.rev &gt;= 3)
++			table[i] = coef[i];
++		else
++			coef[i] = 0;
++	}
++
++	//TODO: Write an N PHY table with ID 15, length 4, offset 88, width 16, and data from coef
++	//TODO: Write an N PHY table with ID 15, length 2, offset 85, width 16 and data from loft
++	//TODO: Write an N PHY table with ID 15, length 2, offset 93, width 16 and data from loft
++
++	if (dev-&gt;phy.rev &lt; 2)
++		;//TODO: Call N PHY TX IQ Workaround
++
++	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
++		txcal_radio_regs = nphy-&gt;cal_cache.txcal_radio_regs_2G;
++		rxcal_coeffs = &amp;nphy-&gt;cal_cache.rxcal_coeffs_2G;
++	} else {
++		txcal_radio_regs = nphy-&gt;cal_cache.txcal_radio_regs_5G;
++		rxcal_coeffs = &amp;nphy-&gt;cal_cache.rxcal_coeffs_5G;
++	}
++
++	/* TODO use some definitions */
++	if (dev-&gt;phy.rev &gt;= 3) {
++		b43_radio_write(dev, 0x2021, txcal_radio_regs[0]);
++		b43_radio_write(dev, 0x2022, txcal_radio_regs[1]);
++		b43_radio_write(dev, 0x3021, txcal_radio_regs[2]);
++		b43_radio_write(dev, 0x3022, txcal_radio_regs[3]);
++		b43_radio_write(dev, 0x2023, txcal_radio_regs[4]);
++		b43_radio_write(dev, 0x2024, txcal_radio_regs[5]);
++		b43_radio_write(dev, 0x3023, txcal_radio_regs[6]);
++		b43_radio_write(dev, 0x3024, txcal_radio_regs[7]);
++	} else {
++		b43_radio_write(dev, 0x8B, txcal_radio_regs[0]);
++		b43_radio_write(dev, 0xBA, txcal_radio_regs[1]);
++		b43_radio_write(dev, 0x8D, txcal_radio_regs[2]);
++		b43_radio_write(dev, 0xBC, txcal_radio_regs[3]);
++	}
++	b43_nphy_rx_iq_coeffs(dev, true, rxcal_coeffs);
++}
++
+  /* Init N-PHY
+   * <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/Init/N">http://bcm-v4.sipsolutions.net/802.11/PHY/Init/N</A>
+   */
+@@ -1241,7 +1309,7 @@ int b43_phy_initn(struct b43_wldev *dev)
+  				//TODO N PHY Periodic Calibration with argument 3
+  			}
+  		} else {
+-			//TODO N PHY Restore Calibration
++			b43_nphy_restore_cal(dev);
+  		}
+  	}
+
+diff --git a/drivers/net/wireless/b43/phy_n.h b/drivers/net/wireless/b43/phy_n.h
+index e2479c5..b23987c 100644
+--- a/drivers/net/wireless/b43/phy_n.h
++++ b/drivers/net/wireless/b43/phy_n.h
+@@ -939,6 +939,16 @@ struct b43_phy_n_rssical_cache {
+  	u16 rssical_phy_regs_5G[12];
+  };
+
++struct b43_phy_n_cal_cache {
++	u16 txcal_radio_regs_2G[8];
++	u16 txcal_coeffs_2G[8];
++	struct b43_phy_n_iq_comp rxcal_coeffs_2G;
++
++	u16 txcal_radio_regs_5G[8];
++	u16 txcal_coeffs_5G[8];
++	struct b43_phy_n_iq_comp rxcal_coeffs_5G;
++};
++
+  struct b43_phy_n {
+  	u8 txpwrctrl;
+  	u8 cal_orig_pwr_idx[2];
+@@ -964,6 +974,7 @@ struct b43_phy_n {
+  	u8 rssical_chanspec_5G;
+
+  	struct b43_phy_n_rssical_cache rssical_cache;
++	struct b43_phy_n_cal_cache cal_cache;
+
+  	bool crsminpwr_adjusted;
+  	bool noisevars_adjusted;
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006705.html">[PATCH 4/6] b43: N-PHY: add b43_nphy_rx_iq_coeffs and	b43_nphy_tx_lp_fbw
+</A></li>
+	<LI>Next message: <A HREF="006707.html">[PATCH 6/6] b43: N-PHY: little fixes in init code
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6706">[ date ]</a>
+              <a href="thread.html#6706">[ thread ]</a>
+              <a href="subject.html#6706">[ subject ]</a>
+              <a href="author.html#6706">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

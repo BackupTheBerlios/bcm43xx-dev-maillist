@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: include FCS at end of frames
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20include%20FCS%20at%20end%20of%20frames&In-Reply-To=%3C200708242330.02961.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002194.html">
+   <LINK REL="Next"  HREF="002204.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: include FCS at end of frames</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20include%20FCS%20at%20end%20of%20frames&In-Reply-To=%3C200708242330.02961.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43legacy: include FCS at end of frames">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Aug 24 23:30:02 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002194.html">[PATCH] b43legacy: include FCS at end of frames
+</A></li>
+        <LI>Next message: <A HREF="002204.html">[PATCH] b43legacy: include FCS at end of frames
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2203">[ date ]</a>
+              <a href="thread.html#2203">[ thread ]</a>
+              <a href="subject.html#2203">[ subject ]</a>
+              <a href="author.html#2203">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 24 August 2007 16:51:07 Larry Finger wrote:
+&gt;<i> From: Johannes Berg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">johannes at sipsolutions.net</A>&gt;
+</I>&gt;<i> 
+</I>&gt;<i> This patch makes b43legacy include the FCS at the end of
+</I>&gt;<i> received frames, useful for monitoring.
+</I>
+Did you test this with WEP, WPA/AES and without encryption?
+There was a very good reason why I chose to strip and IV, ICV
+and FCS of the end of frames. And it was crypto related.
+Maybe that limitation was removed, so this patch might actually
+be OK. But please test it on all crypto configs.
+
+&gt;<i> Signed-off-by: Johannes Berg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">johannes at sipsolutions.net</A>&gt;
+</I>&gt;<i> Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i>  drivers/net/wireless/b43legacy/main.c |    3 ++-
+</I>&gt;<i>  drivers/net/wireless/b43legacy/xmit.c |    1 -
+</I>&gt;<i>  2 files changed, 2 insertions(+), 2 deletions(-)
+</I>&gt;<i> 
+</I>&gt;<i> Index: wireless-dev/drivers/net/wireless/b43legacy/main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-dev.orig/drivers/net/wireless/b43legacy/main.c
+</I>&gt;<i> +++ wireless-dev/drivers/net/wireless/b43legacy/main.c
+</I>&gt;<i> @@ -3623,7 +3623,8 @@ static int b43legacy_wireless_init(struc
+</I>&gt;<i>  
+</I>&gt;<i>  	/* fill hw info */
+</I>&gt;<i>  	hw-&gt;flags = IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE |
+</I>&gt;<i> -		    IEEE80211_HW_WEP_INCLUDE_IV;
+</I>&gt;<i> +		    IEEE80211_HW_WEP_INCLUDE_IV |
+</I>&gt;<i> +		    IEEE80211_HW_RX_INCLUDES_FCS;
+</I>&gt;<i>  	hw-&gt;max_signal = 100;
+</I>&gt;<i>  	hw-&gt;max_rssi = -110;
+</I>&gt;<i>  	hw-&gt;max_noise = -110;
+</I>&gt;<i> Index: wireless-dev/drivers/net/wireless/b43legacy/xmit.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-dev.orig/drivers/net/wireless/b43legacy/xmit.c
+</I>&gt;<i> +++ wireless-dev/drivers/net/wireless/b43legacy/xmit.c
+</I>&gt;<i> @@ -465,7 +465,6 @@ void b43legacy_rx(struct b43legacy_wldev
+</I>&gt;<i>  	}
+</I>&gt;<i>  	wlhdr = (struct ieee80211_hdr *)(skb-&gt;data);
+</I>&gt;<i>  	fctl = le16_to_cpu(wlhdr-&gt;frame_control);
+</I>&gt;<i> -	skb_trim(skb, skb-&gt;len - FCS_LEN);
+</I>&gt;<i>  
+</I>&gt;<i>  	if ((macstat &amp; B43legacy_RX_MAC_DEC) &amp;&amp;
+</I>&gt;<i>  	    !(macstat &amp; B43legacy_RX_MAC_DECERR)) {
+</I>
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002194.html">[PATCH] b43legacy: include FCS at end of frames
+</A></li>
+	<LI>Next message: <A HREF="002204.html">[PATCH] b43legacy: include FCS at end of frames
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2203">[ date ]</a>
+              <a href="thread.html#2203">[ thread ]</a>
+              <a href="subject.html#2203">[ subject ]</a>
+              <a href="author.html#2203">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

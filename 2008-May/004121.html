@@ -1,0 +1,140 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add firmware markers support
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20firmware%20markers%20support&In-Reply-To=%3C200805200024.36914.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004120.html">
+   <LINK REL="Next"  HREF="004122.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add firmware markers support</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20firmware%20markers%20support&In-Reply-To=%3C200805200024.36914.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add firmware markers support">mb at bu3sch.de
+       </A><BR>
+    <I>Tue May 20 00:24:36 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004120.html">[PATCH] b43: Add panic reason code that doesn't trigger restart
+</A></li>
+        <LI>Next message: <A HREF="004122.html">[PATCH RFC] b43: Upload both beacon templates on initial load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4121">[ date ]</a>
+              <a href="thread.html#4121">[ thread ]</a>
+              <a href="subject.html#4121">[ subject ]</a>
+              <a href="author.html#4121">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds support for firmware markers.
+With firmware markers it's easily possible to check whether the
+firmware runs some codepath or not. The driver will throw a message
+when the firmware executes a MARKER(x).
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, this is for 2.6.27
+
+
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h	2008-05-18 23:57:16.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/b43.h	2008-05-20 00:16:27.000000000 +0200
+@@ -425,14 +425,19 @@ enum {
+ /* The firmware register to fetch the debug-IRQ reason from. */
+ #define B43_DEBUGIRQ_REASON_REG		63
+ /* Debug-IRQ reasons. */
+ #define B43_DEBUGIRQ_PANIC		0	/* The firmware panic'ed */
+ #define B43_DEBUGIRQ_DUMP_SHM		1	/* Dump shared SHM */
+ #define B43_DEBUGIRQ_DUMP_REGS		2	/* Dump the microcode registers */
++#define B43_DEBUGIRQ_MARKER		3	/* A &quot;marker&quot; was thrown by the firmware. */
+ #define B43_DEBUGIRQ_ACK		0xFFFF	/* The host writes that to ACK the IRQ */
+ 
++/* The firmware register that contains the &quot;marker&quot; line. */
++#define B43_MARKER_ID_REG		2
++#define B43_MARKER_LINE_REG		3
++
+ /* The firmware register to fetch the panic reason from. */
+ #define B43_FWPANIC_REASON_REG		3
+ /* Firmware panic reason codes */
+ #define B43_FWPANIC_DIE			0 /* Firmware died. Don't auto-restart it. */
+ #define B43_FWPANIC_RESTART		1 /* Firmware died. Schedule a controller reset. */
+ 
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-05-19 00:02:01.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-05-20 00:18:53.000000000 +0200
+@@ -1688,13 +1688,13 @@ static void b43_handle_firmware_panic(st
+ 	}
+ }
+ 
+ static void handle_irq_ucode_debug(struct b43_wldev *dev)
+ {
+ 	unsigned int i, cnt;
+-	u16 reason;
++	u16 reason, marker_id, marker_line;
+ 	__le16 *buf;
+ 
+ 	/* The proprietary firmware doesn't have this IRQ. */
+ 	if (!dev-&gt;fw.opensource)
+ 		return;
+ 
+@@ -1736,12 +1736,23 @@ static void handle_irq_ucode_debug(struc
+ 				printk(&quot;\n&quot;);
+ 				cnt = 0;
+ 			}
+ 		}
+ 		printk(&quot;\n&quot;);
+ 		break;
++	case B43_DEBUGIRQ_MARKER:
++		if (!B43_DEBUG)
++			break; /* Only with driver debugging enabled. */
++		marker_id = b43_shm_read16(dev, B43_SHM_SCRATCH,
++					   B43_MARKER_ID_REG);
++		marker_line = b43_shm_read16(dev, B43_SHM_SCRATCH,
++					     B43_MARKER_LINE_REG);
++		b43info(dev-&gt;wl, &quot;The firmware just executed the MARKER(%u) &quot;
++			&quot;at line number %u\n&quot;,
++			marker_id, marker_line);
++		break;
+ 	default:
+ 		b43dbg(dev-&gt;wl, &quot;Debug-IRQ triggered for unknown reason: %u\n&quot;,
+ 		       reason);
+ 	}
+ out:
+ 	/* Acknowledge the debug-IRQ, so the firmware can continue. */
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004120.html">[PATCH] b43: Add panic reason code that doesn't trigger restart
+</A></li>
+	<LI>Next message: <A HREF="004122.html">[PATCH RFC] b43: Upload both beacon templates on initial load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4121">[ date ]</a>
+              <a href="thread.html#4121">[ thread ]</a>
+              <a href="subject.html#4121">[ subject ]</a>
+              <a href="author.html#4121">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

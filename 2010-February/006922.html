@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC][PATCH] b43: LP-PHY: always adjust gain table on channel	switch
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20always%20adjust%20gain%20table%20on%20channel%0A%09switch&In-Reply-To=%3C4B6C6F56.2060401%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006921.html">
+   <LINK REL="Next"  HREF="006899.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC][PATCH] b43: LP-PHY: always adjust gain table on channel	switch</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20always%20adjust%20gain%20table%20on%20channel%0A%09switch&In-Reply-To=%3C4B6C6F56.2060401%40lwfinger.net%3E"
+       TITLE="[RFC][PATCH] b43: LP-PHY: always adjust gain table on channel	switch">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Fri Feb  5 20:19:50 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006921.html">[RFC][PATCH] b43: LP-PHY: always adjust gain table on channel 	switch
+</A></li>
+        <LI>Next message: <A HREF="006899.html">b43/b43legacy driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6922">[ date ]</a>
+              <a href="thread.html#6922">[ thread ]</a>
+              <a href="subject.html#6922">[ subject ]</a>
+              <a href="author.html#6922">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 02/05/2010 12:46 PM, G&#225;bor Stefanik wrote:
+&gt;<i> On Fri, Feb 5, 2010 at 7:09 PM, Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt; wrote:
+</I>&gt;&gt;<i> On 02/05/2010 10:41 AM, G&#225;bor Stefanik wrote:
+</I>&gt;&gt;&gt;<i> On Fri, Feb 5, 2010 at 4:24 AM, Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt; wrote:
+</I>&gt;&gt;&gt;&gt;<i> On 02/04/2010 02:57 PM, Rafa&#322; Mi&#322;ecki wrote:
+</I>&gt;&gt;&gt;&gt;&gt;<i> ---
+</I>&gt;&gt;&gt;&gt;&gt;<i> G&#195;&#161;bor: I think you missed specs here. Could you check whole routine just for
+</I>&gt;&gt;&gt;&gt;&gt;<i> sure, please? I don't understand whole radio and chanspec magic yet.
+</I>&gt;&gt;&gt;&gt;&gt;<i> ---
+</I>&gt;&gt;&gt;&gt;&gt;<i>  drivers/net/wireless/b43/phy_lp.c |    2 +-
+</I>&gt;&gt;&gt;&gt;&gt;<i>  1 files changed, 1 insertions(+), 1 deletions(-)
+</I>&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;&gt;&gt;&gt;<i> index 185219e..61009ee 100644
+</I>&gt;&gt;&gt;&gt;&gt;<i> --- a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;&gt;&gt;&gt;<i> +++ b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;&gt;&gt;&gt;<i> @@ -2655,8 +2655,8 @@ static int b43_lpphy_op_switch_channel(struct b43_wldev *dev,
+</I>&gt;&gt;&gt;&gt;&gt;<i>               if (err)
+</I>&gt;&gt;&gt;&gt;&gt;<i>                       return err;
+</I>&gt;&gt;&gt;&gt;&gt;<i>               lpphy_set_analog_filter(dev, new_channel);
+</I>&gt;&gt;&gt;&gt;&gt;<i> -             lpphy_adjust_gain_table(dev, channel2freq_lp(new_channel));
+</I>&gt;&gt;&gt;&gt;&gt;<i>       }
+</I>&gt;&gt;&gt;&gt;&gt;<i> +     lpphy_adjust_gain_table(dev, channel2freq_lp(new_channel));
+</I>&gt;&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;&gt;<i>       lpphy-&gt;channel = new_channel;
+</I>&gt;&gt;&gt;&gt;&gt;<i>       b43_write16(dev, B43_MMIO_CHANNEL, new_channel);
+</I>&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i> Both the lpphy_set_analog_filter() and lpphy_adjust_gain_table() calls should be
+</I>&gt;&gt;&gt;&gt;<i> outside the if statement. I changed the spec a little. It used to test &quot;radio
+</I>&gt;&gt;&gt;&gt;<i> enabled&quot;, but I have found that is always true for our driver.
+</I>&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i> Larry
+</I>&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i>
+</I>&gt;&gt;&gt;<i> Isn't set_analog_filter() rev0/1-specific?
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> It was in the 4.174.64.19 driver that I RE'd when you wrote the LP PHY code.
+</I>&gt;&gt;<i> That as changed in 5.10.56.46, which I am now doing. It will take me a while to
+</I>&gt;&gt;<i> complete the new routine &quot;LP PHY TX Filter Init&quot; and a routine that it calls.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Certainly, there is no hurry that these changes be made. Whenever you or Rafa&#322;
+</I>&gt;&gt;<i> have time. There is no guarantee that these changes will have any effect on the
+</I>&gt;&gt;<i> LP PHY operations. Hitting a moving target is not easy.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Larry
+</I>&gt;&gt;<i>
+</I>&gt;<i> 
+</I>&gt;<i> Just out of curiosity, is 5.10.56.46 available anywhere (for firmware reasons)?
+</I>
+I'm not sure what the driver version is, but a file with 508 ucode dated 6/26/09
+is found at:
+
+<A HREF="http://www.linksysbycisco.com/gpl/wrt610n_v2.00.00.05_us.tar.gz">http://www.linksysbycisco.com/gpl/wrt610n_v2.00.00.05_us.tar.gz</A>
+
+The binaries are in directory wrt610n_v2.00.00.05_us/release/src/wl/linux/. I
+used Daniel Lenski's script names b43_fwcutter.py can extract the firmware from
+wl_apsta.o. Included are ucode_2w20 - Rev 20 802.11 cores have an SSLPN PHY.
+
+I'm still looking for a file with 5XX firmware that is not a huge download. This
+file contains everything needed to build the firmware for a WRT610N AP and is
+356 MB. If anyone knows of a smaller file, please let me know.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006921.html">[RFC][PATCH] b43: LP-PHY: always adjust gain table on channel 	switch
+</A></li>
+	<LI>Next message: <A HREF="006899.html">b43/b43legacy driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6922">[ date ]</a>
+              <a href="thread.html#6922">[ thread ]</a>
+              <a href="subject.html#6922">[ subject ]</a>
+              <a href="author.html#6922">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

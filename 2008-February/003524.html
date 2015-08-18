@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't associate	using b43 driver, works with bcm43xx
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Asus%20WL-138G%20V2%20%28BCM4318%20non-E%20rev02%29%20scans%20but%20doesn%27t%20associate%0A%09using%20b43%20driver%2C%20works%20with%20bcm43xx&In-Reply-To=%3C69e28c910802271032u830a27es91d42d9cc1c31be0%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003529.html">
+   <LINK REL="Next"  HREF="003530.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't associate	using b43 driver, works with bcm43xx</H1>
+    <B>Stefanik G&#225;bor</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Asus%20WL-138G%20V2%20%28BCM4318%20non-E%20rev02%29%20scans%20but%20doesn%27t%20associate%0A%09using%20b43%20driver%2C%20works%20with%20bcm43xx&In-Reply-To=%3C69e28c910802271032u830a27es91d42d9cc1c31be0%40mail.gmail.com%3E"
+       TITLE="Asus WL-138G V2 (BCM4318 non-E rev02) scans but doesn't associate	using b43 driver, works with bcm43xx">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Wed Feb 27 19:32:10 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003529.html">powerbook 4306 disassociate/reassociate 'bouncing' with	b43/2.6.24.x
+</A></li>
+        <LI>Next message: <A HREF="003530.html">[PATCH stable] b43: Backport bcm4311 fix
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3524">[ date ]</a>
+              <a href="thread.html#3524">[ thread ]</a>
+              <a href="subject.html#3524">[ subject ]</a>
+              <a href="author.html#3524">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi all,
+
+I have a strange problem with
+my Asus WL-138G V2 (which is AFAIK a BCM4318 non-E card).
+It works fine with bcm43xx (since 2.6.22, works with 2.6.24's bcm43xx too), but
+not with b43. I can scan without problems
+(iwlist scan works, knetworkmanager lists networks properly),
+monitor mode works with kismet (both on main interface and on a dedicated
+rfmon interface), but I can't associate (authenticate
+timeout). Radiotap injection also doesn't work, packetspammer doesn't
+complain about errors, but there is nothing actually sent out. Basically,
+anything that involves transmitting is broken, while receiving works fine.
+I have tried with the following kernel+firmware combos (all 2.6.24 kernels
+were opensuse-pae, while the 2.6.24.1 one was opensuse-default, did not try
+with a vanilla kernel as I don't want to lose bootsplash and apparmor):
+-kernel 2.6.24+firmware 4.80.53 &quot;wl_apsta.o&quot;
+-kernel 2.6.24+firmware 4.80.53 &quot;wl_apsta_mimo.o&quot;
+-kernel 2.6.24.1+firmware 4.80.53 &quot;wl_apsta.o&quot;
+-kernel 2.6.24.1+firmware 4.80.53 &quot;wl_apsta_mimo.o&quot;
+-kernel 2.6.24+compat-wireless-2.6+firmware 4.80.53 &quot;wl_apsta.o&quot;
+-kernel 2.6.24+compat-wireless-2.6+firmware 4.80.53 &quot;wl_apsta_mimo.o&quot;
+-kernel 2.6.24+compat-wireless-2.6+firmware 4.150.10.5 &quot;wl_apsta_mimo.o&quot;
+All produced the same error.
+I will post my dmesg output if needed, but I can see no error messages from
+the driver in it (even though I have enabled b43 and mac80211 debugging in
+the compat-wireless config.mk file), only a message about &quot;authentication
+timed out&quot;. The message is the same for unencrypted, WEP104 open and
+WPA-PSK. I haven't tested WPA-EAP and WPA2-EAP as I don't have the needed
+hardware (no RADIUS), but I can test WEP40 open, WEP shared (both 40 and
+104),  802.1X, WPA2-PSK and mixed-mode (v1+v2) WPA-PSK. (It might be
+interesting that while bcm43xx reported by card power levels as 15dBm,
+2.6.24(.1)'s b43 reports it as 27dBm (which is IMHO a bit high, as that
+would be 400mW, while the card has an output of about 20mW), and
+compat-wireless-2.6's b43 reports 0dBm, yes, 0dBm. That's quite odd. But it
+appears that compat-wireless-2.6 is right about the transmit power. :-)
+Is this a known bug? What can I do about it?
+Thanks,
+.NetRolller 3D
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080227/e1cc0e4f/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080227/e1cc0e4f/attachment.html</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003529.html">powerbook 4306 disassociate/reassociate 'bouncing' with	b43/2.6.24.x
+</A></li>
+	<LI>Next message: <A HREF="003530.html">[PATCH stable] b43: Backport bcm4311 fix
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3524">[ date ]</a>
+              <a href="thread.html#3524">[ thread ]</a>
+              <a href="subject.html#3524">[ subject ]</a>
+              <a href="author.html#3524">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

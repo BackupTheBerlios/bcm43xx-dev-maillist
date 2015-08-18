@@ -1,0 +1,251 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix MAC control and microcode init
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20MAC%20control%20and%20microcode%20init&In-Reply-To=%3C200801222023.35131.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003263.html">
+   <LINK REL="Next"  HREF="003276.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix MAC control and microcode init</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20MAC%20control%20and%20microcode%20init&In-Reply-To=%3C200801222023.35131.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix MAC control and microcode init">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Jan 22 20:23:34 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003263.html">[PATCH] b43: Fix firmware caching
+</A></li>
+        <LI>Next message: <A HREF="003276.html">[PATCH] b43: Fix MAC control and microcode init
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3266">[ date ]</a>
+              <a href="thread.html#3266">[ thread ]</a>
+              <a href="subject.html#3266">[ subject ]</a>
+              <a href="author.html#3266">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This zeros out all microcode related memory before loading
+the microcode.
+
+This also fixes initialization of the MAC control register.
+The _only_ place where we overwrite the contents of the MAC control
+register is at the beginning of b43_chip_init().
+All other places must do read() -&gt; mask/set -&gt; write() to not
+overwrite existing bits.
+
+This also adds a longer delay for waiting for the microcode
+to initialize itself. It seems that the current timeout is sufficient
+on all available devices, but there's no real reason why we shouldn't
+wait for up to one second. Slow embedded devices might exist.
+Better safe than sorry.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, this bugfix should go into 2.6.24.
+Stefano, this must be ported to b43legacy.
+
+
+
+Index: wireless-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/main.c	2008-01-22 19:23:50.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/main.c	2008-01-22 20:00:00.000000000 +0100
+@@ -1775,15 +1775,26 @@ error:
+ static int b43_upload_microcode(struct b43_wldev *dev)
+ {
+ 	const size_t hdr_len = sizeof(struct b43_fw_header);
+ 	const __be32 *data;
+ 	unsigned int i, len;
+ 	u16 fwrev, fwpatch, fwdate, fwtime;
+-	u32 tmp;
++	u32 tmp, macctl;
+ 	int err = 0;
+ 
++	/* Jump the microcode PSM to offset 0 */
++	macctl = b43_read32(dev, B43_MMIO_MACCTL);
++	B43_WARN_ON(macctl &amp; B43_MACCTL_PSM_RUN);
++	macctl |= B43_MACCTL_PSM_JMP0;
++	b43_write32(dev, B43_MMIO_MACCTL, macctl);
++	/* Zero out all microcode PSM registers and shared memory. */
++	for (i = 0; i &lt; 64; i++)
++		b43_shm_write16(dev, B43_SHM_SCRATCH, i, 0);
++	for (i = 0; i &lt; 4096; i += 2)
++		b43_shm_write16(dev, B43_SHM_SHARED, i, 0);
++
+ 	/* Upload Microcode. */
+ 	data = (__be32 *) (dev-&gt;fw.ucode.data-&gt;data + hdr_len);
+ 	len = (dev-&gt;fw.ucode.data-&gt;size - hdr_len) / sizeof(__be32);
+ 	b43_shm_control_word(dev, B43_SHM_UCODE | B43_SHM_AUTOINC_W, 0x0000);
+ 	for (i = 0; i &lt; len; i++) {
+ 		b43_write32(dev, B43_MMIO_SHM_DATA, be32_to_cpu(data[i]));
+@@ -1802,30 +1813,37 @@ static int b43_upload_microcode(struct b
+ 			b43_write32(dev, B43_MMIO_SHM_DATA, be32_to_cpu(data[i]));
+ 			udelay(10);
+ 		}
+ 	}
+ 
+ 	b43_write32(dev, B43_MMIO_GEN_IRQ_REASON, B43_IRQ_ALL);
+-	b43_write32(dev, B43_MMIO_MACCTL,
+-		    B43_MACCTL_PSM_RUN |
+-		    B43_MACCTL_IHR_ENABLED | B43_MACCTL_INFRA);
++
++	/* Start the microcode PSM */
++	macctl = b43_read32(dev, B43_MMIO_MACCTL);
++	macctl &amp;= ~B43_MACCTL_PSM_JMP0;
++	macctl |= B43_MACCTL_PSM_RUN;
++	b43_write32(dev, B43_MMIO_MACCTL, macctl);
+ 
+ 	/* Wait for the microcode to load and respond */
+ 	i = 0;
+ 	while (1) {
+ 		tmp = b43_read32(dev, B43_MMIO_GEN_IRQ_REASON);
+ 		if (tmp == B43_IRQ_MAC_SUSPENDED)
+ 			break;
+ 		i++;
+-		if (i &gt;= 50) {
++		if (i &gt;= 20) {
+ 			b43err(dev-&gt;wl, &quot;Microcode not responding\n&quot;);
+ 			b43_print_fw_helptext(dev-&gt;wl, 1);
+ 			err = -ENODEV;
+-			goto out;
++			goto error;
++		}
++		msleep_interruptible(50);
++		if (signal_pending(current)) {
++			err = -EINTR;
++			goto error;
+ 		}
+-		udelay(10);
+ 	}
+ 	b43_read32(dev, B43_MMIO_GEN_IRQ_REASON);	/* dummy read */
+ 
+ 	/* Get and check the revisions. */
+ 	fwrev = b43_shm_read16(dev, B43_SHM_SHARED, B43_SHM_SH_UCODEREV);
+ 	fwpatch = b43_shm_read16(dev, B43_SHM_SHARED, B43_SHM_SH_UCODEPATCH);
+@@ -1834,15 +1852,14 @@ static int b43_upload_microcode(struct b
+ 
+ 	if (fwrev &lt;= 0x128) {
+ 		b43err(dev-&gt;wl, &quot;YOUR FIRMWARE IS TOO OLD. Firmware from &quot;
+ 		       &quot;binary drivers older than version 4.x is unsupported. &quot;
+ 		       &quot;You must upgrade your firmware files.\n&quot;);
+ 		b43_print_fw_helptext(dev-&gt;wl, 1);
+-		b43_write32(dev, B43_MMIO_MACCTL, 0);
+ 		err = -EOPNOTSUPP;
+-		goto out;
++		goto error;
+ 	}
+ 	b43dbg(dev-&gt;wl, &quot;Loading firmware version %u.%u &quot;
+ 	       &quot;(20%.2i-%.2i-%.2i %.2i:%.2i:%.2i)\n&quot;,
+ 	       fwrev, fwpatch,
+ 	       (fwdate &gt;&gt; 12) &amp; 0xF, (fwdate &gt;&gt; 8) &amp; 0xF, fwdate &amp; 0xFF,
+ 	       (fwtime &gt;&gt; 11) &amp; 0x1F, (fwtime &gt;&gt; 5) &amp; 0x3F, fwtime &amp; 0x1F);
+@@ -1853,13 +1870,20 @@ static int b43_upload_microcode(struct b
+ 	if (b43_is_old_txhdr_format(dev)) {
+ 		b43warn(dev-&gt;wl, &quot;You are using an old firmware image. &quot;
+ 			&quot;Support for old firmware will be removed in July 2008.\n&quot;);
+ 		b43_print_fw_helptext(dev-&gt;wl, 0);
+ 	}
+ 
+-out:
++	return 0;
++
++error:
++	macctl = b43_read32(dev, B43_MMIO_MACCTL);
++	macctl &amp;= ~B43_MACCTL_PSM_RUN;
++	macctl |= B43_MACCTL_PSM_JMP0;
++	b43_write32(dev, B43_MMIO_MACCTL, macctl);
++
+ 	return err;
+ }
+ 
+ static int b43_write_initvals(struct b43_wldev *dev,
+ 			      const struct b43_iv *ivals,
+ 			      size_t count,
+@@ -2225,17 +2249,21 @@ static void b43_chip_exit(struct b43_wld
+  * <A HREF="http://bcm-specs.sipsolutions.net/ChipInit">http://bcm-specs.sipsolutions.net/ChipInit</A>
+  */
+ static int b43_chip_init(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 	int err, tmp;
+-	u32 value32;
++	u32 value32, macctl;
+ 	u16 value16;
+ 
+-	b43_write32(dev, B43_MMIO_MACCTL,
+-		    B43_MACCTL_PSM_JMP0 | B43_MACCTL_IHR_ENABLED);
++	/* Initialize the MAC control */
++	macctl = B43_MACCTL_IHR_ENABLED | B43_MACCTL_SHM_ENABLED;
++	if (dev-&gt;phy.gmode)
++		macctl |= B43_MACCTL_GMODE;
++	macctl |= B43_MACCTL_INFRA;
++	b43_write32(dev, B43_MMIO_MACCTL, macctl);
+ 
+ 	err = b43_request_firmware(dev);
+ 	if (err)
+ 		goto out;
+ 	err = b43_upload_microcode(dev);
+ 	if (err)
+@@ -3373,18 +3401,25 @@ static void b43_set_retry_limits(struct 
+ 
+ /* Shutdown a wireless core */
+ /* Locking: wl-&gt;mutex */
+ static void b43_wireless_core_exit(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
++	u32 macctl;
+ 
+ 	B43_WARN_ON(b43_status(dev) &gt; B43_STAT_INITIALIZED);
+ 	if (b43_status(dev) != B43_STAT_INITIALIZED)
+ 		return;
+ 	b43_set_status(dev, B43_STAT_UNINIT);
+ 
++	/* Stop the microcode PSM. */
++	macctl = b43_read32(dev, B43_MMIO_MACCTL);
++	macctl &amp;= ~B43_MACCTL_PSM_RUN;
++	macctl |= B43_MACCTL_PSM_JMP0;
++	b43_write32(dev, B43_MMIO_MACCTL, macctl);
++
+ 	b43_leds_exit(dev);
+ 	b43_rng_exit(dev-&gt;wl);
+ 	b43_dma_free(dev);
+ 	b43_chip_exit(dev);
+ 	b43_radio_turn_off(dev, 1);
+ 	b43_switch_analog(dev, 0);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003263.html">[PATCH] b43: Fix firmware caching
+</A></li>
+	<LI>Next message: <A HREF="003276.html">[PATCH] b43: Fix MAC control and microcode init
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3266">[ date ]</a>
+              <a href="thread.html#3266">[ thread ]</a>
+              <a href="subject.html#3266">[ subject ]</a>
+              <a href="author.html#3266">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

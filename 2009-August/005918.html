@@ -1,0 +1,620 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix and update LP-PHY code
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20and%20update%20LP-PHY%20code&In-Reply-To=%3C69e28c910908261347u375f2f5cu74672b9f4b073738%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005915.html">
+   <LINK REL="Next"  HREF="005919.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix and update LP-PHY code</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20and%20update%20LP-PHY%20code&In-Reply-To=%3C69e28c910908261347u375f2f5cu74672b9f4b073738%40mail.gmail.com%3E"
+       TITLE="[PATCH] b43: Fix and update LP-PHY code">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Wed Aug 26 22:47:12 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005915.html">[PATCH] b43: Fix and update LP-PHY code
+</A></li>
+        <LI>Next message: <A HREF="005919.html">[PATCH] b43: Fix and update LP-PHY code
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5918">[ date ]</a>
+              <a href="thread.html#5918">[ thread ]</a>
+              <a href="subject.html#5918">[ subject ]</a>
+              <a href="author.html#5918">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>2009/8/26 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;:
+&gt;<i> On Wednesday 26 August 2009 20:51:25 G&#225;bor Stefanik wrote:
+</I>&gt;&gt;<i> -Fix a few nasty typos (b43_phy_* operations instead of b43_radio_*)
+</I>&gt;&gt;<i> &#160;in the channel tune routines.
+</I>&gt;&gt;<i> -Fix some typos &amp; spec errors found by MMIO tracing.
+</I>&gt;&gt;<i> -Optimize b43_phy_write &amp; b43_phy_mask/set/maskset to use
+</I>&gt;&gt;<i> &#160;only the minimal number of MMIO accesses. (Write is possible
+</I>&gt;&gt;<i> &#160;using a single 32-bit MMIO write, while set/mask/maskset can
+</I>&gt;&gt;<i> &#160;be done in 3 16-bit MMIOs).
+</I>&gt;<i>
+</I>&gt;<i> Why does it matter? PHY access is not done in any hotpath. So why
+</I>&gt;<i> not prefer simple code over optimized code?
+</I>
+This is how the MIPS/hybrid driver does it, I simply updated the code
+for parity.
+
+&gt;<i>
+</I>&gt;&gt;<i> -Set the default channel back to 1, as the bug forcing us to use
+</I>&gt;&gt;<i> &#160;channel 7 is now fixed.
+</I>&gt;<i>
+</I>&gt;<i> And, everything in its own patch, please. I don't see a reason for
+</I>&gt;<i> patching unrelated things in one big patch.
+</I>
+Well, this patch is already in wireless-testing, so doing that would
+now involve reverting this patch, applying a version without the
+channel change, and applying the channel change - certainly more
+confusing than the status quo.
+
+&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> With this, the device comes up, scans, associates, transmits,
+</I>&gt;&gt;<i> receives, monitors and injects on all channels - in other words,
+</I>&gt;&gt;<i> it's fully functional. Sensitivity and TX power are still sub-optimal,
+</I>&gt;&gt;<i> due to the lack of calibration (that's next on my list).
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+</I>&gt;&gt;<i> ---
+</I>&gt;&gt;<i> &#160;drivers/net/wireless/b43/phy_common.c &#160; | &#160; 27 +++++++--
+</I>&gt;&gt;<i> &#160;drivers/net/wireless/b43/phy_common.h &#160; | &#160; &#160;3 +
+</I>&gt;&gt;<i> &#160;drivers/net/wireless/b43/phy_lp.c &#160; &#160; &#160; | &#160; 91 +++++++++++++++++--------------
+</I>&gt;&gt;<i> &#160;drivers/net/wireless/b43/phy_lp.h &#160; &#160; &#160; | &#160; &#160;3 +
+</I>&gt;&gt;<i> &#160;drivers/net/wireless/b43/tables_lpphy.c | &#160; 79 +++++++++++++++------------
+</I>&gt;&gt;<i> &#160;5 files changed, 122 insertions(+), 81 deletions(-)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/phy_common.c b/drivers/net/wireless/b43/phy_common.c
+</I>&gt;&gt;<i> index 51686ec..6e704be 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/phy_common.c
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/phy_common.c
+</I>&gt;&gt;<i> @@ -249,20 +249,35 @@ void b43_phy_copy(struct b43_wldev *dev, u16 destreg, u16 srcreg)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;void b43_phy_mask(struct b43_wldev *dev, u16 offset, u16 mask)
+</I>&gt;&gt;<i> &#160;{
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_write(dev, offset,
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_read(dev, offset) &amp; mask);
+</I>&gt;&gt;<i> + &#160; &#160; if (dev-&gt;phy.ops-&gt;phy_maskset) {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; assert_mac_suspended(dev);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; dev-&gt;phy.ops-&gt;phy_maskset(dev, offset, mask, 0);
+</I>&gt;&gt;<i> + &#160; &#160; } else {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, offset,
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_read(dev, offset) &amp; mask);
+</I>&gt;&gt;<i> + &#160; &#160; }
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;void b43_phy_set(struct b43_wldev *dev, u16 offset, u16 set)
+</I>&gt;&gt;<i> &#160;{
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_write(dev, offset,
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_read(dev, offset) | set);
+</I>&gt;&gt;<i> + &#160; &#160; if (dev-&gt;phy.ops-&gt;phy_maskset) {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; assert_mac_suspended(dev);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; dev-&gt;phy.ops-&gt;phy_maskset(dev, offset, 0xFFFF, set);
+</I>&gt;&gt;<i> + &#160; &#160; } else {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, offset,
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_read(dev, offset) | set);
+</I>&gt;&gt;<i> + &#160; &#160; }
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;void b43_phy_maskset(struct b43_wldev *dev, u16 offset, u16 mask, u16 set)
+</I>&gt;&gt;<i> &#160;{
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_write(dev, offset,
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; (b43_phy_read(dev, offset) &amp; mask) | set);
+</I>&gt;&gt;<i> + &#160; &#160; if (dev-&gt;phy.ops-&gt;phy_maskset) {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; assert_mac_suspended(dev);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; dev-&gt;phy.ops-&gt;phy_maskset(dev, offset, mask, set);
+</I>&gt;&gt;<i> + &#160; &#160; } else {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, offset,
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; (b43_phy_read(dev, offset) &amp; mask) | set);
+</I>&gt;&gt;<i> + &#160; &#160; }
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;int b43_switch_channel(struct b43_wldev *dev, unsigned int new_channel)
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/phy_common.h b/drivers/net/wireless/b43/phy_common.h
+</I>&gt;&gt;<i> index 9f9f23c..b47a0f5 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/phy_common.h
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/phy_common.h
+</I>&gt;&gt;<i> @@ -95,6 +95,8 @@ enum b43_txpwr_result {
+</I>&gt;&gt;<i> &#160; * &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; Must not be NULL.
+</I>&gt;&gt;<i> &#160; * @phy_write: &#160; &#160; &#160; &#160; &#160; &#160; &#160; Write to a PHY register.
+</I>&gt;&gt;<i> &#160; * &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; Must not be NULL.
+</I>&gt;&gt;<i> + * @phy_maskset: &#160; &#160; Maskset a PHY register, taking shortcuts.
+</I>&gt;&gt;<i> + * &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; If it is NULL, a generic algorithm is used.
+</I>&gt;&gt;<i> &#160; * @radio_read: &#160; &#160; &#160; &#160; &#160; &#160; &#160;Read from a Radio register.
+</I>&gt;&gt;<i> &#160; * &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; Must not be NULL.
+</I>&gt;&gt;<i> &#160; * @radio_write: &#160; &#160; Write to a Radio register.
+</I>&gt;&gt;<i> @@ -154,6 +156,7 @@ struct b43_phy_operations {
+</I>&gt;&gt;<i> &#160; &#160; &#160; /* Register access */
+</I>&gt;&gt;<i> &#160; &#160; &#160; u16 (*phy_read)(struct b43_wldev *dev, u16 reg);
+</I>&gt;&gt;<i> &#160; &#160; &#160; void (*phy_write)(struct b43_wldev *dev, u16 reg, u16 value);
+</I>&gt;&gt;<i> + &#160; &#160; void (*phy_maskset)(struct b43_wldev *dev, u16 reg, u16 mask, u16 set);
+</I>&gt;&gt;<i> &#160; &#160; &#160; u16 (*radio_read)(struct b43_wldev *dev, u16 reg);
+</I>&gt;&gt;<i> &#160; &#160; &#160; void (*radio_write)(struct b43_wldev *dev, u16 reg, u16 value);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> index 5306f2c..1a57d33 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> @@ -44,7 +44,7 @@ static inline u16 channel2freq_lp(u8 channel)
+</I>&gt;&gt;<i> &#160;static unsigned int b43_lpphy_op_get_default_chan(struct b43_wldev *dev)
+</I>&gt;&gt;<i> &#160;{
+</I>&gt;&gt;<i> &#160; &#160; &#160; if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; return 7; //FIXME temporary - channel 1 is broken
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; return 1;
+</I>&gt;&gt;<i> &#160; &#160; &#160; return 36;
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> @@ -182,8 +182,8 @@ static void lpphy_adjust_gain_table(struct b43_wldev *dev, u32 freq)
+</I>&gt;&gt;<i> &#160; &#160; &#160; temp[1] = temp[0] + 0x1000;
+</I>&gt;&gt;<i> &#160; &#160; &#160; temp[2] = temp[0] + 0x2000;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> - &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB16(12, 0), 3, temp);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB16(13, 0), 3, temp);
+</I>&gt;&gt;<i> + &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB16(12, 0), 3, temp);
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;static void lpphy_table_init(struct b43_wldev *dev)
+</I>&gt;&gt;<i> @@ -223,8 +223,8 @@ static void lpphy_baseband_rev0_1_init(struct b43_wldev *dev)
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_VERYLOWGAINDB, 0xFF00, 0x0006);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_mask(dev, B43_LPPHY_RX_RADIO_CTL, 0xFFFE);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_CLIPCTRTHRESH, 0xFFE0, 0x0005);
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_CLIPCTRTHRESH, 0xFC10, 0x0180);
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_CLIPCTRTHRESH, 0x83FF, 0x3800);
+</I>&gt;&gt;<i> + &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_CLIPCTRTHRESH, 0xFC1F, 0x0180);
+</I>&gt;&gt;<i> + &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_CLIPCTRTHRESH, 0x83FF, 0x3C00);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_GAINDIRECTMISMATCH, 0xFFF0, 0x0005);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_GAIN_MISMATCH_LIMIT, 0xFFC0, 0x001A);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_CRS_ED_THRESH, 0xFF00, 0x00B3);
+</I>&gt;&gt;<i> @@ -237,7 +237,7 @@ static void lpphy_baseband_rev0_1_init(struct b43_wldev *dev)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; /* TODO:
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;* Set the LDO voltage to 0x0028 - FIXME: What is this?
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;* Call sb_pmu_set_ldo_voltage with 4 and the LDO voltage
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160;* &#160; &#160; &#160;as arguments
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160;* &#160; &#160; &#160;as arguments
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;* Call sb_pmu_paref_ldo_enable with argument TRUE
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;*/
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (dev-&gt;phy.rev == 0) {
+</I>&gt;&gt;<i> @@ -340,11 +340,11 @@ static void lpphy_baseband_rev0_1_init(struct b43_wldev *dev)
+</I>&gt;&gt;<i> &#160; &#160; &#160; if (dev-&gt;phy.rev == 1) {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; tmp = b43_phy_read(dev, B43_LPPHY_CLIPCTRTHRESH);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; tmp2 = (tmp &amp; 0x03E0) &gt;&gt; 5;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; tmp2 |= tmp &lt;&lt; 5;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; tmp2 |= tmp2 &lt;&lt; 5;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, B43_LPPHY_4C3, tmp2);
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; tmp = b43_phy_read(dev, B43_LPPHY_OFDMSYNCTHRESH0);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; tmp = b43_phy_read(dev, B43_LPPHY_GAINDIRECTMISMATCH);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; tmp2 = (tmp &amp; 0x1F00) &gt;&gt; 8;
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; tmp2 |= tmp &lt;&lt; 5;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; tmp2 |= tmp2 &lt;&lt; 5;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, B43_LPPHY_4C4, tmp2);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; tmp = b43_phy_read(dev, B43_LPPHY_VERYLOWGAINDB);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; tmp2 = tmp &amp; 0x00FF;
+</I>&gt;&gt;<i> @@ -761,7 +761,7 @@ static void lpphy_disable_crs(struct b43_wldev *dev, bool user)
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_0, 0x3);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_VAL_0, 0xFFFB);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_0, 0x4);
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_0, 0xFFF7);
+</I>&gt;&gt;<i> + &#160; &#160; b43_phy_mask(dev, B43_LPPHY_RF_OVERRIDE_VAL_0, 0xFFF7);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_0, 0x8);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_VAL_0, 0x10);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_set(dev, B43_LPPHY_RF_OVERRIDE_0, 0x10);
+</I>&gt;&gt;<i> @@ -956,7 +956,7 @@ static void lpphy_run_ddfs(struct b43_wldev *dev, int i_on, int q_on,
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_AFE_DDFS, 0xFF9F, scale_idx &lt;&lt; 5);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_mask(dev, B43_LPPHY_AFE_DDFS, 0xFFFB);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_set(dev, B43_LPPHY_AFE_DDFS, 0x2);
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_set(dev, B43_LPPHY_AFE_DDFS, 0x20);
+</I>&gt;&gt;<i> + &#160; &#160; b43_phy_set(dev, B43_LPPHY_LP_PHY_CTL, 0x20);
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;static bool lpphy_rx_iq_est(struct b43_wldev *dev, u16 samples, u8 time,
+</I>&gt;&gt;<i> @@ -968,7 +968,7 @@ static bool lpphy_rx_iq_est(struct b43_wldev *dev, u16 samples, u8 time,
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_write(dev, B43_LPPHY_IQ_NUM_SMPLS_ADDR, samples);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_maskset(dev, B43_LPPHY_IQ_ENABLE_WAIT_TIME_ADDR, 0xFF00, time);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_phy_mask(dev, B43_LPPHY_IQ_ENABLE_WAIT_TIME_ADDR, 0xFEFF);
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_set(dev, B43_LPPHY_IQ_ENABLE_WAIT_TIME_ADDR, 0xFDFF);
+</I>&gt;&gt;<i> + &#160; &#160; b43_phy_set(dev, B43_LPPHY_IQ_ENABLE_WAIT_TIME_ADDR, 0x200);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; for (i = 0; i &lt; 500; i++) {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (!(b43_phy_read(dev,
+</I>&gt;&gt;<i> @@ -1135,9 +1135,9 @@ static void lpphy_set_tx_power_control(struct b43_wldev *dev,
+</I>&gt;&gt;<i> &#160; &#160; &#160; }
+</I>&gt;&gt;<i> &#160; &#160; &#160; if (dev-&gt;phy.rev &gt;= 2) {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (mode == B43_LPPHY_TXPCTL_HW)
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_maskset(dev, B43_PHY_OFDM(0xD0), 0xFD, 0x2);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_set(dev, B43_PHY_OFDM(0xD0), 0x2);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; else
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_maskset(dev, B43_PHY_OFDM(0xD0), 0xFD, 0);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_mask(dev, B43_PHY_OFDM(0xD0), 0xFFFD);
+</I>&gt;&gt;<i> &#160; &#160; &#160; }
+</I>&gt;&gt;<i> &#160; &#160; &#160; lpphy_write_tx_pctl_mode_to_hardware(dev);
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i> @@ -1169,7 +1169,7 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev *dev)
+</I>&gt;&gt;<i> &#160; &#160; &#160; err = b43_lpphy_op_switch_channel(dev, 7);
+</I>&gt;&gt;<i> &#160; &#160; &#160; if (err) {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43dbg(dev-&gt;wl,
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;&quot;RC calib: Failed to switch to channel 7, error = %d&quot;,
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;&quot;RC calib: Failed to switch to channel 7, error = %d\n&quot;,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;err);
+</I>&gt;&gt;<i> &#160; &#160; &#160; }
+</I>&gt;&gt;<i> &#160; &#160; &#160; old_txg_ovr = !!(b43_phy_read(dev, B43_LPPHY_AFE_CTL_OVR) &amp; 0x40);
+</I>&gt;&gt;<i> @@ -1500,8 +1500,15 @@ static u16 b43_lpphy_op_read(struct b43_wldev *dev, u16 reg)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;static void b43_lpphy_op_write(struct b43_wldev *dev, u16 reg, u16 value)
+</I>&gt;&gt;<i> &#160;{
+</I>&gt;&gt;<i> + &#160; &#160; b43_write32(dev, B43_MMIO_PHY_CONTROL, ((u32)value &lt;&lt; 16) | reg);
+</I>&gt;&gt;<i> +}
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> +static void b43_lpphy_op_maskset(struct b43_wldev *dev, u16 reg, u16 mask,
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;u16 set)
+</I>&gt;&gt;<i> +{
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_write16(dev, B43_MMIO_PHY_CONTROL, reg);
+</I>&gt;&gt;<i> - &#160; &#160; b43_write16(dev, B43_MMIO_PHY_DATA, value);
+</I>&gt;&gt;<i> + &#160; &#160; b43_write16(dev, B43_MMIO_PHY_DATA,
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; (b43_read16(dev, B43_MMIO_PHY_DATA) &amp; mask) | set);
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;static u16 b43_lpphy_op_radio_read(struct b43_wldev *dev, u16 reg)
+</I>&gt;&gt;<i> @@ -1920,8 +1927,8 @@ static void lpphy_b2062_reset_pll_bias(struct b43_wldev *dev)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;static void lpphy_b2062_vco_calib(struct b43_wldev *dev)
+</I>&gt;&gt;<i> &#160;{
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_write(dev, B2062_S_RFPLL_CTL21, 0x42);
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_write(dev, B2062_S_RFPLL_CTL21, 0x62);
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_write(dev, B2062_S_RFPLL_CTL21, 0x42);
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_write(dev, B2062_S_RFPLL_CTL21, 0x62);
+</I>&gt;&gt;<i> &#160; &#160; &#160; udelay(200);
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> @@ -1980,7 +1987,7 @@ static int lpphy_b2062_tune(struct b43_wldev *dev,
+</I>&gt;&gt;<i> &#160; &#160; &#160; tmp6 = tmp5 / tmp4;
+</I>&gt;&gt;<i> &#160; &#160; &#160; tmp7 = tmp5 % tmp4;
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_radio_write(dev, B2062_S_RFPLL_CTL29, tmp6 + ((2 * tmp7) / tmp4));
+</I>&gt;&gt;<i> - &#160; &#160; tmp8 = b43_phy_read(dev, B2062_S_RFPLL_CTL19);
+</I>&gt;&gt;<i> + &#160; &#160; tmp8 = b43_radio_read(dev, B2062_S_RFPLL_CTL19);
+</I>&gt;&gt;<i> &#160; &#160; &#160; tmp9 = ((2 * tmp3 * (tmp8 + 1)) + (3 * tmp1)) / (6 * tmp1);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_radio_write(dev, B2062_S_RFPLL_CTL23, (tmp9 &gt;&gt; 8) + 16);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_radio_write(dev, B2062_S_RFPLL_CTL24, tmp9 &amp; 0xFF);
+</I>&gt;&gt;<i> @@ -2019,17 +2026,17 @@ static void lpphy_b2063_vco_calib(struct b43_wldev *dev)
+</I>&gt;&gt;<i> &#160;{
+</I>&gt;&gt;<i> &#160; &#160; &#160; u16 tmp;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_mask(dev, B2063_PLL_SP1, ~0x40);
+</I>&gt;&gt;<i> - &#160; &#160; tmp = b43_phy_read(dev, B2063_PLL_JTAG_CALNRST) &amp; 0xF8;
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_write(dev, B2063_PLL_JTAG_CALNRST, tmp);
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_mask(dev, B2063_PLL_SP1, ~0x40);
+</I>&gt;&gt;<i> + &#160; &#160; tmp = b43_radio_read(dev, B2063_PLL_JTAG_CALNRST) &amp; 0xF8;
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_write(dev, B2063_PLL_JTAG_CALNRST, tmp);
+</I>&gt;&gt;<i> &#160; &#160; &#160; udelay(1);
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_write(dev, B2063_PLL_JTAG_CALNRST, tmp | 0x4);
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_write(dev, B2063_PLL_JTAG_CALNRST, tmp | 0x4);
+</I>&gt;&gt;<i> &#160; &#160; &#160; udelay(1);
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_write(dev, B2063_PLL_JTAG_CALNRST, tmp | 0x6);
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_write(dev, B2063_PLL_JTAG_CALNRST, tmp | 0x6);
+</I>&gt;&gt;<i> &#160; &#160; &#160; udelay(1);
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_write(dev, B2063_PLL_JTAG_CALNRST, tmp | 0x7);
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_write(dev, B2063_PLL_JTAG_CALNRST, tmp | 0x7);
+</I>&gt;&gt;<i> &#160; &#160; &#160; udelay(300);
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_set(dev, B2063_PLL_SP1, 0x40);
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_set(dev, B2063_PLL_SP1, 0x40);
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;static int lpphy_b2063_tune(struct b43_wldev *dev,
+</I>&gt;&gt;<i> @@ -2124,31 +2131,31 @@ static int lpphy_b2063_tune(struct b43_wldev *dev,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; scale = 0;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; tmp5 = ((tmp4 + (tmp3 &gt;&gt; 1)) / tmp3) - 8;
+</I>&gt;&gt;<i> &#160; &#160; &#160; }
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_maskset(dev, B2063_PLL_JTAG_PLL_CP2, 0xFFC0, tmp5);
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_maskset(dev, B2063_PLL_JTAG_PLL_CP2, 0xFFBF, scale &lt;&lt; 6);
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_maskset(dev, B2063_PLL_JTAG_PLL_CP2, 0xFFC0, tmp5);
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_maskset(dev, B2063_PLL_JTAG_PLL_CP2, 0xFFBF, scale &lt;&lt; 6);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; tmp6 = lpphy_qdiv_roundup(100 * val1, val3, 16);
+</I>&gt;&gt;<i> &#160; &#160; &#160; tmp6 *= (tmp5 * 8) * (scale + 1);
+</I>&gt;&gt;<i> &#160; &#160; &#160; if (tmp6 &gt; 150)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; tmp6 = 0;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_maskset(dev, B2063_PLL_JTAG_PLL_CP3, 0xFFE0, tmp6);
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_maskset(dev, B2063_PLL_JTAG_PLL_CP3, 0xFFDF, scale &lt;&lt; 5);
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_maskset(dev, B2063_PLL_JTAG_PLL_CP3, 0xFFE0, tmp6);
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_maskset(dev, B2063_PLL_JTAG_PLL_CP3, 0xFFDF, scale &lt;&lt; 5);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_maskset(dev, B2063_PLL_JTAG_PLL_XTAL_12, 0xFFFB, 0x4);
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_maskset(dev, B2063_PLL_JTAG_PLL_XTAL_12, 0xFFFB, 0x4);
+</I>&gt;&gt;<i> &#160; &#160; &#160; if (crystal_freq &gt; 26000000)
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_set(dev, B2063_PLL_JTAG_PLL_XTAL_12, 0x2);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_radio_set(dev, B2063_PLL_JTAG_PLL_XTAL_12, 0x2);
+</I>&gt;&gt;<i> &#160; &#160; &#160; else
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_mask(dev, B2063_PLL_JTAG_PLL_XTAL_12, 0xFD);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_radio_mask(dev, B2063_PLL_JTAG_PLL_XTAL_12, 0xFD);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; if (val1 == 45)
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_set(dev, B2063_PLL_JTAG_PLL_VCO1, 0x2);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_radio_set(dev, B2063_PLL_JTAG_PLL_VCO1, 0x2);
+</I>&gt;&gt;<i> &#160; &#160; &#160; else
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_mask(dev, B2063_PLL_JTAG_PLL_VCO1, 0xFD);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_radio_mask(dev, B2063_PLL_JTAG_PLL_VCO1, 0xFD);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_set(dev, B2063_PLL_SP2, 0x3);
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_set(dev, B2063_PLL_SP2, 0x3);
+</I>&gt;&gt;<i> &#160; &#160; &#160; udelay(1);
+</I>&gt;&gt;<i> - &#160; &#160; b43_phy_mask(dev, B2063_PLL_SP2, 0xFFFC);
+</I>&gt;&gt;<i> + &#160; &#160; b43_radio_mask(dev, B2063_PLL_SP2, 0xFFFC);
+</I>&gt;&gt;<i> &#160; &#160; &#160; lpphy_b2063_vco_calib(dev);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_radio_write(dev, B2063_COMM15, old_comm15);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> @@ -2158,10 +2165,9 @@ static int lpphy_b2063_tune(struct b43_wldev *dev,
+</I>&gt;&gt;<i> &#160;static int b43_lpphy_op_switch_channel(struct b43_wldev *dev,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;unsigned int new_channel)
+</I>&gt;&gt;<i> &#160;{
+</I>&gt;&gt;<i> + &#160; &#160; struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+</I>&gt;&gt;<i> &#160; &#160; &#160; int err;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> - &#160; &#160; b43_write16(dev, B43_MMIO_CHANNEL, new_channel);
+</I>&gt;&gt;<i> -
+</I>&gt;&gt;<i> &#160; &#160; &#160; if (dev-&gt;phy.radio_ver == 0x2063) {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; err = lpphy_b2063_tune(dev, new_channel);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; if (err)
+</I>&gt;&gt;<i> @@ -2174,6 +2180,9 @@ static int b43_lpphy_op_switch_channel(struct b43_wldev *dev,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; lpphy_adjust_gain_table(dev, channel2freq_lp(new_channel));
+</I>&gt;&gt;<i> &#160; &#160; &#160; }
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> + &#160; &#160; lpphy-&gt;channel = new_channel;
+</I>&gt;&gt;<i> + &#160; &#160; b43_write16(dev, B43_MMIO_CHANNEL, new_channel);
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> &#160; &#160; &#160; return 0;
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> @@ -2185,10 +2194,9 @@ static int b43_lpphy_op_init(struct b43_wldev *dev)
+</I>&gt;&gt;<i> &#160; &#160; &#160; lpphy_baseband_init(dev);
+</I>&gt;&gt;<i> &#160; &#160; &#160; lpphy_radio_init(dev);
+</I>&gt;&gt;<i> &#160; &#160; &#160; lpphy_calibrate_rc(dev);
+</I>&gt;&gt;<i> - &#160; &#160; err = b43_lpphy_op_switch_channel(dev,
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_lpphy_op_get_default_chan(dev));
+</I>&gt;&gt;<i> + &#160; &#160; err = b43_lpphy_op_switch_channel(dev, 7);
+</I>&gt;&gt;<i> &#160; &#160; &#160; if (err) {
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; b43dbg(dev-&gt;wl, &quot;Switch to init channel failed, error = %d.\n&quot;,
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43dbg(dev-&gt;wl, &quot;Switch to channel 7 failed, error = %d.\n&quot;,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;err);
+</I>&gt;&gt;<i> &#160; &#160; &#160; }
+</I>&gt;&gt;<i> &#160; &#160; &#160; lpphy_tx_pctl_init(dev);
+</I>&gt;&gt;<i> @@ -2222,6 +2230,7 @@ const struct b43_phy_operations b43_phyops_lp = {
+</I>&gt;&gt;<i> &#160; &#160; &#160; .init &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; = b43_lpphy_op_init,
+</I>&gt;&gt;<i> &#160; &#160; &#160; .phy_read &#160; &#160; &#160; &#160; &#160; &#160; &#160; = b43_lpphy_op_read,
+</I>&gt;&gt;<i> &#160; &#160; &#160; .phy_write &#160; &#160; &#160; &#160; &#160; &#160; &#160;= b43_lpphy_op_write,
+</I>&gt;&gt;<i> + &#160; &#160; .phy_maskset &#160; &#160; &#160; &#160; &#160; &#160;= b43_lpphy_op_maskset,
+</I>&gt;&gt;<i> &#160; &#160; &#160; .radio_read &#160; &#160; &#160; &#160; &#160; &#160; = b43_lpphy_op_radio_read,
+</I>&gt;&gt;<i> &#160; &#160; &#160; .radio_write &#160; &#160; &#160; &#160; &#160; &#160;= b43_lpphy_op_radio_write,
+</I>&gt;&gt;<i> &#160; &#160; &#160; .software_rfkill &#160; &#160; &#160; &#160;= b43_lpphy_op_software_rfkill,
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/phy_lp.h b/drivers/net/wireless/b43/phy_lp.h
+</I>&gt;&gt;<i> index e158d1f..c3232c1 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/phy_lp.h
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/phy_lp.h
+</I>&gt;&gt;<i> @@ -888,6 +888,9 @@ struct b43_phy_lp {
+</I>&gt;&gt;<i> &#160; &#160; &#160; bool crs_usr_disable, crs_sys_disable;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; unsigned int pdiv;
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> + &#160; &#160; /* The channel we are tuned to */
+</I>&gt;&gt;<i> + &#160; &#160; u8 channel;
+</I>&gt;&gt;<i> &#160;};
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;enum tssi_mux_mode {
+</I>&gt;&gt;<i> diff --git a/drivers/net/wireless/b43/tables_lpphy.c b/drivers/net/wireless/b43/tables_lpphy.c
+</I>&gt;&gt;<i> index 60d472f..c784def 100644
+</I>&gt;&gt;<i> --- a/drivers/net/wireless/b43/tables_lpphy.c
+</I>&gt;&gt;<i> +++ b/drivers/net/wireless/b43/tables_lpphy.c
+</I>&gt;&gt;<i> @@ -624,30 +624,35 @@ u32 b43_lptab_read(struct b43_wldev *dev, u32 offset)
+</I>&gt;&gt;<i> &#160;void b43_lptab_read_bulk(struct b43_wldev *dev, u32 offset,
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;unsigned int nr_elements, void *_data)
+</I>&gt;&gt;<i> &#160;{
+</I>&gt;&gt;<i> - &#160; &#160; u32 type, value;
+</I>&gt;&gt;<i> + &#160; &#160; u32 type;
+</I>&gt;&gt;<i> &#160; &#160; &#160; u8 *data = _data;
+</I>&gt;&gt;<i> &#160; &#160; &#160; unsigned int i;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; type = offset &amp; B43_LPTAB_TYPEMASK;
+</I>&gt;&gt;<i> + &#160; &#160; offset &amp;= ~B43_LPTAB_TYPEMASK;
+</I>&gt;&gt;<i> + &#160; &#160; B43_WARN_ON(offset &gt; 0xFFFF);
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> + &#160; &#160; b43_phy_write(dev, B43_LPPHY_TABLE_ADDR, offset);
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> &#160; &#160; &#160; for (i = 0; i &lt; nr_elements; i++) {
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; value = b43_lptab_read(dev, offset);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; switch (type) {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; case B43_LPTAB_8BIT:
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; *data = value;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; *data = b43_phy_read(dev, B43_LPPHY_TABLEDATALO) &amp; 0xFF;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; data++;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; break;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; case B43_LPTAB_16BIT:
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; *((u16 *)data) = value;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; *((u16 *)data) = b43_phy_read(dev, B43_LPPHY_TABLEDATALO);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; data += 2;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; break;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; case B43_LPTAB_32BIT:
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; *((u32 *)data) = value;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; *((u32 *)data) = b43_phy_read(dev, B43_LPPHY_TABLEDATAHI);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; *((u32 *)data) &lt;&lt;= 16;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; *((u32 *)data) |= b43_phy_read(dev, B43_LPPHY_TABLEDATALO);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; data += 4;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; break;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; default:
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; B43_WARN_ON(1);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; }
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; offset++;
+</I>&gt;&gt;<i> &#160; &#160; &#160; }
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> @@ -688,26 +693,34 @@ void b43_lptab_write_bulk(struct b43_wldev *dev, u32 offset,
+</I>&gt;&gt;<i> &#160; &#160; &#160; unsigned int i;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; type = offset &amp; B43_LPTAB_TYPEMASK;
+</I>&gt;&gt;<i> + &#160; &#160; offset &amp;= ~B43_LPTAB_TYPEMASK;
+</I>&gt;&gt;<i> + &#160; &#160; B43_WARN_ON(offset &gt; 0xFFFF);
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> + &#160; &#160; b43_phy_write(dev, B43_LPPHY_TABLE_ADDR, offset);
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> &#160; &#160; &#160; for (i = 0; i &lt; nr_elements; i++) {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; switch (type) {
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; case B43_LPTAB_8BIT:
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; value = *data;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; data++;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; B43_WARN_ON(value &amp; ~0xFF);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, B43_LPPHY_TABLEDATALO, value);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; break;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; case B43_LPTAB_16BIT:
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; value = *((u16 *)data);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; data += 2;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; B43_WARN_ON(value &amp; ~0xFFFF);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, B43_LPPHY_TABLEDATALO, value);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; break;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; case B43_LPTAB_32BIT:
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; value = *((u32 *)data);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; data += 4;
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, B43_LPPHY_TABLEDATAHI, value &gt;&gt; 16);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_phy_write(dev, B43_LPPHY_TABLEDATALO, value);
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; break;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; default:
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; B43_WARN_ON(1);
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; value = 0;
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; }
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; b43_lptab_write(dev, offset, value);
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; offset++;
+</I>&gt;&gt;<i> &#160; &#160; &#160; }
+</I>&gt;&gt;<i> &#160;}
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> @@ -777,7 +790,7 @@ static const u8 lpphy_pll_fraction_table[] = {
+</I>&gt;&gt;<i> &#160; &#160; &#160; 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+</I>&gt;&gt;<i> &#160;};
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> -static const u16 lpphy_iq_local_table[] = {
+</I>&gt;&gt;<i> +static const u16 lpphy_iqlo_cal_table[] = {
+</I>&gt;&gt;<i> &#160; &#160; &#160; 0x0200, 0x0300, 0x0400, 0x0600, 0x0800, 0x0b00, 0x1000, 0x1001, 0x1002,
+</I>&gt;&gt;<i> &#160; &#160; &#160; 0x1003, 0x1004, 0x1005, 0x1006, 0x1007, 0x1707, 0x2007, 0x2d07, 0x4007,
+</I>&gt;&gt;<i> &#160; &#160; &#160; 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+</I>&gt;&gt;<i> @@ -789,10 +802,17 @@ static const u16 lpphy_iq_local_table[] = {
+</I>&gt;&gt;<i> &#160; &#160; &#160; 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+</I>&gt;&gt;<i> &#160; &#160; &#160; 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x4000, 0x0000, 0x0000,
+</I>&gt;&gt;<i> &#160; &#160; &#160; 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+</I>&gt;&gt;<i> - &#160; &#160; 0x0000, 0x0000,
+</I>&gt;&gt;<i> + &#160; &#160; 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+</I>&gt;&gt;<i> &#160;};
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> -static const u16 lpphy_ofdm_cck_gain_table[] = {
+</I>&gt;&gt;<i> +static const u16 lpphy_rev0_ofdm_cck_gain_table[] = {
+</I>&gt;&gt;<i> + &#160; &#160; 0x0001, 0x0001, 0x0001, 0x0001, 0x1001, 0x2001, 0x3001, 0x4001, 0x5001,
+</I>&gt;&gt;<i> + &#160; &#160; 0x6001, 0x7001, 0x7011, 0x7021, 0x2035, 0x2045, 0x2055, 0x2065, 0x2075,
+</I>&gt;&gt;<i> + &#160; &#160; 0x006d, 0x007d, 0x014d, 0x015d, 0x115d, 0x035d, 0x135d, 0x055d, 0x155d,
+</I>&gt;&gt;<i> + &#160; &#160; 0x0d5d, 0x1d5d, 0x2d5d, 0x555d, 0x655d, 0x755d,
+</I>&gt;&gt;<i> +};
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> +static const u16 lpphy_rev1_ofdm_cck_gain_table[] = {
+</I>&gt;&gt;<i> &#160; &#160; &#160; 0x5000, 0x6000, 0x7000, 0x0001, 0x1001, 0x2001, 0x3001, 0x4001, 0x5001,
+</I>&gt;&gt;<i> &#160; &#160; &#160; 0x6001, 0x7001, 0x7011, 0x7021, 0x2035, 0x2045, 0x2055, 0x2065, 0x2075,
+</I>&gt;&gt;<i> &#160; &#160; &#160; 0x006d, 0x007d, 0x014d, 0x015d, 0x115d, 0x035d, 0x135d, 0x055d, 0x155d,
+</I>&gt;&gt;<i> @@ -2263,11 +2283,18 @@ void lpphy_rev0_1_table_init(struct b43_wldev *dev)
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB8(6, 0),
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; ARRAY_SIZE(lpphy_pll_fraction_table), lpphy_pll_fraction_table);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB16(0, 0),
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; ARRAY_SIZE(lpphy_iq_local_table), lpphy_iq_local_table);
+</I>&gt;&gt;<i> - &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB16(13, 0),
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; ARRAY_SIZE(lpphy_ofdm_cck_gain_table), lpphy_ofdm_cck_gain_table);
+</I>&gt;&gt;<i> - &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB16(12, 0),
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; ARRAY_SIZE(lpphy_ofdm_cck_gain_table), lpphy_ofdm_cck_gain_table);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; ARRAY_SIZE(lpphy_iqlo_cal_table), lpphy_iqlo_cal_table);
+</I>&gt;&gt;<i> + &#160; &#160; if (dev-&gt;phy.rev == 0) {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB16(13, 0),
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; ARRAY_SIZE(lpphy_rev0_ofdm_cck_gain_table), lpphy_rev0_ofdm_cck_gain_table);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB16(12, 0),
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; ARRAY_SIZE(lpphy_rev0_ofdm_cck_gain_table), lpphy_rev0_ofdm_cck_gain_table);
+</I>&gt;&gt;<i> + &#160; &#160; } else {
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB16(13, 0),
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; ARRAY_SIZE(lpphy_rev1_ofdm_cck_gain_table), lpphy_rev1_ofdm_cck_gain_table);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB16(12, 0),
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; ARRAY_SIZE(lpphy_rev1_ofdm_cck_gain_table), lpphy_rev1_ofdm_cck_gain_table);
+</I>&gt;&gt;<i> +}
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB16(15, 0),
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; ARRAY_SIZE(lpphy_gain_delta_table), lpphy_gain_delta_table);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB32(10, 0),
+</I>&gt;&gt;<i> @@ -2281,22 +2308,6 @@ void lpphy_rev2plus_table_init(struct b43_wldev *dev)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160; &#160; &#160; B43_WARN_ON(dev-&gt;phy.rev &lt; 2);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> - &#160; &#160; /*
+</I>&gt;&gt;<i> - &#160; &#160; &#160;* FIXME This code follows the specs, but it looks wrong:
+</I>&gt;&gt;<i> - &#160; &#160; &#160;* In each pass, it writes 4 bytes to an offset in table ID 7,
+</I>&gt;&gt;<i> - &#160; &#160; &#160;* then increments the offset by 1 for the next pass. This results
+</I>&gt;&gt;<i> - &#160; &#160; &#160;* in the first 3 bytes of each pass except the first one getting
+</I>&gt;&gt;<i> - &#160; &#160; &#160;* written to a location that has already been zeroed in the previous
+</I>&gt;&gt;<i> - &#160; &#160; &#160;* pass.
+</I>&gt;&gt;<i> - &#160; &#160; &#160;* This is what the vendor driver does, but it still looks suspicious.
+</I>&gt;&gt;<i> - &#160; &#160; &#160;*
+</I>&gt;&gt;<i> - &#160; &#160; &#160;* This should probably suffice:
+</I>&gt;&gt;<i> - &#160; &#160; &#160;*
+</I>&gt;&gt;<i> - &#160; &#160; &#160;* for (i = 0; i &lt; 704; i+=4)
+</I>&gt;&gt;<i> - &#160; &#160; &#160;* &#160; &#160; &#160;b43_lptab_write(dev, B43_LPTAB32(7, i), 0)
+</I>&gt;&gt;<i> - &#160; &#160; &#160;*
+</I>&gt;&gt;<i> - &#160; &#160; &#160;* This should be tested once the code is functional.
+</I>&gt;&gt;<i> - &#160; &#160; &#160;*/
+</I>&gt;&gt;<i> &#160; &#160; &#160; for (i = 0; i &lt; 704; i++)
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; b43_lptab_write(dev, B43_LPTAB32(7, i), 0);
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> @@ -2323,7 +2334,7 @@ void lpphy_rev2plus_table_init(struct b43_wldev *dev)
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB8(6, 0),
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; ARRAY_SIZE(lpphy_pll_fraction_table), lpphy_pll_fraction_table);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB16(0, 0),
+</I>&gt;&gt;<i> - &#160; &#160; &#160; &#160; &#160; &#160; ARRAY_SIZE(lpphy_iq_local_table), lpphy_iq_local_table);
+</I>&gt;&gt;<i> + &#160; &#160; &#160; &#160; &#160; &#160; ARRAY_SIZE(lpphy_iqlo_cal_table), lpphy_iqlo_cal_table);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB32(9, 0),
+</I>&gt;&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; ARRAY_SIZE(lpphy_papd_eps_table), lpphy_papd_eps_table);
+</I>&gt;&gt;<i> &#160; &#160; &#160; b43_lptab_write_bulk(dev, B43_LPTAB32(10, 0),
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i> Greetings, Michael.
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005915.html">[PATCH] b43: Fix and update LP-PHY code
+</A></li>
+	<LI>Next message: <A HREF="005919.html">[PATCH] b43: Fix and update LP-PHY code
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5918">[ date ]</a>
+              <a href="thread.html#5918">[ thread ]</a>
+              <a href="subject.html#5918">[ subject ]</a>
+              <a href="author.html#5918">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

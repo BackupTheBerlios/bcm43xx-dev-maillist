@@ -1,0 +1,116 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20net%3A%20wireless%3A%20bcm43xx%3A%20big_buffer_sem%20semaphore%20to%0A%09mutex&In-Reply-To=%3C200712161223.01374.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003054.html">
+   <LINK REL="Next"  HREF="003066.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%203/3%5D%20net%3A%20wireless%3A%20bcm43xx%3A%20big_buffer_sem%20semaphore%20to%0A%09mutex&In-Reply-To=%3C200712161223.01374.mb%40bu3sch.de%3E"
+       TITLE="[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore to	mutex">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Dec 16 12:23:00 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003054.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore	to mutex
+</A></li>
+        <LI>Next message: <A HREF="003066.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3062">[ date ]</a>
+              <a href="thread.html#3062">[ thread ]</a>
+              <a href="subject.html#3062">[ subject ]</a>
+              <a href="author.html#3062">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday 16 December 2007 10:22:43 Ingo Molnar wrote:
+&gt;<i> 
+</I>&gt;<i> * John W. Linville &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>&gt; wrote:
+</I>&gt;<i> 
+</I>&gt;<i> &gt; &gt; It's not that simple.  For example, regression testing will be a 
+</I>&gt;<i> &gt; &gt; major PITA if one needs to switch back and forth from the new driver 
+</I>&gt;<i> &gt; &gt; to the old one in the process.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Not really true -- a single system can easily have firmware installed 
+</I>&gt;<i> &gt; for b43, b43legacy, and bcm43xx at the same time and switch back and 
+</I>&gt;<i> &gt; forth between them.
+</I>&gt;<i> 
+</I>&gt;<i> as long as the version 4 firmware blob is present in the system, will 
+</I>&gt;<i> testers have a fully fluid test- and work-flow when migrating across 
+</I>&gt;<i> from bcm43xx to b43, without any other changes to an existing Linux 
+</I>&gt;<i> installation? (i.e. no udev tweaks, no forced upgrades of components, 
+</I>&gt;<i> etc.)
+</I>&gt;<i> 
+</I>&gt;<i> Will it Just Work in bisection as well, when a tester's kernel 
+</I>&gt;<i> flip/flops between bcm43xx and b43 - like it does for the other 3000+ 
+</I>&gt;<i> drivers in the kernel?
+</I>&gt;<i> 
+</I>&gt;<i> Note that we are _NOT_ interested in &quot;might&quot; or &quot;can&quot; scenarios. We are 
+</I>&gt;<i> interested in preserving the _existing_ bcm43xx installed base and how 
+</I>&gt;<i> much of a seemless migration the b43 transition will be. _THAT_ is what 
+</I>&gt;<i> the &quot;no regressions&quot; upstream rule is about, not the &quot;ideal distro&quot; 
+</I>&gt;<i> scenario you outline above. It is YOUR total obligation as a kernel 
+</I>&gt;<i> maintainer to ensure that you dont break old installations. How hard is 
+</I>&gt;<i> that to understand? This is not rocket science.
+</I>
+I see no reason for b43 to break, if the firmware is properly installed.
+In fact, almost all installation related bugreports we receive are
+caused by missing or incorrectly installed firmware.
+I would really _like_ to make installing firmware easier or make the
+whole need for it vanish, but I simply can not at this point.
+But anyway, installing it is not rocket science, either. The only thing
+you have to know is where your distribution stores the firmware image files.
+If you know that it's a matter of invoking one b43-fwcutter command
+to install it. This process can be automated in the distribution's rpm
+or deb package scripts.
+
+b43lagacy/ssb is completely featured with module autoload support.
+So if you have firmware installed it will automatically load all required
+modules and create the network device(s) for it without any user interaction.
+
+If that doesn't work, then stupid distributions are shipping braindamaged
+udev scripts that pin a mac address to a specific driver name (see another
+mail in this thread). I can _not_ fix this from within the kernel and
+I will absolutely shift all responsibility and blame for this to the
+maintainers of the distribution's udev scripts.
+That's not a b43 specific problem then. Other drivers do break with these
+scripts, too.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003054.html">[PATCH 3/3] net: wireless: bcm43xx: big_buffer_sem semaphore	to mutex
+</A></li>
+	<LI>Next message: <A HREF="003066.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3062">[ date ]</a>
+              <a href="thread.html#3062">[ thread ]</a>
+              <a href="subject.html#3062">[ subject ]</a>
+              <a href="author.html#3062">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,379 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43/BCM4312 fails with DMA errors
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43/BCM4312%20fails%20with%20DMA%20errors&In-Reply-To=%3C200910191155.03872.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006203.html">
+   <LINK REL="Next"  HREF="006205.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43/BCM4312 fails with DMA errors</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43/BCM4312%20fails%20with%20DMA%20errors&In-Reply-To=%3C200910191155.03872.mb%40bu3sch.de%3E"
+       TITLE="b43/BCM4312 fails with DMA errors">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Oct 19 11:55:01 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006203.html">b43/BCM4312 fails with DMA errors
+</A></li>
+        <LI>Next message: <A HREF="006205.html">b43/BCM4312 fails with DMA errors
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6204">[ date ]</a>
+              <a href="thread.html#6204">[ thread ]</a>
+              <a href="subject.html#6204">[ subject ]</a>
+              <a href="author.html#6204">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 19 October 2009 11:46:00 Michael Buesch wrote:
+&gt;<i> On Monday 19 October 2009 11:37:56 Chris Vine wrote:
+</I>&gt;<i> &gt; On Sun, 18 Oct 2009 22:14:31 -0500
+</I>&gt;<i> &gt; Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt; wrote:
+</I>&gt;<i> &gt; &gt; I see no difference in the output for the BCM4312 device; however,
+</I>&gt;<i> &gt; &gt; there was a difference in the memory layout for the BCM5906 wired
+</I>&gt;<i> &gt; &gt; network device. Please post the dmesg output for the warm and cold
+</I>&gt;<i> &gt; &gt; reboot.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Attached.  The dmesg ring buffer truncates at slightly different places
+</I>&gt;<i> &gt; because of the reports of DMA errors at the end of the cold boot and
+</I>&gt;<i> &gt; there seems to be some re-ordering of the loading of different things,
+</I>&gt;<i> &gt; but they appear basically the same.
+</I>&gt;<i> 
+</I>&gt;<i> I guess you guys already played with acpi=off and apic=off ?
+</I>&gt;<i> 
+</I>
+If you look at the diff of those logs, you also see that this is not just
+reordering of stuff. At the very beginning you see some fairly huge ACPI mapping
+that's not done for the failure case. So my guess is that the ACPI simply fails
+to map some important I/O memory. There also are other interesting things in the log,
+which are probably not the cause of the b43 issue, but related to the root issue.
+For example the failed TSC calibration smells fishy to me.
+
+
+--- dmesg-2.6.32-rc5.cold.txt	2009-10-19 11:47:53.000000000 +0200
++++ dmesg-2.6.32-rc5.warm.txt	2009-10-19 11:47:50.000000000 +0200
+@@ -1,4 +1,35 @@
+- 00000001)
++anges enabled:
++  00000-9FFFF write-back
++  A0000-BFFFF uncachable
++  C0000-CFFFF write-protect
++  D0000-DFFFF uncachable
++  E0000-FFFFF write-protect
++MTRR variable ranges enabled:
++  0 base 000000000 mask 0C0000000 write-back
++  1 base 03F700000 mask 0FFF00000 uncachable
++  2 base 03F800000 mask 0FF800000 uncachable
++  3 disabled
++  4 disabled
++  5 disabled
++  6 disabled
++  7 disabled
++x86 PAT enabled: cpu 0, old 0x7040600070406, new 0x7010600070106
++initial memory mapped : 0 - 01800000
++init_memory_mapping: 0000000000000000-00000000377fe000
++ 0000000000 - 0000400000 page 4k
++ 0000400000 - 0037400000 page 2M
++ 0037400000 - 00377fe000 page 4k
++kernel direct mapping tables up to 377fe000 @ 7000-c000
++ACPI: RSDP 000f7c70 00024 (v02 LENOVO)
++ACPI: XSDT 3f6d9fed 0007C (v01 LENOVO CB-01    06040000  LTP 00000000)
++ACPI: FACP 3f6e1c3a 000F4 (v03 INTEL  CALISTGA 06040000 ALAN 00000001)
++ACPI: DSDT 3f6dbbf9 05FCD (v01 LENOVO CB-01    06040000 MSFT 03000000)
++ACPI: FACS 3f6e2fc0 00040
++ACPI: HPET 3f6e1d2e 00038 (v01 INTEL  CALISTGA 06040000 LOHR 0000005A)
++ACPI: MCFG 3f6e1d66 0003C (v01 INTEL  CALISTGA 06040000 LOHR 0000005A)
++ACPI: TCPA 3f6e1da2 00032 (v01 PTLTD  CALISTGA 06040000  PTL 00000001)
++ACPI: TMOR 3f6e1dd4 00026 (v01 PTLTD           06040000 PTL  00000003)
++ACPI: SLIC 3f6e1dfa 00176 (v01 LENOVO CB-01    06040000 LNVO 00000001)
+ ACPI: APIC 3f6e1f70 00068 (v01 PTLTD  ? APIC   06040000  LTP 00000000)
+ ACPI: BOOT 3f6e1fd8 00028 (v01 PTLTD  $SBFTBL$ 06040000  LTP 00000001)
+ ACPI: SSDT 3f6db5aa 0064F (v01 SataRe  SataPri 00001000 INTL 20050624)
+@@ -93,10 +124,9 @@
+ Console: colour dummy device 80x25
+ console [tty0] enabled
+ hpet clockevent registered
+-Fast TSC calibration failed
+-TSC: PIT calibration matches HPET. 1 loops
+-Detected 1596.048 MHz processor.
+-Calibrating delay loop (skipped), value calculated using timer frequency.. 3192.09 BogoMIPS (lpj=6384192)
++Fast TSC calibration using PIT
++Detected 1595.947 MHz processor.
++Calibrating delay loop (skipped), value calculated using timer frequency.. 3191.89 BogoMIPS (lpj=6383788)
+ Security Framework initialized
+ Mount-cache hash table entries: 512
+ CPU: L1 I cache: 32K, L1 D cache: 24K
+@@ -120,7 +150,7 @@
+ CPU0: Intel(R) Atom(TM) CPU N270   @ 1.60GHz stepping 02
+ Booting processor 1 APIC 0x1 ip 0x6000
+ Initializing CPU#1
+-Calibrating delay using timer specific routine.. 3191.70 BogoMIPS (lpj=6383401)
++Calibrating delay using timer specific routine.. 3191.93 BogoMIPS (lpj=6383871)
+ CPU: L1 I cache: 32K, L1 D cache: 24K
+ CPU: L2 cache: 512K
+ CPU: Physical Processor ID: 0
+@@ -130,7 +160,7 @@
+ CPU1: Intel(R) Atom(TM) CPU N270   @ 1.60GHz stepping 02
+ checking TSC synchronization [CPU#0 -&gt; CPU#1]: passed.
+ Brought up 2 CPUs
+-Total of 2 processors activated (6383.79 BogoMIPS).
++Total of 2 processors activated (6383.82 BogoMIPS).
+ regulator: core version 0.5
+ NET: Registered protocol family 16
+ ACPI: bus type pci registered
+@@ -141,6 +171,7 @@
+ bio: create slab &lt;bio-0&gt; at 0
+ ACPI: EC: Look up EC in DSDT
+ ACPI: BIOS _OSI(Linux) query ignored
++ACPI: EC: GPE storm detected, transactions will use polling mode
+ ACPI: Interpreter enabled
+ ACPI: (supports S0 S3 S4 S5)
+ ACPI: Using IOAPIC for interrupt routing
+@@ -366,6 +397,14 @@
+ usb usb1: New USB device found, idVendor=1d6b, idProduct=0002
+ usb usb1: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+ usb usb1: Product: EHCI Host Controller
++ata1.00: ATA-8: Hitachi HTS543216L9A300, FB2OC4DC, max UDMA/133
++ata1.00: 312581808 sectors, multi 16: LBA48 NCQ (depth 0/32)
++ata1.00: configured for UDMA/133
++scsi 0:0:0:0: Direct-Access     ATA      Hitachi HTS54321 FB2O PQ: 0 ANSI: 5
++sd 0:0:0:0: [sda] 312581808 512-byte logical blocks: (160 GB/149 GiB)
++sd 0:0:0:0: [sda] Write Protect is off
++sd 0:0:0:0: [sda] Mode Sense: 00 3a 00 00
++sd 0:0:0:0: [sda] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+ usb usb1: Manufacturer: Linux 2.6.32-rc5-wl-wt ehci_hcd
+ usb usb1: SerialNumber: 0000:00:1d.7
+ usb usb1: configuration #1 chosen from 1 choice
+@@ -383,7 +422,7 @@
+ usb usb2: Manufacturer: Linux 2.6.32-rc5-wl-wt uhci_hcd
+ usb usb2: SerialNumber: 0000:00:1d.0
+ usb usb2: configuration #1 chosen from 1 choice
+-ata1.00: ATA-8: Hitachi HTS543216L9A300, FB2OC4DC, max UDMA/133
++ sda:
+ hub 2-0:1.0: USB hub found
+ hub 2-0:1.0: 2 ports detected
+ uhci_hcd 0000:00:1d.1: PCI INT B -&gt; GSI 19 (level, low) -&gt; IRQ 19
+@@ -396,8 +435,10 @@
+ usb usb3: Product: UHCI Host Controller
+ usb usb3: Manufacturer: Linux 2.6.32-rc5-wl-wt uhci_hcd
+ usb usb3: SerialNumber: 0000:00:1d.1
++ sda1 sda2 sda3 sda4
+ usb usb3: configuration #1 chosen from 1 choice
+ hub 3-0:1.0: USB hub found
++sd 0:0:0:0: [sda] Attached SCSI disk
+ hub 3-0:1.0: 2 ports detected
+ uhci_hcd 0000:00:1d.2: PCI INT C -&gt; GSI 18 (level, low) -&gt; IRQ 18
+ uhci_hcd 0000:00:1d.2: setting latency timer to 64
+@@ -438,17 +479,8 @@
+ TCP cubic registered
+ Initializing XFRM netlink socket
+ NET: Registered protocol family 17
+-Using IPI No-Shortcut mode
+ input: AT Translated Set 2 keyboard as /devices/platform/i8042/serio0/input/input0
+-ata1.00: 312581808 sectors, multi 16: LBA48 NCQ (depth 0/32)
+-ata1.00: configured for UDMA/133
+-scsi 0:0:0:0: Direct-Access     ATA      Hitachi HTS54321 FB2O PQ: 0 ANSI: 5
+-sd 0:0:0:0: [sda] 312581808 512-byte logical blocks: (160 GB/149 GiB)
+-sd 0:0:0:0: [sda] Write Protect is off
+-sd 0:0:0:0: [sda] Mode Sense: 00 3a 00 00
+-sd 0:0:0:0: [sda] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+- sda: sda1 sda2 sda3 sda4
+-sd 0:0:0:0: [sda] Attached SCSI disk
++Using IPI No-Shortcut mode
+ usb 1-7: new high speed USB device using ehci_hcd and address 4
+ kjournald starting.  Commit interval 5 seconds
+ EXT3-fs: mounted filesystem with writeback data mode.
+@@ -471,80 +503,79 @@
+ usb 3-2: Manufacturer: Broadcom Corp
+ usb 3-2: SerialNumber: 002556EC4067
+ usb 3-2: configuration #1 chosen from 1 choice
+-sd 0:0:0:0: Attached scsi generic sg0 type 0
++intel_rng: FWH not detected
++Linux agpgart interface v0.103
+ i801_smbus 0000:00:1f.3: PCI INT B -&gt; GSI 19 (level, low) -&gt; IRQ 19
+ ACPI: I/O resource 0000:00:1f.3 [0x18e0-0x18ff] conflicts with ACPI region SMBI [0x18e0-0x18ef]
+ ACPI: If an ACPI driver is available for this device, you should use it instead of the native driver
+-intel_rng: FWH not detected
+ input: Sleep Button as /devices/LNXSYSTM:00/LNXSYBUS:00/PNP0C0E:00/input/input1
+-Linux agpgart interface v0.103
+ ACPI: Sleep Button [SLPB]
+ ACPI: WMI: Mapper loaded
+-input: Lid Switch as /devices/LNXSYSTM:00/LNXSYBUS:00/PNP0C0D:00/input/input2
+ ACPI: AC Adapter [ADP1] (on-line)
+-usbcore: registered new interface driver hiddev
++input: Lid Switch as /devices/LNXSYSTM:00/LNXSYBUS:00/PNP0C0D:00/input/input2
++sd 0:0:0:0: Attached scsi generic sg0 type 0
+ ACPI: Lid Switch [LID0]
+ input: Power Button as /devices/LNXSYSTM:00/LNXPWRBN:00/input/input3
+-input: USB Optical Mouse as /devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1:1.0/input/input4
++usbcore: registered new interface driver hiddev
++agpgart-intel 0000:00:00.0: Intel 945GME Chipset
+ ACPI: Power Button [PWRF]
++input: USB Optical Mouse as /devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1:1.0/input/input4
++agpgart-intel 0000:00:00.0: detected 7932K stolen memory
+ generic-usb 0003:0461:4D22.0001: input,hidraw0: USB HID v1.11 Mouse [USB Optical Mouse] on usb-0000:00:1d.0-1/input0
+ usbcore: registered new interface driver usbhid
+ usbhid: v2.6:USB HID core driver
+-ACPI: EC: GPE storm detected, transactions will use polling mode
+ tg3.c:v3.102 (September 1, 2009)
+ tg3 0000:02:00.0: PCI INT A -&gt; GSI 16 (level, low) -&gt; IRQ 16
+-Driver 'rtc_cmos' needs updating - please use bus_type methods
+ tg3 0000:02:00.0: setting latency timer to 64
+-agpgart-intel 0000:00:00.0: Intel 945GME Chipset
+-rtc_cmos 00:07: RTC can wake from S4
+-agpgart-intel 0000:00:00.0: detected 7932K stolen memory
+-rtc_cmos 00:07: rtc core: registered rtc_cmos as rtc0
+-agpgart-intel 0000:00:00.0: AGP aperture is 256M @ 0xd0000000
+-rtc0: alarms up to one month, y3k, 242 bytes nvram, hpet irqs
+-ACPI Warning for \_SB_.PCI0.LPCB.EC0_.BAT0._BIF: Converted Buffer to expected String at index 9 (20090903/nsrepair-132)
+-Linux video capture interface: v2.00
+-input: PS/2 Generic Mouse as /devices/platform/i8042/serio2/input/input5
+-ACPI Warning for \_SB_.PCI0.LPCB.EC0_.BAT0._BIF: Converted Buffer to expected String at index 10 (20090903/nsrepair-132)
+-ACPI Warning for \_SB_.PCI0.LPCB.EC0_.BAT0._BIF: Converted Buffer to expected String at index 11 (20090903/nsrepair-132)
+-ACPI Warning for \_SB_.PCI0.LPCB.EC0_.BAT0._BIF: Converted Buffer to expected String at index 12 (20090903/nsrepair-132)
++Bluetooth: Core ver 2.15
++NET: Registered protocol family 31
++Bluetooth: HCI device and connection manager initialized
++Bluetooth: HCI socket layer initialized
+ ACPI: SSDT 3f6dabff 00245 (v02  PmRef  Cpu0Ist 00003000 INTL 20050624)
++Bluetooth: Generic Bluetooth USB driver ver 0.6
++usbcore: registered new interface driver btusb
++agpgart-intel 0000:00:00.0: AGP aperture is 256M @ 0xd0000000
+ ACPI: SSDT 3f6da55f 0061B (v02  PmRef  Cpu0Cst 00003001 INTL 20050624)
+-eth0: Tigon3 [partno(BCM95906) rev c002] (PCI Express) MAC address 00:1f:16:1f:85:a4
+-eth0: attached PHY is 5906 (10/100Base-TX Ethernet) (WireSpeed[0])
+-eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+-eth0: dma_rwctrl[76180000] dma_mask[64-bit]
+ Monitor-Mwait will be used to enter C-1 state
+ Monitor-Mwait will be used to enter C-2 state
+ Monitor-Mwait will be used to enter C-3 state
+ Marking TSC unstable due to TSC halts in idle
+ Switching to clocksource hpet
+ processor LNXCPU:00: registered as cooling_device0
+-Bluetooth: Core ver 2.15
+ ACPI: SSDT 3f6dae44 000D4 (v02  PmRef  Cpu1Ist 00003000 INTL 20050624)
++eth0: Tigon3 [partno(BCM95906) rev c002] (PCI Express) MAC address 00:1f:16:1f:85:a4
+ ACPI: SSDT 3f6dab7a 00085 (v02  PmRef  Cpu1Cst 00003000 INTL 20050624)
+-acpi device:03: registered as cooling_device1
+-NET: Registered protocol family 31
+-Bluetooth: HCI device and connection manager initialized
+-Bluetooth: HCI socket layer initialized
+-Bluetooth: Generic Bluetooth USB driver ver 0.6
+-usbcore: registered new interface driver btusb
++eth0: attached PHY is 5906 (10/100Base-TX Ethernet) (WireSpeed[0])
++eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
++eth0: dma_rwctrl[76180000] dma_mask[64-bit]
++input: PS/2 Generic Mouse as /devices/platform/i8042/serio2/input/input5
+ thermal LNXTHERM:01: registered as thermal_zone0
++processor LNXCPU:01: registered as cooling_device1
++ACPI: Thermal Zone [TZS0] (50 C)
++ACPI Warning for \_SB_.PCI0.LPCB.EC0_.BAT0._BIF: Converted Buffer to expected String at index 9 (20090903/nsrepair-132)
++ACPI Warning for \_SB_.PCI0.LPCB.EC0_.BAT0._BIF: Converted Buffer to expected String at index 10 (20090903/nsrepair-132)
++ACPI Warning for \_SB_.PCI0.LPCB.EC0_.BAT0._BIF: Converted Buffer to expected String at index 11 (20090903/nsrepair-132)
++ACPI Warning for \_SB_.PCI0.LPCB.EC0_.BAT0._BIF: Converted Buffer to expected String at index 12 (20090903/nsrepair-132)
++thermal LNXTHERM:02: registered as thermal_zone1
++ACPI: Thermal Zone [TZS1] (50 C)
++ACPI: Battery Slot [BAT0] (battery present)
++Driver 'rtc_cmos' needs updating - please use bus_type methods
++rtc_cmos 00:07: RTC can wake from S4
++rtc_cmos 00:07: rtc core: registered rtc_cmos as rtc0
++rtc0: alarms up to one month, y3k, 242 bytes nvram, hpet irqs
++Linux video capture interface: v2.00
++acpi device:03: registered as cooling_device2
+ input: Video Bus as /devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A08:00/LNXVIDEO:00/input/input6
+ ACPI: Video Device [GFX0] (multi-head: yes  rom: no  post: no)
+-processor LNXCPU:01: registered as cooling_device2
+-ACPI: Battery Slot [BAT0] (battery present)
+-ACPI: Thermal Zone [TZS0] (49 C)
++b43-pci-bridge 0000:03:00.0: PCI INT A -&gt; GSI 17 (level, low) -&gt; IRQ 17
+ uvcvideo: Found UVC 1.00 device Lenovo EasyCamera (04f2:b090)
+ input: Lenovo EasyCamera as /devices/pci0000:00/0000:00:1d.7/usb1/1-7/1-7:1.0/input/input7
+-thermal LNXTHERM:02: registered as thermal_zone1
+ usbcore: registered new interface driver uvcvideo
+-ACPI: Thermal Zone [TZS1] (49 C)
+ USB Video Class driver (v0.1.0)
+-b43-pci-bridge 0000:03:00.0: PCI INT A -&gt; GSI 17 (level, low) -&gt; IRQ 17
+ b43-pci-bridge 0000:03:00.0: setting latency timer to 64
++ssb: Sonics Silicon Backplane found on PCI device 0000:03:00.0
+ HDA Intel 0000:00:1b.0: PCI INT A -&gt; GSI 22 (level, low) -&gt; IRQ 22
+ HDA Intel 0000:00:1b.0: setting latency timer to 64
+-ssb: Sonics Silicon Backplane found on PCI device 0000:03:00.0
+ hda_codec: ALC269: BIOS auto-probing.
+ input: HDA Digital PCBeep as /devices/pci0000:00/0000:00:1b.0/input/input8
+ Adding 3903784k swap on /dev/sda3.  Priority:-1 extents:1 across:3903784k 
+@@ -593,30 +624,11 @@
+ b43 ssb0:0: firmware: requesting b43/lp0initvals15.fw
+ b43 ssb0:0: firmware: requesting b43/lp0bsinitvals15.fw
+ b43-phy0: Loading firmware version 478.104 (2008-07-01 00:50:23)
+-b43-phy0 ERROR: Fatal DMA error: 0x00000800, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+-b43-phy0: Controller RESET (DMA error) ...
+-b43-phy0: Loading firmware version 478.104 (2008-07-01 00:50:23)
+-b43-phy0: Controller restarted
+-b43-phy0 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+-b43-phy0: Controller RESET (DMA error) ...
+-b43-phy0: Loading firmware version 478.104 (2008-07-01 00:50:23)
+-b43-phy0: Controller restarted
+-b43-phy0 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+-b43-phy0: Controller RESET (DMA error) ...
+-b43-phy0: Loading firmware version 478.104 (2008-07-01 00:50:23)
+-b43-phy0: Controller restarted
+-b43-phy0 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+-b43-phy0: Controller RESET (DMA error) ...
+-b43-phy0: Loading firmware version 478.104 (2008-07-01 00:50:23)
+-b43-phy0: Controller restarted
+-b43-phy0 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+-b43-phy0: Controller RESET (DMA error) ...
+-b43-phy0: Loading firmware version 478.104 (2008-07-01 00:50:23)
+-b43-phy0: Controller restarted
+-b43-phy0 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+-b43-phy0: Controller RESET (DMA error) ...
+-b43-phy0: Loading firmware version 478.104 (2008-07-01 00:50:23)
+-b43-phy0: Controller restarted
+-b43-phy0 ERROR: Fatal DMA error: 0x00000400, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+-b43-phy0: Controller RESET (DMA error) ...
+ b43-phy0: Loading firmware version 478.104 (2008-07-01 00:50:23)
++wlan0: direct probe to AP 00:08:5c:ca:dc:c3 (try 1)
++wlan0: direct probe responded
++wlan0: authenticate with AP 00:08:5c:ca:dc:c3 (try 1)
++wlan0: authenticated
++wlan0: associate with AP 00:08:5c:ca:dc:c3 (try 1)
++wlan0: RX AssocResp from 00:08:5c:ca:dc:c3 (capab=0x411 status=0 aid=1)
++wlan0: associated
+
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006203.html">b43/BCM4312 fails with DMA errors
+</A></li>
+	<LI>Next message: <A HREF="006205.html">b43/BCM4312 fails with DMA errors
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6204">[ date ]</a>
+              <a href="thread.html#6204">[ thread ]</a>
+              <a href="subject.html#6204">[ subject ]</a>
+              <a href="author.html#6204">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

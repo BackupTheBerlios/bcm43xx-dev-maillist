@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm4306 crashes on IPX4XX and works on x86 ?!?
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4306%20crashes%20on%20IPX4XX%20and%20works%20on%20x86%20%3F%21%3F&In-Reply-To=%3C4AAE5F12.9020705%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006056.html">
+   <LINK REL="Next"  HREF="006059.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm4306 crashes on IPX4XX and works on x86 ?!?</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4306%20crashes%20on%20IPX4XX%20and%20works%20on%20x86%20%3F%21%3F&In-Reply-To=%3C4AAE5F12.9020705%40lwfinger.net%3E"
+       TITLE="bcm4306 crashes on IPX4XX and works on x86 ?!?">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Mon Sep 14 17:19:46 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006056.html">bcm4306 crashes on IPX4XX and works on x86 ?!?
+</A></li>
+        <LI>Next message: <A HREF="006059.html">bcm4306 crashes on IPX4XX and works on x86 ?!?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6058">[ date ]</a>
+              <a href="thread.html#6058">[ thread ]</a>
+              <a href="subject.html#6058">[ subject ]</a>
+              <a href="author.html#6058">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Daniel Schmitt wrote:
+&gt;<i> Larry, I don't think that sprom_do_read is able to read _ANY_ valid data
+</I>&gt;<i> because if I do it today it results it
+</I>
+Is there any reason to suspect a timing issue? I'm not familiar with
+your platform. If that is the issue, perhaps might try (my mailer will
+mangle this, but you get the idea):
+
+Index: wireless-testing/drivers/ssb/pci.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/pci.c
++++ wireless-testing/drivers/ssb/pci.c
+@@ -246,8 +246,10 @@ static int sprom_do_read(struct ssb_bus
+ {
+        int i;
+
+-       for (i = 0; i &lt; bus-&gt;sprom_size; i++)
++       for (i = 0; i &lt; bus-&gt;sprom_size; i++) {
+                sprom[i] = ioread16(bus-&gt;mmio + SSB_SPROM_BASE + (i * 2));
++               udelay(5);
++       }
+
+        return 0;
+ }
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006056.html">bcm4306 crashes on IPX4XX and works on x86 ?!?
+</A></li>
+	<LI>Next message: <A HREF="006059.html">bcm4306 crashes on IPX4XX and works on x86 ?!?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6058">[ date ]</a>
+              <a href="thread.html#6058">[ thread ]</a>
+              <a href="subject.html#6058">[ subject ]</a>
+              <a href="author.html#6058">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

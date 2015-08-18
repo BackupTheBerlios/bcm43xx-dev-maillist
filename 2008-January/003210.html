@@ -1,0 +1,418 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Remove the PHY spinlock
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Remove%20the%20PHY%20spinlock&In-Reply-To=%3C200801091908.49491.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003214.html">
+   <LINK REL="Next"  HREF="003211.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Remove the PHY spinlock</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Remove%20the%20PHY%20spinlock&In-Reply-To=%3C200801091908.49491.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Remove the PHY spinlock">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Jan  9 19:08:49 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003214.html">[PATCH] b43: Remove PIO support
+</A></li>
+        <LI>Next message: <A HREF="003211.html">[PATCH RFT] b43legacy: Remove the PHY spinlock
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3210">[ date ]</a>
+              <a href="thread.html#3210">[ thread ]</a>
+              <a href="subject.html#3210">[ subject ]</a>
+              <a href="author.html#3210">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes a sparse warning about weird locking.
+The spinlock is not needed, so simply remove it.
+This also adds some sanity checks to the PHY and radio locking
+to protect against recursive locking.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+For 2.6.25
+
+
+Index: wireless-2.6/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/b43.h	2008-01-09 17:06:34.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/b43.h	2008-01-09 18:56:51.000000000 +0100
+@@ -477,13 +477,12 @@ struct b43_phy {
+ 
+ 	/* Radio versioning */
+ 	u16 radio_manuf;	/* Radio manufacturer */
+ 	u16 radio_ver;		/* Radio version */
+ 	u8 radio_rev;		/* Radio revision */
+ 
+-	bool locked;		/* Only used in b43_phy_{un}lock() */
+ 	bool dyn_tssi_tbl;	/* tssi2dbm is kmalloc()ed. */
+ 
+ 	/* ACI (adjacent channel interference) flags. */
+ 	bool aci_enable;
+ 	bool aci_wlan_automatic;
+ 	bool aci_hw_rssi;
+@@ -514,30 +513,23 @@ struct b43_phy {
+ 	s16 max_lb_gain;	/* Maximum Loopback gain in hdB */
+ 	s16 trsw_rx_gain;	/* TRSW RX gain in hdB */
+ 	s16 lna_lod_gain;	/* LNA lod */
+ 	s16 lna_gain;		/* LNA */
+ 	s16 pga_gain;		/* PGA */
+ 
+-	/* PHY lock for core.rev &lt; 3
+-	 * This lock is only used by b43_phy_{un}lock()
+-	 */
+-	spinlock_t lock;
+-
+ 	/* Desired TX power level (in dBm).
+ 	 * This is set by the user and adjusted in b43_phy_xmitpower(). */
+ 	u8 power_level;
+ 	/* A-PHY TX Power control value. */
+ 	u16 txpwr_offset;
+ 
+ 	/* Current TX power level attenuation control values */
+ 	struct b43_bbatt bbatt;
+ 	struct b43_rfatt rfatt;
+ 	u8 tx_control;		/* B43_TXCTL_XXX */
+-#ifdef CONFIG_B43_DEBUG
+-	bool manual_txpower_control;	/* Manual TX-power control enabled? */
+-#endif
++
+ 	/* Hardware Power Control enabled? */
+ 	bool hardware_power_control;
+ 
+ 	/* Current Interference Mitigation mode */
+ 	int interfmode;
+ 	/* Stack of saved values from the Interference Mitigation code.
+@@ -572,12 +564,19 @@ struct b43_phy {
+ 	u16 ofdmtab_addr; /* The address currently set in hardware. */
+ 	enum { /* The last data flow direction. */
+ 		B43_OFDMTAB_DIRECTION_UNKNOWN = 0,
+ 		B43_OFDMTAB_DIRECTION_READ,
+ 		B43_OFDMTAB_DIRECTION_WRITE,
+ 	} ofdmtab_addr_direction;
++
++#if B43_DEBUG
++	/* Manual TX-power control enabled? */
++	bool manual_txpower_control;
++	/* PHY registers locked by b43_phy_lock()? */
++	bool phy_locked;
++#endif /* B43_DEBUG */
+ };
+ 
+ /* Data structures for DMA transmission, per 80211 core. */
+ struct b43_dma {
+ 	struct b43_dmaring *tx_ring0;
+ 	struct b43_dmaring *tx_ring1;
+Index: wireless-2.6/drivers/net/wireless/b43/debugfs.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/debugfs.c	2008-01-09 16:59:33.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/debugfs.c	2008-01-09 18:58:43.000000000 +0100
+@@ -219,14 +219,12 @@ out:
+ 	return count;
+ }
+ 
+ static int txpower_g_write_file(struct b43_wldev *dev,
+ 				const char *buf, size_t count)
+ {
+-	unsigned long phy_flags;
+-
+ 	if (dev-&gt;phy.type != B43_PHYTYPE_G)
+ 		return -ENODEV;
+ 	if ((count &gt;= 4) &amp;&amp; (memcmp(buf, &quot;auto&quot;, 4) == 0)) {
+ 		/* Automatic control */
+ 		dev-&gt;phy.manual_txpower_control = 0;
+ 		b43_phy_xmitpower(dev);
+@@ -244,18 +242,18 @@ static int txpower_g_write_file(struct b
+ 		if (txmix)
+ 			dev-&gt;phy.tx_control |= B43_TXCTL_TXMIX;
+ 		if (pa2db)
+ 			dev-&gt;phy.tx_control |= B43_TXCTL_PA2DB;
+ 		if (pa3db)
+ 			dev-&gt;phy.tx_control |= B43_TXCTL_PA3DB;
+-		b43_phy_lock(dev, phy_flags);
++		b43_phy_lock(dev);
+ 		b43_radio_lock(dev);
+ 		b43_set_txpower_g(dev, &amp;dev-&gt;phy.bbatt,
+ 				  &amp;dev-&gt;phy.rfatt, dev-&gt;phy.tx_control);
+ 		b43_radio_unlock(dev);
+-		b43_phy_unlock(dev, phy_flags);
++		b43_phy_unlock(dev);
+ 	}
+ 
+ 	return 0;
+ }
+ 
+ /* wl-&gt;irq_lock is locked */
+Index: wireless-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/main.c	2008-01-09 17:06:34.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/main.c	2008-01-09 18:59:36.000000000 +0100
+@@ -3199,15 +3199,12 @@ static void setup_struct_phy_for_init(st
+ 	struct b43_txpower_lo_control *lo;
+ 	int i;
+ 
+ 	memset(phy-&gt;minlowsig, 0xFF, sizeof(phy-&gt;minlowsig));
+ 	memset(phy-&gt;minlowsigpos, 0, sizeof(phy-&gt;minlowsigpos));
+ 
+-	/* Flags */
+-	phy-&gt;locked = 0;
+-
+ 	phy-&gt;aci_enable = 0;
+ 	phy-&gt;aci_wlan_automatic = 0;
+ 	phy-&gt;aci_hw_rssi = 0;
+ 
+ 	phy-&gt;radio_off_context.valid = 0;
+ 
+@@ -3228,13 +3225,12 @@ static void setup_struct_phy_for_init(st
+ 	for (i = 0; i &lt; ARRAY_SIZE(phy-&gt;nrssi_lt); i++)
+ 		phy-&gt;nrssi_lt[i] = i;
+ 
+ 	phy-&gt;lofcal = 0xFFFF;
+ 	phy-&gt;initval = 0xFFFF;
+ 
+-	spin_lock_init(&amp;phy-&gt;lock);
+ 	phy-&gt;interfmode = B43_INTERFMODE_NONE;
+ 	phy-&gt;channel = 0xFF;
+ 
+ 	phy-&gt;hardware_power_control = !!modparam_hwpctl;
+ 
+ 	/* PHY TX errors counter. */
+Index: wireless-2.6/drivers/net/wireless/b43/phy.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/phy.c	2008-01-09 18:30:13.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/phy.c	2008-01-09 19:02:54.000000000 +0100
+@@ -225,48 +225,36 @@ static void b43_shm_clear_tssi(struct b4
+ 		b43_shm_write16(dev, B43_SHM_SHARED, 0x0070, 0x7F7F);
+ 		b43_shm_write16(dev, B43_SHM_SHARED, 0x0072, 0x7F7F);
+ 		break;
+ 	}
+ }
+ 
+-void b43_raw_phy_lock(struct b43_wldev *dev)
++/* Lock the PHY registers against concurrent access from the microcode.
++ * This lock is nonrecursive. */
++void b43_phy_lock(struct b43_wldev *dev)
+ {
+-	struct b43_phy *phy = &amp;dev-&gt;phy;
+-
+-	B43_WARN_ON(!irqs_disabled());
+-
+-	/* We had a check for MACCTL==0 here, but I think that doesn't
+-	 * make sense, as MACCTL is never 0 when this is called.
+-	 *      --mb */
+-	B43_WARN_ON(b43_read32(dev, B43_MMIO_MACCTL) == 0);
++#if B43_DEBUG
++	B43_WARN_ON(dev-&gt;phy.phy_locked);
++	dev-&gt;phy.phy_locked = 1;
++#endif
++	B43_WARN_ON(dev-&gt;dev-&gt;id.revision &lt; 3);
+ 
+-	if (dev-&gt;dev-&gt;id.revision &lt; 3) {
+-		b43_mac_suspend(dev);
+-		spin_lock(&amp;phy-&gt;lock);
+-	} else {
+-		if (!b43_is_mode(dev-&gt;wl, IEEE80211_IF_TYPE_AP))
+-			b43_power_saving_ctl_bits(dev, B43_PS_AWAKE);
+-	}
+-	phy-&gt;locked = 1;
++	if (!b43_is_mode(dev-&gt;wl, IEEE80211_IF_TYPE_AP))
++		b43_power_saving_ctl_bits(dev, B43_PS_AWAKE);
+ }
+ 
+-void b43_raw_phy_unlock(struct b43_wldev *dev)
++void b43_phy_unlock(struct b43_wldev *dev)
+ {
+-	struct b43_phy *phy = &amp;dev-&gt;phy;
++#if B43_DEBUG
++	B43_WARN_ON(!dev-&gt;phy.phy_locked);
++	dev-&gt;phy.phy_locked = 0;
++#endif
++	B43_WARN_ON(dev-&gt;dev-&gt;id.revision &lt; 3);
+ 
+-	B43_WARN_ON(!irqs_disabled());
+-	if (dev-&gt;dev-&gt;id.revision &lt; 3) {
+-		if (phy-&gt;locked) {
+-			spin_unlock(&amp;phy-&gt;lock);
+-			b43_mac_enable(dev);
+-		}
+-	} else {
+-		if (!b43_is_mode(dev-&gt;wl, IEEE80211_IF_TYPE_AP))
+-			b43_power_saving_ctl_bits(dev, 0);
+-	}
+-	phy-&gt;locked = 0;
++	if (!b43_is_mode(dev-&gt;wl, IEEE80211_IF_TYPE_AP))
++		b43_power_saving_ctl_bits(dev, 0);
+ }
+ 
+ /* Different PHYs require different register routing flags.
+  * This adjusts (and does sanity checks on) the routing flags.
+  */
+ static inline u16 adjust_phyreg_for_phytype(struct b43_phy *phy,
+@@ -1727,13 +1715,12 @@ void b43_phy_xmitpower(struct b43_wldev 
+ 			s8 average;
+ 			int max_pwr;
+ 			int desired_pwr, estimated_pwr, pwr_adjust;
+ 			int rfatt_delta, bbatt_delta;
+ 			int rfatt, bbatt;
+ 			u8 tx_control;
+-			unsigned long phylock_flags;
+ 
+ 			tmp = b43_shm_read16(dev, B43_SHM_SHARED, 0x0058);
+ 			v0 = (s8) (tmp &amp; 0x00FF);
+ 			v1 = (s8) ((tmp &amp; 0xFF00) &gt;&gt; 8);
+ 			tmp = b43_shm_read16(dev, B43_SHM_SHARED, 0x005A);
+ 			v2 = (s8) (tmp &amp; 0x00FF);
+@@ -1858,19 +1845,19 @@ void b43_phy_xmitpower(struct b43_wldev 
+ 			phy-&gt;tx_control = tx_control;
+ 			b43_put_attenuation_into_ranges(dev, &amp;bbatt, &amp;rfatt);
+ 			phy-&gt;rfatt.att = rfatt;
+ 			phy-&gt;bbatt.att = bbatt;
+ 
+ 			/* Adjust the hardware */
+-			b43_phy_lock(dev, phylock_flags);
++			b43_phy_lock(dev);
+ 			b43_radio_lock(dev);
+ 			b43_set_txpower_g(dev, &amp;phy-&gt;bbatt, &amp;phy-&gt;rfatt,
+ 					  phy-&gt;tx_control);
+ 			b43_lo_g_ctl_mark_cur_used(dev);
+ 			b43_radio_unlock(dev);
+-			b43_phy_unlock(dev, phylock_flags);
++			b43_phy_unlock(dev);
+ 			break;
+ 		}
+ 	default:
+ 		B43_WARN_ON(1);
+ 	}
+ }
+@@ -2155,12 +2142,13 @@ static inline u16 channel2freq_a(u8 chan
+ 
+ void b43_radio_lock(struct b43_wldev *dev)
+ {
+ 	u32 macctl;
+ 
+ 	macctl = b43_read32(dev, B43_MMIO_MACCTL);
++	B43_WARN_ON(macctl &amp; B43_MACCTL_RADIOLOCK);
+ 	macctl |= B43_MACCTL_RADIOLOCK;
+ 	b43_write32(dev, B43_MMIO_MACCTL, macctl);
+ 	/* Commit the write and wait for the device
+ 	 * to exit any radio register access. */
+ 	b43_read32(dev, B43_MMIO_MACCTL);
+ 	udelay(10);
+@@ -2171,12 +2159,13 @@ void b43_radio_unlock(struct b43_wldev *
+ 	u32 macctl;
+ 
+ 	/* Commit any write */
+ 	b43_read16(dev, B43_MMIO_PHY_VER);
+ 	/* unlock */
+ 	macctl = b43_read32(dev, B43_MMIO_MACCTL);
++	B43_WARN_ON(!(macctl &amp; B43_MACCTL_RADIOLOCK));
+ 	macctl &amp;= ~B43_MACCTL_RADIOLOCK;
+ 	b43_write32(dev, B43_MMIO_MACCTL, macctl);
+ }
+ 
+ u16 b43_radio_read16(struct b43_wldev *dev, u16 offset)
+ {
+@@ -2352,18 +2341,17 @@ u8 b43_radio_aci_detect(struct b43_wldev
+ u8 b43_radio_aci_scan(struct b43_wldev * dev)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 	u8 ret[13];
+ 	unsigned int channel = phy-&gt;channel;
+ 	unsigned int i, j, start, end;
+-	unsigned long phylock_flags;
+ 
+ 	if (!((phy-&gt;type == B43_PHYTYPE_G) &amp;&amp; (phy-&gt;rev &gt; 0)))
+ 		return 0;
+ 
+-	b43_phy_lock(dev, phylock_flags);
++	b43_phy_lock(dev);
+ 	b43_radio_lock(dev);
+ 	b43_phy_write(dev, 0x0802, b43_phy_read(dev, 0x0802) &amp; 0xFFFC);
+ 	b43_phy_write(dev, B43_PHY_G_CRS,
+ 		      b43_phy_read(dev, B43_PHY_G_CRS) &amp; 0x7FFF);
+ 	b43_set_all_gains(dev, 3, 8, 1);
+ 
+@@ -2386,13 +2374,13 @@ u8 b43_radio_aci_scan(struct b43_wldev *
+ 			continue;
+ 		end = (i + 5 &lt; 13) ? i + 5 : 13;
+ 		for (j = i; j &lt; end; j++)
+ 			ret[j] = 1;
+ 	}
+ 	b43_radio_unlock(dev);
+-	b43_phy_unlock(dev, phylock_flags);
++	b43_phy_unlock(dev);
+ 
+ 	return ret[channel - 1];
+ }
+ 
+ /* <A HREF="http://bcm-specs.sipsolutions.net/NRSSILookupTable">http://bcm-specs.sipsolutions.net/NRSSILookupTable</A> */
+ void b43_nrssi_hw_write(struct b43_wldev *dev, u16 offset, s16 val)
+Index: wireless-2.6/drivers/net/wireless/b43/phy.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/phy.h	2008-01-09 17:59:17.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/phy.h	2008-01-09 18:48:42.000000000 +0100
+@@ -196,24 +196,14 @@ enum {
+ #define B43_PHYVER_ANALOG		0xF000
+ #define B43_PHYVER_ANALOG_SHIFT		12
+ #define B43_PHYVER_TYPE			0x0F00
+ #define B43_PHYVER_TYPE_SHIFT		8
+ #define B43_PHYVER_VERSION		0x00FF
+ 
+-void b43_raw_phy_lock(struct b43_wldev *dev);
+-#define b43_phy_lock(dev, flags) \
+-	do {					\
+-		local_irq_save(flags);		\
+-		b43_raw_phy_lock(dev);	\
+-	} while (0)
+-void b43_raw_phy_unlock(struct b43_wldev *dev);
+-#define b43_phy_unlock(dev, flags) \
+-	do {					\
+-		b43_raw_phy_unlock(dev);	\
+-		local_irq_restore(flags);	\
+-	} while (0)
++void b43_phy_lock(struct b43_wldev *dev);
++void b43_phy_unlock(struct b43_wldev *dev);
+ 
+ u16 b43_phy_read(struct b43_wldev *dev, u16 offset);
+ void b43_phy_write(struct b43_wldev *dev, u16 offset, u16 val);
+ 
+ int b43_phy_init_tssi2dbm_table(struct b43_wldev *dev);
+ 
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003214.html">[PATCH] b43: Remove PIO support
+</A></li>
+	<LI>Next message: <A HREF="003211.html">[PATCH RFT] b43legacy: Remove the PHY spinlock
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3210">[ date ]</a>
+              <a href="thread.html#3210">[ thread ]</a>
+              <a href="subject.html#3210">[ subject ]</a>
+              <a href="author.html#3210">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

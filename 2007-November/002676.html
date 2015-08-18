@@ -1,0 +1,183 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 4/7] b43legacy: rewrite and fix rfkill initialization
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%204/7%5D%20b43legacy%3A%20rewrite%20and%20fix%20rfkill%20initialization&In-Reply-To=%3C20071106224845.7735a4f1%40morte%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002675.html">
+   <LINK REL="Next"  HREF="002677.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 4/7] b43legacy: rewrite and fix rfkill initialization</H1>
+    <B>Stefano Brivio</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%204/7%5D%20b43legacy%3A%20rewrite%20and%20fix%20rfkill%20initialization&In-Reply-To=%3C20071106224845.7735a4f1%40morte%3E"
+       TITLE="[PATCH 4/7] b43legacy: rewrite and fix rfkill initialization">stefano.brivio at polimi.it
+       </A><BR>
+    <I>Tue Nov  6 22:48:45 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002675.html">[PATCH 3/7] b43legacy: fix possible buffer overrun in debugfs
+</A></li>
+        <LI>Next message: <A HREF="002677.html">[PATCH 5/7] b43legacy: add me as maintainer and fix URLs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2676">[ date ]</a>
+              <a href="thread.html#2676">[ thread ]</a>
+              <a href="subject.html#2676">[ subject ]</a>
+              <a href="author.html#2676">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The rfkill subsystem doesn't like code like that
+rfkill_allocate();
+rfkill_register();
+rfkill_unregister();
+rfkill_register(); /* &lt;- This will crash */
+
+This sequence happens with
+modprobe b43
+ifconfig wlanX up
+ifconfig wlanX down
+ifconfig wlanX up
+
+Fix this by always re-allocating the rfkill stuff before register.
+
+The patch to b43 by Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt; has been ported to
+b43legacy.
+
+Signed-off-by: Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+
+----
+
+Index: wireless-2.6/drivers/net/wireless/b43legacy/rfkill.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/rfkill.c
++++ wireless-2.6/drivers/net/wireless/b43legacy/rfkill.c
+@@ -48,18 +48,21 @@ static void b43legacy_rfkill_poll(struct
+ 	struct b43legacy_wldev *dev = poll_dev-&gt;private;
+ 	struct b43legacy_wl *wl = dev-&gt;wl;
+ 	bool enabled;
++	bool report_change = 0;
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 	B43legacy_WARN_ON(b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED);
+ 	enabled = b43legacy_is_hw_radio_enabled(dev);
+ 	if (unlikely(enabled != dev-&gt;radio_hw_enable)) {
+ 		dev-&gt;radio_hw_enable = enabled;
++		report_change = 1;
+ 		b43legacyinfo(wl, &quot;Radio hardware status changed to %s\n&quot;,
+ 			enabled ? &quot;ENABLED&quot; : &quot;DISABLED&quot;);
+-		mutex_unlock(&amp;wl-&gt;mutex);
++	}
++	mutex_unlock(&amp;wl-&gt;mutex);
++
++	if (unlikely(report_change))
+ 		input_report_key(poll_dev-&gt;input, KEY_WLAN, enabled);
+-	} else
+-		mutex_unlock(&amp;wl-&gt;mutex);
+ }
+ 
+ /* Called when the RFKILL toggled in software. */
+@@ -69,18 +72,11 @@ static int b43legacy_rfkill_soft_toggle(
+ 	struct b43legacy_wl *wl = dev-&gt;wl;
+ 	int err = 0;
+ 
+-	/* When RFKILL is registered, it will call back into this callback.
+-	 * wl-&gt;mutex will already be locked when this happens.
+-	 * So first trylock. On contention check if we are in initialization.
+-	 * Silently return if that happens to avoid a deadlock. */
+-	if (mutex_trylock(&amp;wl-&gt;mutex) == 0) {
+-		if (b43legacy_status(dev) &lt; B43_STAT_INITIALIZED)
+-			return 0;
+-		mutex_lock(&amp;wl-&gt;mutex);
+-	}
+-	if (b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED)
+-		goto out_unlock;
++	if (!wl-&gt;rfkill.registered)
++		return 0;
+ 
++	mutex_lock(&amp;wl-&gt;mutex);
++	B43legacy_WARN_ON(b43legacy_status(dev) &lt; B43legacy_STAT_INITIALIZED);
+ 	switch (state) {
+ 	case RFKILL_STATE_ON:
+ 		if (!dev-&gt;radio_hw_enable) {
+Index: wireless-2.6/drivers/net/wireless/b43legacy/rfkill.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/rfkill.h
++++ wireless-2.6/drivers/net/wireless/b43legacy/rfkill.h
+@@ -16,14 +16,14 @@ struct b43legacy_rfkill {
+ 	struct rfkill *rfkill;
+ 	/* The poll device for the RFKILL input button */
+ 	struct input_polled_dev *poll_dev;
++	/* Did initialization succeed? Used for freeing. */
++	bool registered;
+ 	/* The unique name of this rfkill switch */
+-	char name[32];
++	char name[sizeof(&quot;b43legacy-phy4294967295&quot;)];
+ };
+ 
+-/* All the init functions return void, because we are not interested
++/* The init function returns void, because we are not interested
+  * in failing the b43 init process when rfkill init failed. */
+-void b43legacy_rfkill_alloc(struct b43legacy_wldev *dev);
+-void b43legacy_rfkill_free(struct b43legacy_wldev *dev);
+ void b43legacy_rfkill_init(struct b43legacy_wldev *dev);
+ void b43legacy_rfkill_exit(struct b43legacy_wldev *dev);
+
+Index: wireless-2.6/drivers/net/wireless/b43legacy/rfkill.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43legacy/main.c
++++ wireless-2.6/drivers/net/wireless/b43legacy/main.c
+@@ -3360,7 +3381,6 @@ static int b43legacy_setup_modes(struct b43legacy_wldev *dev,
+ 
+ static void b43legacy_wireless_core_detach(struct b43legacy_wldev *dev)
+ {
+-	b43legacy_rfkill_free(dev);
+ 	/* We release firmware that late to not be required to re-request
+ 	 * is all the time when we reinit the core. */
+ 	b43legacy_release_firmware(dev);
+@@ -3442,7 +3462,6 @@ static int b43legacy_wireless_core_attach(struct b43legacy_wldev *dev)
+ 	if (!wl-&gt;current_dev)
+ 		wl-&gt;current_dev = dev;
+ 	INIT_WORK(&amp;dev-&gt;restart_work, b43legacy_chip_reset);
+-	b43legacy_rfkill_alloc(dev);
+ 
+ 	b43legacy_radio_turn_off(dev, 1);
+ 	b43legacy_switch_analog(dev, 0);
+
+
+
+-- 
+Ciao
+Stefano
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002675.html">[PATCH 3/7] b43legacy: fix possible buffer overrun in debugfs
+</A></li>
+	<LI>Next message: <A HREF="002677.html">[PATCH 5/7] b43legacy: add me as maintainer and fix URLs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2676">[ date ]</a>
+              <a href="thread.html#2676">[ thread ]</a>
+              <a href="subject.html#2676">[ subject ]</a>
+              <a href="author.html#2676">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

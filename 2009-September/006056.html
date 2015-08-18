@@ -1,0 +1,188 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm4306 crashes on IPX4XX and works on x86 ?!?
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4306%20crashes%20on%20IPX4XX%20and%20works%20on%20x86%20%3F%21%3F&In-Reply-To=%3C4AAE5584.7030409%40schmitt-united.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006053.html">
+   <LINK REL="Next"  HREF="006058.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm4306 crashes on IPX4XX and works on x86 ?!?</H1>
+    <B>Daniel Schmitt</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4306%20crashes%20on%20IPX4XX%20and%20works%20on%20x86%20%3F%21%3F&In-Reply-To=%3C4AAE5584.7030409%40schmitt-united.de%3E"
+       TITLE="bcm4306 crashes on IPX4XX and works on x86 ?!?">daniel at schmitt-united.de
+       </A><BR>
+    <I>Mon Sep 14 16:39:00 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006053.html">bcm4306 crashes on IPX4XX and works on x86 ?!?
+</A></li>
+        <LI>Next message: <A HREF="006058.html">bcm4306 crashes on IPX4XX and works on x86 ?!?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6056">[ date ]</a>
+              <a href="thread.html#6056">[ thread ]</a>
+              <a href="subject.html#6056">[ subject ]</a>
+              <a href="author.html#6056">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Larry, I don't think that sprom_do_read is able to read _ANY_ valid data because 
+if I do it today it results it
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at OpenWrt</A>:/# insmod ssb
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x02, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x04, vendor 0x4243)
+ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x01, vendor 0x4243)
+ssb: Core 3 found: V90 (cc 0x807, rev 0x01, vendor 0x4243)
+ssb: Core 4 found: PCI (cc 0x804, rev 0x07, vendor 0x4243)
+ssb: Core 5 found: IEEE 802.11 (cc 0x812, rev 0x04, vendor 0x4243)
+ssb: Ignoring additional 802.11 core
+ssb: WARNING: Invalid SPROM CRC (corrupt SPROM)
+ssb: Unsupported SPROM revision 155 detected. Will extract v1
+ssb: Sonics Silicon Backplane found on PCI device 0000:00:01.0
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at OpenWrt</A>:/#
+
+reading the byte 155 (0x9b). I cannot find this byte in the SPROM which is
+014000000400141425430080020002000010001800000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0D002C3A8E7F
+FFFFFFFFFFFFFFFFFFFFFFFFFFFF2130B01198FB4FFE88030B0B3C000000000000003E000F00FF
+FF000000000000000001EF
+
+this was read out using x86 ALIX board and the same WLAN device.
+If I try to get SPROM on IPX4XX machine, I get:
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at OpenWrt</A>:/# cat /sys/devices/pci0000\:00/0000\:00\:01.0/ssb_sprom
+Bad mode in data abort handler detected
+Internal error: Oops - bad mode: 0 [#1]
+Modules linked in: ssb [last unloaded: ssb]
+CPU: 0    Not tainted  (2.6.28.10 #10)
+PC is at 0xffff01fc
+LR is at ssb_attr_sprom_show+0x7c/0x124 [ssb]
+pc : [&lt;ffff01fc&gt;]    lr : [&lt;bf010704&gt;]    psr: a0000092
+sp : c3a79e5c  ip : 00000001  fp : c3a79ecc
+r10: c026e1e4  r9 : 00000000  r8 : 0000ffff
+r7 : c3a9e6c8  r6 : c3a9a000  r5 : 00000065  r4 : 00000000
+r3 : c48dd0c8  r2 : c3a79ea4  r1 : 00000001  r0 : d0c80000
+Flags: NzCv  IRQs off  FIQs on  Mode IRQ_32  ISA ARM  Segment user
+Control: 000039ff  Table: 03a18000  DAC: 00000015
+Process cat (pid: 1466, stack limit = 0xc3a78260)
+Stack: (0xc3a79e5c to 0xc3a7a000)
+9e40:                                                                d0c80000
+9e60: 00000001 c3a79ea4 c48dd0c8 00000000 00000065 c3a9a000 c3a9e6c8 0000ffff
+9e80: 00000000 c026e1e4 c3a79ecc 00000001 c3a79e5c bf010704 ffff01fc a0000092
+9ea0: ffffffff c3a79eb0 c3a9a000 000000dc bf010850 c3a9e600 c3a9a01c c30f4000
+9ec0: c3a79ef8 c3a79ed0 bf010704 bf01085c c30f4000 fffffffb c3a11e24 00000fff
+9ee0: c0267420 c3af18f4 c3a79f80 c3a79f0c c3a79efc bf010cc4 bf010694 bf016678
+9f00: c3a79f24 c3a79f10 c012e43c bf010ca0 c3af18e0 c38118c0 c3a79f5c c3a79f28
+9f20: c00c7548 c012e420 00000003 00001000 bea6ddb0 c3a758e0 00001000 bea6ddb0
+9f40: c3a79f80 c0021f84 c3a78000 00000001 c3a79f7c c3a79f60 c008ac1c c00c74b0
+9f60: c3a758e0 00000000 00000000 00000003 c3a79fa4 c3a79f80 c008af0c c008ab78
+9f80: 00000000 00000000 00000000 00001000 4009c614 bea6ddb0 00000000 c3a79fa8
+9fa0: c0021de0 c008aecc 00001000 4009c614 00000003 bea6ddb0 00001000 00074b70
+9fc0: 00001000 4009c614 bea6ddb0 00000003 00000000 00000001 00000001 00000003
+9fe0: 40052660 bea6dd94 0000db54 40052668 20000010 00000003 00000000 00000000
+Backtrace:
+[&lt;bf010850&gt;] (sprom_do_read+0x0/0xf0 [ssb]) from [&lt;bf010704&gt;] 
+(ssb_attr_sprom_show+0x7c/0x124 [ssb])
+[&lt;bf010688&gt;] (ssb_attr_sprom_show+0x0/0x124 [ssb]) from [&lt;bf010cc4&gt;] 
+(ssb_pci_attr_sprom_show+0x30/0x40 [ssb])
+[&lt;bf010c94&gt;] (ssb_pci_attr_sprom_show+0x0/0x40 [ssb]) from [&lt;c012e43c&gt;] 
+(dev_attr_show+0x28/0x54)
+  r4:bf016678
+[&lt;c012e414&gt;] (dev_attr_show+0x0/0x54) from [&lt;c00c7548&gt;] (sysfs_read_file+0xa4/0x138)
+  r5:c38118c0 r4:c3af18e0
+[&lt;c00c74a4&gt;] (sysfs_read_file+0x0/0x138) from [&lt;c008ac1c&gt;] (vfs_read+0xb0/0xfc)
+[&lt;c008ab6c&gt;] (vfs_read+0x0/0xfc) from [&lt;c008af0c&gt;] (sys_read+0x4c/0x84)
+  r7:00000003 r6:00000000 r5:00000000 r4:c3a758e0
+[&lt;c008aec0&gt;] (sys_read+0x0/0x84) from [&lt;c0021de0&gt;] (ret_fast_syscall+0x0/0x2c)
+  r6:bea6ddb0 r5:4009c614 r4:00001000
+Code: 00000000 00000000 00000000 00000000 (00000000)
+---[ end trace b2171b3eec29f300 ]---
+Segmentation fault
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at OpenWrt</A>:/#
+
+Daniel
+
+Larry Finger wrote:
+&gt;<i> Daniel Schmitt wrote:
+</I>&gt;&gt;<i> Hello Group,
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> I posted a few days ago my problems with this WLAN minipci card:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Linux OpenWrt 2.6.28.10 #5 Thu Sep 10 20:36:33 CEST 2009 armv5teb unknown
+</I>&gt;&gt;<i> 00:02.0 0280: 14e4:4325 (rev 02)
+</I>&gt;&gt;<i>           Subsystem: 1414:0004
+</I>&gt;&gt;<i>           Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr+
+</I>&gt;&gt;<i> Stepping- SERR+ FastB2B- DisINTx-
+</I>&gt;&gt;<i>           Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort-
+</I>&gt;&gt;<i> &lt;MAbort- &gt;SERR- &lt;PERR- INTx-
+</I>&gt;&gt;<i>           Interrupt: pin A routed to IRQ 27
+</I>&gt;&gt;<i>           Region 0: Memory at 48020000 (32-bit, non-prefetchable) [disabled]
+</I>&gt;&gt;<i> [size=8K]
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> If I use them (2 pieces) in a WP188 from compex, I don't get ssb.ko running. 
+</I>&gt;&gt;<i> Here is the dmesg if I try to load ssb.ko and b43legacy.ko
+</I>&gt;&gt;<i> PCI: enabling device 0000:00:02.0 (0140 -&gt; 0142)
+</I>&gt;&gt;<i> ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x02, vendor 0x4243)
+</I>&gt;&gt;<i> ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x04, vendor 0x4243)
+</I>&gt;&gt;<i> ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x01, vendor 0x4243)
+</I>&gt;&gt;<i> ssb: Core 3 found: V90 (cc 0x807, rev 0x01, vendor 0x4243)
+</I>&gt;&gt;<i> ssb: Core 4 found: PCI (cc 0x804, rev 0x07, vendor 0x4243)
+</I>&gt;&gt;<i> ssb: Core 5 found: IEEE 802.11 (cc 0x812, rev 0x04, vendor 0x4243)
+</I>&gt;&gt;<i> ssb: Ignoring additional 802.11 core
+</I>&gt;&gt;<i> ssb: WARNING: Invalid SPROM CRC (corrupt SPROM)
+</I>&gt;&gt;<i> ssb: SPROM revision 251 detected.
+</I>&gt;&gt;<i> ssb: Unsupported SPROM revision 251 detected. Will extract v1
+</I>&gt;<i> 
+</I>&gt;<i> Despite this error, the program is almost doing the right thing. I do
+</I>&gt;<i> not understand why this happens. There will be a patch coming that
+</I>&gt;<i> forces the correct extraction.
+</I>&gt;<i> 
+</I>&gt;&gt;<i> Even the SPROM is readable on the SSB:
+</I>&gt;&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at OpenWrt</A>:/# cat /sys/devices/pci0000:00/0000:00:0c.0/ssb_sprom
+</I>&gt;&gt;<i> 014000000400141425430080020002000010001800000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+</I>&gt;&gt;<i> FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0D00713A0DF9
+</I>&gt;&gt;<i> FFFFFFFFFFFFFFFFFFFFFFFFFFFF2130B01198FB4FFE88030B0B3C000000000000003E000F00FF
+</I>&gt;<i>                                         ==
+</I>&gt;<i> This byte is what it is selecting as the version. The nibble offset is
+</I>&gt;<i> 195-196 instead of 253-254.
+</I>&gt;<i> 
+</I>&gt;&gt;<i> FF0000000000000000014D
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006053.html">bcm4306 crashes on IPX4XX and works on x86 ?!?
+</A></li>
+	<LI>Next message: <A HREF="006058.html">bcm4306 crashes on IPX4XX and works on x86 ?!?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6056">[ date ]</a>
+              <a href="thread.html#6056">[ thread ]</a>
+              <a href="subject.html#6056">[ subject ]</a>
+              <a href="author.html#6056">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

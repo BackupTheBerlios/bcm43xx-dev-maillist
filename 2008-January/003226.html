@@ -1,0 +1,89 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43_suspend problem
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43_suspend%20problem&In-Reply-To=%3C200801130152.31724.rjw%40sisk.pl%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003225.html">
+   <LINK REL="Next"  HREF="003227.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43_suspend problem</H1>
+    <B>Rafael J. Wysocki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43_suspend%20problem&In-Reply-To=%3C200801130152.31724.rjw%40sisk.pl%3E"
+       TITLE="b43_suspend problem">rjw at sisk.pl
+       </A><BR>
+    <I>Sun Jan 13 01:52:31 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003225.html">b43_suspend problem
+</A></li>
+        <LI>Next message: <A HREF="003227.html">[PATCH] b43: Fix radio ID register reading
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3226">[ date ]</a>
+              <a href="thread.html#3226">[ thread ]</a>
+              <a href="subject.html#3226">[ subject ]</a>
+              <a href="author.html#3226">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday, 13 of January 2008, Michael Buesch wrote:
+&gt;<i> On Sunday 13 January 2008 00:08:29 Rafael J. Wysocki wrote:
+</I>&gt;<i> &gt; There is a problem with b43_suspend() that it (indirectly) causes
+</I>&gt;<i> &gt; b43_leds_exit() to be called, which attempts to unregister the leds device
+</I>&gt;<i> &gt; objects, which is forbidden (ie. you can't unregister and/or register devices
+</I>&gt;<i> &gt; during a suspend or resume).
+</I>&gt;<i> 
+</I>&gt;<i> Why?
+</I>
+Well, the unregistering itself is not really harmful, provided that the device
+is not registered back during the subsequent resume.
+
+The PM core uses a list of active devices that are added to the list in
+device_add().  The ordering of this list is important, because it is expected
+to reflect the order in which the devices are to be suspended.
+
+This list is manipulated during suspend/resume and devices are moved from it
+and back to it, so unregistering devices during a suspend and registering them
+during the subsequent resume generally changes its ordering and may lead to
+problems during the next suspend/resume cycle.
+
+This is also undesirable if we're going to stop using the freezer for
+suspend/resume at one point in the future.
+
+I'm sure Alan can add some more details.
+
+Greetings,
+Rafael
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003225.html">b43_suspend problem
+</A></li>
+	<LI>Next message: <A HREF="003227.html">[PATCH] b43: Fix radio ID register reading
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3226">[ date ]</a>
+              <a href="thread.html#3226">[ thread ]</a>
+              <a href="subject.html#3226">[ subject ]</a>
+              <a href="author.html#3226">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

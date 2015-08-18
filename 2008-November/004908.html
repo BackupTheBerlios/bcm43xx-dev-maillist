@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BCM4312 Fails when xdm is started
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4312%20Fails%20when%20xdm%20is%20started&In-Reply-To=%3C200811241155.47079.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004907.html">
+   <LINK REL="Next"  HREF="004909.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BCM4312 Fails when xdm is started</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4312%20Fails%20when%20xdm%20is%20started&In-Reply-To=%3C200811241155.47079.mb%40bu3sch.de%3E"
+       TITLE="BCM4312 Fails when xdm is started">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Nov 24 11:55:45 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004907.html">BCM4312 Fails when xdm is started
+</A></li>
+        <LI>Next message: <A HREF="004909.html">BCM4312 Fails when xdm is started
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4908">[ date ]</a>
+              <a href="thread.html#4908">[ thread ]</a>
+              <a href="subject.html#4908">[ subject ]</a>
+              <a href="author.html#4908">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 24 November 2008 09:49:38 Yuval Hager wrote:
+&gt;<i> On Sunday 23 November 2008, Larry Finger wrote:
+</I>&gt;<i> &gt; From a config file posted earlier, the OP is using SLAB. Is there any point
+</I>&gt;<i> &gt; in trying SLUB?
+</I>&gt;<i> 
+</I>&gt;<i> Another try, not sure what it means:
+</I>&gt;<i> 
+</I>&gt;<i> * Added CONFIG_SLUB and CONFIG_SLUB_DEBUG
+</I>&gt;<i> 
+</I>&gt;<i> * boot parameters: root=/dev/sda3 debug memory_corruption_check=1 devres.log=1 debug_objects debugpat 
+</I>&gt;<i> acpi.debug_layer=0x00410002 acpi.debug_level=0xffffffff acpi=off apic=debug nolapic irqpoll pci=noacpi slub_debug=FZPU
+</I>&gt;<i> 
+</I>&gt;<i> * cat /proc/interrupts is
+</I>&gt;<i>            CPU0       
+</I>&gt;<i>   0:      16658    XT-PIC-XT        timer
+</I>&gt;<i>   1:        289    XT-PIC-XT        i8042
+</I>&gt;<i>   2:          0    XT-PIC-XT        cascade
+</I>&gt;<i>   3:         60    XT-PIC-XT        uhci_hcd:usb2, ehci_hcd:usb4
+</I>&gt;<i>   5:       9163    XT-PIC-XT        sata_via, HDA Intel
+</I>&gt;<i>   7:          0    XT-PIC-XT        uhci_hcd:usb3
+</I>&gt;<i>   8:          2    XT-PIC-XT        rtc
+</I>&gt;<i>  10:       1712    XT-PIC-XT        b43
+</I>&gt;<i>  11:        131    XT-PIC-XT        uhci_hcd:usb1
+</I>&gt;<i>  12:        706    XT-PIC-XT        i8042
+</I>&gt;<i>  14:          0    XT-PIC-XT        ide0
+</I>&gt;<i>  15:          0    XT-PIC-XT        ide1
+</I>&gt;<i> NMI:          0   Non-maskable interrupts
+</I>&gt;<i> LOC:          0   Local timer interrupts
+</I>&gt;<i> RES:          0   Rescheduling interrupts
+</I>&gt;<i> CAL:          0   Function call interrupts
+</I>&gt;<i> TLB:          0   TLB shootdowns
+</I>&gt;<i> TRM:          0   Thermal event interrupts
+</I>&gt;<i> SPU:          0   Spurious interrupts
+</I>&gt;<i> ERR:          0
+</I>&gt;<i> MIS:          0
+</I>&gt;<i> 
+</I>&gt;<i> * lspci -d 14e4:4312 -x
+</I>&gt;<i> 02:00.0 Network controller: Broadcom Corporation BCM4312 802.11a/b/g (rev 02)
+</I>&gt;<i> 00: e4 14 12 43 06 01 10 00 02 00 80 02 08 00 00 00
+</I>&gt;<i> 10: 04 c0 ff fd 00 00 00 00 00 00 00 00 00 00 00 00
+</I>&gt;<i> 20: 00 00 00 00 00 00 00 00 00 00 00 00 3c 10 71 13
+</I>&gt;<i> 30: 00 00 00 00 40 00 00 00 00 00 00 00 0a 01 00 00
+</I>&gt;<i> 
+</I>&gt;<i> * xset dpms force standby
+</I>&gt;<i> * wake up
+</I>&gt;<i> * dmesg is virtually the same as before, complaining about nobody handling irq 10 and disabling it.
+</I>
+Actually, b43 _does_ use IRQ10 now.
+I guess the card dies such a horrible death, that it also asserts the IRQ line forever.
+
+&gt;<i> * /proc/interrupts now is
+</I>&gt;<i>   0:      80987    XT-PIC-XT        timer
+</I>&gt;<i>   1:       1027    XT-PIC-XT        i8042
+</I>&gt;<i>   2:          0    XT-PIC-XT        cascade
+</I>&gt;<i>   3:         60    XT-PIC-XT        uhci_hcd:usb2, ehci_hcd:usb4
+</I>&gt;<i>   5:      10400    XT-PIC-XT        sata_via, HDA Intel
+</I>&gt;<i>   7:          0    XT-PIC-XT        uhci_hcd:usb3
+</I>&gt;<i>   8:          2    XT-PIC-XT        rtc
+</I>&gt;<i>  10:     200000    XT-PIC-XT        b43
+</I>&gt;<i>  11:        131    XT-PIC-XT        uhci_hcd:usb1
+</I>&gt;<i>  12:       3059    XT-PIC-XT        i8042
+</I>&gt;<i>  14:          0    XT-PIC-XT        ide0
+</I>&gt;<i>  15:          0    XT-PIC-XT        ide1
+</I>&gt;<i> NMI:          0   Non-maskable interrupts
+</I>&gt;<i> LOC:          0   Local timer interrupts
+</I>&gt;<i> RES:          0   Rescheduling interrupts
+</I>&gt;<i> CAL:          0   Function call interrupts
+</I>&gt;<i> TLB:          0   TLB shootdowns
+</I>&gt;<i> TRM:          0   Thermal event interrupts
+</I>&gt;<i> SPU:          0   Spurious interrupts
+</I>&gt;<i> ERR:          0
+</I>&gt;<i> MIS:          0
+</I>&gt;<i> 
+</I>&gt;<i> * Now check this out - the output of lspci -d 14e4:4312 -x
+</I>&gt;<i> 02:00.0 Network controller: Broadcom Corporation BCM4312 802.11a/b/g (rev ff)
+</I>&gt;<i> 00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+</I>&gt;<i> 10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+</I>&gt;<i> 20: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+</I>&gt;<i> 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+</I>&gt;<i> 
+</I>&gt;<i> (I double checked this)
+</I>&gt;<i> 
+</I>&gt;<i> huh?
+</I>
+Hah, interesting. I think your hardware may be faulty, in fact.
+To me it really seems like the mainboard has power failures on the PCI bus.
+
+This is a laptop, so you can't pull random hardware? Can you run some
+hardware burn-in tests like mprime (<A HREF="http://mersenne.org/freesoft/">http://mersenne.org/freesoft/</A>) or memtest?
+If that doesn't help, can you try with another operating system?
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004907.html">BCM4312 Fails when xdm is started
+</A></li>
+	<LI>Next message: <A HREF="004909.html">BCM4312 Fails when xdm is started
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4908">[ date ]</a>
+              <a href="thread.html#4908">[ thread ]</a>
+              <a href="subject.html#4908">[ subject ]</a>
+              <a href="author.html#4908">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

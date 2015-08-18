@@ -1,0 +1,384 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: Fix problem with &gt;1 GB RAM
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20problem%20with%20%3E1%20GB%20RAM&In-Reply-To=%3C200701221920.28938.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000137.html">
+   <LINK REL="Next"  HREF="000145.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: Fix problem with &gt;1 GB RAM</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20problem%20with%20%3E1%20GB%20RAM&In-Reply-To=%3C200701221920.28938.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] bcm43xx: Fix problem with &gt;1 GB RAM">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Jan 22 19:20:28 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000137.html">[PATCH] bcm43xx: Fix problem with &gt;1 GB RAM
+</A></li>
+        <LI>Next message: <A HREF="000145.html">[PATCH] bcm43xx: Fix problem with &gt;1 GB RAM
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#143">[ date ]</a>
+              <a href="thread.html#143">[ thread ]</a>
+              <a href="subject.html#143">[ subject ]</a>
+              <a href="author.html#143">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Saturday 20 January 2007 17:18, Larry Finger wrote:
+&gt;<i> Some versions of the bcm43xx chips only support 30-bit DMA, which means
+</I>&gt;<i> that the descriptors and buffers must be in the first 1 GB of RAM. On
+</I>&gt;<i> the i386 and x86_64 architectures with more than 1 GB RAM, an incorrect
+</I>&gt;<i> assignment may occur. This patch ensures that the various DMA addresses
+</I>&gt;<i> are within the capability of the chip. Testing has been limited to x86_64
+</I>&gt;<i> as no one has an i386 system with more than 1 GB RAM.
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i> John,
+</I>&gt;<i> 
+</I>&gt;<i> This patch should be applied to wireless-2.6 and pushed up to 2.6.20.
+</I>&gt;<i> 
+</I>&gt;<i> Thanks,
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> 
+</I>&gt;<i> Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
+</I>&gt;<i> +++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
+</I>&gt;<i> @@ -145,16 +145,14 @@ dma_addr_t map_descbuffer(struct bcm43xx
+</I>&gt;<i>  			  int tx)
+</I>&gt;<i>  {
+</I>&gt;<i>  	dma_addr_t dmaaddr;
+</I>&gt;<i> +	int direction = PCI_DMA_FROMDEVICE;
+</I>&gt;<i>  
+</I>&gt;<i> -	if (tx) {
+</I>&gt;<i> -		dmaaddr = dma_map_single(&amp;ring-&gt;bcm-&gt;pci_dev-&gt;dev,
+</I>&gt;<i> -					 buf, len,
+</I>&gt;<i> -					 DMA_TO_DEVICE);
+</I>&gt;<i> -	} else {
+</I>&gt;<i> -		dmaaddr = dma_map_single(&amp;ring-&gt;bcm-&gt;pci_dev-&gt;dev,
+</I>&gt;<i> +	if (tx)
+</I>&gt;<i> +		direction = PCI_DMA_TODEVICE;
+</I>&gt;<i> +
+</I>&gt;<i> +	dmaaddr = pci_map_single(ring-&gt;bcm-&gt;pci_dev,
+</I>&gt;<i>  					 buf, len,
+</I>&gt;<i> -					 DMA_FROM_DEVICE);
+</I>&gt;<i> -	}
+</I>&gt;<i> +					 direction);
+</I>&gt;<i>  
+</I>&gt;<i>  	return dmaaddr;
+</I>&gt;<i>  }
+</I>&gt;<i> @@ -166,13 +164,13 @@ void unmap_descbuffer(struct bcm43xx_dma
+</I>&gt;<i>  		      int tx)
+</I>&gt;<i>  {
+</I>&gt;<i>  	if (tx) {
+</I>&gt;<i> -		dma_unmap_single(&amp;ring-&gt;bcm-&gt;pci_dev-&gt;dev,
+</I>&gt;<i> +		pci_unmap_single(ring-&gt;bcm-&gt;pci_dev,
+</I>&gt;<i>  				 addr, len,
+</I>&gt;<i> -				 DMA_TO_DEVICE);
+</I>&gt;<i> +				 PCI_DMA_TODEVICE);
+</I>&gt;<i>  	} else {
+</I>&gt;<i> -		dma_unmap_single(&amp;ring-&gt;bcm-&gt;pci_dev-&gt;dev,
+</I>&gt;<i> +		pci_unmap_single(ring-&gt;bcm-&gt;pci_dev,
+</I>&gt;<i>  				 addr, len,
+</I>&gt;<i> -				 DMA_FROM_DEVICE);
+</I>&gt;<i> +				 PCI_DMA_FROMDEVICE);
+</I>&gt;<i>  	}
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i> @@ -183,8 +181,8 @@ void sync_descbuffer_for_cpu(struct bcm4
+</I>&gt;<i>  {
+</I>&gt;<i>  	assert(!ring-&gt;tx);
+</I>&gt;<i>  
+</I>&gt;<i> -	dma_sync_single_for_cpu(&amp;ring-&gt;bcm-&gt;pci_dev-&gt;dev,
+</I>&gt;<i> -				addr, len, DMA_FROM_DEVICE);
+</I>&gt;<i> +	pci_dma_sync_single_for_cpu(ring-&gt;bcm-&gt;pci_dev,
+</I>&gt;<i> +				    addr, len, PCI_DMA_FROMDEVICE);
+</I>&gt;<i>  }
+</I>
+Any special reason why you convert the DMA operations to the PCI
+stuff? I ask, because if this makes a difference, it affects the
+new SSB subsystem as well.
+
+&gt;<i>  static inline
+</I>&gt;<i> @@ -194,8 +192,8 @@ void sync_descbuffer_for_device(struct b
+</I>&gt;<i>  {
+</I>&gt;<i>  	assert(!ring-&gt;tx);
+</I>&gt;<i>  
+</I>&gt;<i> -	dma_sync_single_for_device(&amp;ring-&gt;bcm-&gt;pci_dev-&gt;dev,
+</I>&gt;<i> -				   addr, len, DMA_FROM_DEVICE);
+</I>&gt;<i> +	pci_dma_sync_single_for_cpu(ring-&gt;bcm-&gt;pci_dev,
+</I>&gt;<i> +				    addr, len, PCI_DMA_TODEVICE);
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i>  /* Unmap and free a descriptor buffer. */
+</I>&gt;<i> @@ -214,17 +212,53 @@ void free_descriptor_buffer(struct bcm43
+</I>&gt;<i>  
+</I>&gt;<i>  static int alloc_ringmemory(struct bcm43xx_dmaring *ring)
+</I>&gt;<i>  {
+</I>&gt;<i> -	struct device *dev = &amp;(ring-&gt;bcm-&gt;pci_dev-&gt;dev);
+</I>&gt;<i> -
+</I>&gt;<i> -	ring-&gt;descbase = dma_alloc_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
+</I>&gt;<i> -					    &amp;(ring-&gt;dmabase), GFP_KERNEL);
+</I>&gt;<i> +	ring-&gt;descbase = pci_alloc_consistent(ring-&gt;bcm-&gt;pci_dev, BCM43xx_DMA_RINGMEMSIZE,
+</I>&gt;<i> +					    &amp;(ring-&gt;dmabase));
+</I>&gt;<i>  	if (!ring-&gt;descbase) {
+</I>&gt;<i> -		printk(KERN_ERR PFX &quot;DMA ringmemory allocation failed\n&quot;);
+</I>&gt;<i> -		return -ENOMEM;
+</I>&gt;<i> +		/* Allocation may have failed due to pci_alloc_consistent
+</I>&gt;<i> +		   insisting on use of GFP_DMA, which is more restrictive
+</I>&gt;<i> +		   than necessary...  */
+</I>&gt;<i> +		struct dma_desc *rx_ring;
+</I>&gt;<i> +		dma_addr_t rx_ring_dma;
+</I>&gt;<i> +
+</I>&gt;<i> +		rx_ring = kzalloc(BCM43xx_DMA_RINGMEMSIZE, GFP_KERNEL);
+</I>&gt;<i> +		if (!rx_ring)
+</I>&gt;<i> +			goto out_err;
+</I>&gt;<i> +
+</I>&gt;<i> +		rx_ring_dma = pci_map_single(ring-&gt;bcm-&gt;pci_dev, rx_ring,
+</I>&gt;<i> +					     BCM43xx_DMA_RINGMEMSIZE,
+</I>&gt;<i> +					     PCI_DMA_BIDIRECTIONAL);
+</I>&gt;<i> +
+</I>&gt;<i> +		if (pci_dma_mapping_error(rx_ring_dma) ||
+</I>&gt;<i> +		    rx_ring_dma + BCM43xx_DMA_RINGMEMSIZE &gt; ring-&gt;bcm-&gt;dma_mask) {
+</I>&gt;<i> +			/* Sigh... */
+</I>&gt;<i> +			if (!pci_dma_mapping_error(rx_ring_dma))
+</I>&gt;<i> +				pci_unmap_single(ring-&gt;bcm-&gt;pci_dev,
+</I>&gt;<i> +						 rx_ring_dma, BCM43xx_DMA_RINGMEMSIZE,
+</I>&gt;<i> +						 PCI_DMA_BIDIRECTIONAL);
+</I>&gt;<i> +			rx_ring_dma = pci_map_single(ring-&gt;bcm-&gt;pci_dev,
+</I>&gt;<i> +						 rx_ring, BCM43xx_DMA_RINGMEMSIZE,
+</I>&gt;<i> +						 PCI_DMA_BIDIRECTIONAL);
+</I>&gt;<i> +			if (pci_dma_mapping_error(rx_ring_dma) ||
+</I>&gt;<i> +			    rx_ring_dma + BCM43xx_DMA_RINGMEMSIZE &gt; ring-&gt;bcm-&gt;dma_mask) {
+</I>&gt;<i> +				assert(0);
+</I>&gt;<i> +				if (!pci_dma_mapping_error(rx_ring_dma))
+</I>&gt;<i> +					pci_unmap_single(ring-&gt;bcm-&gt;pci_dev,
+</I>&gt;<i> +							 rx_ring_dma, BCM43xx_DMA_RINGMEMSIZE,
+</I>&gt;<i> +							 PCI_DMA_BIDIRECTIONAL);
+</I>&gt;<i> +                        	goto out_err;
+</I>&gt;<i> +			}
+</I>&gt;<i> +                }
+</I>&gt;<i> +
+</I>&gt;<i> +                ring-&gt;descbase = rx_ring;
+</I>&gt;<i> +                ring-&gt;dmabase = rx_ring_dma;
+</I>&gt;<i>  	}
+</I>&gt;<i>  	memset(ring-&gt;descbase, 0, BCM43xx_DMA_RINGMEMSIZE);
+</I>&gt;<i>  
+</I>&gt;<i>  	return 0;
+</I>&gt;<i> +out_err:
+</I>&gt;<i> +	printk(KERN_ERR PFX &quot;DMA ringmemory allocation failed\n&quot;);
+</I>&gt;<i> +	return -ENOMEM;
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i>  static void free_ringmemory(struct bcm43xx_dmaring *ring)
+</I>&gt;<i> @@ -407,6 +441,29 @@ static int setup_rx_descbuffer(struct bc
+</I>&gt;<i>  	if (unlikely(!skb))
+</I>&gt;<i>  		return -ENOMEM;
+</I>&gt;<i>  	dmaaddr = map_descbuffer(ring, skb-&gt;data, ring-&gt;rx_buffersize, 0);
+</I>&gt;<i> +	/* This hardware bug work-around adapted from the b44 driver.
+</I>&gt;<i> +	   The chip may be unable to do PCI DMA to/from anything above 1GB */
+</I>&gt;<i> +	if (pci_dma_mapping_error(dmaaddr) ||
+</I>&gt;<i> +	    dmaaddr + ring-&gt;rx_buffersize &gt; ring-&gt;bcm-&gt;dma_mask) {
+</I>&gt;<i> +		/* This one has 30-bit addressing... */
+</I>&gt;<i> +		if (!pci_dma_mapping_error(dmaaddr))
+</I>&gt;<i> +			pci_unmap_single(ring-&gt;bcm-&gt;pci_dev,
+</I>&gt;<i> +					 dmaaddr, ring-&gt;rx_buffersize,
+</I>&gt;<i> +					 PCI_DMA_FROMDEVICE);
+</I>&gt;<i> +		dev_kfree_skb_any(skb);
+</I>&gt;<i> +		skb = __dev_alloc_skb(ring-&gt;rx_buffersize,GFP_DMA);
+</I>&gt;<i> +		if (skb == NULL)
+</I>&gt;<i> +			return -ENOMEM;
+</I>&gt;<i> +		dmaaddr = pci_map_single(ring-&gt;bcm-&gt;pci_dev,
+</I>&gt;<i> +					 skb-&gt;data, ring-&gt;rx_buffersize,
+</I>&gt;<i> +					 PCI_DMA_FROMDEVICE);
+</I>&gt;<i> +		if (pci_dma_mapping_error(dmaaddr) ||
+</I>&gt;<i> +		    dmaaddr + ring-&gt;rx_buffersize &gt; ring-&gt;bcm-&gt;dma_mask) {
+</I>&gt;<i> +			assert(0);
+</I>&gt;<i> +			dev_kfree_skb_any(skb);
+</I>&gt;<i> +			return -ENOMEM;
+</I>&gt;<i> +		}
+</I>&gt;<i> +	}
+</I>&gt;<i>  	meta-&gt;skb = skb;
+</I>&gt;<i>  	meta-&gt;dmaaddr = dmaaddr;
+</I>&gt;<i>  	skb-&gt;dev = ring-&gt;bcm-&gt;net_dev;
+</I>&gt;<i> @@ -636,8 +693,10 @@ struct bcm43xx_dmaring * bcm43xx_setup_d
+</I>&gt;<i>  	err = dmacontroller_setup(ring);
+</I>&gt;<i>  	if (err)
+</I>&gt;<i>  		goto err_free_ringmemory;
+</I>&gt;<i> +	return ring;
+</I>&gt;<i>  
+</I>&gt;<i>  out:
+</I>&gt;<i> +	printk(KERN_ERR PFX &quot;Error in bcm43xx_setup_dmaring\n&quot;);
+</I>&gt;<i>  	return ring;
+</I>&gt;<i>  
+</I>&gt;<i>  err_free_ringmemory:
+</I>&gt;<i> @@ -705,30 +764,16 @@ int bcm43xx_dma_init(struct bcm43xx_priv
+</I>&gt;<i>  	struct bcm43xx_dmaring *ring;
+</I>&gt;<i>  	int err = -ENOMEM;
+</I>&gt;<i>  	int dma64 = 0;
+</I>&gt;<i> -	u64 mask = bcm43xx_get_supported_dma_mask(bcm);
+</I>&gt;<i> -	int nobits;
+</I>&gt;<i>  
+</I>&gt;<i> -	if (mask == DMA_64BIT_MASK) {
+</I>&gt;<i> +	bcm-&gt;dma_mask = bcm43xx_get_supported_dma_mask(bcm);
+</I>&gt;<i> +	if (bcm-&gt;dma_mask == DMA_64BIT_MASK)
+</I>&gt;<i>  		dma64 = 1;
+</I>&gt;<i> -		nobits = 64;
+</I>&gt;<i> -	} else if (mask == DMA_32BIT_MASK)
+</I>&gt;<i> -		nobits = 32;
+</I>&gt;<i> -	else
+</I>&gt;<i> -		nobits = 30;
+</I>&gt;<i> -	err = pci_set_dma_mask(bcm-&gt;pci_dev, mask);
+</I>&gt;<i> -	err |= pci_set_consistent_dma_mask(bcm-&gt;pci_dev, mask);
+</I>&gt;<i> -	if (err) {
+</I>&gt;<i> -#ifdef CONFIG_BCM43XX_PIO
+</I>&gt;<i> -		printk(KERN_WARNING PFX &quot;DMA not supported on this device.&quot;
+</I>&gt;<i> -					&quot; Falling back to PIO.\n&quot;);
+</I>&gt;<i> -		bcm-&gt;__using_pio = 1;
+</I>&gt;<i> -		return -ENOSYS;
+</I>&gt;<i> -#else
+</I>&gt;<i> -		printk(KERN_ERR PFX &quot;FATAL: DMA not supported and PIO not configured. &quot;
+</I>&gt;<i> -				    &quot;Please recompile the driver with PIO support.\n&quot;);
+</I>&gt;<i> -		return -ENODEV;
+</I>&gt;<i> -#endif /* CONFIG_BCM43XX_PIO */
+</I>&gt;<i> -	}
+</I>&gt;<i> +	err = pci_set_dma_mask(bcm-&gt;pci_dev, bcm-&gt;dma_mask);
+</I>&gt;<i> +	if (err)
+</I>&gt;<i> +		goto no_dma;
+</I>&gt;<i> +	err = pci_set_consistent_dma_mask(bcm-&gt;pci_dev, bcm-&gt;dma_mask);
+</I>&gt;<i> +	if (err)
+</I>&gt;<i> +		goto no_dma;
+</I>&gt;<i>  
+</I>&gt;<i>  	/* setup TX DMA channels. */
+</I>&gt;<i>  	ring = bcm43xx_setup_dmaring(bcm, 0, 1, dma64);
+</I>&gt;<i> @@ -774,9 +819,12 @@ int bcm43xx_dma_init(struct bcm43xx_priv
+</I>&gt;<i>  		dma-&gt;rx_ring3 = ring;
+</I>&gt;<i>  	}
+</I>&gt;<i>  
+</I>&gt;<i> -	dprintk(KERN_INFO PFX &quot;%d-bit DMA initialized\n&quot;, nobits);
+</I>&gt;<i> +	dprintk(KERN_INFO PFX &quot;%d-bit DMA initialized\n&quot;,
+</I>&gt;<i> +		(bcm-&gt;dma_mask == DMA_64BIT_MASK) ? 64 :
+</I>&gt;<i> +		(bcm-&gt;dma_mask == DMA_32BIT_MASK) ? 32 : 30);
+</I>&gt;<i>  	err = 0;
+</I>&gt;<i>  out:
+</I>&gt;<i> +	if(err)BUG();
+</I>&gt;<i>  	return err;
+</I>&gt;<i>  
+</I>&gt;<i>  err_destroy_rx0:
+</I>&gt;<i> @@ -800,7 +848,18 @@ err_destroy_tx1:
+</I>&gt;<i>  err_destroy_tx0:
+</I>&gt;<i>  	bcm43xx_destroy_dmaring(dma-&gt;tx_ring0);
+</I>&gt;<i>  	dma-&gt;tx_ring0 = NULL;
+</I>&gt;<i> -	goto out;
+</I>&gt;<i> +no_dma:
+</I>&gt;<i> +#ifdef CONFIG_BCM43XX_PIO
+</I>&gt;<i> +	printk(KERN_WARNING PFX &quot;DMA not supported on this device.&quot;
+</I>&gt;<i> +				&quot; Falling back to PIO.\n&quot;);
+</I>&gt;<i> +	bcm-&gt;__using_pio = 1;
+</I>&gt;<i> +	BUG();
+</I>
+That isn't a BUG. Just remove this call, please.
+
+&gt;<i> +	return -ENOSYS;
+</I>&gt;<i> +#else
+</I>&gt;<i> +	printk(KERN_ERR PFX &quot;FATAL: DMA not supported and PIO not configured. &quot;
+</I>&gt;<i> +			    &quot;Please recompile the driver with PIO support.\n&quot;);
+</I>&gt;<i> +	return -ENODEV;
+</I>&gt;<i> +#endif /* CONFIG_BCM43XX_PIO */
+</I>&gt;<i>  }
+</I>&gt;<i>  
+</I>&gt;<i>  /* Generate a cookie for the TX header. */
+</I>&gt;<i> @@ -905,6 +964,7 @@ static void dma_tx_fragment(struct bcm43
+</I>&gt;<i>  	struct bcm43xx_dmadesc_generic *desc;
+</I>&gt;<i>  	struct bcm43xx_dmadesc_meta *meta;
+</I>&gt;<i>  	dma_addr_t dmaaddr;
+</I>&gt;<i> +	struct sk_buff *bounce_skb;
+</I>&gt;<i>  
+</I>&gt;<i>  	assert(skb_shinfo(skb)-&gt;nr_frags == 0);
+</I>&gt;<i>  
+</I>&gt;<i> @@ -924,9 +984,28 @@ static void dma_tx_fragment(struct bcm43
+</I>&gt;<i>  			       skb-&gt;len - sizeof(struct bcm43xx_txhdr),
+</I>&gt;<i>  			       (cur_frag == 0),
+</I>&gt;<i>  			       generate_cookie(ring, slot));
+</I>&gt;<i> +	dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+</I>&gt;<i> +	if (dma_mapping_error(dmaaddr) || dmaaddr + skb-&gt;len &gt; ring-&gt;bcm-&gt;dma_mask) {
+</I>&gt;<i> +		/* chip cannot handle DMA to/from &gt; 1GB, use bounce buffer (copied from b44 driver) */
+</I>&gt;<i> +		if (!dma_mapping_error(dmaaddr))
+</I>&gt;<i> +			unmap_descbuffer(ring, dmaaddr, skb-&gt;len, 1);
+</I>&gt;<i> +		bounce_skb = __dev_alloc_skb(skb-&gt;len, GFP_ATOMIC|GFP_DMA);
+</I>&gt;<i> +		if (!bounce_skb)
+</I>&gt;<i> +			return;
+</I>&gt;<i> +		dmaaddr = map_descbuffer(ring, bounce_skb-&gt;data, bounce_skb-&gt;len, 1);
+</I>&gt;<i> +		if (dma_mapping_error(dmaaddr) || dmaaddr + skb-&gt;len &gt; ring-&gt;bcm-&gt;dma_mask) {
+</I>&gt;<i> +			if (!dma_mapping_error(dmaaddr))
+</I>&gt;<i> +				unmap_descbuffer(ring, dmaaddr, skb-&gt;len, 1);
+</I>&gt;<i> +			dev_kfree_skb_any(bounce_skb);
+</I>&gt;<i> +			assert(0);
+</I>&gt;<i> +			return;
+</I>&gt;<i> +		}
+</I>&gt;<i> +		memcpy(skb_put(bounce_skb, skb-&gt;len), skb-&gt;data, skb-&gt;len);
+</I>&gt;<i> +		dev_kfree_skb_any(skb);
+</I>&gt;<i> +		skb = bounce_skb;
+</I>&gt;<i> +	}
+</I>&gt;<i>  
+</I>&gt;<i>  	meta-&gt;skb = skb;
+</I>&gt;<i> -	dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+</I>&gt;<i>  	meta-&gt;dmaaddr = dmaaddr;
+</I>&gt;<i>  
+</I>&gt;<i>  	fill_descriptor(ring, desc, dmaaddr,
+</I>&gt;<i> Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx.h
+</I>&gt;<i> +++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
+</I>&gt;<i> @@ -771,6 +771,7 @@ struct bcm43xx_private {
+</I>&gt;<i>  	 * This is currently always BCM43xx_BUSTYPE_PCI
+</I>&gt;<i>  	 */
+</I>&gt;<i>  	u8 bustype;
+</I>&gt;<i> +	u64 dma_mask;
+</I>&gt;<i>  
+</I>&gt;<i>  	u16 board_vendor;
+</I>&gt;<i>  	u16 board_type;
+</I>
+The rest is OK, I think.
+Thanks for the nice work.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000137.html">[PATCH] bcm43xx: Fix problem with &gt;1 GB RAM
+</A></li>
+	<LI>Next message: <A HREF="000145.html">[PATCH] bcm43xx: Fix problem with &gt;1 GB RAM
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#143">[ date ]</a>
+              <a href="thread.html#143">[ thread ]</a>
+              <a href="subject.html#143">[ subject ]</a>
+              <a href="author.html#143">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

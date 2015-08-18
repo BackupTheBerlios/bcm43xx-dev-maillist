@@ -1,0 +1,206 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> RFC V3 bcm43xx: Fix potential race in shutdown of work queues
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20RFC%20V3%20bcm43xx%3A%20Fix%20potential%20race%20in%20shutdown%20of%20work%20queues&In-Reply-To=%3C46DD88C5.5040007%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002302.html">
+   <LINK REL="Next"  HREF="002305.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>RFC V3 bcm43xx: Fix potential race in shutdown of work queues</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20RFC%20V3%20bcm43xx%3A%20Fix%20potential%20race%20in%20shutdown%20of%20work%20queues&In-Reply-To=%3C46DD88C5.5040007%40lwfinger.net%3E"
+       TITLE="RFC V3 bcm43xx: Fix potential race in shutdown of work queues">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Tue Sep  4 18:33:09 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002302.html">RFC V3 bcm43xx: Fix potential race in shutdown of work queues
+</A></li>
+        <LI>Next message: <A HREF="002305.html">RFC V3 bcm43xx: Fix potential race in shutdown of work queues
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2304">[ date ]</a>
+              <a href="thread.html#2304">[ thread ]</a>
+              <a href="subject.html#2304">[ subject ]</a>
+              <a href="author.html#2304">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> On Tuesday 04 September 2007, Larry Finger wrote:
+</I>&gt;&gt;<i> A crash upon booting that is caused by bcm43xx has been reported [1] and
+</I>&gt;&gt;<i> found to be due to a work queue being reinitialized while work on that
+</I>&gt;&gt;<i> queue is still pending. This fix modifies the shutdown of work queues and
+</I>&gt;&gt;<i> prevents periodic work from being requeued during shutdown. With this patch,
+</I>&gt;&gt;<i> no more crashes on reboot were observed by the original reporter. I do not
+</I>&gt;&gt;<i> get that particular failure on my system; however, when running a large
+</I>&gt;&gt;<i> number of ifdown/ifup sequences, my system would occasionally hang with the
+</I>&gt;&gt;<i> 'caps lock' light blinking at roughly a 1 Hz rate. In addition, there were
+</I>&gt;&gt;<i> infrequent failures in the firmware that resulted in 'IRQ READY TIMEOUT'
+</I>&gt;&gt;<i> errors. With this patch, no more of the first type of failure occur, and
+</I>&gt;&gt;<i> incidence of the second type is greatly reduced.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> [1] <A HREF="http://bugzilla.kernel.org/show_bug.cgi?id=8937">http://bugzilla.kernel.org/show_bug.cgi?id=8937</A>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;&gt;<i> ---
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Michael,
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> The version I sent as 'RFC V2' had even more problems than the one you noted
+</I>&gt;&gt;<i> as it suffered from the total crash with the blinking caps lock light. This
+</I>&gt;&gt;<i> patch is a lot more solid.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Larry
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>  drivers/net/wireless/bcm43xx/bcm43xx_main.c  |   28 +++++++++++++++++++--------
+</I>&gt;&gt;<i>  drivers/net/wireless/bcm43xx/bcm43xx_main.h  |    2 -
+</I>&gt;&gt;<i>  drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c |    3 +-
+</I>&gt;&gt;<i>  3 files changed, 23 insertions(+), 10 deletions(-)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;&gt;<i> ===================================================================
+</I>&gt;&gt;<i> --- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;&gt;<i> +++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+</I>&gt;&gt;<i> @@ -3197,6 +3197,9 @@ static void bcm43xx_periodic_work_handle
+</I>&gt;&gt;<i>  	unsigned long orig_trans_start = 0;
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i>  	mutex_lock(&amp;bcm-&gt;mutex);
+</I>&gt;&gt;<i> +	/* keep from doing and rearming periodic work if shutting down */
+</I>&gt;&gt;<i> +	if (bcm43xx_status(bcm) == BCM43xx_STAT_UNINIT)
+</I>&gt;&gt;<i> +		goto unlock_mutex;
+</I>&gt;&gt;<i>  	if (unlikely(bcm-&gt;periodic_state % 60 == 0)) {
+</I>&gt;&gt;<i>  		/* Periodic work will take a long time, so we want it to
+</I>&gt;&gt;<i>  		 * be preemtible.
+</I>&gt;&gt;<i> @@ -3242,14 +3245,10 @@ static void bcm43xx_periodic_work_handle
+</I>&gt;&gt;<i>  	mmiowb();
+</I>&gt;&gt;<i>  	bcm-&gt;periodic_state++;
+</I>&gt;&gt;<i>  	spin_unlock_irqrestore(&amp;bcm-&gt;irq_lock, flags);
+</I>&gt;&gt;<i> +unlock_mutex:
+</I>&gt;&gt;<i>  	mutex_unlock(&amp;bcm-&gt;mutex);
+</I>&gt;&gt;<i>  }
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -void bcm43xx_periodic_tasks_delete(struct bcm43xx_private *bcm)
+</I>&gt;&gt;<i> -{
+</I>&gt;&gt;<i> -	cancel_rearming_delayed_work(&amp;bcm-&gt;periodic_work);
+</I>&gt;&gt;<i> -}
+</I>&gt;&gt;<i> -
+</I>&gt;&gt;<i>  void bcm43xx_periodic_tasks_setup(struct bcm43xx_private *bcm)
+</I>&gt;&gt;<i>  {
+</I>&gt;&gt;<i>  	struct delayed_work *work = &amp;bcm-&gt;periodic_work;
+</I>&gt;&gt;<i> @@ -3299,6 +3298,14 @@ static int bcm43xx_rng_init(struct bcm43
+</I>&gt;&gt;<i>  	return err;
+</I>&gt;&gt;<i>  }
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> +void bcm43xx_cancel_work(struct bcm43xx_private *bcm)
+</I>&gt;&gt;<i> +{
+</I>&gt;&gt;<i> +	/* The system must be unlocked when this routine is entered.
+</I>&gt;&gt;<i> +	 * If not, the next 2 steps may deadlock */
+</I>&gt;&gt;<i> +	cancel_work_sync(&amp;bcm-&gt;restart_work);
+</I>&gt;&gt;<i> +	cancel_delayed_work_sync(&amp;bcm-&gt;periodic_work);
+</I>&gt;&gt;<i> +}
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i>  static int bcm43xx_shutdown_all_wireless_cores(struct bcm43xx_private *bcm)
+</I>&gt;&gt;<i>  {
+</I>&gt;&gt;<i>  	int ret = 0;
+</I>&gt;&gt;<i> @@ -3335,7 +3342,12 @@ static void bcm43xx_free_board(struct bc
+</I>&gt;&gt;<i>  {
+</I>&gt;&gt;<i>  	bcm43xx_rng_exit(bcm);
+</I>&gt;&gt;<i>  	bcm43xx_sysfs_unregister(bcm);
+</I>&gt;&gt;<i> -	bcm43xx_periodic_tasks_delete(bcm);
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> +	mutex_lock(&amp;(bcm)-&gt;mutex);
+</I>&gt;&gt;<i> +	bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
+</I>&gt;&gt;<i> +	mutex_unlock(&amp;(bcm)-&gt;mutex);
+</I>&gt;&gt;<i> +
+</I>&gt;&gt;<i> +	bcm43xx_cancel_work(bcm);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i>  	mutex_lock(&amp;(bcm)-&gt;mutex);
+</I>&gt;&gt;<i>  	bcm43xx_shutdown_all_wireless_cores(bcm);
+</I>&gt;&gt;<i> @@ -4030,7 +4042,7 @@ static int bcm43xx_net_stop(struct net_d
+</I>&gt;&gt;<i>  	err = bcm43xx_disable_interrupts_sync(bcm);
+</I>&gt;&gt;<i>  	assert(!err);
+</I>&gt;&gt;<i>  	bcm43xx_free_board(bcm);
+</I>&gt;&gt;<i> -	flush_scheduled_work();
+</I>&gt;&gt;<i> +	bcm43xx_cancel_work(bcm);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i>  	return 0;
+</I>&gt;&gt;<i>  }
+</I>&gt;&gt;<i> @@ -4162,9 +4174,9 @@ static void bcm43xx_chip_reset(struct wo
+</I>&gt;&gt;<i>  	struct bcm43xx_phyinfo *phy;
+</I>&gt;&gt;<i>  	int err = -ENODEV;
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> +	bcm43xx_cancel_work(bcm);
+</I>&gt;&gt;<i>  	mutex_lock(&amp;(bcm)-&gt;mutex);
+</I>&gt;&gt;<i>  	if (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED) {
+</I>&gt;&gt;<i> -		bcm43xx_periodic_tasks_delete(bcm);
+</I>&gt;&gt;<i>  		phy = bcm43xx_current_phy(bcm);
+</I>&gt;&gt;<i>  		err = bcm43xx_select_wireless_core(bcm, phy-&gt;type);
+</I>&gt;&gt;<i>  		if (!err)
+</I>&gt;&gt;<i> Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.h
+</I>&gt;&gt;<i> ===================================================================
+</I>&gt;&gt;<i> --- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.h
+</I>&gt;&gt;<i> +++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.h
+</I>&gt;&gt;<i> @@ -122,7 +122,7 @@ void bcm43xx_wireless_core_reset(struct 
+</I>&gt;&gt;<i>  void bcm43xx_mac_suspend(struct bcm43xx_private *bcm);
+</I>&gt;&gt;<i>  void bcm43xx_mac_enable(struct bcm43xx_private *bcm);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -void bcm43xx_periodic_tasks_delete(struct bcm43xx_private *bcm);
+</I>&gt;&gt;<i> +void bcm43xx_cancel_work(struct bcm43xx_private *bcm);
+</I>&gt;&gt;<i>  void bcm43xx_periodic_tasks_setup(struct bcm43xx_private *bcm);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i>  void bcm43xx_controller_restart(struct bcm43xx_private *bcm, const char *reason);
+</I>&gt;&gt;<i> Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
+</I>&gt;&gt;<i> ===================================================================
+</I>&gt;&gt;<i> --- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
+</I>&gt;&gt;<i> +++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
+</I>&gt;&gt;<i> @@ -327,8 +327,9 @@ static ssize_t bcm43xx_attr_phymode_stor
+</I>&gt;&gt;<i>  		goto out;
+</I>&gt;&gt;<i>  	}
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -	bcm43xx_periodic_tasks_delete(bcm);
+</I>&gt;&gt;<i> +	bcm43xx_cancel_work(bcm);
+</I>&gt;&gt;<i>  	mutex_lock(&amp;(bcm)-&gt;mutex);
+</I>&gt;&gt;<i> +	bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
+</I>&gt;<i> 
+</I>&gt;<i> No, Don't change the status.
+</I>&gt;<i> 
+</I>I doubt that two many people are changing phy modes anyway. I certainly have not tested this code. 
+As the BCM4306/2 devices are having a problem with OFDM rates, would writing a 'b' to this file 
+limit those cards to CCCK rates? I'll have to try this one later.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002302.html">RFC V3 bcm43xx: Fix potential race in shutdown of work queues
+</A></li>
+	<LI>Next message: <A HREF="002305.html">RFC V3 bcm43xx: Fix potential race in shutdown of work queues
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2304">[ date ]</a>
+              <a href="thread.html#2304">[ thread ]</a>
+              <a href="subject.html#2304">[ subject ]</a>
+              <a href="author.html#2304">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

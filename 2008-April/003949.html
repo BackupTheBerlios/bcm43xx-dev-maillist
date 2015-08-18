@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Tons of interrupts on driver load
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C4811E196.7020209%40coderworld.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003944.html">
+   <LINK REL="Next"  HREF="003957.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Tons of interrupts on driver load</H1>
+    <B>Richard Jonsson</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Tons%20of%20interrupts%20on%20driver%20load&In-Reply-To=%3C4811E196.7020209%40coderworld.net%3E"
+       TITLE="Tons of interrupts on driver load">richie at coderworld.net
+       </A><BR>
+    <I>Fri Apr 25 15:50:14 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003944.html">Tons of interrupts on driver load
+</A></li>
+        <LI>Next message: <A HREF="003957.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3949">[ date ]</a>
+              <a href="thread.html#3949">[ thread ]</a>
+              <a href="subject.html#3949">[ subject ]</a>
+              <a href="author.html#3949">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Pavel Roskin skrev:
+&gt;<i> On Thu, 2008-04-24 at 21:48 +0200, Richard Jonsson wrote:
+</I>&gt;&gt;<i> Hello,
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> First some background:
+</I>&gt;&gt;<i> I am currently running latest mainline from git. This kernel suffers 
+</I>&gt;&gt;<i> from a scheduler?
+</I>&gt;<i> 
+</I>&gt;<i> I think this question is more suited for LKML.
+</I>&gt;<i> 
+</I>I'm sorry for being a bit vague. I'm just trying to describe the
+circumstances surrounding the issue. I and others have reported the
+scheduler oddity to LKML and it's being dealt with.
+
+My question to this list could be condensed to:
+
+Is it normal that over 25000 interrupts are generated when loading b43, 
+or is the driver or something else broken?
+
+I believe you guys are the best suited to answer this question.
+
+&gt;&gt;<i> While trying to find what these hickups come from I ran watch --interval 
+</I>&gt;&gt;<i> .1 &quot;cat /proc/interrupts&quot;. I can see there that the b43 disappears, gets 
+</I>&gt;&gt;<i> unloaded probably, and then reappears.
+</I>&gt;<i> 
+</I>&gt;<i> You should probably show the exact contents of /proc/interrupts and
+</I>&gt;<i> provide some details about the systems (architecture, CPU speed,
+</I>&gt;<i> contents of /proc/sched_debug, lspci output, dmesg output).
+</I>&gt;<i> 
+</I>&gt;&gt;<i> When b43 reappears in the interrupt listing, that line generates some 
+</I>&gt;&gt;<i> 25000 irq's within a fraction of a second. Is this a bug somewhere or by 
+</I>&gt;&gt;<i> design?
+</I>&gt;<i> 
+</I>&gt;<i> It's possible that the interrupt count is not shown when the driver
+</I>&gt;<i> &quot;disappears&quot;, but is not reset to 0.  Once the interrupt has a handler,
+</I>&gt;<i> the original count is shown.
+</I>&gt;<i> 
+</I>
+This is on a HP DV2140eu laptop, 1GB ram, amd turion64 TL52 x2 
+(1600MHz), kubuntu 8.04
+broadcom flavor: 4311
+$ uname -a
+Linux laptop 2.6.25 #38 SMP Thu Apr 24 16:45:44 CEST 2008 x86_64 GNU/Linux
+
+I was trying to make a testcase, but can't find how to disable 
+networkmanager, nor how to control if from a terminal. Just inactivating 
+knetworkmanager and &quot;rmmod b43&quot; results in a segfault.
+
+Anyway networkmanager seems to reload the driver periodically for some 
+reason. Probably because it's stupid and unaware that the radio is 
+disabled by hardware button.
+
+b43 is loaded, not associated since wired networking is used.
+
+$ date &amp;&amp; cat /proc/interrupts |grep &quot;19:&quot;
+fre apr 25 15:12:50 CEST 2008
+  19:        813     210843   IO-APIC-fasteoi   b43
+
+a few moments later:
+
+$ date &amp;&amp; cat /proc/interrupts |grep &quot;19:&quot;
+fre apr 25 15:13:15 CEST 2008
+  19:        813     210843   IO-APIC-fasteoi   b43
+$ date &amp;&amp; cat /proc/interrupts |grep &quot;19:&quot;
+fre apr 25 15:13:16 CEST 2008
+  19:        813     210851   IO-APIC-fasteoi   b43
+$ date &amp;&amp; cat /proc/interrupts |grep &quot;19:&quot;
+fre apr 25 15:13:17 CEST 2008
+  19:        813     210854   IO-APIC-fasteoi     &lt;-- b43 reloaded by nm
+$ date &amp;&amp; cat /proc/interrupts |grep &quot;19:&quot;
+fre apr 25 15:13:18 CEST 2008
+  19:        856     232101   IO-APIC-fasteoi   b43
+$ date &amp;&amp; cat /proc/interrupts |grep &quot;19:&quot;
+fre apr 25 15:13:19 CEST 2008
+  19:        871     236961   IO-APIC-fasteoi
+$ date &amp;&amp; cat /proc/interrupts |grep &quot;19:&quot;
+fre apr 25 15:13:20 CEST 2008
+  19:        871     236969   IO-APIC-fasteoi   b43
+$ date &amp;&amp; cat /proc/interrupts |grep &quot;19:&quot;
+fre apr 25 15:13:26 CEST 2008
+  19:        871     236969   IO-APIC-fasteoi   b43
+
+&quot;within a fraction of a second&quot; was a slight exaggregation by me, but 
+most of the interrupts happens within a second.
+
+regards, Richard
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003944.html">Tons of interrupts on driver load
+</A></li>
+	<LI>Next message: <A HREF="003957.html">Tons of interrupts on driver load
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3949">[ date ]</a>
+              <a href="thread.html#3949">[ thread ]</a>
+              <a href="subject.html#3949">[ subject ]</a>
+              <a href="author.html#3949">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

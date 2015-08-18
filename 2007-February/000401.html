@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Change SoftMAC to initialize to high rates
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Change%20SoftMAC%20to%20initialize%20to%20high%20rates&In-Reply-To=%3C45CB5E87.6090403%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000399.html">
+   <LINK REL="Next"  HREF="000402.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Change SoftMAC to initialize to high rates</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Change%20SoftMAC%20to%20initialize%20to%20high%20rates&In-Reply-To=%3C45CB5E87.6090403%40lwfinger.net%3E"
+       TITLE="Change SoftMAC to initialize to high rates">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Thu Feb  8 18:31:51 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000399.html">Wrong phystatus0?
+</A></li>
+        <LI>Next message: <A HREF="000402.html">Change SoftMAC to initialize to high rates
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#401">[ date ]</a>
+              <a href="thread.html#401">[ thread ]</a>
+              <a href="subject.html#401">[ subject ]</a>
+              <a href="author.html#401">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>There is a bug in SoftMAC that initializes data rates for all devices to 11 Mbs. Now that many of
+the devices will actually run at higher rates, this patch fixes that bug.
+
+As not all chips will run at speeds above 11 Mbs, I will not be sending this patch upstream to
+Linville, but I wanted it available for the users. As you see, I'm setting a rate of 24 Mbs. If your
+card works at 36, please change that line.
+
+Larry
+================================
+
+
+A bug in SoftMAC will preferentially select a rate of 11 Mbytes/sec, even though
+the device has an 802.11g PHY. This patch changes the order of testing
+to set an OFDM rate for G PHY's. At present, a rate of 54 Mbytes/sec has
+not been achieved; therefore the rate is initialized to 24 Mbs.
+
+Signed-off-by: Larry Finger&lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: linux-2.6/net/ieee80211/softmac/ieee80211softmac_module.c
+===================================================================
+--- linux-2.6.orig/net/ieee80211/softmac/ieee80211softmac_module.c
++++ linux-2.6/net/ieee80211/softmac/ieee80211softmac_module.c
+@@ -270,10 +270,10 @@ void ieee80211softmac_init_bss(struct ie
+ 	   can manually change it if they really need to, but 11M is
+ 	   more reliable. Note similar logic in
+ 	   ieee80211softmac_wx_set_rate() */	
+-	if (ieee-&gt;modulation &amp; IEEE80211_CCK_MODULATION) {
+-		txrates-&gt;user_rate = IEEE80211_CCK_RATE_11MB;
++	if (ieee-&gt;modulation &amp; IEEE80211_OFDM_MODULATION) {
++		txrates-&gt;user_rate = IEEE80211_OFDM_RATE_24MB;
+ 	} else if (ieee-&gt;modulation &amp; IEEE80211_OFDM_MODULATION) {
+-		txrates-&gt;user_rate = IEEE80211_OFDM_RATE_54MB;
++		txrates-&gt;user_rate = IEEE80211_CCK_RATE_11MB;
+ 	} else
+ 		assert(0);
+
+
+---
+
+
+
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: set_OFDM_modulation
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070208/c6a818d8/attachment.ksh">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070208/c6a818d8/attachment.ksh</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000399.html">Wrong phystatus0?
+</A></li>
+	<LI>Next message: <A HREF="000402.html">Change SoftMAC to initialize to high rates
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#401">[ date ]</a>
+              <a href="thread.html#401">[ thread ]</a>
+              <a href="subject.html#401">[ subject ]</a>
+              <a href="author.html#401">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

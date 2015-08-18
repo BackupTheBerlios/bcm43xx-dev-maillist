@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: Fix sparse warnings
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20sparse%20warnings&In-Reply-To=%3C493f552d.zivnzjivWDMPej%2BO%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004927.html">
+   <LINK REL="Next"  HREF="004929.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: Fix sparse warnings</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20Fix%20sparse%20warnings&In-Reply-To=%3C493f552d.zivnzjivWDMPej%2BO%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[PATCH] b43legacy: Fix sparse warnings">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Wed Dec 10 06:35:41 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004927.html">BCM4312 Fails when xdm is started
+</A></li>
+        <LI>Next message: <A HREF="004929.html">[PATCH] b43legacy: Fix sparse warnings
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4928">[ date ]</a>
+              <a href="thread.html#4928">[ thread ]</a>
+              <a href="subject.html#4928">[ subject ]</a>
+              <a href="author.html#4928">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Sparse yields the following warnings for b43legacy:
+
+  CHECK   drivers/net/wireless/b43legacy/phy.c
+drivers/net/wireless/b43legacy/phy.c:1304:31: warning: potentially expensive pointer subtraction
+drivers/net/wireless/b43legacy/phy.c:1304:31: warning: potentially expensive pointer subtraction
+drivers/net/wireless/b43legacy/phy.c:1304:31: warning: potentially expensive pointer subtraction
+  CHECK   drivers/net/wireless/b43legacy/debugfs.c
+drivers/net/wireless/b43legacy/debugfs.c:243:9: warning: memset with byte count of 131072
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+John,
+
+This is 2.6.29 material.
+
+Larry
+---
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/debugfs.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/debugfs.c
++++ wireless-testing/drivers/net/wireless/b43legacy/debugfs.c
+@@ -211,7 +211,7 @@ static ssize_t b43legacy_debugfs_read(st
+ 	struct b43legacy_dfs_file *dfile;
+ 	ssize_t uninitialized_var(ret);
+ 	char *buf;
+-	const size_t bufsize = 1024 * 128;
++	const size_t bufsize = 1024 * 16; /* 16 KiB buffer */
+ 	const size_t buforder = get_order(bufsize);
+ 	int err = 0;
+ 
+Index: wireless-testing/drivers/net/wireless/b43legacy/phy.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/phy.c
++++ wireless-testing/drivers/net/wireless/b43legacy/phy.c
+@@ -1296,12 +1296,10 @@ void b43legacy_lo_write(struct b43legacy
+ 	/* Sanity check. */
+ 	if (pair-&gt;low &lt; -8 || pair-&gt;low &gt; 8 ||
+ 	    pair-&gt;high &lt; -8 || pair-&gt;high &gt; 8) {
+-		struct b43legacy_phy *phy = &amp;dev-&gt;phy;
+ 		b43legacydbg(dev-&gt;wl,
+ 		       &quot;WARNING: Writing invalid LOpair &quot;
+-		       &quot;(low: %d, high: %d, index: %lu)\n&quot;,
+-		       pair-&gt;low, pair-&gt;high,
+-		       (unsigned long)(pair - phy-&gt;_lo_pairs));
++		       &quot;(low: %d, high: %d)\n&quot;,
++		       pair-&gt;low, pair-&gt;high);
+ 		dump_stack();
+ 	}
+ #endif
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004927.html">BCM4312 Fails when xdm is started
+</A></li>
+	<LI>Next message: <A HREF="004929.html">[PATCH] b43legacy: Fix sparse warnings
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4928">[ date ]</a>
+              <a href="thread.html#4928">[ thread ]</a>
+              <a href="subject.html#4928">[ subject ]</a>
+              <a href="author.html#4928">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

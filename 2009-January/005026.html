@@ -1,0 +1,301 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC 4/7] B43N: Add TX power control and gain get function
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%204/7%5D%20B43N%3A%20Add%20TX%20power%20control%20and%20gain%20get%20function&In-Reply-To=%3C1197ff4c0901132358icebf1efwae543d2dd8fb06c7%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005025.html">
+   <LINK REL="Next"  HREF="005031.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC 4/7] B43N: Add TX power control and gain get function</H1>
+    <B>YanBo</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%204/7%5D%20B43N%3A%20Add%20TX%20power%20control%20and%20gain%20get%20function&In-Reply-To=%3C1197ff4c0901132358icebf1efwae543d2dd8fb06c7%40mail.gmail.com%3E"
+       TITLE="[RFC 4/7] B43N: Add TX power control and gain get function">dreamfly281 at gmail.com
+       </A><BR>
+    <I>Wed Jan 14 08:58:54 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005025.html">[RFC 3/7] B43N: Add the periodic calibration function
+</A></li>
+        <LI>Next message: <A HREF="005031.html">[RFC 4/7] B43N: Add TX power control and gain get function
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5026">[ date ]</a>
+              <a href="thread.html#5026">[ thread ]</a>
+              <a href="subject.html#5026">[ subject ]</a>
+              <a href="author.html#5026">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Three functions about tx power control
+ b43_nphy_tx_power_fix() b43_nphy_tx_power_coeff_set()
+b43_nphy_tx_power_type_set()
+but remain lots of TODO cause not very clearly understand the SPECS
+
+Signed-off-by: Li YanBo &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">dreamfly281 at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_n.c |  195 +++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 194 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 586e774..1330309 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -82,9 +82,183 @@ static void b43_chantab_phy_upload(struct b43_wldev *dev,
+ 	b43_phy_write(dev, B43_NPHY_BW6, e-&gt;phy_bw6);
+ }
+
++enum b43_nphy_txpid {
++	B43_N_5G_MEDIUM_FREQ = 0,
++	B43_N_5G_LOW_FREQ,
++	B43_N_5G_HIGH_FREQ,
++	B43_N_2G_FREQ,
++	/* Attent: currently we just using 2 txpid */
++	B43_N_TXPID_MAX = 2,
++};
++
++enum  b43_nphy_txgain_type {
++	REV_LE2 = 0,		/* rev &lt;= 2 */
++	REV_GE3_2G,		/* rev &gt;= 3 (2.4 GHz) */
++	REV_E3_5G,		/* rev 3 (5 GHz) */
++	REV_GE4_5G,		/* rev &gt;= 4 (5 GHz) */
++};
++
+ static void b43_nphy_tx_power_fix(struct b43_wldev *dev)
+ {
+-	//TODO
++	struct b43_phy *phy = &amp;dev-&gt;phy;
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
++	struct ssb_sprom *sprom = &amp;(dev-&gt;dev-&gt;bus-&gt;sprom);
++	u32 txpid[B43_N_TXPID_MAX];
++	int i;
++
++	if (nphy-&gt;havoid)
++		b43_nphy_stay_carrier_search_enable(dev);
++
++	if (sprom-&gt;revision &lt; 4)
++		txpid[0] = txpid[1] = txpid[2] = txpid[3] = 0x48;
++	else {
++		/* TODO */
++/* 		if  (medium freq range, 5100..5499 mhz) */
++/* 			txpid[B43_N_5G_MEDIUM_FREQ] = ; */
++/* 			Use the txpid5ga values from the SPROM in the loop below; */
++/* 		if  (low freq range, 4900..5099 mhz) */
++/* 			txpid[B43_N_5G_LOW_FREQ] = ; */
++/* 			Use the txpid5gal values from the SPROM in the loop below; */
++/* 		if (high freq range, 5500.. mhz) */
++/* 			txpid[B43_N_5G_HIGH_FREQ] = ; */
++/* 			Use the txpid5gah values from the SPROM in the loop below; */
++/* 		if  (2.4 GHz) */
++/* 			txpid[B43_N_2G_FREQ] = ; */
++/* 			Use the txpid2g values from the SPROM in the loop below; */
++	}
++	if (phy-&gt;rev &gt;= 3)
++		txpid[0] = txpid[1] = txpid[2] = txpid[3] = 0x28;
++
++	for (i = 0; i &lt; B43_N_TXPID_MAX; i++) {
++		u32 tx_gain;
++		u16 reg;
++
++		if (phy-&gt;rev &lt;= 2)
++			tx_gain = b43_ntab_txgain[REV_LE2][txpid[i]];
++		else if ((i == B43_N_2G_FREQ) &amp;&amp; (phy-&gt;rev &gt; 2))
++			tx_gain = b43_ntab_txgain[REV_GE3_2G][txpid[i]];
++		else if (phy-&gt;rev == 3)
++			tx_gain = b43_ntab_txgain[REV_E3_5G][txpid[i]];
++		else if (phy-&gt;rev &gt; 3)
++			tx_gain = b43_ntab_txgain[REV_GE4_5G][txpid[i]];
++
++		/* Fixme depending on loop idx? */
++		if (phy-&gt;rev &lt; 3)
++			b43_phy_set(dev, B43_NPHY_RFCTL_OVER, 0x100);
++		else if (i == 0)
++			b43_phy_set(dev, B43_PHY_N(0x8F), 0x100);
++		else
++			b43_phy_set(dev, B43_NPHY_RFCTL_OVER, 0x100);
++
++		if (i == 0)	/* for core 1 */
++			b43_phy_write(dev, B43_NPHY_AFECTL_DACGAIN1,
++				      (tx_gain &gt;&gt; 8) &amp; 0x3f);
++		else 		/* for core 2 */
++			b43_phy_write(dev, B43_NPHY_AFECTL_DACGAIN2,
++				      (tx_gain &gt;&gt; 8) &amp; 0x3f);
++
++		/* set the radio gain */
++		if (phy-&gt;rev &lt; 3)
++			reg = (tx_gain &gt;&gt; 16) &amp; 0x1fff;
++		else
++			reg = (tx_gain &gt;&gt; 16) &amp; 0x1ffff;
++		b43_phy_write(dev, B43_NPHY_TABLE_ADDR, txpid[i] + 0x1d10);
++		b43_phy_write(dev, B43_NPHY_TABLE_DATALO, reg);
++		
++		/* set the BB multiplier to table */
++		b43_phy_write(dev, B43_NPHY_TABLE_ADDR, 0x3c57);
++		reg = b43_phy_read(dev, B43_NPHY_TABLE_DATALO);
++		if (i == 1)
++			reg |= ((tx_gain &amp; 0xff) &lt;&lt; 8);
++		else if (i == 2)
++			reg |= (tx_gain &amp; 0xff);
++		b43_phy_write(dev, B43_NPHY_TABLE_ADDR, 0x3c57);
++		b43_phy_write(dev, B43_NPHY_TABLE_DATALO, reg);
++	}
++	b43_phy_mask(dev, B43_NPHY_BPHY_CTL2, ~B43_NPHY_BPHY_CTL2_LUT);
++	if (nphy-&gt;havoid)
++                b43_nphy_stay_carrier_search_disable(dev);
++}
++
++static void b43_nphy_tx_power_coeff_set(struct b43_wldev *dev)
++{
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
++
++	if (nphy-&gt;havoid)
++		b43_nphy_stay_carrier_search_enable(dev);
++
++/* 	# read 7 16-bit values from the table 15 from offset 80; */
++/* 	# for the table IDs 26 and 27; */
++/* 		1.   for table 26: calculate the I/Q compensation as the first
+read value &amp; 0x3ff shifted up by 10, and the second read value &amp;
+0x3ff; */
++/* 		2. for table 27: do a similar calculation with the third and
+fourth read values; */
++/* 		3. write the table ID &lt;&lt; 10 ored with 128 to PHY reg 0x72; */
++/* 		4. 128 times: write the higher 16 bits of the I/Q compensation
+to PHY reg 0x74 and the lower 16 bits to 0x73  */
++
++/* 	# for the table IDs 26 and 27: */
++/* 			1. the LO compensation I/Q is the upper/lower 8 bits of the
+fifth (table id 26) or sixth (27) read value */
++/* 			2. write the table ID &lt;&lt; 10 ored with 448 to PHY reg 0x72 */
++/* 			3. 128 times: */
++/* 				1.for PHY rev &lt; 3: calculate the new LO compensation I/Q
+values according to the table by multiplying with the table value,
+adding 128 and then shifting down by 8 (other PHY revs require no
+calculation); */
++/* 				2. calculate I &lt;&lt; 8 | Q and write zero to 0x74, that value to 0x73  */
++
++/* 					if (phy-&gt;rev &lt; 2) */
++/* 						;#if the PHY rev is &lt; 2, write 0xffff to SHM 0x708 and 0x70e; */
++/* 					if (nphy-&gt;havoid) */
++/* 						b43_nphy_stay_carrier_search_disable(dev); */
++	if (nphy-&gt;havoid)
++                b43_nphy_stay_carrier_search_disable(dev);
++}
++
++static void b43_nphy_tx_power_type_set(struct b43_wldev *dev,  u16 pwr_ctl)
++				
++{
++	struct b43_phy *phy = &amp;dev-&gt;phy;
++	
++	dev-&gt;phy.n-&gt;tx_pwr = pwr_ctl;
++
++	if (pwr_ctl != 0) {
++ 		/* TODO  write the 84-entry adjusted power table (calculated during setup)
++		   to both 8-bit hardware tables 26 and 27 at offset 64 */
++		if (pwr_ctl == 1)
++			b43_phy_set(dev, B43_NPHY_TXPCTL_CMD,
++				    B43_NPHY_TXPCTL_CMD_COEFF |
++				    B43_NPHY_TXPCTL_CMD_HWPCTLEN);
++		else
++			b43_phy_mask(dev, B43_NPHY_TXPCTL_CMD,
++				     ~(B43_NPHY_TXPCTL_CMD_COEFF |
++				       B43_NPHY_TXPCTL_CMD_HWPCTLEN));
++		b43_phy_mask(dev, B43_NPHY_AFECTL_OVER, ~0x4000);
++		if (phy-&gt;rev &lt; 2)
++			b43_phy_maskset(dev, B43_NPHY_BPHY_CTL3,
++					~B43_NPHY_BPHY_CTL3_SCALE, 0x40);
++		else
++			b43_phy_maskset(dev, B43_NPHY_BPHY_CTL3,
++					~B43_NPHY_BPHY_CTL3_SCALE, 0x3b);
++		/* TODO 6.if the PHY rev two or higher and the bandwidth is
++		   40 MHz, clear the 20 in 40 MHz I/Q workaround host flag; */
++	} else {
++		int i;
++
++		b43_phy_write(dev, B43_NPHY_TABLE_ADDR, 0x6840);
++		for (i = 0; i &lt; 84; i++)
++			b43_phy_write(dev, B43_NPHY_TABLE_DATALO, 0);
++		b43_phy_write(dev, B43_NPHY_TABLE_ADDR, 0x6c40);
++		for (i = 0; i &lt; 84; i++)
++			b43_phy_write(dev, B43_NPHY_TABLE_DATALO, 0);
++		b43_phy_mask(dev, B43_NPHY_TXPCTL_CMD,
++			     ~(B43_NPHY_TXPCTL_CMD_COEFF |
++			       B43_NPHY_TXPCTL_CMD_HWPCTLEN));
++		b43_phy_set(dev, B43_NPHY_AFECTL_OVER, 0x4000);
++		if (phy-&gt;rev &lt; 2)
++			b43_phy_maskset(dev, B43_NPHY_BPHY_CTL3,
++					~B43_NPHY_BPHY_CTL3_SCALE, 0x5a);
++		else
++			b43_phy_maskset(dev, B43_NPHY_BPHY_CTL3,
++					~B43_NPHY_BPHY_CTL3_SCALE, 0x53);
++
++		/* TODO if the PHY rev two or higher and the bandwidth is 40 MHz,
++		   set the 20 in 40 MHz I/Q workaround host flag ; */
++	}
+ }
+
+ /* Tune the hardware to a new channel. */
+@@ -451,6 +625,25 @@ static void
+b43_nphy_periodic_calibration_init(struct b43_wldev *dev,
+ 	/* TODO */
+ }
+
++
++static void b43_nphy_tx_gain_get(struct b43_wldev *dev)
++{
++	struct b43_phy_n *nphy  = dev-&gt;phy.n;
++
++	if (nphy-&gt;tx_pwr == 0) {
++		if (nphy-&gt;havoid)
++			b43_nphy_stay_carrier_search_enable(dev);
++		/* TODO read two 16-bit values from table 7 at offset 0x110, the
+first is for core 0, the second for core 1; */
++		if (nphy-&gt;havoid)
++			b43_nphy_stay_carrier_search_disable(dev);
++	} else {
++		/* TODO read the base index from register 0x1ed (core 0) or 0x1ee
+(core 1); */
++		/* TODO if the PHY rev is &gt;= 3, use the lower 16 bits of the Init
+tables at the base index offset, and treat it as above; */
++		/* TODO if the PHY rev is &lt; 2, use the uppwer 16 bits of the Init
+tables at the base index offset, and treat it as above ; */
++	}
++}
++
++
+ int b43_phy_initn(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+-- 
+1.5.6.3
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005025.html">[RFC 3/7] B43N: Add the periodic calibration function
+</A></li>
+	<LI>Next message: <A HREF="005031.html">[RFC 4/7] B43N: Add TX power control and gain get function
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5026">[ date ]</a>
+              <a href="thread.html#5026">[ thread ]</a>
+              <a href="subject.html#5026">[ subject ]</a>
+              <a href="author.html#5026">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

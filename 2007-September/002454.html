@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb: Use ioreadX() and iowriteX() for PCI.
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Use%20ioreadX%28%29%20and%20iowriteX%28%29%20for%20PCI.&In-Reply-To=%3C200709191853.44334.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002453.html">
+   <LINK REL="Next"  HREF="002455.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb: Use ioreadX() and iowriteX() for PCI.</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%3A%20Use%20ioreadX%28%29%20and%20iowriteX%28%29%20for%20PCI.&In-Reply-To=%3C200709191853.44334.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] ssb: Use ioreadX() and iowriteX() for PCI.">mb at bu3sch.de
+       </A><BR>
+    <I>Wed Sep 19 18:53:44 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002453.html">[PATCH] b43: Don't lock irq_lock in debugfs txpower adjust
+</A></li>
+        <LI>Next message: <A HREF="002455.html">[PATCH] ssb: Sparse fixes.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2454">[ date ]</a>
+              <a href="thread.html#2454">[ thread ]</a>
+              <a href="subject.html#2454">[ subject ]</a>
+              <a href="author.html#2454">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On a PCI bus use ioreadX() and iowriteX().
+We map the I/O space with pci_iomap(), so we must use the correct
+accessor functions, too.
+readX() and writeX() are not guaranteed to accept the cookie returned
+from pci_iomap() (though, it currently works on most architectures).
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+Index: wireless-dev/drivers/ssb/pci.c
+===================================================================
+--- wireless-dev.orig/drivers/ssb/pci.c	2007-09-19 17:15:58.000000000 +0200
++++ wireless-dev/drivers/ssb/pci.c	2007-09-19 17:31:44.000000000 +0200
+@@ -531,7 +531,7 @@ static u16 ssb_pci_read16(struct ssb_dev
+ 		if (unlikely(ssb_pci_switch_core(bus, dev)))
+ 			return 0xFFFF;
+ 	}
+-	return readw(bus-&gt;mmio + offset);
++	return ioread16(bus-&gt;mmio + offset);
+ }
+ 
+ static u32 ssb_pci_read32(struct ssb_device *dev, u16 offset)
+@@ -544,7 +544,7 @@ static u32 ssb_pci_read32(struct ssb_dev
+ 		if (unlikely(ssb_pci_switch_core(bus, dev)))
+ 			return 0xFFFFFFFF;
+ 	}
+-	return readl(bus-&gt;mmio + offset);
++	return ioread32(bus-&gt;mmio + offset);
+ }
+ 
+ static void ssb_pci_write16(struct ssb_device *dev, u16 offset, u16 value)
+@@ -557,7 +557,7 @@ static void ssb_pci_write16(struct ssb_d
+ 		if (unlikely(ssb_pci_switch_core(bus, dev)))
+ 			return;
+ 	}
+-	writew(value, bus-&gt;mmio + offset);
++	iowrite16(value, bus-&gt;mmio + offset);
+ }
+ 
+ static void ssb_pci_write32(struct ssb_device *dev, u16 offset, u32 value)
+@@ -570,7 +570,7 @@ static void ssb_pci_write32(struct ssb_d
+ 		if (unlikely(ssb_pci_switch_core(bus, dev)))
+ 			return;
+ 	}
+-	writel(value, bus-&gt;mmio + offset);
++	iowrite32(value, bus-&gt;mmio + offset);
+ }
+ 
+ /* Not &quot;static&quot;, as it's used in main.c */
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002453.html">[PATCH] b43: Don't lock irq_lock in debugfs txpower adjust
+</A></li>
+	<LI>Next message: <A HREF="002455.html">[PATCH] ssb: Sparse fixes.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2454">[ date ]</a>
+              <a href="thread.html#2454">[ thread ]</a>
+              <a href="subject.html#2454">[ subject ]</a>
+              <a href="author.html#2454">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

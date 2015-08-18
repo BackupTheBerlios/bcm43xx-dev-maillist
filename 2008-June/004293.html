@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%2C%20b43%2C%20b43legacy%2C%20b44%3A%20Rewrite%20SSB%20DMA%20API&In-Reply-To=%3C200806201241.12344.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004292.html">
+   <LINK REL="Next"  HREF="004296.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20ssb%2C%20b43%2C%20b43legacy%2C%20b44%3A%20Rewrite%20SSB%20DMA%20API&In-Reply-To=%3C200806201241.12344.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Jun 20 12:41:12 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004292.html">[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+</A></li>
+        <LI>Next message: <A HREF="004296.html">[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4293">[ date ]</a>
+              <a href="thread.html#4293">[ thread ]</a>
+              <a href="subject.html#4293">[ subject ]</a>
+              <a href="author.html#4293">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 20 June 2008 11:50:29 Michael Buesch wrote:
+&gt;<i> This is a rewrite of the DMA API for SSB devices.
+</I>&gt;<i> This is needed, because the old (non-existing) &quot;API&quot; made too many bad
+</I>&gt;<i> assumptions on the API of the host-bus (PCI).
+</I>&gt;<i> This introduces an almost complete SSB-DMA-API that maps to the lowlevel
+</I>&gt;<i> bus-API based on the bustype.
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+</I>&gt;<i> 
+</I>&gt;<i> ---
+</I>&gt;<i> 
+</I>&gt;<i> John, please merge for 2.6.27
+</I>&gt;<i> This is one huge patch, because it's not really possible to split this
+</I>&gt;<i> without breaking bisect.
+</I>
+Note that this patch will slightly clash with another DMA update
+that's going into linux-next.
+This is trivial to resolve, however. wiggle will probably be able to
+resolve most, if not all, of them.
+
+&gt;<i>  static bool b43_dma_mapping_error(struct b43_dmaring *ring,
+</I>&gt;<i>  				  dma_addr_t addr,
+</I>&gt;<i>  				  size_t buffersize, bool dma_to_device)
+</I>&gt;<i>  {
+</I>&gt;<i> -	if (unlikely(dma_mapping_error(addr)))
+</I>&gt;<i> +	if (unlikely(ssb_dma_mapping_error(ring-&gt;dev-&gt;dev, addr)))
+</I>&gt;<i>  		return 1;
+</I>
+
+These calls will clash. The patch in linux-next introduced an additional
+dev parameter to dma_mapping_error.
+The fix is obvious. Remove the clashing line and add the ssb_dma_mapping_error
+call exactly as shown above.
+
+&gt;<i> +static inline int ssb_dma_mapping_error(struct ssb_device *dev, dma_addr_t addr)
+</I>&gt;<i> +{
+</I>&gt;<i> +	switch (dev-&gt;bus-&gt;bustype) {
+</I>&gt;<i> +	case SSB_BUSTYPE_PCI:
+</I>&gt;<i> +		return pci_dma_mapping_error(addr);
+</I>&gt;<i> +	case SSB_BUSTYPE_SSB:
+</I>&gt;<i> +		return dma_mapping_error(addr);
+</I>&gt;<i> +	default:
+</I>&gt;<i> +		__ssb_dma_not_implemented(dev);
+</I>&gt;<i> +	}
+</I>&gt;<i> +	return -ENOSYS;
+</I>&gt;<i> +}
+</I>
+
+The patch in linux-next will require a dev parameter to the lowlevel
+functions. Simply do it this way:
+
+pci_dma_mapping_error(dev-&gt;bus-&gt;host_pci, addr);
+
+and
+
+dma_mapping_error(dev-&gt;dev, addr);
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004292.html">[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+</A></li>
+	<LI>Next message: <A HREF="004296.html">[PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4293">[ date ]</a>
+              <a href="thread.html#4293">[ thread ]</a>
+              <a href="subject.html#4293">[ subject ]</a>
+              <a href="author.html#4293">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

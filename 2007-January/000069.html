@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> &gt;1GB Bug
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%3E1GB%20Bug&In-Reply-To=%3C200701131627.15549.heise2k%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000005.html">
+   <LINK REL="Next"  HREF="000070.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>&gt;1GB Bug</H1>
+    <B>Bob Heise</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%3E1GB%20Bug&In-Reply-To=%3C200701131627.15549.heise2k%40gmail.com%3E"
+       TITLE="&gt;1GB Bug">heise2k at gmail.com
+       </A><BR>
+    <I>Sat Jan 13 22:27:15 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000005.html">&gt;1GB Bug
+</A></li>
+        <LI>Next message: <A HREF="000070.html">&gt;1GB Bug
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#69">[ date ]</a>
+              <a href="thread.html#69">[ thread ]</a>
+              <a href="subject.html#69">[ subject ]</a>
+              <a href="author.html#69">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>torsdag 04 januari 2007 12:33 skrev du:
+&gt;<i> Bob Heise wrote:
+</I>&gt;<i> &gt; Hello,
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; I am using 2.6.19.1 + wireless-dev git kernel, bcm43xx driver with v.3
+</I>&gt;<i> &gt; firmware on an HP zv5000z amd64 with 2GB RAM.
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; lspci -n
+</I>&gt;<i> &gt; 02:02.0 Class 0280: 14e4:4320 (rev 03)
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; lspci -vv
+</I>&gt;<i> &gt; 02:02.0 Network controller: Broadcom Corporation BCM4306 802.11b/g
+</I>&gt;<i> &gt; Wireless LAN Controller (rev 03)
+</I>&gt;<i> &gt;         Subsystem: Hewlett-Packard Company NX9500 Built-in Wireless
+</I>&gt;<i> &gt;         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+</I>&gt;<i> &gt; ParErr- Stepping- SERR+ FastB2B-
+</I>&gt;<i> &gt;         Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort-
+</I>&gt;<i> &gt; &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+</I>&gt;<i> &gt;         Latency: 64
+</I>&gt;<i> &gt;         Interrupt: pin A routed to IRQ 17
+</I>&gt;<i> &gt;         Region 0: Memory at e0104000 (32-bit, non-prefetchable) [size=8K]
+</I>&gt;<i>
+</I>&gt;<i> Thanks for your report. It seems that the dma_over_1GB patch works on some
+</I>&gt;<i> systems, but not on others. I do not know why. I just got a new AMD 64 X2
+</I>&gt;<i> computer with a motherboard capable of holding 2GB RAM. It currently has
+</I>&gt;<i> only 1GB with a Dell 1390 (BCM4311) that is capable of full 32-bit DMA. I'm
+</I>&gt;<i> trying to decide if I could do any debugging of the problem if I got more
+</I>&gt;<i> memory and tricked the program into thinking I had only 30-bit DMA
+</I>
+Larry,
+
+I added pci_dma_supported(ring-&gt;bcm-&gt;pci_dev, 0x3FFFFFFF) and 
+pci_set_dma_mask(ring-&gt;bcm-pci_dev, 0x3FFFFFFF) after your 64 and 32 bit DMA 
+attempts in the bcm43xx_dma.c's map_descbuffer from your patch, both 
+indicated that 30-bit DMA was supported, yet when after that I did: 
+dmaaddr = pci_map_single(ring-&gt;bcm-&gt;pci_dev, buf, len, direction) 
+pci_dma_mapping_error returned true for that address. Very frustrating 
+indeed.
+
+Since that experiment I have upgraded my wireless-dev tree to the latest. I 
+thought, na&#239;vely I suppose, that maybe forcing on the iommu would allow the 
+correct address mapping since obviously it isn't occurring normally. The 
+resultant kernel turned up what seems to be a locking problem. I'm not sure 
+if it's a real problem for normal operation, but it did crash my box so... 
+hopefully the pursuent /var/log/messages snippet is helpful.
+
+Of course if anyone has any ideas on how to solve this 30-bit DMA problem I 
+would be happy to try it out.
+
+-Bob
+
+&gt;<i> capability. There is one other problem in that TX DMA doesn't work with the
+</I>&gt;<i> PCI-E hardware with 2.6.20 or wireless-2.6 versions. I need to fix that
+</I>&gt;<i> problem first.
+</I>&gt;<i>
+</I>&gt;<i> Larry
+</I>-------------- next part --------------
+Jan 12 17:41:01 karnkraft kernel: [  244.935312] bcm43xx: PHY connected
+Jan 12 17:41:01 karnkraft kernel: [  245.193785] bcm43xx: Microcode rev 0x127, pl 0xe (2005-04-18  02:36:27)
+Jan 12 17:41:01 karnkraft kernel: [  245.202613] bcm43xx: Radio turned on
+Jan 12 17:41:01 karnkraft kernel: [  245.365505] bcm43xx: Chip initialized
+Jan 12 17:41:01 karnkraft kernel: [  245.367889] bcm43xx: 30-bit DMA initialized
+Jan 12 17:41:01 karnkraft kernel: [  245.368083] bcm43xx: Keys cleared
+Jan 12 17:41:01 karnkraft kernel: [  245.369112] bcm43xx: Selected 802.11 core (phytype 2)
+Jan 12 17:41:01 karnkraft kernel: [  245.369163] printk: 4 messages suppressed.
+Jan 12 17:41:01 karnkraft kernel: [  245.369171] bcm43xx: FATAL ERROR: Fatal DMA error: 0x00001000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+Jan 12 17:41:01 karnkraft kernel: [  245.369179] bcm43xx: Controller RESET (DMA error) ...
+Jan 12 17:41:01 karnkraft kernel: [  245.375182] ADDRCONF(NETDEV_UP): eth3: link is not ready
+Jan 12 17:41:01 karnkraft kernel: [  245.375734] 
+Jan 12 17:41:01 karnkraft kernel: [  245.375736] =============================================
+Jan 12 17:41:01 karnkraft kernel: [  245.375850] [ INFO: possible recursive locking detected ]
+Jan 12 17:41:01 karnkraft kernel: [  245.375936] 2.6.20-rc3-30bitDMAtest #1
+Jan 12 17:41:01 karnkraft kernel: [  245.375996] ---------------------------------------------
+Jan 12 17:41:01 karnkraft kernel: [  245.376081] events/0/3 is trying to acquire lock:
+Jan 12 17:41:01 karnkraft kernel: [  245.376156]  (&amp;bcm-&gt;mutex){--..}, at: [&lt;ffffffff803dbb46&gt;] mutex_lock+0x25/0x29
+Jan 12 17:41:01 karnkraft kernel: [  245.376290] 
+Jan 12 17:41:01 karnkraft kernel: [  245.376292] but task is already holding lock:
+Jan 12 17:41:01 karnkraft kernel: [  245.376381]  (&amp;bcm-&gt;mutex){--..}, at: [&lt;ffffffff803dbb46&gt;] mutex_lock+0x25/0x29
+Jan 12 17:41:01 karnkraft kernel: [  245.376510] 
+Jan 12 17:41:01 karnkraft kernel: [  245.376512] other info that might help us debug this:
+Jan 12 17:41:01 karnkraft kernel: [  245.376612] 2 locks held by events/0/3:
+Jan 12 17:41:01 karnkraft kernel: [  245.376672]  #0:  (&amp;bcm-&gt;mutex){--..}, at: [&lt;ffffffff803dbb46&gt;] mutex_lock+0x25/0x29
+Jan 12 17:41:01 karnkraft kernel: [  245.376807]  #1:  (workqueue_mutex){--..}, at: [&lt;ffffffff803dbb46&gt;] mutex_lock+0x25/0x29
+Jan 12 17:41:01 karnkraft kernel: [  245.376946] 
+Jan 12 17:41:01 karnkraft kernel: [  245.376949] stack backtrace:
+Jan 12 17:41:01 karnkraft kernel: [  245.377014] 
+Jan 12 17:41:01 karnkraft kernel: [  245.377017] Call Trace:
+Jan 12 17:41:01 karnkraft kernel: [  245.377089]  [&lt;ffffffff80241dcb&gt;] __lock_acquire+0x15c/0xa7b
+Jan 12 17:41:01 karnkraft kernel: [  245.377188]  [&lt;ffffffff803dbb46&gt;] mutex_lock+0x25/0x29
+Jan 12 17:41:01 karnkraft kernel: [  245.377278]  [&lt;ffffffff80242766&gt;] lock_acquire+0x7c/0xa0
+Jan 12 17:41:01 karnkraft kernel: [  245.377365]  [&lt;ffffffff803dbb46&gt;] mutex_lock+0x25/0x29
+Jan 12 17:41:01 karnkraft kernel: [  245.377459]  [&lt;ffffffff803db99b&gt;] __mutex_lock_slowpath+0xe4/0x26a
+Jan 12 17:41:01 karnkraft kernel: [  245.377572]  [&lt;ffffffff803dbb46&gt;] mutex_lock+0x25/0x29
+Jan 12 17:41:01 karnkraft kernel: [  245.377657]  [&lt;ffffffff803dd586&gt;] _spin_unlock_irqrestore+0x3f/0x47
+Jan 12 17:41:01 karnkraft kernel: [  245.377790]  [&lt;ffffffff88180585&gt;] :bcm43xx:bcm43xx_periodic_work_handler+0x31/0x3b2
+Jan 12 17:41:01 karnkraft kernel: [  245.377917]  [&lt;ffffffff802417c6&gt;] trace_hardirqs_on+0x124/0x14e
+Jan 12 17:41:01 karnkraft kernel: [  245.378043]  [&lt;ffffffff88180554&gt;] :bcm43xx:bcm43xx_periodic_work_handler+0x0/0x3b2
+Jan 12 17:41:01 karnkraft kernel: [  245.378170]  [&lt;ffffffff802381b9&gt;] run_workqueue+0xa1/0x186
+Jan 12 17:41:01 karnkraft kernel: [  245.378286]  [&lt;ffffffff8817f812&gt;] :bcm43xx:bcm43xx_chip_reset+0x0/0xc6
+Jan 12 17:41:01 karnkraft kernel: [  245.378395]  [&lt;ffffffff802382c3&gt;] flush_cpu_workqueue+0x25/0xa7
+Jan 12 17:41:01 karnkraft kernel: [  245.378499]  [&lt;ffffffff803dbb46&gt;] mutex_lock+0x25/0x29
+Jan 12 17:41:01 karnkraft kernel: [  245.378587]  [&lt;ffffffff8023838a&gt;] flush_workqueue+0x45/0x55
+Jan 12 17:41:01 karnkraft kernel: [  245.378683]  [&lt;ffffffff802383c5&gt;] cancel_rearming_delayed_workqueue+0x2b/0x2d
+Jan 12 17:41:01 karnkraft kernel: [  245.378803]  [&lt;ffffffff802383dd&gt;] cancel_rearming_delayed_work+0x16/0x18
+Jan 12 17:41:01 karnkraft kernel: [  245.378935]  [&lt;ffffffff8817d721&gt;] :bcm43xx:bcm43xx_periodic_tasks_delete+0x10/0x12
+Jan 12 17:41:01 karnkraft kernel: [  245.379080]  [&lt;ffffffff8817f847&gt;] :bcm43xx:bcm43xx_chip_reset+0x35/0xc6
+Jan 12 17:41:01 karnkraft kernel: [  245.379195]  [&lt;ffffffff802381b9&gt;] run_workqueue+0xa1/0x186
+Jan 12 17:41:01 karnkraft kernel: [  245.379289]  [&lt;ffffffff80238786&gt;] worker_thread+0x0/0x14b
+Jan 12 17:41:01 karnkraft kernel: [  245.379382]  [&lt;ffffffff8023889a&gt;] worker_thread+0x114/0x14b
+Jan 12 17:41:01 karnkraft kernel: [  245.379478]  [&lt;ffffffff80225753&gt;] default_wake_function+0x0/0xf
+Jan 12 17:41:01 karnkraft kernel: [  245.382136]  [&lt;ffffffff80238786&gt;] worker_thread+0x0/0x14b
+Jan 12 17:41:01 karnkraft kernel: [  245.384790]  [&lt;ffffffff8023b52c&gt;] kthread+0xce/0x102
+Jan 12 17:41:01 karnkraft kernel: [  245.387443]  [&lt;ffffffff8020a788&gt;] child_rip+0xa/0x12
+Jan 12 17:41:01 karnkraft kernel: [  245.390093]  [&lt;ffffffff803dd510&gt;] _spin_unlock_irq+0x2b/0x31
+Jan 12 17:41:01 karnkraft kernel: [  245.392757]  [&lt;ffffffff8020a36c&gt;] restore_args+0x0/0x30
+Jan 12 17:41:01 karnkraft kernel: [  245.395400]  [&lt;ffffffff8023b45e&gt;] kthread+0x0/0x102
+Jan 12 17:41:01 karnkraft kernel: [  245.398026]  [&lt;ffffffff8020a77e&gt;] child_rip+0x0/0x12
+Jan 12 17:41:01 karnkraft kernel: [  245.400621] 
+Jan 12 17:41:02 karnkraft kernel: [  246.026228] ACPI: EC: evaluating _Q1E
+Jan 12 17:41:14 karnkraft kernel: [  258.662553] ACPI: EC: evaluating _Q1E
+Jan 12 17:41:28 karnkraft kernel: [  271.954515] ACPI: EC: evaluating _Q1E
+Read from remote host karnkraft: Connection reset by peer
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000005.html">&gt;1GB Bug
+</A></li>
+	<LI>Next message: <A HREF="000070.html">&gt;1GB Bug
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#69">[ date ]</a>
+              <a href="thread.html#69">[ thread ]</a>
+              <a href="subject.html#69">[ subject ]</a>
+              <a href="author.html#69">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

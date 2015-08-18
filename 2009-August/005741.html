@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed 	for LP-PHY
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RFC%5D%20ssb%3A%20Implement%20the%20remaining%20rev.8%20SPROM%20vars%20needed%20%0A%09for%20LP-PHY&In-Reply-To=%3C69e28c910908101207p17139562v55ede047c944dae%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005739.html">
+   <LINK REL="Next"  HREF="005742.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed 	for LP-PHY</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20RFC%5D%20ssb%3A%20Implement%20the%20remaining%20rev.8%20SPROM%20vars%20needed%20%0A%09for%20LP-PHY&In-Reply-To=%3C69e28c910908101207p17139562v55ede047c944dae%40mail.gmail.com%3E"
+       TITLE="[PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed 	for LP-PHY">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Mon Aug 10 21:07:45 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005739.html">[PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed	for LP-PHY
+</A></li>
+        <LI>Next message: <A HREF="005742.html">[PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed	for LP-PHY
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5741">[ date ]</a>
+              <a href="thread.html#5741">[ thread ]</a>
+              <a href="subject.html#5741">[ subject ]</a>
+              <a href="author.html#5741">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>2009/8/10 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;:
+&gt;<i> On Monday 10 August 2009 20:49:02 G&#225;bor Stefanik wrote:
+</I>&gt;&gt;<i> Also add a &quot;SPEX32&quot; macro for extracting 32-bit SPROM variables.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+</I>&gt;&gt;<i> ---
+</I>&gt;&gt;<i> I'm not quite sure that the SPEX32 macro is sane endianness-wise;
+</I>&gt;&gt;<i> please review it carefully. (In the future, we will probably need
+</I>&gt;&gt;<i> a SPEX64 macro too, to correctly extract boardflags.)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> &#160;drivers/ssb/pci.c &#160; &#160; &#160; &#160; &#160; &#160;| &#160; 53 +++++++++++++++++++++++++++++++++-
+</I>&gt;&gt;<i> &#160;include/linux/ssb/ssb.h &#160; &#160; &#160;| &#160; 44 +++++++++++++++++++++++----
+</I>&gt;&gt;<i> &#160;include/linux/ssb/ssb_regs.h | &#160; 66 +++++++++++++++++++++++++++++++++++++----
+</I>&gt;&gt;<i> &#160;3 files changed, 148 insertions(+), 15 deletions(-)
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> diff --git a/drivers/ssb/pci.c b/drivers/ssb/pci.c
+</I>&gt;&gt;<i> index 40ea417..50811e4 100644
+</I>&gt;&gt;<i> --- a/drivers/ssb/pci.c
+</I>&gt;&gt;<i> +++ b/drivers/ssb/pci.c
+</I>&gt;&gt;<i> @@ -169,8 +169,14 @@ err_pci:
+</I>&gt;&gt;<i> &#160;/* Get the word-offset for a SSB_SPROM_XXX define. */
+</I>&gt;&gt;<i> &#160;#define SPOFF(offset) &#160; &#160; &#160; &#160;(((offset) - SSB_SPROM_BASE) / sizeof(u16))
+</I>&gt;&gt;<i> &#160;/* Helper to extract some _offset, which is one of the SSB_SPROM_XXX defines. */
+</I>&gt;&gt;<i> -#define SPEX(_outvar, _offset, _mask, _shift) &#160; &#160; &#160; &#160;\
+</I>&gt;&gt;<i> +#define SPEX16(_outvar, _offset, _mask, _shift) &#160; &#160; &#160;\
+</I>&gt;&gt;<i> &#160; &#160; &#160; out-&gt;_outvar = ((in[SPOFF(_offset)] &amp; (_mask)) &gt;&gt; (_shift))
+</I>&gt;&gt;<i> +#define SPEX32(_outvar, _offset, _mask, _shift) &#160; &#160; &#160;\
+</I>&gt;&gt;<i> + &#160; &#160; out-&gt;_outvar = ((((in[SPOFF((_offset)+2)] &lt;&lt; sizeof(u16)) | \
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;^^^^^^^^^^^^^^
+</I>&gt;<i> This shifts by 2 bit. Did you want 16 bits? Just write &#160;&lt;&lt; 16 &#160;then.
+</I>Good catch, thanks!
+
+&gt;<i> Also, it seems you need +1 instead of +2 (it is an u16 pointer).
+</I>I'm adding to _offset, not to SPOFF(_offset). AFAICS _offset is not an
+u16 pointer, it's a plain #defined number, unlike SPOFF(_offset).
+
+&gt;<i> I also usually cast u16 values to u32 before shifting &gt;=16 bits.
+</I>&gt;<i> The result of shifting a 16bit variable left by 16bits is machine dependent.
+</I>&gt;<i> It works as expected for every linux architecture, but I prefer the cast anyway.
+</I>Will do, thanks.
+
+&gt;<i>
+</I>&gt;<i> Your macro extracts the value in littleendian format. I didn't check if this is
+</I>&gt;<i> correct for your values. But there also are values stored in BE format.
+</I>Larry, do you have any comments on this?
+
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i> Greetings, Michael.
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005739.html">[PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed	for LP-PHY
+</A></li>
+	<LI>Next message: <A HREF="005742.html">[PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed	for LP-PHY
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5741">[ date ]</a>
+              <a href="thread.html#5741">[ thread ]</a>
+              <a href="subject.html#5741">[ subject ]</a>
+              <a href="author.html#5741">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

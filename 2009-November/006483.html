@@ -1,0 +1,184 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Fatal DMA error problem with netbook and BCM4312
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Fatal%20DMA%20error%20problem%20with%20netbook%20and%20BCM4312&In-Reply-To=%3C4B0C1DD6.1030703%40polymtl.ca%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006494.html">
+   <LINK REL="Next"  HREF="006484.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Fatal DMA error problem with netbook and BCM4312</H1>
+    <B>William Bourque</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Fatal%20DMA%20error%20problem%20with%20netbook%20and%20BCM4312&In-Reply-To=%3C4B0C1DD6.1030703%40polymtl.ca%3E"
+       TITLE="Fatal DMA error problem with netbook and BCM4312">william.bourque at polymtl.ca
+       </A><BR>
+    <I>Tue Nov 24 18:54:30 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006494.html">Fatal DMA error problem with netbook and BCM4312
+</A></li>
+        <LI>Next message: <A HREF="006484.html">Fatal DMA error problem with netbook and BCM4312
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6483">[ date ]</a>
+              <a href="thread.html#6483">[ thread ]</a>
+              <a href="subject.html#6483">[ subject ]</a>
+              <a href="author.html#6483">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Chris Vine wrote:
+&gt;<i> On Tue, 24 Nov 2009 10:50:13 -0500
+</I>&gt;<i> William Bourque &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">william.bourque at polymtl.ca</A>&gt; wrote:
+</I>&gt;<i> [snip]
+</I>&gt;&gt;<i> I was using the B43 (GPL) driver but with the proprietary firmware
+</I>&gt;&gt;<i> extracted from Broadcom crap with bfwcutter.
+</I>&gt;&gt;<i> The proprietary driver provided by Broadcom (what you refer as wl?)
+</I>&gt;&gt;<i> fails to even detect the card. They clearly hate their customers.
+</I>&gt;<i> 
+</I>&gt;<i> I should be very surprised if it doesn't detect your card provided you
+</I>&gt;<i> are using the right driver (and if you haven't compiled and installed a
+</I>&gt;<i> driver called wl.ko then so far as the proprietary driver is concerned
+</I>&gt;<i> you aren't).
+</I>&gt;<i> 
+</I>&gt;<i> If you want to take this further, you probably want to go to
+</I>&gt;<i> <A HREF="http://www.broadcom.com/support/802.11/linux_sta.php">http://www.broadcom.com/support/802.11/linux_sta.php</A> ,
+</I>&gt;<i> install the 32-bit or 64-bit driver according to your system, get the
+</I>&gt;<i> wl.ko driver working and then try warm booting from that and seeing if
+</I>&gt;<i> the b43 driver then works for you - it should.  (You will need to copy
+</I>&gt;<i> wl.ko somewhere into your working module directory by hand - it doesn't
+</I>&gt;<i> really matter where - and after doing so run depmod -ae.)
+</I>&gt;<i> 
+</I>&gt;<i> Note that this won't compile on 2.6.32-rc* without patching one of the
+</I>&gt;<i> files in the broadcom package, so it would probably be best to install
+</I>&gt;<i> it in a 2.6 31 (or earlier) kernel and warm boot from that.
+</I>&gt;<i> 
+</I>
+So, I compiled the Broadcom proprietary driver (wl) against an old 
+2.6.32-rc5 that I still had.
+
+The compilation went fine so I guess I don't need the patch after all :
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at mini</A> hybrid-broadcom # make
+KBUILD_NOPEDANTIC=1 make -C /lib/modules/`uname -r`/build M=`pwd`
+make[1]: Entering directory `/usr/src/linux-2.6.32-rc5-homemade'
+   Building modules, stage 2.
+   MODPOST 1 modules
+WARNING: modpost: missing MODULE_LICENSE() in 
+/usr/local/hybrid-broadcom/wl.o
+see include/linux/module.h for more information
+make[1]: Leaving directory `/usr/src/linux-2.6.32-rc5-homemade'
+
+..the module is copied at the right place and depmoded :
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at mini</A> hybrid-broadcom # cp wl.ko 
+/lib/modules/2.6.32-rc5-homemade/kernel/drivers/net/wireless/
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at mini</A> hybrid-broadcom # depmod -ae
+WARNING: -e needs -E or -F
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at mini</A> hybrid-broadcom #
+
+**The system is rebooted here**
+
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at mini</A> ~ # uname -a
+Linux mini 2.6.32-rc5-homemade #1 SMP PREEMPT Fri Nov 13 04:15:41 EST 
+2009 i686 GNU/Linux
+
+All others b43 drivers are blacklisted and does not load at boot :
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at mini</A> ~ # lsmod
+Module                  Size  Used by
+ipv6                  225039  18
+wmi                     4083  0
+i2c_i801                7106  0
+sky2                   39059  0
+evdev                   6653  14
+
+(Yes, very few modules, I like my kernel free of useless stuff).
+
+Now we load wl (depmod and everything was done, the build went 
+correctly, I will probably output if needed) :
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at mini</A> ~ # modprobe wl
+
+Lsmod shown the drivers is not in use :
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at mini</A> ~ # lsmod
+Module                  Size  Used by
+wl                   1262065  0
+ipv6                  225039  18
+wmi                     4083  0
+i2c_i801                7106  0
+sky2                   39059  0
+evdev                   6653  14
+
+Not much in dmesg either :
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at mini</A> ~ # dmesg | tail -5
+[   94.693445] sky2 eth0: Link is up at 100 Mbps, full duplex, flow 
+control rx
+[   94.693849] ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+[  105.540193] eth0: no IPv6 routers present
+[  447.078683] wl: module license 'unspecified' taints kernel.
+[  447.078691] Disabling lock debugging due to kernel taint
+
+As you can see, it does not :
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at mini</A> ~ # ifconfig -a 
+
+eth0      Link encap:Ethernet  HWaddr 00:24:81:5d:10:65
+           inet addr:142.133.110.63  Bcast:142.133.111.255 
+Mask:255.255.254.0
+           inet6 addr: fe80::224:81ff:fe5d:1065/64 Scope:Link 
+
+           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1 
+
+           RX packets:1670 errors:0 dropped:0 overruns:0 frame:0 
+
+           TX packets:263 errors:0 dropped:0 overruns:0 carrier:0 
+
+           collisions:0 txqueuelen:1000
+           RX bytes:222383 (217.1 KiB)  TX bytes:37989 (37.0 KiB)
+           Interrupt:17
+
+lo        Link encap:Local Loopback
+           inet addr:127.0.0.1  Mask:255.0.0.0
+           inet6 addr: ::1/128 Scope:Host
+           UP LOOPBACK RUNNING  MTU:16436  Metric:1
+           RX packets:511 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:511 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:0
+           RX bytes:96730 (94.4 KiB)  TX bytes:96730 (94.4 KiB)
+
+
+Conclusion :
+The Broadcom proprietary driver (wl) FAILS to detect the card.
+Feel free to point me any errors I could have made... I could try with 
+the 2.6.32-rc* patch if you'd like but the compilation went fine (no 
+error no warning).
+
+- William
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006494.html">Fatal DMA error problem with netbook and BCM4312
+</A></li>
+	<LI>Next message: <A HREF="006484.html">Fatal DMA error problem with netbook and BCM4312
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6483">[ date ]</a>
+              <a href="thread.html#6483">[ thread ]</a>
+              <a href="subject.html#6483">[ subject ]</a>
+              <a href="author.html#6483">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

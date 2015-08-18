@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH v2] b43: Add fastpath to b43_mac_suspend()
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20v2%5D%20b43%3A%20Add%20fastpath%20to%20b43_mac_suspend%28%29&In-Reply-To=%3C1208370999.11676.60.camel%40johannes.berg%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003823.html">
+   <LINK REL="Next"  HREF="003835.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH v2] b43: Add fastpath to b43_mac_suspend()</H1>
+    <B>Johannes Berg</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20v2%5D%20b43%3A%20Add%20fastpath%20to%20b43_mac_suspend%28%29&In-Reply-To=%3C1208370999.11676.60.camel%40johannes.berg%3E"
+       TITLE="[PATCH v2] b43: Add fastpath to b43_mac_suspend()">johannes at sipsolutions.net
+       </A><BR>
+    <I>Wed Apr 16 20:36:39 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003823.html">unsuscribe
+</A></li>
+        <LI>Next message: <A HREF="003835.html">[PATCH v2] b43: Add fastpath to b43_mac_suspend()
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3834">[ date ]</a>
+              <a href="thread.html#3834">[ thread ]</a>
+              <a href="subject.html#3834">[ subject ]</a>
+              <a href="author.html#3834">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tue, 2008-04-15 at 21:13 +0200, Michael Buesch wrote:
+&gt;<i> This adds a fastpath for the common workloads to the
+</I>&gt;<i> MAC suspend flushing.
+</I>
+
+&gt;<i> @@ -2340,12 +2340,20 @@ static void b43_mac_suspend(struct b43_w
+</I>&gt;<i>  		b43_power_saving_ctl_bits(dev, B43_PS_AWAKE);
+</I>&gt;<i>  		b43_write32(dev, B43_MMIO_MACCTL,
+</I>&gt;<i>  			    b43_read32(dev, B43_MMIO_MACCTL)
+</I>&gt;<i>  			    &amp; ~B43_MACCTL_ENABLED);
+</I>&gt;<i>  		/* force pci to flush the write */
+</I>&gt;<i>  		b43_read32(dev, B43_MMIO_MACCTL);
+</I>&gt;<i> +		/* Finally wait for the microcode to flush the fifos. */
+</I>
+That comment is wrong, the ucode won't flush the FIFOs, it'll just go to
+sleep. If you want it to flush FIFOs you have to set a flush request bit
+somewhere (mac command I think), but you don't actually, you just don't
+want to have it processing stuff.
+
+johannes
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 828 bytes
+Desc: This is a digitally signed message part
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080416/80b8fd24/attachment.pgp">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080416/80b8fd24/attachment.pgp</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003823.html">unsuscribe
+</A></li>
+	<LI>Next message: <A HREF="003835.html">[PATCH v2] b43: Add fastpath to b43_mac_suspend()
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3834">[ date ]</a>
+              <a href="thread.html#3834">[ thread ]</a>
+              <a href="subject.html#3834">[ subject ]</a>
+              <a href="author.html#3834">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

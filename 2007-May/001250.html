@@ -1,0 +1,1948 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/3] fix A/G PHYs setup and init
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/3%5D%20fix%20A/G%20PHYs%20setup%20and%20init&In-Reply-To=%3Cb1923f7f0705131002s79d08454k430d2c0051c2d840%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001245.html">
+   <LINK REL="Next"  HREF="001251.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/3] fix A/G PHYs setup and init</H1>
+    <B>Anthony Durity</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/3%5D%20fix%20A/G%20PHYs%20setup%20and%20init&In-Reply-To=%3Cb1923f7f0705131002s79d08454k430d2c0051c2d840%40mail.gmail.com%3E"
+       TITLE="[PATCH 1/3] fix A/G PHYs setup and init">bcm43xx at jollyrotten.org
+       </A><BR>
+    <I>Sun May 13 19:02:48 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001245.html">[PATCH 1/3] fix A/G PHYs setup and init
+</A></li>
+        <LI>Next message: <A HREF="001251.html">[PATCH 1/3] fix A/G PHYs setup and init
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1250">[ date ]</a>
+              <a href="thread.html#1250">[ thread ]</a>
+              <a href="subject.html#1250">[ subject ]</a>
+              <a href="author.html#1250">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi Michael (and everyone else),
+
+I am trying to get my Broadcom wireless working. I met this nice guy at the
+Ubuntu
+Dev Summit in Sevilla and he told me to
+git-clone <A HREF="git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-">git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-</A>
+dev.git
+and then build a custom kernel (a thing I have not had to do in Linux for
+many a
+year and my my the config options have expanded somewhat). He also suggested
+I subscribe to this list and detail any problems I might have.
+
+Here is an lspic -vv of the chipset
+03:02.0 Network controller: Broadcom Corporation BCM4318 [AirForce One 54g]
+802.11g Wireless LAN Controller (rev 02)
+        Subsystem: Hewlett-Packard Company MX6125
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B-
+        Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort-
+&lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+        Latency: 64
+        Interrupt: pin A routed to IRQ 21
+        Region 0: Memory at b0204000 (32-bit, non-prefetchable) [size=8K]
+
+My laptop is a HP Compaq R4000 - specifically the R4218ea. It's got an
+Athlon 64
+which is nice.
+
+The thing is that I've seen you posting patches for the bcm43xx to this
+list. Should I
+be applying these patches to the latest Linville kernel (after I've done a
+git-pull to ensure
+that I have the latest sources I guess) or not? Is there anything special I
+need to do?
+Should I disable NetworkManager? Does Avahi interfere? I saw a couple of
+posts about
+lowering the TX rate, should I do this? What options should I enable in the
+wireless kernel
+vis-a-vis bcm43xx. Should I use the Improved wireless configuration API?
+Should I
+enable nl80211 new netlink interface support? Should I enable debugging
+output?
+I want to be able to help you guys to the best of my ability so any info
+pushing me in
+the right direction would be greatly appreciated.
+
+All the best,
+    Anthony Durity
+
+On 5/12/07, Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A> &gt; wrote:
+&gt;<i>
+</I>&gt;<i> On Saturday 12 May 2007 01:07:01 Michael Buesch wrote:
+</I>&gt;<i> &gt; On Friday 11 May 2007 12:24:33 Michael Buesch wrote:
+</I>&gt;<i> &gt; &gt; On Monday 23 April 2007 20:30:41 Stefano Brivio wrote:
+</I>&gt;<i> &gt; &gt; &gt; This patch fixes A/G PHYs setup and initialization routines. Let's
+</I>&gt;<i> move
+</I>&gt;<i> &gt; &gt; &gt; the so-called workarounds in a separate file, in order to avoid
+</I>&gt;<i> clobbering
+</I>&gt;<i> &gt; &gt; &gt; bcm43xx_phy.c.
+</I>&gt;<i>
+</I>&gt;<i> Here's latest version of the patch.
+</I>&gt;<i> Yet another few bugs fixed.
+</I>&gt;<i>
+</I>&gt;<i> Index:
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_wa.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- /dev/null   1970-01-01 00:00:00.000000000 +0000
+</I>&gt;<i> +++
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_wa.c      2007-05-12
+</I>&gt;<i> 16:29:05.000000000 +0200
+</I>&gt;<i> @@ -0,0 +1,668 @@
+</I>&gt;<i> +/*
+</I>&gt;<i> +
+</I>&gt;<i> +  Broadcom BCM43xx wireless driver
+</I>&gt;<i> +
+</I>&gt;<i> +  PHY workarounds.
+</I>&gt;<i> +
+</I>&gt;<i> +  Copyright (c) 2005 Martin Langer &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">martin-langer at gmx.de</A>&gt;,
+</I>&gt;<i> +  Copyright (c) 2005-2007 Stefano Brivio &lt; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">st3 at riseup.net</A>&gt;
+</I>&gt;<i> +  Copyright (c) 2005-2007 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mbuesch at freenet.de</A>&gt;
+</I>&gt;<i> +  Copyright (c) 2005, 2006 Danny van Dyk &lt; <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">kugelfang at gentoo.org</A>&gt;
+</I>&gt;<i> +  Copyright (c) 2005, 2006 Andreas Jaggi &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">andreas.jaggi at waterwave.ch</A>&gt;
+</I>&gt;<i> +
+</I>&gt;<i> +  This program is free software; you can redistribute it and/or modify
+</I>&gt;<i> +  it under the terms of the GNU General Public License as published by
+</I>&gt;<i> +  the Free Software Foundation; either version 2 of the License, or
+</I>&gt;<i> +  (at your option) any later version.
+</I>&gt;<i> +
+</I>&gt;<i> +  This program is distributed in the hope that it will be useful,
+</I>&gt;<i> +  but WITHOUT ANY WARRANTY; without even the implied warranty of
+</I>&gt;<i> +  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+</I>&gt;<i> +  GNU General Public License for more details.
+</I>&gt;<i> +
+</I>&gt;<i> +  You should have received a copy of the GNU General Public License
+</I>&gt;<i> +  along with this program; see the file COPYING.  If not, write to
+</I>&gt;<i> +  the Free Software Foundation, Inc., 51 Franklin Steet, Fifth Floor,
+</I>&gt;<i> +  Boston, MA 02110-1301, USA.
+</I>&gt;<i> +
+</I>&gt;<i> +*/
+</I>&gt;<i> +
+</I>&gt;<i> +#include &quot;bcm43xx.h &quot;
+</I>&gt;<i> +#include &quot;bcm43xx_main.h&quot;
+</I>&gt;<i> +#include &quot;bcm43xx_tables.h&quot;
+</I>&gt;<i> +#include &quot;bcm43xx_phy.h&quot;
+</I>&gt;<i> +#include &quot;bcm43xx_wa.h&quot;
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_papd(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       u16 backup;
+</I>&gt;<i> +
+</I>&gt;<i> +       backup = bcm43xx_ofdmtab_read16(dev, BCM43xx_OFDMTAB_PWRDYN2, 0);
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_PWRDYN2, 0, 7);
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_UNKNOWN_APHY, 0, 0);
+</I>&gt;<i> +       bcm43xx_dummy_transmission(dev);
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_PWRDYN2, 0, backup);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_auxclipthr(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x8E), 0x3800);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_afcdac(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_phy_write(dev, 0x0035, 0x03FF);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, 0x0036, 0x0400);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_txdc_offset(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_DC, 0, 0x0051);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +void bcm43xx_wa_initgains(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> +
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_LNAHPFCTL, 0x1FF9);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_LPFGAINCTL,
+</I>&gt;<i> +               bcm43xx_phy_read(dev, BCM43xx_PHY_LPFGAINCTL) &amp; 0xFF0F);
+</I>&gt;<i> +       if (phy-&gt;rev &lt;= 2)
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_LPFGAIN, 0,
+</I>&gt;<i> 0x1FBF);
+</I>&gt;<i> +       bcm43xx_radio_write16(dev, 0x0002, 0x1FBF);
+</I>&gt;<i> +
+</I>&gt;<i> +       bcm43xx_phy_write(dev, 0x0024, 0x4680);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, 0x0020, 0x0003);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, 0x001D, 0x0F40);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, 0x001F, 0x1C00);
+</I>&gt;<i> +       if (phy-&gt;rev &lt;= 3)
+</I>&gt;<i> +               bcm43xx_phy_write(dev, 0x002A,
+</I>&gt;<i> +                       (bcm43xx_phy_read(dev, 0x002A) &amp; 0x00FF) |
+</I>&gt;<i> 0x0400);
+</I>&gt;<i> +       else if (phy-&gt;rev == 5) {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, 0x002A,
+</I>&gt;<i> +                       (bcm43xx_phy_read(dev, 0x002A) &amp; 0x00FF) |
+</I>&gt;<i> 0x1A00);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, 0x00CC, 0x2121);
+</I>&gt;<i> +       }
+</I>&gt;<i> +       if (phy-&gt;rev &gt;= 3)
+</I>&gt;<i> +               bcm43xx_phy_write(dev, 0x00BA, 0x3ED5);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_divider(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_phy_write(dev, 0x002B, bcm43xx_phy_read(dev, 0x002B) &amp;
+</I>&gt;<i> ~0x0100);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, 0x008E, 0x58C1);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_gt(struct bcm43xx_wldev *dev) /* Gain table. */
+</I>&gt;<i> +{
+</I>&gt;<i> +       if (dev-&gt;phy.rev &lt;= 2) {
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN2, 0,
+</I>&gt;<i> 15);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN2, 1,
+</I>&gt;<i> 31);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN2, 2,
+</I>&gt;<i> 42);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN2, 3,
+</I>&gt;<i> 48);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN2, 4,
+</I>&gt;<i> 58);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN0, 0,
+</I>&gt;<i> 19);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN0, 1,
+</I>&gt;<i> 19);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN0, 2,
+</I>&gt;<i> 19);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN0, 3,
+</I>&gt;<i> 19);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN0, 4,
+</I>&gt;<i> 21);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN0, 5,
+</I>&gt;<i> 21);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN0, 6,
+</I>&gt;<i> 25);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN1, 0, 3);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN1, 1, 3);
+</I>&gt;<i>
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN1, 2, 7);
+</I>&gt;<i> +       } else {
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN0, 0,
+</I>&gt;<i> 19);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN0, 1,
+</I>&gt;<i> 19);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN0, 2,
+</I>&gt;<i> 19);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN0, 3,
+</I>&gt;<i> 19);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN0, 4,
+</I>&gt;<i> 21);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN0, 5,
+</I>&gt;<i> 21);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_GAIN0, 6,
+</I>&gt;<i> 25);
+</I>&gt;<i> +       }
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_rssi_lt(struct bcm43xx_wldev *dev) /* RSSI lookup
+</I>&gt;<i> table */
+</I>&gt;<i> +{
+</I>&gt;<i> +       int i;
+</I>&gt;<i> +
+</I>&gt;<i> +       for (i = 0; i &lt; 8; i++)
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_RSSI, i, i +
+</I>&gt;<i> 8);
+</I>&gt;<i> +       for (i = 8; i &lt; 16; i++)
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_RSSI, i, i -
+</I>&gt;<i> 8);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_analog(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> +
+</I>&gt;<i> +       if (phy-&gt;analog &gt; 2) {
+</I>&gt;<i> +               if (phy-&gt;type == BCM43xx_PHYTYPE_A)
+</I>&gt;<i> +                       bcm43xx_phy_write(dev, BCM43xx_PHY_PWRDOWN,
+</I>&gt;<i> 0x1808);
+</I>&gt;<i> +               else
+</I>&gt;<i> +                       bcm43xx_phy_write(dev, BCM43xx_PHY_PWRDOWN,
+</I>&gt;<i> 0x1000);
+</I>&gt;<i> +       } else {
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_DAC, 3,
+</I>&gt;<i> 0x1044);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_DAC, 4,
+</I>&gt;<i> 0x7201);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_DAC, 6,
+</I>&gt;<i> 0x0040);
+</I>&gt;<i> +       }
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_dac(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       if (dev-&gt;phy.analog == 1)
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_DAC, 1,
+</I>&gt;<i> +                       (bcm43xx_ofdmtab_read16(dev, BCM43xx_OFDMTAB_DAC,
+</I>&gt;<i> 1) &amp; ~0x0034) | 0x0008);
+</I>&gt;<i> +       else
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_DAC, 1,
+</I>&gt;<i> +                       (bcm43xx_ofdmtab_read16(dev, BCM43xx_OFDMTAB_DAC,
+</I>&gt;<i> 1) &amp; ~0x0078) | 0x0010);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_fft(struct bcm43xx_wldev *dev) /* Fine frequency
+</I>&gt;<i> table */
+</I>&gt;<i> +{
+</I>&gt;<i> +       int i;
+</I>&gt;<i> +
+</I>&gt;<i> +       if (dev-&gt;phy.type == BCM43xx_PHYTYPE_A)
+</I>&gt;<i> +               for (i = 0; i &lt; BCM43xx_TAB_FINEFREQA_SIZE; i++)
+</I>&gt;<i> +                       bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_DACRFPABB, i, bcm43xx_tab_finefreqa[i]);
+</I>&gt;<i> +       else
+</I>&gt;<i> +               for (i = 0; i &lt; BCM43xx_TAB_FINEFREQG_SIZE; i++)
+</I>&gt;<i> +                       bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_DACRFPABB, i, bcm43xx_tab_finefreqg[i]);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_nft(struct bcm43xx_wldev *dev) /* Noise figure
+</I>&gt;<i> table */
+</I>&gt;<i> +{
+</I>&gt;<i> +       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> +       int i;
+</I>&gt;<i> +
+</I>&gt;<i> +       if (phy-&gt;type == BCM43xx_PHYTYPE_A) {
+</I>&gt;<i> +               if (phy-&gt;rev == 2)
+</I>&gt;<i> +                       for (i = 0; i &lt; BCM43xx_TAB_NOISEA2_SIZE; i++)
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_AGC2, i, bcm43xx_tab_noisea2[i]);
+</I>&gt;<i> +               else
+</I>&gt;<i> +                       for (i = 0; i &lt; BCM43xx_TAB_NOISEA3_SIZE; i++)
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_AGC2, i, bcm43xx_tab_noisea3[i]);
+</I>&gt;<i> +       } else {
+</I>&gt;<i> +               if (phy-&gt;rev == 1)
+</I>&gt;<i> +                       for (i = 0; i &lt; BCM43xx_TAB_NOISEG1_SIZE; i++)
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_AGC2, i, bcm43xx_tab_noiseg1[i]);
+</I>&gt;<i> +               else
+</I>&gt;<i> +                       for (i = 0; i &lt; BCM43xx_TAB_NOISEG2_SIZE; i++)
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_AGC2, i, bcm43xx_tab_noiseg2[i]);
+</I>&gt;<i> +       }
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_rt(struct bcm43xx_wldev *dev) /* Rotor table */
+</I>&gt;<i> +{
+</I>&gt;<i> +       int i;
+</I>&gt;<i> +
+</I>&gt;<i> +       for (i = 0; i &lt; BCM43xx_TAB_ROTOR_SIZE; i++)
+</I>&gt;<i> +               bcm43xx_ofdmtab_write32(dev, BCM43xx_OFDMTAB_ROTOR, i,
+</I>&gt;<i> bcm43xx_tab_rotor[i]);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_nst(struct bcm43xx_wldev *dev) /* Noise scale
+</I>&gt;<i> table */
+</I>&gt;<i> +{
+</I>&gt;<i> +       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> +       int i;
+</I>&gt;<i> +
+</I>&gt;<i> +       if (phy-&gt;type == BCM43xx_PHYTYPE_A) {
+</I>&gt;<i> +               if (phy-&gt;rev &lt;= 1)
+</I>&gt;<i> +                       for (i = 0; i &lt; BCM43xx_TAB_NOISESCALE_SIZE; i++)
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_NOISESCALE,
+</I>&gt;<i> +                                                       i, 0);
+</I>&gt;<i> +               else if (phy-&gt;rev == 2)
+</I>&gt;<i> +                       for (i = 0; i &lt; BCM43xx_TAB_NOISESCALE_SIZE; i++)
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_NOISESCALE,
+</I>&gt;<i> +                                                       i,
+</I>&gt;<i> bcm43xx_tab_noisescalea2[i]);
+</I>&gt;<i> +               else if (phy-&gt;rev == 3)
+</I>&gt;<i> +                       for (i = 0; i &lt; BCM43xx_TAB_NOISESCALE_SIZE; i++)
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_NOISESCALE,
+</I>&gt;<i> +                                                       i,
+</I>&gt;<i> bcm43xx_tab_noisescalea3[i]);
+</I>&gt;<i> +               else
+</I>&gt;<i> +                       for (i = 0; i &lt; BCM43xx_TAB_NOISESCALE_SIZE; i++)
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_NOISESCALE,
+</I>&gt;<i> +                                                       i,
+</I>&gt;<i> bcm43xx_tab_noisescaleg3[i]);
+</I>&gt;<i> +       } else {
+</I>&gt;<i> +               if (phy-&gt;rev &gt;= 6) {
+</I>&gt;<i> +                       if (bcm43xx_phy_read(dev, BCM43xx_PHY_ENCORE) &amp;
+</I>&gt;<i> BCM43xx_PHY_ENCORE_EN)
+</I>&gt;<i> +                               for (i = 0; i &lt;
+</I>&gt;<i> BCM43xx_TAB_NOISESCALE_SIZE; i++)
+</I>&gt;<i> +                                       bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_NOISESCALE,
+</I>&gt;<i> +                                               i,
+</I>&gt;<i> bcm43xx_tab_noisescaleg3[i]);
+</I>&gt;<i> +                       else
+</I>&gt;<i> +                               for (i = 0; i &lt;
+</I>&gt;<i> BCM43xx_TAB_NOISESCALE_SIZE; i++)
+</I>&gt;<i> +                                       bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_NOISESCALE,
+</I>&gt;<i> +                                               i,
+</I>&gt;<i> bcm43xx_tab_noisescaleg2[i]);
+</I>&gt;<i> +               } else {
+</I>&gt;<i> +                       for (i = 0; i &lt; BCM43xx_TAB_NOISESCALE_SIZE; i++)
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_NOISESCALE,
+</I>&gt;<i> +                                                       i,
+</I>&gt;<i> bcm43xx_tab_noisescaleg1[i]);
+</I>&gt;<i> +               }
+</I>&gt;<i> +       }
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_art(struct bcm43xx_wldev *dev) /* ADV retard table
+</I>&gt;<i> */
+</I>&gt;<i> +{
+</I>&gt;<i> +       int i;
+</I>&gt;<i> +
+</I>&gt;<i> +       for (i = 0; i &lt; BCM43xx_TAB_RETARD_SIZE; i++)
+</I>&gt;<i> +                       bcm43xx_ofdmtab_write32(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_ADVRETARD,
+</I>&gt;<i> +                               i, bcm43xx_tab_retard[i]);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_txlna_gain(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_DC, 13, 0x0000);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_crs_reset(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_phy_write(dev, 0x002C, 0x0064);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_2060txlna_gain(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_hf_write(dev, bcm43xx_hf_read(dev) |
+</I>&gt;<i> +                        BCM43xx_HF_2060W);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_lms(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_phy_write(dev, 0x0055,
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, 0x0055) &amp; 0xFFC0) | 0x0004);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_mixedsignal(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_DAC, 1, 3);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_msst(struct bcm43xx_wldev *dev) /* Min sigma
+</I>&gt;<i> square table */
+</I>&gt;<i> +{
+</I>&gt;<i> +       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> +       int i;
+</I>&gt;<i> +       const u16 *tab;
+</I>&gt;<i> +
+</I>&gt;<i> +       if (phy-&gt;type == BCM43xx_PHYTYPE_A) {
+</I>&gt;<i> +               tab = bcm43xx_tab_sigmasqr1;
+</I>&gt;<i> +       } else if (phy-&gt;type == BCM43xx_PHYTYPE_G) {
+</I>&gt;<i> +               tab = bcm43xx_tab_sigmasqr2;
+</I>&gt;<i> +       } else {
+</I>&gt;<i> +               assert(0);
+</I>&gt;<i> +               return;
+</I>&gt;<i> +       }
+</I>&gt;<i> +
+</I>&gt;<i> +       for (i = 0; i &lt; BCM43xx_TAB_SIGMASQR_SIZE; i++) {
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_MINSIGSQ,
+</I>&gt;<i> +                                       i, tab[i]);
+</I>&gt;<i> +       }
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_iqadc(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       if (dev-&gt;phy.analog == 4)
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_DAC, 0,
+</I>&gt;<i> +                       bcm43xx_ofdmtab_read16(dev, BCM43xx_OFDMTAB_DAC,
+</I>&gt;<i> 0) &amp; ~0xF000);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_crs_ed(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> +
+</I>&gt;<i> +       if (phy-&gt;rev == 1) {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_CRSTHRES1, 0x4F19);
+</I>&gt;<i> +       } else if (phy-&gt;rev == 2) {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_CRSTHRES1_R1, 0x1861);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_CRSTHRES2_R1, 0x1861);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_ANTDWELL,
+</I>&gt;<i> +                                 bcm43xx_phy_read(dev,
+</I>&gt;<i> BCM43xx_PHY_ANTDWELL)
+</I>&gt;<i> +                                 | 0x0800);
+</I>&gt;<i> +       } else {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_CRSTHRES1_R1, 0x0098);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_CRSTHRES2_R1, 0x0070);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0xC9), 0x0080);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_ANTDWELL,
+</I>&gt;<i> +                                 bcm43xx_phy_read(dev,
+</I>&gt;<i> BCM43xx_PHY_ANTDWELL)
+</I>&gt;<i> +                                 | 0x0800);
+</I>&gt;<i> +       }
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_crs_thr(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_CRS0,
+</I>&gt;<i> +                       (bcm43xx_phy_read(dev, BCM43xx_PHY_CRS0) &amp;
+</I>&gt;<i> ~0x03C0) | 0xD000);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_crs_blank(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x2C), 0x005A);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_cck_shiftbits(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_CCKSHIFTBITS, 0x0026);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_wrssi_offset(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       int i;
+</I>&gt;<i> +
+</I>&gt;<i> +       if (dev-&gt;phy.rev == 1) {
+</I>&gt;<i> +               for (i = 0; i &lt; 16; i++) {
+</I>&gt;<i> +                       bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_WRSSI_R1,
+</I>&gt;<i> +                                               i, 0x0020);
+</I>&gt;<i> +               }
+</I>&gt;<i> +       } else {
+</I>&gt;<i> +               for (i = 0; i &lt; 32; i++) {
+</I>&gt;<i> +                       bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_WRSSI,
+</I>&gt;<i> +                                               i, 0x0820);
+</I>&gt;<i> +               }
+</I>&gt;<i> +       }
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_txpuoff_rxpuon(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_UNKNOWN_0F, 2, 15);
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_UNKNOWN_0F, 3, 20);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_altagc(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> +
+</I>&gt;<i> +       if (phy-&gt;rev == 1) {
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC1_R1, 0,
+</I>&gt;<i> 254);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC1_R1, 1,
+</I>&gt;<i> 13);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC1_R1, 2,
+</I>&gt;<i> 19);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC1_R1, 3,
+</I>&gt;<i> 25);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC2, 0,
+</I>&gt;<i> 0x2710);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC2, 1,
+</I>&gt;<i> 0x9B83);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC2, 2,
+</I>&gt;<i> 0x9B83);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC2, 3,
+</I>&gt;<i> 0x0F8D);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_LMS, 4);
+</I>&gt;<i> +       } else {
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC1, 0,
+</I>&gt;<i> 254);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC1, 1, 13);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC1, 2, 19);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC1, 3, 25);
+</I>&gt;<i>
+</I>&gt;<i> +       }
+</I>&gt;<i> +
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_CCKSHIFTBITS_WA,
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_CCKSHIFTBITS_WA) &amp;
+</I>&gt;<i> ~0xFF00) | 0x5700);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x1A),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x1A)) &amp; ~0x007F)
+</I>&gt;<i> | 0x000F);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x1A),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x1A)) &amp; ~0x3F80)
+</I>&gt;<i> | 0x2B80);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_ANTWRSETT,
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_ANTWRSETT) &amp; 0xF0FF) |
+</I>&gt;<i> 0x0300);
+</I>&gt;<i> +       bcm43xx_radio_write16(dev, 0x7A,
+</I>&gt;<i> +               bcm43xx_radio_read16(dev, 0x7A) | 0x0008);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_N1P1GAIN,
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_N1P1GAIN) &amp; ~0x000F) |
+</I>&gt;<i> 0x0008);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_P1P2GAIN,
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_P1P2GAIN) &amp; ~0x0F00) |
+</I>&gt;<i> 0x0600);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_N1N2GAIN,
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_N1N2GAIN) &amp; ~0x0F00) |
+</I>&gt;<i> 0x0700);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_N1P1GAIN,
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_N1P1GAIN) &amp; ~0x0F00) |
+</I>&gt;<i> 0x0100);
+</I>&gt;<i> +       if (phy-&gt;rev == 1) {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_N1N2GAIN,
+</I>&gt;<i> +                                 (bcm43xx_phy_read(dev,
+</I>&gt;<i> BCM43xx_PHY_N1N2GAIN)
+</I>&gt;<i> +                                  &amp; ~0x000F) | 0x0007);
+</I>&gt;<i> +       }
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x88),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x88)) &amp; ~0x00FF)
+</I>&gt;<i> | 0x001C);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x88),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x88)) &amp; ~0x3F00)
+</I>&gt;<i> | 0x0200);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x96),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x96)) &amp; ~0x00FF)
+</I>&gt;<i> | 0x001C);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x89),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x89)) &amp; ~0x00FF)
+</I>&gt;<i> | 0x0020);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x89),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x89)) &amp; ~0x3F00)
+</I>&gt;<i> | 0x0200);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x82),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x82)) &amp; ~0x00FF)
+</I>&gt;<i> | 0x002E);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x96),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x96)) &amp; ~0xFF00)
+</I>&gt;<i> | 0x1A00);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x81),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x81)) &amp; ~0x00FF)
+</I>&gt;<i> | 0x0028);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x81),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x81)) &amp; ~0xFF00)
+</I>&gt;<i> | 0x2C00);
+</I>&gt;<i> +       if (phy-&gt;rev == 1) {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_PEAK_COUNT, 0x092B);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x1B),
+</I>&gt;<i> +                       (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x1B)) &amp;
+</I>&gt;<i> ~0x001E) | 0x0002);
+</I>&gt;<i> +       } else {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x1B),
+</I>&gt;<i> +                       bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x1B)) &amp;
+</I>&gt;<i> ~0x001E);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x1F), 0x287A);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_LPFGAINCTL,
+</I>&gt;<i> +                       (bcm43xx_phy_read(dev, BCM43xx_PHY_LPFGAINCTL) &amp;
+</I>&gt;<i> ~0x000F) | 0x0004);
+</I>&gt;<i> +               if (phy-&gt;rev &gt;= 6) {
+</I>&gt;<i> +                       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x22),
+</I>&gt;<i> 0x287A);
+</I>&gt;<i> +                       bcm43xx_phy_write(dev, BCM43xx_PHY_LPFGAINCTL,
+</I>&gt;<i> +                               (bcm43xx_phy_read(dev,
+</I>&gt;<i> BCM43xx_PHY_LPFGAINCTL) &amp; ~0xF000) | 0x3000);
+</I>&gt;<i> +               }
+</I>&gt;<i> +       }
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_DIVSRCHIDX,
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_DIVSRCHIDX) &amp; 0x7F7F) |
+</I>&gt;<i> 0x7874);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x8E), 0x1C00);
+</I>&gt;<i> +       if (phy-&gt;rev == 1) {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_DIVP1P2GAIN,
+</I>&gt;<i> +                       (bcm43xx_phy_read(dev, BCM43xx_PHY_DIVP1P2GAIN) &amp;
+</I>&gt;<i> ~0x0F00) | 0x0600);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x8B), 0x005E);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_ANTWRSETT,
+</I>&gt;<i> +                       (bcm43xx_phy_read(dev, BCM43xx_PHY_ANTWRSETT) &amp;
+</I>&gt;<i> ~0x00FF) | 0x001E);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x8D), 0x0002);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC3_R1, 0,
+</I>&gt;<i> 0);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC3_R1, 1,
+</I>&gt;<i> 7);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC3_R1, 2,
+</I>&gt;<i> 16);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC3_R1, 3,
+</I>&gt;<i> 28);
+</I>&gt;<i> +       } else {
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC3, 0, 0);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC3, 1, 7);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC3, 2, 16);
+</I>&gt;<i>
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC3, 3, 28);
+</I>&gt;<i> +       }
+</I>&gt;<i> +       if (phy-&gt;rev &gt;= 6) {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x26),
+</I>&gt;<i> +                       bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x26)) &amp;
+</I>&gt;<i> ~0x0003);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x26),
+</I>&gt;<i> +                       bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x26)) &amp;
+</I>&gt;<i> ~0x1000);
+</I>&gt;<i> +       }
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_tr_ltov(struct bcm43xx_wldev *dev) /* TR Lookup
+</I>&gt;<i> Table Original Values */
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_gtab_write(dev, BCM43xx_GTAB_ORIGTR, 0, 0xC480);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_cpll_nonpilot(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_UNKNOWN_11, 0, 0);
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_UNKNOWN_11, 1, 0);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_rssi_adc(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       if (dev-&gt;phy.analog == 4)
+</I>&gt;<i> +               bcm43xx_phy_write(dev, 0x00DC, 0x7454);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_boards_a(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+</I>&gt;<i> +
+</I>&gt;<i> +       if (bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM &amp;&amp;
+</I>&gt;<i> +           bus-&gt;board_type == SSB_BOARD_BU4306 &amp;&amp;
+</I>&gt;<i> +           bus-&gt;board_rev &lt; 0x30) {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, 0x0010, 0xE000);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, 0x0013, 0x0140);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, 0x0014, 0x0280);
+</I>&gt;<i> +       } else {
+</I>&gt;<i> +               if (bus-&gt;board_type == SSB_BOARD_MP4318 &amp;&amp;
+</I>&gt;<i> +                   bus-&gt;board_rev &lt; 0x20) {
+</I>&gt;<i> +                       bcm43xx_phy_write(dev, 0x0013, 0x0210);
+</I>&gt;<i> +                       bcm43xx_phy_write(dev, 0x0014, 0x0840);
+</I>&gt;<i> +               } else {
+</I>&gt;<i> +                       bcm43xx_phy_write(dev, 0x0013, 0x0140);
+</I>&gt;<i> +                       bcm43xx_phy_write(dev, 0x0014, 0x0280);
+</I>&gt;<i> +               }
+</I>&gt;<i> +               if (dev-&gt;phy.rev &lt;= 4)
+</I>&gt;<i> +                       bcm43xx_phy_write(dev, 0x0010, 0xE000);
+</I>&gt;<i> +               else
+</I>&gt;<i> +                       bcm43xx_phy_write(dev, 0x0010, 0x2000);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_DC, 1,
+</I>&gt;<i> 0x0039);
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_UNKNOWN_APHY,
+</I>&gt;<i> 7, 0x0040);
+</I>&gt;<i> +       }
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void bcm43xx_wa_boards_g(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+</I>&gt;<i> +       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> +
+</I>&gt;<i> +       if (bus-&gt;board_vendor != SSB_BOARDVENDOR_BCM ||
+</I>&gt;<i> +           bus-&gt;board_type != SSB_BOARD_BU4306 ||
+</I>&gt;<i> +           bus-&gt;board_rev != 0x17) {
+</I>&gt;<i> +               if (phy-&gt;rev &lt; 2) {
+</I>&gt;<i> +                       bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_GAINX_R1, 1, 0x0002);
+</I>&gt;<i> +                       bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_GAINX_R1, 2, 0x0001);
+</I>&gt;<i> +               } else {
+</I>&gt;<i> +                       bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_GAINX, 1, 0x0002);
+</I>&gt;<i> +                       bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_GAINX, 2, 0x0001);
+</I>&gt;<i> +                       if ((bus-&gt; sprom.r1.boardflags_lo &amp;
+</I>&gt;<i> BCM43xx_BFL_EXTLNA) &amp;&amp;
+</I>&gt;<i> +                           (phy-&gt;rev &gt;= 7)) {
+</I>&gt;<i> +                               bcm43xx_phy_write(dev,
+</I>&gt;<i> BCM43xx_PHY_EXTG(0x11),
+</I>&gt;<i> +                                       bcm43xx_phy_read(dev,
+</I>&gt;<i> BCM43xx_PHY_EXTG(0x11)) &amp; 0xF7FF);
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_GAINX, 0x0020, 0x0001);
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_GAINX, 0x0021, 0x0001);
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_GAINX, 0x0022, 0x0001);
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_GAINX, 0x0023, 0x0000);
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_GAINX, 0x0000, 0x0000);
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> BCM43xx_OFDMTAB_GAINX, 0x0003, 0x0002);
+</I>&gt;<i> +                       }
+</I>&gt;<i> +               }
+</I>&gt;<i> +       }
+</I>&gt;<i> +       if (bus-&gt;sprom.r1.boardflags_lo &amp; BCM43xx_BFL_FEM) {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_GTABCTL, 0x3120);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_GTABDATA, 0xC480);
+</I>&gt;<i> +       }
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +void bcm43xx_wa_all(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> +
+</I>&gt;<i> +       if (phy-&gt;type == BCM43xx_PHYTYPE_A) {
+</I>&gt;<i> +               switch (phy-&gt;rev) {
+</I>&gt;<i> +               case 2:
+</I>&gt;<i> +                       bcm43xx_wa_papd(dev);
+</I>&gt;<i> +                       bcm43xx_wa_auxclipthr(dev);
+</I>&gt;<i> +                       bcm43xx_wa_afcdac(dev);
+</I>&gt;<i> +                       bcm43xx_wa_txdc_offset(dev);
+</I>&gt;<i> +                       bcm43xx_wa_initgains(dev);
+</I>&gt;<i> +                       bcm43xx_wa_divider(dev);
+</I>&gt;<i> +                       bcm43xx_wa_gt(dev);
+</I>&gt;<i> +                       bcm43xx_wa_rssi_lt(dev);
+</I>&gt;<i> +                       bcm43xx_wa_analog(dev);
+</I>&gt;<i> +                       bcm43xx_wa_dac(dev);
+</I>&gt;<i> +                       bcm43xx_wa_fft(dev);
+</I>&gt;<i> +                       bcm43xx_wa_nft(dev);
+</I>&gt;<i> +                       bcm43xx_wa_rt(dev);
+</I>&gt;<i> +                       bcm43xx_wa_nst(dev);
+</I>&gt;<i> +                       bcm43xx_wa_art(dev);
+</I>&gt;<i> +                       bcm43xx_wa_txlna_gain(dev);
+</I>&gt;<i> +                       bcm43xx_wa_crs_reset(dev);
+</I>&gt;<i> +                       bcm43xx_wa_2060txlna_gain(dev);
+</I>&gt;<i> +                       bcm43xx_wa_lms(dev);
+</I>&gt;<i> +                       break;
+</I>&gt;<i> +               case 3:
+</I>&gt;<i> +                       bcm43xx_wa_papd(dev);
+</I>&gt;<i> +                       bcm43xx_wa_mixedsignal(dev);
+</I>&gt;<i> +                       bcm43xx_wa_rssi_lt(dev);
+</I>&gt;<i> +                       bcm43xx_wa_txdc_offset(dev);
+</I>&gt;<i> +                       bcm43xx_wa_initgains(dev);
+</I>&gt;<i> +                       bcm43xx_wa_dac(dev);
+</I>&gt;<i> +                       bcm43xx_wa_nft(dev);
+</I>&gt;<i> +                       bcm43xx_wa_nst(dev);
+</I>&gt;<i> +                       bcm43xx_wa_msst(dev);
+</I>&gt;<i> +                       bcm43xx_wa_analog(dev);
+</I>&gt;<i> +                       bcm43xx_wa_gt(dev);
+</I>&gt;<i> +                       bcm43xx_wa_txpuoff_rxpuon(dev);
+</I>&gt;<i> +                       bcm43xx_wa_txlna_gain(dev);
+</I>&gt;<i> +                       break;
+</I>&gt;<i> +               case 5:
+</I>&gt;<i> +                       bcm43xx_wa_iqadc(dev);
+</I>&gt;<i> +               case 6:
+</I>&gt;<i> +                       bcm43xx_wa_papd(dev);
+</I>&gt;<i> +                       bcm43xx_wa_rssi_lt(dev);
+</I>&gt;<i> +                       bcm43xx_wa_txdc_offset(dev);
+</I>&gt;<i> +                       bcm43xx_wa_initgains(dev);
+</I>&gt;<i> +                       bcm43xx_wa_dac(dev);
+</I>&gt;<i> +                       bcm43xx_wa_nft(dev);
+</I>&gt;<i> +                       bcm43xx_wa_nst(dev);
+</I>&gt;<i> +                       bcm43xx_wa_msst(dev);
+</I>&gt;<i> +                       bcm43xx_wa_analog(dev);
+</I>&gt;<i> +                       bcm43xx_wa_gt(dev);
+</I>&gt;<i> +                       bcm43xx_wa_txpuoff_rxpuon(dev);
+</I>&gt;<i> +                       bcm43xx_wa_txlna_gain(dev);
+</I>&gt;<i> +                       break;
+</I>&gt;<i> +               case 7:
+</I>&gt;<i> +                       bcm43xx_wa_iqadc(dev);
+</I>&gt;<i> +                       bcm43xx_wa_papd(dev);
+</I>&gt;<i> +                       bcm43xx_wa_rssi_lt(dev);
+</I>&gt;<i> +                       bcm43xx_wa_txdc_offset(dev);
+</I>&gt;<i> +                       bcm43xx_wa_initgains(dev);
+</I>&gt;<i> +                       bcm43xx_wa_dac(dev);
+</I>&gt;<i> +                       bcm43xx_wa_nft(dev);
+</I>&gt;<i> +                       bcm43xx_wa_nst(dev);
+</I>&gt;<i> +                       bcm43xx_wa_msst(dev);
+</I>&gt;<i> +                       bcm43xx_wa_analog(dev);
+</I>&gt;<i> +                       bcm43xx_wa_gt(dev);
+</I>&gt;<i> +                       bcm43xx_wa_txpuoff_rxpuon(dev);
+</I>&gt;<i> +                       bcm43xx_wa_txlna_gain(dev);
+</I>&gt;<i> +                       bcm43xx_wa_rssi_adc(dev);
+</I>&gt;<i> +               default:
+</I>&gt;<i> +                       assert(0);
+</I>&gt;<i> +               }
+</I>&gt;<i> +               bcm43xx_wa_boards_a(dev);
+</I>&gt;<i> +       } else if (phy-&gt;type == BCM43xx_PHYTYPE_G) {
+</I>&gt;<i> +               switch (phy-&gt;rev) {
+</I>&gt;<i> +               case 1://XXX review rev1
+</I>&gt;<i> +                       bcm43xx_wa_crs_ed(dev);
+</I>&gt;<i> +                       bcm43xx_wa_crs_thr(dev);
+</I>&gt;<i> +                       bcm43xx_wa_crs_blank(dev);
+</I>&gt;<i> +                       bcm43xx_wa_cck_shiftbits(dev);
+</I>&gt;<i> +                       bcm43xx_wa_fft(dev);
+</I>&gt;<i> +                       bcm43xx_wa_nft(dev);
+</I>&gt;<i> +                       bcm43xx_wa_rt(dev);
+</I>&gt;<i> +                       bcm43xx_wa_nst(dev);
+</I>&gt;<i> +                       bcm43xx_wa_art(dev);
+</I>&gt;<i> +                       bcm43xx_wa_wrssi_offset(dev);
+</I>&gt;<i> +                       bcm43xx_wa_altagc(dev);
+</I>&gt;<i> +                       break;
+</I>&gt;<i> +               case 2:
+</I>&gt;<i> +               case 6:
+</I>&gt;<i> +               case 7:
+</I>&gt;<i> +               case 8:
+</I>&gt;<i> +                       bcm43xx_wa_tr_ltov(dev);
+</I>&gt;<i> +                       bcm43xx_wa_crs_ed(dev);
+</I>&gt;<i> +                       bcm43xx_wa_rssi_lt(dev);
+</I>&gt;<i> +                       bcm43xx_wa_nft(dev);
+</I>&gt;<i> +                       bcm43xx_wa_nst(dev);
+</I>&gt;<i> +                       bcm43xx_wa_msst(dev);
+</I>&gt;<i> +                       bcm43xx_wa_wrssi_offset(dev);
+</I>&gt;<i> +                       bcm43xx_wa_altagc(dev);
+</I>&gt;<i> +                       bcm43xx_wa_analog(dev);
+</I>&gt;<i> +                       bcm43xx_wa_txpuoff_rxpuon(dev);
+</I>&gt;<i> +                       break;
+</I>&gt;<i> +               default:
+</I>&gt;<i> +                       assert(0);
+</I>&gt;<i> +               }
+</I>&gt;<i> +               bcm43xx_wa_boards_g(dev);
+</I>&gt;<i> +       } else { /* No N PHY support so far */
+</I>&gt;<i> +               assert(0);
+</I>&gt;<i> +       }
+</I>&gt;<i> +
+</I>&gt;<i> +       bcm43xx_wa_cpll_nonpilot(dev);
+</I>&gt;<i> +}
+</I>&gt;<i> Index:
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_wa.h
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- /dev/null   1970-01-01 00:00:00.000000000 +0000
+</I>&gt;<i> +++
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_wa.h      2007-05-12
+</I>&gt;<i> 16:29: 05.000000000 +0200
+</I>&gt;<i> @@ -0,0 +1,7 @@
+</I>&gt;<i> +#ifndef BCM43xx_WA_H_
+</I>&gt;<i> +#define BCM43xx_WA_H_
+</I>&gt;<i> +
+</I>&gt;<i> +void bcm43xx_wa_initgains(struct bcm43xx_wldev *dev);
+</I>&gt;<i> +void bcm43xx_wa_all(struct bcm43xx_wldev *dev);
+</I>&gt;<i> +
+</I>&gt;<i> +#endif /* BCM43xx_WA_H_ */
+</I>&gt;<i> Index:
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_tables.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- bu3sch-wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_tables.c
+</I>&gt;<i> 2007-05-12 16:27: 31.000000000 +0200
+</I>&gt;<i> +++
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_tables.c  2007-05-12
+</I>&gt;<i> 16:29:05.000000000 +0200
+</I>&gt;<i> @@ -230,7 +230,7 @@ const u16 bcm43xx_tab_noisea2[] = {
+</I>&gt;<i> };
+</I>&gt;<i>
+</I>&gt;<i> const u16 bcm43xx_tab_noisea3[] = {
+</I>&gt;<i> -       0x4C4C, 0x4C4C, 0x4C4C, 0x2D36,
+</I>&gt;<i> +       0x5E5E, 0x5E5E, 0x5E5E, 0x3F48,
+</I>&gt;<i>         0x4C4C, 0x4C4C, 0x4C4C, 0x2D36,
+</I>&gt;<i> };
+</I>&gt;<i>
+</I>&gt;<i> @@ -244,6 +244,26 @@ const u16 bcm43xx_tab_noiseg2[] = {
+</I>&gt;<i>         0x0000, 0x0000, 0x0000, 0x0000,
+</I>&gt;<i> };
+</I>&gt;<i>
+</I>&gt;<i> +const u16 bcm43xx_tab_noisescalea2[] = {
+</I>&gt;<i> +       0x6767, 0x6767, 0x6767, 0x6767, /* 0 */
+</I>&gt;<i> +       0x6767, 0x6767, 0x6767, 0x6767,
+</I>&gt;<i> +       0x6767, 0x6767, 0x6767, 0x6767,
+</I>&gt;<i> +       0x6767, 0x6700, 0x6767, 0x6767,
+</I>&gt;<i> +       0x6767, 0x6767, 0x6767, 0x6767, /* 16 */
+</I>&gt;<i> +       0x6767, 0x6767, 0x6767, 0x6767,
+</I>&gt;<i> +       0x6767, 0x6767, 0x0067,
+</I>&gt;<i> +};
+</I>&gt;<i> +
+</I>&gt;<i> +const u16 bcm43xx_tab_noisescalea3[] = {
+</I>&gt;<i> +       0x2323, 0x2323, 0x2323, 0x2323, /* 0 */
+</I>&gt;<i> +       0x2323, 0x2323, 0x2323, 0x2323,
+</I>&gt;<i> +       0x2323, 0x2323, 0x2323, 0x2323,
+</I>&gt;<i> +       0x2323, 0x2300, 0x2323, 0x2323,
+</I>&gt;<i> +       0x2323, 0x2323, 0x2323, 0x2323, /* 16 */
+</I>&gt;<i> +       0x2323, 0x2323, 0x2323, 0x2323,
+</I>&gt;<i> +       0x2323, 0x2323, 0x0023,
+</I>&gt;<i> +};
+</I>&gt;<i> +
+</I>&gt;<i> const u16 bcm43xx_tab_noisescaleg1[] = {
+</I>&gt;<i>         0x6C77, 0x5162, 0x3B40, 0x3335, /* 0 */
+</I>&gt;<i>         0x2F2D, 0x2A2A, 0x2527, 0x1F21,
+</I>&gt;<i> @@ -255,7 +275,7 @@ const u16 bcm43xx_tab_noisescaleg1[] = {
+</I>&gt;<i> };
+</I>&gt;<i>
+</I>&gt;<i> const u16 bcm43xx_tab_noisescaleg2[] = {
+</I>&gt;<i> -       0xD8DD, 0xCBD4, 0xBCC0, 0XB6B7, /* 0 */
+</I>&gt;<i> +       0xD8DD, 0xCBD4, 0xBCC0, 0xB6B7, /* 0 */
+</I>&gt;<i>         0xB2B0, 0xADAD, 0xA7A9, 0x9FA1,
+</I>&gt;<i>         0x969B, 0x9195, 0x8F8F, 0x8A8A,
+</I>&gt;<i>         0x8A8A, 0x8A00, 0x8A8A, 0x8F8A,
+</I>&gt;<i> @@ -308,6 +328,27 @@ const u16 bcm43xx_tab_sigmasqr2[] = {
+</I>&gt;<i>         0x00DE,
+</I>&gt;<i> };
+</I>&gt;<i>
+</I>&gt;<i> +const u16 bcm43xx_tab_rssiagc1[] = {
+</I>&gt;<i> +       0xFFF8, 0xFFF8, 0xFFF8, 0xFFF8, /* 0 */
+</I>&gt;<i> +       0xFFF8, 0xFFF9, 0xFFFC, 0xFFFE,
+</I>&gt;<i> +       0xFFF8, 0xFFF8, 0xFFF8, 0xFFF8,
+</I>&gt;<i> +       0xFFF8, 0xFFF8, 0xFFF8, 0xFFF8,
+</I>&gt;<i> +};
+</I>&gt;<i> +
+</I>&gt;<i> +const u16 bcm43xx_tab_rssiagc2[] = {
+</I>&gt;<i> +       0x0820, 0x0820, 0x0920, 0x0C38, /* 0 */
+</I>&gt;<i> +       0x0820, 0x0820, 0x0820, 0x0820,
+</I>&gt;<i> +       0x0820, 0x0820, 0x0920, 0x0A38,
+</I>&gt;<i> +       0x0820, 0x0820, 0x0820, 0x0820,
+</I>&gt;<i> +       0x0820, 0x0820, 0x0920, 0x0A38, /* 16 */
+</I>&gt;<i> +       0x0820, 0x0820, 0x0820, 0x0820,
+</I>&gt;<i> +       0x0820, 0x0820, 0x0920, 0x0A38,
+</I>&gt;<i> +       0x0820, 0x0820, 0x0820, 0x0820,
+</I>&gt;<i> +       0x0820, 0x0820, 0x0920, 0x0A38, /* 32 */
+</I>&gt;<i> +       0x0820, 0x0820, 0x0820, 0x0820,
+</I>&gt;<i> +       0x0820, 0x0820, 0x0920, 0x0A38,
+</I>&gt;<i> +       0x0820, 0x0820, 0x0820, 0x0820,
+</I>&gt;<i> +};
+</I>&gt;<i>
+</I>&gt;<i> static inline void assert_sizes(void)
+</I>&gt;<i> {
+</I>&gt;<i> @@ -319,34 +360,59 @@ static inline void assert_sizes(void)
+</I>&gt;<i>         BUILD_BUG_ON(BCM43xx_TAB_NOISEA3_SIZE !=
+</I>&gt;<i> ARRAY_SIZE(bcm43xx_tab_noisea3));
+</I>&gt;<i>         BUILD_BUG_ON(BCM43xx_TAB_NOISEG1_SIZE !=
+</I>&gt;<i> ARRAY_SIZE(bcm43xx_tab_noiseg1));
+</I>&gt;<i>         BUILD_BUG_ON(BCM43xx_TAB_NOISEG2_SIZE !=
+</I>&gt;<i> ARRAY_SIZE(bcm43xx_tab_noiseg2));
+</I>&gt;<i> -       BUILD_BUG_ON(BCM43xx_TAB_NOISESCALEG_SIZE !=
+</I>&gt;<i> ARRAY_SIZE(bcm43xx_tab_noisescaleg1));
+</I>&gt;<i> -       BUILD_BUG_ON(BCM43xx_TAB_NOISESCALEG_SIZE !=
+</I>&gt;<i> ARRAY_SIZE(bcm43xx_tab_noisescaleg2));
+</I>&gt;<i> -       BUILD_BUG_ON(BCM43xx_TAB_NOISESCALEG_SIZE !=
+</I>&gt;<i> ARRAY_SIZE(bcm43xx_tab_noisescaleg3));
+</I>&gt;<i> +       BUILD_BUG_ON(BCM43xx_TAB_NOISESCALE_SIZE !=
+</I>&gt;<i> ARRAY_SIZE(bcm43xx_tab_noisescaleg1));
+</I>&gt;<i> +       BUILD_BUG_ON(BCM43xx_TAB_NOISESCALE_SIZE !=
+</I>&gt;<i> ARRAY_SIZE(bcm43xx_tab_noisescaleg2));
+</I>&gt;<i> +       BUILD_BUG_ON(BCM43xx_TAB_NOISESCALE_SIZE !=
+</I>&gt;<i> ARRAY_SIZE(bcm43xx_tab_noisescaleg3));
+</I>&gt;<i>         BUILD_BUG_ON(BCM43xx_TAB_SIGMASQR_SIZE !=
+</I>&gt;<i> ARRAY_SIZE(bcm43xx_tab_sigmasqr1));
+</I>&gt;<i>         BUILD_BUG_ON(BCM43xx_TAB_SIGMASQR_SIZE !=
+</I>&gt;<i> ARRAY_SIZE(bcm43xx_tab_sigmasqr2));
+</I>&gt;<i> +       BUILD_BUG_ON(BCM43xx_TAB_RSSIAGC1_SIZE !=
+</I>&gt;<i> ARRAY_SIZE(bcm43xx_tab_rssiagc1));
+</I>&gt;<i> +       BUILD_BUG_ON(BCM43xx_TAB_RSSIAGC2_SIZE !=
+</I>&gt;<i> ARRAY_SIZE(bcm43xx_tab_rssiagc2));
+</I>&gt;<i> }
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> u16 bcm43xx_ofdmtab_read16(struct bcm43xx_wldev *dev, u16 table, u16
+</I>&gt;<i> offset)
+</I>&gt;<i> {
+</I>&gt;<i> -       assert_sizes();
+</I>&gt;<i> +       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> +       u16 addr;
+</I>&gt;<i> +
+</I>&gt;<i> +       addr = table + offset;
+</I>&gt;<i> +       if (addr - 1 != phy-&gt;ofdm_addr || phy-&gt;ofdm_valid != 1) {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_OTABLECTL, addr);
+</I>&gt;<i> +               phy-&gt;ofdm_valid = 1;
+</I>&gt;<i> +       }
+</I>&gt;<i> +       phy-&gt;ofdm_addr = addr;
+</I>&gt;<i>
+</I>&gt;<i> -       bcm43xx_phy_write(dev, BCM43xx_PHY_OTABLECTL, table + offset);
+</I>&gt;<i>         return bcm43xx_phy_read(dev, BCM43xx_PHY_OTABLEI);
+</I>&gt;<i> +       assert_sizes();
+</I>&gt;<i> }
+</I>&gt;<i>
+</I>&gt;<i> void bcm43xx_ofdmtab_write16(struct bcm43xx_wldev *dev, u16 table,
+</I>&gt;<i>                              u16 offset, u16 value)
+</I>&gt;<i> {
+</I>&gt;<i> -       bcm43xx_phy_write(dev, BCM43xx_PHY_OTABLECTL, table + offset);
+</I>&gt;<i> +       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> +       u16 addr;
+</I>&gt;<i> +
+</I>&gt;<i> +       addr = table + offset;
+</I>&gt;<i> +       if (addr - 1 != phy-&gt;ofdm_addr || phy-&gt;ofdm_valid != 2) {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_OTABLECTL, addr);
+</I>&gt;<i> +               phy-&gt;ofdm_valid = 2;
+</I>&gt;<i> +       }
+</I>&gt;<i> +       phy-&gt;ofdm_addr = addr;
+</I>&gt;<i>         bcm43xx_phy_write(dev, BCM43xx_PHY_OTABLEI, value);
+</I>&gt;<i> }
+</I>&gt;<i>
+</I>&gt;<i> u32 bcm43xx_ofdmtab_read32(struct bcm43xx_wldev *dev, u16 table, u16
+</I>&gt;<i> offset)
+</I>&gt;<i> {
+</I>&gt;<i> +       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i>         u32 ret;
+</I>&gt;<i> +       u16 addr;
+</I>&gt;<i>
+</I>&gt;<i> -       bcm43xx_phy_write(dev, BCM43xx_PHY_OTABLECTL, table + offset);
+</I>&gt;<i> +       addr = table + offset;
+</I>&gt;<i> +       if (addr - 1 != phy-&gt;ofdm_addr || phy-&gt;ofdm_valid != 1) {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_OTABLECTL, addr);
+</I>&gt;<i> +               phy-&gt;ofdm_valid = 1;
+</I>&gt;<i> +       }
+</I>&gt;<i> +       phy-&gt;ofdm_addr = addr;
+</I>&gt;<i>         ret = bcm43xx_phy_read(dev, BCM43xx_PHY_OTABLEQ);
+</I>&gt;<i>         ret &lt;&lt;= 16;
+</I>&gt;<i>         ret |= bcm43xx_phy_read(dev, BCM43xx_PHY_OTABLEI);
+</I>&gt;<i> @@ -357,9 +423,17 @@ u32 bcm43xx_ofdmtab_read32(struct bcm43x
+</I>&gt;<i> void bcm43xx_ofdmtab_write32(struct bcm43xx_wldev *dev, u16 table,
+</I>&gt;<i>                              u16 offset, u32 value)
+</I>&gt;<i> {
+</I>&gt;<i> -       bcm43xx_phy_write(dev, BCM43xx_PHY_OTABLECTL, table + offset);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, BCM43xx_PHY_OTABLEI, value);
+</I>&gt;<i> +       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> +       u16 addr;
+</I>&gt;<i> +
+</I>&gt;<i> +       addr = table + offset;
+</I>&gt;<i> +       if (addr - 1 != phy-&gt;ofdm_addr || phy-&gt;ofdm_valid != 2) {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_OTABLECTL, addr);
+</I>&gt;<i> +               phy-&gt;ofdm_valid = 2;
+</I>&gt;<i> +       }
+</I>&gt;<i> +       phy-&gt;ofdm_addr = addr;
+</I>&gt;<i>         bcm43xx_phy_write(dev, BCM43xx_PHY_OTABLEQ, (value &gt;&gt; 16));
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OTABLEI, value);
+</I>&gt;<i> }
+</I>&gt;<i>
+</I>&gt;<i> u16 bcm43xx_gtab_read(struct bcm43xx_wldev *dev, u16 table, u16 offset)
+</I>&gt;<i> Index: bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx.h
+</I>&gt;<i>
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- bu3sch-wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx.h    2007-05-12
+</I>&gt;<i> 16:27:31.000000000 +0200
+</I>&gt;<i> +++ bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx.h
+</I>&gt;<i> 2007-05-12 16:29: 05.000000000 +0200
+</I>&gt;<i> @@ -591,6 +591,10 @@ struct bcm43xx_phy {
+</I>&gt;<i>         u16 lofcal;
+</I>&gt;<i>
+</I>&gt;<i>         u16 initval;//FIXME rename?
+</I>&gt;<i> +
+</I>&gt;<i> +       /* OFDM address read/write caching for hardware auto-increment. */
+</I>&gt;<i> +       u16 ofdm_addr;
+</I>&gt;<i> +       u8 ofdm_valid; /* 0: invalid, 1: read, 2: write */
+</I>&gt;<i> };
+</I>&gt;<i>
+</I>&gt;<i> /* Data structures for DMA transmission, per 80211 core. */
+</I>&gt;<i> Index:
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- bu3sch-wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
+</I>&gt;<i> 2007-05-12 16:27:31.000000000 +0200
+</I>&gt;<i> +++
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c    2007-05-12
+</I>&gt;<i> 16:29: 05.000000000 +0200
+</I>&gt;<i> @@ -3127,6 +3127,9 @@ static void setup_struct_phy_for_init(st
+</I>&gt;<i>         spin_lock_init(&amp;phy-&gt;lock);
+</I>&gt;<i>         phy-&gt;interfmode = BCM43xx_INTERFMODE_NONE;
+</I>&gt;<i>         phy-&gt;channel = 0xFF;
+</I>&gt;<i> +
+</I>&gt;<i> +       /* OFDM address caching. */
+</I>&gt;<i> +       phy-&gt;ofdm_valid = 0;
+</I>&gt;<i> }
+</I>&gt;<i>
+</I>&gt;<i> static void setup_struct_wldev_for_init(struct bcm43xx_wldev *dev)
+</I>&gt;<i> Index:
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.h
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- bu3sch-wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.h        2007-05-12
+</I>&gt;<i> 16:27:31.000000000 +0200
+</I>&gt;<i> +++
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.h
+</I>&gt;<i> 2007-05-12 16:29: 05.000000000 +0200
+</I>&gt;<i> @@ -28,8 +28,11 @@ struct bcm43xx_wldev;
+</I>&gt;<i> #define BCM43xx_PHY_PWRDOWN            BCM43xx_PHY_OFDM(0x03)  /*
+</I>&gt;<i> Powerdown */
+</I>&gt;<i> #define BCM43xx_PHY_CRSTHRES1          BCM43xx_PHY_OFDM(0x06)  /* CRS
+</I>&gt;<i> Threshold 1 */
+</I>&gt;<i> #define BCM43xx_PHY_LNAHPFCTL          BCM43xx_PHY_OFDM(0x1C)  /* LNA/HPF
+</I>&gt;<i> control */
+</I>&gt;<i> +#define BCM43xx_PHY_LPFGAINCTL         BCM43xx_PHY_OFDM(0x20)  /* LPF
+</I>&gt;<i> Gain control */
+</I>&gt;<i> #define BCM43xx_PHY_ADIVRELATED                BCM43xx_PHY_OFDM(0x27)  /*
+</I>&gt;<i> FIXME rename */
+</I>&gt;<i> #define BCM43xx_PHY_CRS0               BCM43xx_PHY_OFDM(0x29)
+</I>&gt;<i> +#define  BCM43xx_PHY_CRS0_EN           0x4000
+</I>&gt;<i> +#define BCM43xx_PHY_PEAK_COUNT         BCM43xx_PHY_OFDM(0x30)
+</I>&gt;<i> #define BCM43xx_PHY_ANTDWELL           BCM43xx_PHY_OFDM(0x2B)  /* Antenna
+</I>&gt;<i> dwell */
+</I>&gt;<i> #define  BCM43xx_PHY_ANTDWELL_AUTODIV1 0x0100                  /*
+</I>&gt;<i> Automatic RX diversity start antenna */
+</I>&gt;<i> #define BCM43xx_PHY_ENCORE             BCM43xx_PHY_OFDM(0x49)  /* &quot;Encore&quot;
+</I>&gt;<i> (RangeMax / BroadRange) */
+</I>&gt;<i> @@ -38,6 +41,7 @@ struct bcm43xx_wldev;
+</I>&gt;<i> #define BCM43xx_PHY_OFDM61             BCM43xx_PHY_OFDM(0x61)  /* FIXME
+</I>&gt;<i> rename */
+</I>&gt;<i> #define  BCM43xx_PHY_OFDM61_10         0x0010                  /* FIXME
+</I>&gt;<i> rename */
+</I>&gt;<i> #define BCM43xx_PHY_IQBAL              BCM43xx_PHY_OFDM(0x69)  /* I/Q
+</I>&gt;<i> balance */
+</I>&gt;<i> +#define BCM43xx_PHY_BBTXDC_BIAS                BCM43xx_PHY_OFDM(0x6B)  /*
+</I>&gt;<i> Baseband TX DC bias */
+</I>&gt;<i> #define BCM43xx_PHY_OTABLECTL          BCM43xx_PHY_OFDM(0x72)  /* OFDM
+</I>&gt;<i> table control (see below) */
+</I>&gt;<i> #define  BCM43xx_PHY_OTABLEOFF         0x03FF                  /* OFDM
+</I>&gt;<i> table offset (see below) */
+</I>&gt;<i> #define  BCM43xx_PHY_OTABLENR          0xFC00                  /* OFDM
+</I>&gt;<i> table number (see below) */
+</I>&gt;<i> @@ -45,6 +49,9 @@ struct bcm43xx_wldev;
+</I>&gt;<i> #define BCM43xx_PHY_OTABLEI            BCM43xx_PHY_OFDM(0x73)  /* OFDM
+</I>&gt;<i> table data I */
+</I>&gt;<i> #define BCM43xx_PHY_OTABLEQ            BCM43xx_PHY_OFDM(0x74)  /* OFDM
+</I>&gt;<i> table data Q */
+</I>&gt;<i> #define BCM43xx_PHY_HPWR_TSSICTL       BCM43xx_PHY_OFDM(0x78)  /* Hardware
+</I>&gt;<i> power TSSI control */
+</I>&gt;<i> +#define BCM43xx_PHY_ADCCTL             BCM43xx_PHY_OFDM(0x7A)  /* ADC
+</I>&gt;<i> control */
+</I>&gt;<i> +#define BCM43xx_PHY_IDLE_TSSI          BCM43xx_PHY_OFDM(0x7B)
+</I>&gt;<i> +#define BCM43xx_PHY_A_TEMP_SENSE       BCM43xx_PHY_OFDM(0x7C)  /* A PHY
+</I>&gt;<i> temperature sense */
+</I>&gt;<i> #define BCM43xx_PHY_NRSSITHRES         BCM43xx_PHY_OFDM(0x8A)  /* NRSSI
+</I>&gt;<i> threshold */
+</I>&gt;<i> #define BCM43xx_PHY_ANTWRSETT          BCM43xx_PHY_OFDM(0x8C)  /* Antenna
+</I>&gt;<i> WR settle */
+</I>&gt;<i> #define  BCM43xx_PHY_ANTWRSETT_ARXDIV  0x2000                  /*
+</I>&gt;<i> Automatic RX diversity enabled */
+</I>&gt;<i> @@ -55,6 +62,8 @@ struct bcm43xx_wldev;
+</I>&gt;<i> #define BCM43xx_PHY_N1N2GAIN           BCM43xx_PHY_OFDM(0xA2)
+</I>&gt;<i> #define BCM43xx_PHY_CLIPTHRES          BCM43xx_PHY_OFDM(0xA3)
+</I>&gt;<i> #define BCM43xx_PHY_CLIPN1P2THRES      BCM43xx_PHY_OFDM(0xA4)
+</I>&gt;<i> +#define BCM43xx_PHY_CCKSHIFTBITS_WA    BCM43xx_PHY_OFDM(0xA5)  /* CCK
+</I>&gt;<i> shiftbits workaround, FIXME rename */
+</I>&gt;<i> +#define BCM43xx_PHY_CCKSHIFTBITS       BCM43xx_PHY_OFDM(0xA7)  /* FIXME
+</I>&gt;<i> rename */
+</I>&gt;<i> #define BCM43xx_PHY_DIVSRCHIDX         BCM43xx_PHY_OFDM(0xA8)  /* Divider
+</I>&gt;<i> search gain/index */
+</I>&gt;<i> #define BCM43xx_PHY_CLIPP2THRES                BCM43xx_PHY_OFDM(0xA9)
+</I>&gt;<i> #define BCM43xx_PHY_CLIPP3THRES                BCM43xx_PHY_OFDM(0xAA)
+</I>&gt;<i> @@ -128,13 +137,14 @@ struct bcm43xx_wldev;
+</I>&gt;<i> #define BCM43xx_OFDMTAB_DC             BCM43xx_OFDMTAB(0x0E, 7)
+</I>&gt;<i> #define BCM43xx_OFDMTAB_PWRDYN2                BCM43xx_OFDMTAB(0x0E, 12)
+</I>&gt;<i> #define BCM43xx_OFDMTAB_LNAGAIN                BCM43xx_OFDMTAB(0x0E, 13)
+</I>&gt;<i> -//TODO
+</I>&gt;<i> +#define BCM43xx_OFDMTAB_UNKNOWN_0F     BCM43xx_OFDMTAB(0x0F,
+</I>&gt;<i> 0)        //TODO rename
+</I>&gt;<i> +#define BCM43xx_OFDMTAB_UNKNOWN_APHY   BCM43xx_OFDMTAB(0x0F,
+</I>&gt;<i> 7)        //TODO rename
+</I>&gt;<i> #define BCM43xx_OFDMTAB_LPFGAIN                BCM43xx_OFDMTAB(0x0F, 12)
+</I>&gt;<i> #define BCM43xx_OFDMTAB_RSSI           BCM43xx_OFDMTAB(0x10, 0)
+</I>&gt;<i> -//TODO
+</I>&gt;<i> +#define BCM43xx_OFDMTAB_UNKNOWN_11     BCM43xx_OFDMTAB(0x11,
+</I>&gt;<i> 4)        //TODO rename
+</I>&gt;<i> #define BCM43xx_OFDMTAB_AGC1_R1                BCM43xx_OFDMTAB(0x13, 0)
+</I>&gt;<i> -#define BCM43xx_OFDMTAB_GAINX_R1       BCM43xx_OFDMTAB(0x14,
+</I>&gt;<i> 0)        //TODO rename
+</I>&gt;<i> -#define BCM43xx_OFDMTAB_MINSIGSQ       BCM43xx_OFDMTAB(0x14, 1)
+</I>&gt;<i> +#define BCM43xx_OFDMTAB_GAINX_R1       BCM43xx_OFDMTAB(0x14,
+</I>&gt;<i> 0)        //TODO remove!
+</I>&gt;<i> +#define BCM43xx_OFDMTAB_MINSIGSQ       BCM43xx_OFDMTAB(0x14, 0)
+</I>&gt;<i> #define BCM43xx_OFDMTAB_AGC3_R1                BCM43xx_OFDMTAB(0x15, 0)
+</I>&gt;<i> #define BCM43xx_OFDMTAB_WRSSI_R1       BCM43xx_OFDMTAB(0x15, 4)
+</I>&gt;<i> #define BCM43xx_OFDMTAB_TSSI           BCM43xx_OFDMTAB(0x15, 0)
+</I>&gt;<i> Index:
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_tables.h
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- bu3sch-wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_tables.h
+</I>&gt;<i> 2007-05-12 16:27:31.000000000 +0200
+</I>&gt;<i> +++
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_tables.h  2007-05-12
+</I>&gt;<i> 16:29: 05.000000000 +0200
+</I>&gt;<i> @@ -17,12 +17,18 @@ extern const u16 bcm43xx_tab_noisea3[];
+</I>&gt;<i> extern const u16 bcm43xx_tab_noiseg1[];
+</I>&gt;<i> #define BCM43xx_TAB_NOISEG2_SIZE       8
+</I>&gt;<i> extern const u16 bcm43xx_tab_noiseg2[];
+</I>&gt;<i> -#define BCM43xx_TAB_NOISESCALEG_SIZE   27
+</I>&gt;<i> +#define BCM43xx_TAB_NOISESCALE_SIZE    27
+</I>&gt;<i> +extern const u16 bcm43xx_tab_noisescalea2[];
+</I>&gt;<i> +extern const u16 bcm43xx_tab_noisescalea3[];
+</I>&gt;<i> extern const u16 bcm43xx_tab_noisescaleg1[];
+</I>&gt;<i> extern const u16 bcm43xx_tab_noisescaleg2[];
+</I>&gt;<i> extern const u16 bcm43xx_tab_noisescaleg3[];
+</I>&gt;<i> #define BCM43xx_TAB_SIGMASQR_SIZE      53
+</I>&gt;<i> extern const u16 bcm43xx_tab_sigmasqr1[];
+</I>&gt;<i> extern const u16 bcm43xx_tab_sigmasqr2[];
+</I>&gt;<i> +#define BCM43xx_TAB_RSSIAGC1_SIZE      16
+</I>&gt;<i> +extern const u16 bcm43xx_tab_rssiagc1[];
+</I>&gt;<i> +#define BCM43xx_TAB_RSSIAGC2_SIZE      48
+</I>&gt;<i> +extern const u16 bcm43xx_tab_rssiagc2[];
+</I>&gt;<i>
+</I>&gt;<i> #endif /* BCM43xx_TABLES_H_ */
+</I>&gt;<i> Index:
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- bu3sch-wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c        2007-05-12
+</I>&gt;<i> 16:27:31.000000000 +0200
+</I>&gt;<i> +++
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_phy.c
+</I>&gt;<i> 2007-05-12 16:29: 05.000000000 +0200
+</I>&gt;<i> @@ -34,6 +34,7 @@
+</I>&gt;<i> #include &quot;bcm43xx_tables.h&quot;
+</I>&gt;<i> #include &quot;bcm43xx_power.h&quot;
+</I>&gt;<i> #include &quot;bcm43xx_lo.h&quot;
+</I>&gt;<i> +#include &quot;bcm43xx_wa.h&quot;
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> static const s8 bcm43xx_tssi2dbm_b_table[] = {
+</I>&gt;<i> @@ -559,393 +560,96 @@ static void bcm43xx_phy_init_pctl(struct
+</I>&gt;<i>         bcm43xx_shm_clear_tssi(dev);
+</I>&gt;<i> }
+</I>&gt;<i>
+</I>&gt;<i> -static void bcm43xx_phy_agcsetup(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +static void bcm43xx_phy_rssiagc(struct bcm43xx_wldev *dev, u8 enable)
+</I>&gt;<i> {
+</I>&gt;<i> -       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> -       u16 offset = 0x0000;
+</I>&gt;<i> -
+</I>&gt;<i> -       if (phy-&gt;rev == 1)
+</I>&gt;<i> -               offset = 0x4C00;
+</I>&gt;<i> -
+</I>&gt;<i> -       bcm43xx_ofdmtab_write16(dev, offset, 0, 0x00FE);
+</I>&gt;<i> -       bcm43xx_ofdmtab_write16(dev, offset, 1, 0x000D);
+</I>&gt;<i> -       bcm43xx_ofdmtab_write16(dev, offset, 2, 0x0013);
+</I>&gt;<i> -       bcm43xx_ofdmtab_write16(dev, offset, 3, 0x0019);
+</I>&gt;<i> -
+</I>&gt;<i> -       if (phy-&gt;rev == 1) {
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x1800, 0, 0x2710);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x1801, 0, 0x9B83);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x1802, 0, 0x9B83);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x1803, 0, 0x0F8D);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0455, 0x0004);
+</I>&gt;<i> -       }
+</I>&gt;<i> -
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x04A5,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x04A5)
+</I>&gt;<i> -                          &amp; 0x00FF) | 0x5700);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x041A,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x041A)
+</I>&gt;<i> -                          &amp; 0xFF80) | 0x000F);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x041A,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x041A)
+</I>&gt;<i> -                          &amp; 0xC07F) | 0x2B80);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x048C,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x048C)
+</I>&gt;<i> -                          &amp; 0xF0FF) | 0x0300);
+</I>&gt;<i> -
+</I>&gt;<i> -       bcm43xx_radio_write16(dev, 0x007A,
+</I>&gt;<i> -                             bcm43xx_radio_read16(dev, 0x007A)
+</I>&gt;<i> -                             | 0x0008);
+</I>&gt;<i> -
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x04A0,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x04A0)
+</I>&gt;<i> -                          &amp; 0xFFF0) | 0x0008);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x04A1,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x04A1)
+</I>&gt;<i> -                          &amp; 0xF0FF) | 0x0600);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x04A2,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x04A2)
+</I>&gt;<i> -                          &amp; 0xF0FF) | 0x0700);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x04A0,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x04A0)
+</I>&gt;<i> -                          &amp; 0xF0FF) | 0x0100);
+</I>&gt;<i> -
+</I>&gt;<i> -       if (phy-&gt;rev == 1) {
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x04A2,
+</I>&gt;<i> -                                 (bcm43xx_phy_read(dev, 0x04A2)
+</I>&gt;<i> -                                  &amp; 0xFFF0) | 0x0007);
+</I>&gt;<i> -       }
+</I>&gt;<i> -
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x0488,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x0488)
+</I>&gt;<i> -                          &amp; 0xFF00) | 0x001C);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x0488,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x0488)
+</I>&gt;<i> -                          &amp; 0xC0FF) | 0x0200);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x0496,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x0496)
+</I>&gt;<i> -                          &amp; 0xFF00) | 0x001C);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x0489,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x0489)
+</I>&gt;<i> -                          &amp; 0xFF00) | 0x0020);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x0489,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x0489)
+</I>&gt;<i> -                          &amp; 0xC0FF) | 0x0200);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x0482,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x0482)
+</I>&gt;<i> -                          &amp; 0xFF00) | 0x002E);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x0496,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x0496)
+</I>&gt;<i> -                          &amp; 0x00FF) | 0x1A00);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x0481,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x0481)
+</I>&gt;<i> -                          &amp; 0xFF00) | 0x0028);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x0481,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x0481)
+</I>&gt;<i> -                          &amp; 0x00FF) | 0x2C00);
+</I>&gt;<i> -
+</I>&gt;<i> -       if (phy-&gt;rev == 1) {
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0430, 0x092B);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x041B,
+</I>&gt;<i> -                                 (bcm43xx_phy_read(dev, 0x041B)
+</I>&gt;<i> -                                  &amp; 0xFFE1) | 0x0002);
+</I>&gt;<i> -       } else {
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x041B,
+</I>&gt;<i> -                                 bcm43xx_phy_read(dev, 0x041B)
+</I>&gt;<i> -                                 &amp; 0xFFE1);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x041F, 0x287A);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0420,
+</I>&gt;<i> -                                 (bcm43xx_phy_read(dev, 0x0420)
+</I>&gt;<i> -                                  &amp; 0xFFF0) | 0x0004);
+</I>&gt;<i> -       }
+</I>&gt;<i> -
+</I>&gt;<i> -       if (phy-&gt;rev &gt;= 6) {
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0422, 0x287A);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0420,
+</I>&gt;<i> -                                 (bcm43xx_phy_read(dev, 0x0420)
+</I>&gt;<i> -                                  &amp; 0x0FFF) | 0x3000);
+</I>&gt;<i> -       }
+</I>&gt;<i> -
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x04A8,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, 0x04A8)
+</I>&gt;<i> -                          &amp; 0x8080) | 0x7874);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x048E, 0x1C00);
+</I>&gt;<i> -
+</I>&gt;<i> -       offset = 0x0800;
+</I>&gt;<i> -       if (phy-&gt;rev == 1) {
+</I>&gt;<i> -               offset = 0x5400;
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x04AB,
+</I>&gt;<i> -                                 (bcm43xx_phy_read(dev, 0x04AB)
+</I>&gt;<i> -                                  &amp; 0xF0FF) | 0x0600);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x048B, 0x005E);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x048C,
+</I>&gt;<i> -                                 (bcm43xx_phy_read(dev, 0x048C)
+</I>&gt;<i> -                                  &amp; 0xFF00) | 0x001E);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x048D, 0x0002);
+</I>&gt;<i> -       }
+</I>&gt;<i> -       bcm43xx_ofdmtab_write16(dev, offset, 0, 0x00);
+</I>&gt;<i> -       bcm43xx_ofdmtab_write16(dev, offset, 1, 0x07);
+</I>&gt;<i> -       bcm43xx_ofdmtab_write16(dev, offset, 2, 0x10);
+</I>&gt;<i> -       bcm43xx_ofdmtab_write16(dev, offset, 3, 0x1C);
+</I>&gt;<i> -
+</I>&gt;<i> -       if (phy-&gt;rev &gt;= 6) {
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0426,
+</I>&gt;<i> -                                 bcm43xx_phy_read(dev, 0x0426)
+</I>&gt;<i> -                                 &amp; 0xFFFC);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0426,
+</I>&gt;<i> -                                 bcm43xx_phy_read(dev, 0x0426)
+</I>&gt;<i> -                                 &amp; 0xEFFF);
+</I>&gt;<i> -       }
+</I>&gt;<i> -}
+</I>&gt;<i> -
+</I>&gt;<i> -static void bcm43xx_phy_setupg(struct bcm43xx_wldev *dev)
+</I>&gt;<i> -{
+</I>&gt;<i> -       struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+</I>&gt;<i> -       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> -       u16 i;
+</I>&gt;<i> -
+</I>&gt;<i> -       assert(phy-&gt;type == BCM43xx_PHYTYPE_G);
+</I>&gt;<i> -       if (phy-&gt;rev == 1) {
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0406, 0x4F19);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, BCM43xx_PHY_G_CRS,
+</I>&gt;<i> -                                 (bcm43xx_phy_read(dev,
+</I>&gt;<i> BCM43xx_PHY_G_CRS) &amp; 0xFC3F) | 0x0340);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x042C, 0x005A);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0427, 0x001A);
+</I>&gt;<i> -
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_FINEFREQG_SIZE; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x5800, i,
+</I>&gt;<i> bcm43xx_tab_finefreqg[i]);
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_NOISEG1_SIZE; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x1800, i,
+</I>&gt;<i> bcm43xx_tab_noiseg1[i]);
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_ROTOR_SIZE; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x2000, i,
+</I>&gt;<i> bcm43xx_tab_rotor[i]);
+</I>&gt;<i> -       } else {
+</I>&gt;<i> -               /* nrssi values are signed 6-bit values. Not sure why we
+</I>&gt;<i> write 0x7654 here... */
+</I>&gt;<i> -               bcm43xx_nrssi_hw_write(dev, 0xBA98, (s16)0x7654);
+</I>&gt;<i> -
+</I>&gt;<i> -               if (phy-&gt;rev == 2) {
+</I>&gt;<i> -                       bcm43xx_phy_write(dev, 0x04C0, 0x1861);
+</I>&gt;<i> -                       bcm43xx_phy_write(dev, 0x04C1, 0x0271);
+</I>&gt;<i> -               } else if (phy-&gt;rev &gt; 2) {
+</I>&gt;<i> -                       bcm43xx_phy_write(dev, 0x04C0, 0x0098);
+</I>&gt;<i> -                       bcm43xx_phy_write(dev, 0x04C1, 0x0070);
+</I>&gt;<i> -                       bcm43xx_phy_write(dev, 0x04C9, 0x0080);
+</I>&gt;<i> -               }
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x042B, bcm43xx_phy_read(dev,
+</I>&gt;<i> 0x042B) | 0x800);
+</I>&gt;<i> -
+</I>&gt;<i> -               for (i = 0; i &lt; 64; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x4000, i, i);
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_NOISEG2_SIZE; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x1800, i,
+</I>&gt;<i> bcm43xx_tab_noiseg2[i]);
+</I>&gt;<i> -       }
+</I>&gt;<i> -
+</I>&gt;<i> -       if (phy-&gt;rev &lt;= 2)
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_NOISESCALEG_SIZE; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x1400, i,
+</I>&gt;<i> bcm43xx_tab_noisescaleg1[i]);
+</I>&gt;<i> -       else if ((phy-&gt;rev &gt;= 7) &amp;&amp; (bcm43xx_phy_read(dev, 0x0449) &amp;
+</I>&gt;<i> 0x0200))
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_NOISESCALEG_SIZE; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x1400, i,
+</I>&gt;<i> bcm43xx_tab_noisescaleg3[i]);
+</I>&gt;<i> -       else
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_NOISESCALEG_SIZE; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x1400, i,
+</I>&gt;<i> bcm43xx_tab_noisescaleg2[i]);
+</I>&gt;<i> -
+</I>&gt;<i> -       if (phy-&gt;rev == 2)
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_SIGMASQR_SIZE; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x5000, i,
+</I>&gt;<i> bcm43xx_tab_sigmasqr1[i]);
+</I>&gt;<i> -       else if ((phy-&gt;rev &gt; 2) &amp;&amp; (phy-&gt;rev &lt;= 8))
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_SIGMASQR_SIZE; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x5000, i,
+</I>&gt;<i> bcm43xx_tab_sigmasqr2[i]);
+</I>&gt;<i> -
+</I>&gt;<i> -       if (phy-&gt;rev == 1) {
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_RETARD_SIZE; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write32(dev, 0x2400, i,
+</I>&gt;<i> bcm43xx_tab_retard[i]);
+</I>&gt;<i> -               for (i = 0; i &lt; 4; i++) {
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x5404, i, 0x0020);
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x5408, i, 0x0020);
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x540C, i, 0x0020);
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x5410, i, 0x0020);
+</I>&gt;<i> -               }
+</I>&gt;<i> -               bcm43xx_phy_agcsetup(dev);
+</I>&gt;<i> -
+</I>&gt;<i> -               if ((bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM) &amp;&amp;
+</I>&gt;<i> -                   (bus-&gt;board_type == SSB_BOARD_BU4306) &amp;&amp;
+</I>&gt;<i> -                   (bus-&gt;board_rev == 0x17))
+</I>&gt;<i> -                       return;
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x5001, 0, 0x0002);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x5002, 0, 0x0001);
+</I>&gt;<i> -       } else {
+</I>&gt;<i> -               for (i = 0; i &lt;= 0x2F; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x1000, i, 0x0820);
+</I>&gt;<i> -               bcm43xx_phy_agcsetup(dev);
+</I>&gt;<i> -               bcm43xx_phy_read(dev, 0x0400); /* dummy read */
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0403, 0x1000);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x3C02, 0, 0x000F);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x3C03, 0, 0x0014);
+</I>&gt;<i> -
+</I>&gt;<i> -               if ((bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM) &amp;&amp;
+</I>&gt;<i> -                   (bus-&gt;board_type == SSB_BOARD_BU4306) &amp;&amp;
+</I>&gt;<i> -                   (bus-&gt;board_rev == 0x17))
+</I>&gt;<i> -                       return;
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0401, 0, 0x0002);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0402, 0, 0x0001);
+</I>&gt;<i> -       }
+</I>&gt;<i> -}
+</I>&gt;<i> -
+</I>&gt;<i> -/* Initialize the noisescaletable for APHY */
+</I>&gt;<i> -static void bcm43xx_phy_init_noisescaletbl(struct bcm43xx_wldev *dev)
+</I>&gt;<i> -{
+</I>&gt;<i> -       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i>         int i;
+</I>&gt;<i>
+</I>&gt;<i> -       for (i = 0; i &lt; 12; i++) {
+</I>&gt;<i> -               if (phy-&gt;rev == 2)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x1400, i, 0x6767);
+</I>&gt;<i> +       if (dev-&gt;phy.rev &lt; 3) {
+</I>&gt;<i> +               if (enable)
+</I>&gt;<i> +                       for (i = 0; i &lt; BCM43xx_TAB_RSSIAGC1_SIZE; i++) {
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> +                                       BCM43xx_OFDMTAB_LNAHPFGAIN1, i,
+</I>&gt;<i> 0xFFF8);
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> +                                       BCM43xx_OFDMTAB_WRSSI, i, 0xFFF8);
+</I>&gt;<i> +                       }
+</I>&gt;<i>                 else
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x1400, i, 0x2323);
+</I>&gt;<i> -       }
+</I>&gt;<i> -       if (phy-&gt;rev == 2)
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x1400, i, 0x6700);
+</I>&gt;<i> -       else
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x1400, i, 0x2300);
+</I>&gt;<i> -       for (i = 0; i &lt; 11; i++) {
+</I>&gt;<i> -               if (phy-&gt;rev == 2)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x1400, i, 0x6767);
+</I>&gt;<i> +                       for (i = 0; i &lt; BCM43xx_TAB_RSSIAGC1_SIZE; i++) {
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> +                                       BCM43xx_OFDMTAB_LNAHPFGAIN1, i,
+</I>&gt;<i> bcm43xx_tab_rssiagc1[i]);
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> +                                       BCM43xx_OFDMTAB_WRSSI, i,
+</I>&gt;<i> bcm43xx_tab_rssiagc1[i]);
+</I>&gt;<i> +                       }
+</I>&gt;<i> +       } else {
+</I>&gt;<i> +               if (enable)
+</I>&gt;<i> +                       for (i = 0; i &lt; BCM43xx_TAB_RSSIAGC1_SIZE; i++)
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> +                                       BCM43xx_OFDMTAB_WRSSI, i, 0x0820);
+</I>&gt;<i>                 else
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x1400, i, 0x2323);
+</I>&gt;<i> +                       for (i = 0; i &lt; BCM43xx_TAB_RSSIAGC2_SIZE; i++)
+</I>&gt;<i> +                               bcm43xx_ofdmtab_write16(dev,
+</I>&gt;<i> +                                       BCM43xx_OFDMTAB_WRSSI, i,
+</I>&gt;<i> bcm43xx_tab_rssiagc2[i]);
+</I>&gt;<i>         }
+</I>&gt;<i> -       if (phy-&gt;rev == 2)
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x1400, i, 0x0067);
+</I>&gt;<i> -       else
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x1400, i, 0x0023);
+</I>&gt;<i> }
+</I>&gt;<i>
+</I>&gt;<i> -static void bcm43xx_phy_setupa(struct bcm43xx_wldev *dev)
+</I>&gt;<i> +static void bcm43xx_phy_ww(struct bcm43xx_wldev *dev)
+</I>&gt;<i> {
+</I>&gt;<i> -       struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> -       u16 i;
+</I>&gt;<i> -
+</I>&gt;<i> -       assert(phy-&gt;type == BCM43xx_PHYTYPE_A);
+</I>&gt;<i> -       switch (phy-&gt;rev) {
+</I>&gt;<i> -       case 2:
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x008E, 0x3800);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0035, 0x03FF);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0036, 0x0400);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x3807, 0, 0x0051);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x001C, 0x0FF9);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0020, bcm43xx_phy_read(dev,
+</I>&gt;<i> 0x0020) &amp; 0xFF0F);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x3C0C, 0, 0x07BF);
+</I>&gt;<i> -               bcm43xx_radio_write16(dev, 0x0002, 0x07BF);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0024, 0x4680);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0020, 0x0003);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x001D, 0x0F40);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x001F, 0x1C00);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x002A,
+</I>&gt;<i> -                                 (bcm43xx_phy_read(dev, 0x002A)
+</I>&gt;<i> -                                  &amp; 0x00FF) | 0x0400);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x002B,
+</I>&gt;<i> -                                 bcm43xx_phy_read(dev, 0x002B)
+</I>&gt;<i> -                                 &amp; 0xFBFF);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x008E, 0x58C1);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0803, 0, 0x000F);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0804, 0, 0x001F);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0805, 0, 0x002A);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0805, 0, 0x0030);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0807, 0, 0x003A);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0000, 0, 0x0013);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0000, 1, 0x0013);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0000, 2, 0x0013);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0000, 3, 0x0013);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0000, 4, 0x0015);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0000, 5, 0x0015);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0000, 6, 0x0019);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0404, 0, 0x0003);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0405, 0, 0x0003);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0406, 0, 0x0007);
+</I>&gt;<i> -
+</I>&gt;<i> -               for (i = 0; i &lt; 16; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x4000, i, (0x8 + i)
+</I>&gt;<i> &amp; 0x000F);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x3003, 0, 0x1044);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x3004, 0, 0x7201);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x3006, 0, 0x0040);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x3001, 0,
+</I>&gt;<i> (bcm43xx_ofdmtab_read16(dev, 0x3001, 0) &amp; 0x0010) | 0x0008);
+</I>&gt;<i> -
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_FINEFREQA_SIZE; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x5800, i,
+</I>&gt;<i> bcm43xx_tab_finefreqa[i]);
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_NOISEA2_SIZE; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x1800, i,
+</I>&gt;<i> bcm43xx_tab_noisea2[i]);
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_ROTOR_SIZE; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write32(dev, 0x2000, i,
+</I>&gt;<i> bcm43xx_tab_rotor[i]);
+</I>&gt;<i> -               bcm43xx_phy_init_noisescaletbl(dev);
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_RETARD_SIZE; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write32(dev, 0x2400, i,
+</I>&gt;<i> bcm43xx_tab_retard[i]);
+</I>&gt;<i> -               break;
+</I>&gt;<i> -       case 3:
+</I>&gt;<i> -               for (i = 0; i &lt; 64; i++)
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x4000, i, i);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x3807, 0, 0x0051);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x001C, 0x0FF9);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0020,
+</I>&gt;<i> -                                 bcm43xx_phy_read(dev, 0x0020) &amp; 0xFF0F);
+</I>&gt;<i> -               bcm43xx_radio_write16(dev, 0x0002, 0x07BF);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0024, 0x4680);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0020, 0x0003);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x001D, 0x0F40);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x001F, 0x1C00);
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x002A,
+</I>&gt;<i> -                                 (bcm43xx_phy_read(dev, 0x002A)
+</I>&gt;<i> -                                  &amp; 0x00FF) | 0x0400);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x3000, 1,
+</I>&gt;<i> -                                       (bcm43xx_ofdmtab_read16(dev,
+</I>&gt;<i> 0x3000, 1)
+</I>&gt;<i> -                                       &amp; 0x0010) | 0x0008);
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_NOISEA3_SIZE; i++) {
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x1800, i,
+</I>&gt;<i> -                                               bcm43xx_tab_noisea3[i]);
+</I>&gt;<i> -               }
+</I>&gt;<i> -               bcm43xx_phy_init_noisescaletbl(dev);
+</I>&gt;<i> -               for (i = 0; i &lt; BCM43xx_TAB_SIGMASQR_SIZE; i++) {
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x5000, i,
+</I>&gt;<i> -                                               bcm43xx_tab_sigmasqr1[i]);
+</I>&gt;<i>
+</I>&gt;<i> -               }
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_phy_write(dev, 0x0003, 0x1808);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0803, 0, 0x000F);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0804, 0, 0x001F);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0805, 0, 0x002A);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0805, 0, 0x0030);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0807, 0, 0x003A);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0000, 0, 0x0013);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0001, 0, 0x0013);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0002, 0, 0x0013);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0003, 0, 0x0013);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0004, 0, 0x0015);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0005, 0, 0x0015);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0006, 0, 0x0019);
+</I>&gt;<i> -
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0404, 0, 0x0003);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0405, 0, 0x0003);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x0406, 0, 0x0007);
+</I>&gt;<i> +       u16 b, curr_s, best_s = 0xFFFF;
+</I>&gt;<i> +       int i;
+</I>&gt;<i>
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x3C02, 0, 0x000F);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x3C03, 0, 0x0014);
+</I>&gt;<i> -               break;
+</I>&gt;<i> -       default:
+</I>&gt;<i> -               assert(0);
+</I>&gt;<i> -       }
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_CRS0,
+</I>&gt;<i> +               bcm43xx_phy_read(dev, BCM43xx_PHY_CRS0) &amp;
+</I>&gt;<i> ~BCM43xx_PHY_CRS0_EN);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x1B),
+</I>&gt;<i> +               bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x1B)) | 0x1000);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x82),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x82)) &amp; 0xF0FF) |
+</I>&gt;<i> 0x0300);
+</I>&gt;<i> +       bcm43xx_radio_write16(dev, 0x0009,
+</I>&gt;<i> +               bcm43xx_radio_read16(dev, 0x0009) | 0x0080);
+</I>&gt;<i> +       bcm43xx_radio_write16(dev, 0x0012,
+</I>&gt;<i> +               (bcm43xx_radio_read16(dev, 0x0012) &amp; 0xFFFC) | 0x0002);
+</I>&gt;<i> +       bcm43xx_wa_initgains(dev);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0xBA), 0x3ED5);
+</I>&gt;<i> +       b = bcm43xx_phy_read(dev, BCM43xx_PHY_PWRDOWN);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_PWRDOWN, (b &amp; 0xFFF8) |
+</I>&gt;<i> 0x0005);
+</I>&gt;<i> +       bcm43xx_radio_write16(dev, 0x0004,
+</I>&gt;<i> +               bcm43xx_radio_read16(dev, 0x0004) | 0x0004);
+</I>&gt;<i> +       for (i = 0x10; i &lt;= 0x20; i++) {
+</I>&gt;<i> +               bcm43xx_radio_write16(dev, 0x0013, i);
+</I>&gt;<i> +               curr_s = bcm43xx_phy_read(dev, BCM43xx_PHY_OTABLEQ) &amp;
+</I>&gt;<i> 0x00FF;
+</I>&gt;<i> +               if (!curr_s) {
+</I>&gt;<i> +                       best_s = 0x0000;
+</I>&gt;<i> +                       break;
+</I>&gt;<i> +               } else if (curr_s &gt;= 0x0080)
+</I>&gt;<i> +                       curr_s = 0x0100 - curr_s;
+</I>&gt;<i> +               if (curr_s &lt; best_s)
+</I>&gt;<i> +                       best_s = curr_s;
+</I>&gt;<i> +       }
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_PWRDOWN, b);
+</I>&gt;<i> +       bcm43xx_radio_write16(dev, 0x0004,
+</I>&gt;<i> +               bcm43xx_radio_read16(dev, 0x0004) &amp; 0xFFFB);
+</I>&gt;<i> +       bcm43xx_radio_write16(dev, 0x0013, best_s);
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC1_R1, 0, 0xFFEC);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0xB7), 0x1E80);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0xB6), 0x1C00);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0xB5), 0x0EC0);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0xB2), 0x00C0);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0xB9), 0x1FFF);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0xBB),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0xBB)) &amp; 0xF000) |
+</I>&gt;<i> 0x0053);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM61,
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM61 &amp; 0xFE1F)) |
+</I>&gt;<i> 0x0120);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x13),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x13)) &amp; 0x0FFF) |
+</I>&gt;<i> 0x3000);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x14),
+</I>&gt;<i> +               (bcm43xx_phy_read(dev, BCM43xx_PHY_OFDM(0x14)) &amp; 0x0FFF) |
+</I>&gt;<i> 0x3000);
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC1, 6, 0x0017);
+</I>&gt;<i> +       for (i = 0; i &lt; 6; i++)
+</I>&gt;<i> +               bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC1, i,
+</I>&gt;<i> 0x000F);
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC1, 0x0D, 0x000E);
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC1, 0x0E, 0x0011);
+</I>&gt;<i> +       bcm43xx_ofdmtab_write16(dev, BCM43xx_OFDMTAB_AGC1, 0x0F, 0x0013);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x33), 0x5030);
+</I>&gt;<i> +       bcm43xx_phy_write(dev, BCM43xx_PHY_CRS0,
+</I>&gt;<i> +               bcm43xx_phy_read(dev, BCM43xx_PHY_CRS0) |
+</I>&gt;<i> BCM43xx_PHY_CRS0_EN);
+</I>&gt;<i> }
+</I>&gt;<i>
+</I>&gt;<i> /* Initialize APHY. This is also called for the GPHY in some cases. */
+</I>&gt;<i> @@ -953,60 +657,52 @@ static void bcm43xx_phy_inita(struct bcm
+</I>&gt;<i> {
+</I>&gt;<i>         struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+</I>&gt;<i>         struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> -       u16 tval;
+</I>&gt;<i>
+</I>&gt;<i> -       if (phy-&gt;type == BCM43xx_PHYTYPE_A) {
+</I>&gt;<i> -               bcm43xx_phy_setupa(dev);
+</I>&gt;<i> -       } else {
+</I>&gt;<i> -               bcm43xx_phy_setupg(dev);
+</I>&gt;<i> -               if (phy-&gt;gmode &amp;&amp;
+</I>&gt;<i> -                   (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp;
+</I>&gt;<i> BCM43xx_BFL_PACTRL))
+</I>&gt;<i> -                       bcm43xx_phy_write(dev, 0x046E, 0x03CF);
+</I>&gt;<i> -               return;
+</I>&gt;<i> +       if (phy-&gt;rev &gt;= 6) {
+</I>&gt;<i> +               if (phy-&gt;type == BCM43xx_PHYTYPE_A)
+</I>&gt;<i> +                       bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x1B),
+</I>&gt;<i> +                               bcm43xx_phy_read(dev,
+</I>&gt;<i> BCM43xx_PHY_OFDM(0x1B)) &amp; ~0x1000);
+</I>&gt;<i> +               if (bcm43xx_phy_read(dev, BCM43xx_PHY_ENCORE) &amp;
+</I>&gt;<i> BCM43xx_PHY_ENCORE_EN)
+</I>&gt;<i> +                       bcm43xx_phy_write(dev, BCM43xx_PHY_ENCORE,
+</I>&gt;<i> +                               bcm43xx_phy_read(dev, BCM43xx_PHY_ENCORE)
+</I>&gt;<i> | 0x0010);
+</I>&gt;<i> +               else
+</I>&gt;<i> +                       bcm43xx_phy_write(dev, BCM43xx_PHY_ENCORE,
+</I>&gt;<i> +                               bcm43xx_phy_read(dev, BCM43xx_PHY_ENCORE)
+</I>&gt;<i> &amp; ~0x1010);
+</I>&gt;<i>         }
+</I>&gt;<i> +       bcm43xx_wa_all(dev);
+</I>&gt;<i>
+</I>&gt;<i> -       bcm43xx_phy_write(dev, BCM43xx_PHY_A_CRS,
+</I>&gt;<i> -                         (bcm43xx_phy_read(dev, BCM43xx_PHY_A_CRS) &amp;
+</I>&gt;<i> 0xF83C) | 0x0340);
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x0034, 0x0001);
+</I>&gt;<i> -
+</I>&gt;<i> -       TODO();//TODO: RSSI AGC
+</I>&gt;<i> -       bcm43xx_phy_write(dev, BCM43xx_PHY_A_CRS,
+</I>&gt;<i> -                         bcm43xx_phy_read(dev, BCM43xx_PHY_A_CRS) | (1 &lt;&lt;
+</I>&gt;<i> 14));
+</I>&gt;<i> -       bcm43xx_radio_init2060(dev);
+</I>&gt;<i> +       if (phy-&gt;type == BCM43xx_PHYTYPE_A) {
+</I>&gt;<i> +               if (phy-&gt;gmode &amp;&amp;
+</I>&gt;<i> +                   (phy-&gt;rev &lt; 3))
+</I>&gt;<i> +                       bcm43xx_phy_write(dev, 0x0034,
+</I>&gt;<i> +                               bcm43xx_phy_read(dev, 0x0034) | 0x0001);
+</I>&gt;<i>
+</I>&gt;<i> -       if ((bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM) &amp;&amp;
+</I>&gt;<i> -           ((bus-&gt;board_type == SSB_BOARD_BU4306) ||
+</I>&gt;<i> -            (bus-&gt;board_type == SSB_BOARD_BU4309))) {
+</I>&gt;<i> -               if (phy-&gt;lofcal == 0xFFFF) {
+</I>&gt;<i> -                       TODO();//TODO: LOF Cal
+</I>&gt;<i> -                       bcm43xx_radio_set_tx_iq(dev);
+</I>&gt;<i> -               } else
+</I>&gt;<i> -                       bcm43xx_radio_write16(dev, 0x001E, phy-&gt;lofcal);
+</I>&gt;<i> -       }
+</I>&gt;<i> +               bcm43xx_phy_rssiagc(dev, 0);
+</I>&gt;<i>
+</I>&gt;<i> -       bcm43xx_phy_write(dev, 0x007A, 0xF111);
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_CRS0,
+</I>&gt;<i> +                       bcm43xx_phy_read(dev, BCM43xx_PHY_CRS0) |
+</I>&gt;<i> BCM43xx_PHY_CRS0_EN);
+</I>&gt;<i>
+</I>&gt;<i> -       if (phy-&gt;cur_idle_tssi == 0) {
+</I>&gt;<i> -               bcm43xx_radio_write16(dev, 0x0019, 0x0000);
+</I>&gt;<i> -               bcm43xx_radio_write16(dev, 0x0017, 0x0020);
+</I>&gt;<i> +               bcm43xx_radio_init2060(dev);
+</I>&gt;<i>
+</I>&gt;<i> -               tval = bcm43xx_ofdmtab_read16(dev, 0x3001, 0);
+</I>&gt;<i> -               if (phy-&gt;rev == 1) {
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x3001, 0,
+</I>&gt;<i> -                                         (bcm43xx_ofdmtab_read16(dev,
+</I>&gt;<i> 0x3001, 0) &amp; 0xFF87)
+</I>&gt;<i> -                                         | 0x0058);
+</I>&gt;<i> -               } else {
+</I>&gt;<i> -                       bcm43xx_ofdmtab_write16(dev, 0x3001, 0,
+</I>&gt;<i> -                                         (bcm43xx_ofdmtab_read16(dev,
+</I>&gt;<i> 0x3001, 0) &amp; 0xFFC3)
+</I>&gt;<i> -                                         | 0x002C);
+</I>&gt;<i> +               if ((bus-&gt;board_vendor == SSB_BOARDVENDOR_BCM) &amp;&amp;
+</I>&gt;<i> +                   ((bus-&gt;board_type == SSB_BOARD_BU4306) ||
+</I>&gt;<i> +                    (bus-&gt;board_type == SSB_BOARD_BU4309))) {
+</I>&gt;<i> +                       ; //TODO: A PHY LO
+</I>&gt;<i>                 }
+</I>&gt;<i> -               bcm43xx_dummy_transmission(dev);
+</I>&gt;<i> -               phy-&gt;cur_idle_tssi = bcm43xx_phy_read(dev,
+</I>&gt;<i> BCM43xx_PHY_A_PCTL);
+</I>&gt;<i> -               bcm43xx_ofdmtab_write16(dev, 0x3001, 0, tval);
+</I>&gt;<i>
+</I>&gt;<i> -               bcm43xx_radio_set_txpower_a(dev, 0x0018);
+</I>&gt;<i> +               if (phy-&gt;rev &gt;= 3)
+</I>&gt;<i> +                       bcm43xx_phy_ww(dev);
+</I>&gt;<i> +
+</I>&gt;<i> +               hardware_pctl_init_aphy(dev);
+</I>&gt;<i> +
+</I>&gt;<i> +               //TODO: radar detection
+</I>&gt;<i> +       }
+</I>&gt;<i> +       if ((phy-&gt;type == BCM43xx_PHYTYPE_G) &amp;&amp;
+</I>&gt;<i> +           (dev-&gt;dev-&gt;bus-&gt;sprom.r1.boardflags_lo &amp; BCM43xx_BFL_PACTRL))
+</I>&gt;<i> {
+</I>&gt;<i> +               bcm43xx_phy_write(dev, BCM43xx_PHY_OFDM(0x6E),
+</I>&gt;<i> +                                 (bcm43xx_phy_read(dev,
+</I>&gt;<i> BCM43xx_PHY_OFDM(0x6E))
+</I>&gt;<i> +                                  &amp; 0xE000) | 0x3CF);
+</I>&gt;<i>         }
+</I>&gt;<i> -       bcm43xx_shm_clear_tssi(dev);
+</I>&gt;<i> }
+</I>&gt;<i>
+</I>&gt;<i> static void bcm43xx_phy_initb2(struct bcm43xx_wldev *dev)
+</I>&gt;<i> Index: bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/Makefile
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- bu3sch-wireless-dev.orig/drivers/net/wireless/mac80211/bcm43xx/Makefile
+</I>&gt;<i> 2007-05-12 16:27: 31.000000000 +0200
+</I>&gt;<i> +++
+</I>&gt;<i> bu3sch-wireless-dev/drivers/net/wireless/mac80211/bcm43xx/Makefile  2007-05-12
+</I>&gt;<i> 16:29:05.000000000 +0200
+</I>&gt;<i> @@ -15,4 +15,5 @@ bcm43xx-mac80211-objs := bcm43xx_main.o
+</I>&gt;<i>                          bcm43xx_leds.o \
+</I>&gt;<i>                          bcm43xx_xmit.o \
+</I>&gt;<i>                          bcm43xx_lo.o \
+</I>&gt;<i> +                        bcm43xx_wa.o \
+</I>&gt;<i>                          $(bcm43xx-mac80211-obj-y)
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> --
+</I>&gt;<i> Greetings Michael.
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Bcm43xx-dev mailing list
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>&gt;<i>
+</I>-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070513/5e02b7b7/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070513/5e02b7b7/attachment.html</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001245.html">[PATCH 1/3] fix A/G PHYs setup and init
+</A></li>
+	<LI>Next message: <A HREF="001251.html">[PATCH 1/3] fix A/G PHYs setup and init
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1250">[ date ]</a>
+              <a href="thread.html#1250">[ thread ]</a>
+              <a href="subject.html#1250">[ subject ]</a>
+              <a href="author.html#1250">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,215 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] bcm43xx-mac80211: Add TX power set file to debugfs
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20bcm43xx-mac80211%3A%20Add%20TX%20power%20set%20file%20to%20debugfs&In-Reply-To=%3C46b782f6.XGqOxV2KvXubz5jy%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002095.html">
+   <LINK REL="Next"  HREF="001811.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] bcm43xx-mac80211: Add TX power set file to debugfs</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20bcm43xx-mac80211%3A%20Add%20TX%20power%20set%20file%20to%20debugfs&In-Reply-To=%3C46b782f6.XGqOxV2KvXubz5jy%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[RFC] bcm43xx-mac80211: Add TX power set file to debugfs">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Mon Aug  6 22:22:14 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002095.html">mac80211 IPv6 problems
+</A></li>
+        <LI>Next message: <A HREF="001811.html">[RFC] bcm43xx-mac80211: Add TX power set file to debugfs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1810">[ date ]</a>
+              <a href="thread.html#1810">[ thread ]</a>
+              <a href="subject.html#1810">[ subject ]</a>
+              <a href="author.html#1810">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>For testing purposes, this patch adds a file named &quot;power_level&quot; to the
+debugfs for bcm43xx-mac80211. If this file is read, it returns the current
+setting for the &quot;Desired power level&quot;. Writing a number between 5 and 18
+will set that value as the new value for the desired power setting.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_debugfs.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_debugfs.c
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_debugfs.c
+@@ -151,6 +151,74 @@ out_unlock_bb:
+ 	return res;
+ }
+ 
++static ssize_t power_read_file(struct file *file, char __user *userbuf,
++			     size_t count, loff_t *ppos)
++{
++	struct bcm43xx_wldev *dev = file-&gt;private_data;
++	const size_t len = ARRAY_SIZE(big_buffer);
++	char *buf = big_buffer;
++	size_t pos = 0;
++	ssize_t res;
++	unsigned long flags;
++
++	mutex_lock(&amp;big_buffer_mutex);
++	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
++	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED) {
++		fappend(&quot;Board not initialized.\n&quot;);
++		goto out;
++	}
++	fappend(&quot;%d dBm\n&quot;,dev-&gt;phy.power_level);
++
++out:
++	spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
++	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
++	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
++	mutex_unlock(&amp;big_buffer_mutex);
++
++	return res;
++}
++
++static ssize_t power_write_file(struct file *file, const char __user *user_buf,
++			      size_t count, loff_t *ppos)
++{
++	struct bcm43xx_wldev *dev = file-&gt;private_data;
++	char *buf = big_buffer;
++	ssize_t buf_size;
++	ssize_t res;
++	unsigned long flags;
++	int power;
++
++	mutex_lock(&amp;big_buffer_mutex);
++	buf_size = min(count, ARRAY_SIZE(big_buffer) - 1);
++	if (copy_from_user(buf, user_buf, buf_size)) {
++	        res = -EFAULT;
++		goto out_unlock_bb;
++	}
++	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
++	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED) {
++		bcmerr(dev-&gt;wl, &quot;debugfs: Board not initialized.\n&quot;);
++		res = -EFAULT;
++		goto out_unlock;
++	}
++	if ((sscanf(buf, &quot;%d&quot;, &amp;power) != 1) || (power &gt; 18 || power &lt; 5)) {
++		bcmerr(dev-&gt;wl, &quot;debugfs: Invalid values for power level\n&quot;);
++		res = -EINVAL;
++		goto out_unlock;
++	}
++	dev-&gt;phy.power_level = power;
++	res = buf_size;
++
++out_unlock:
++	spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
++	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
++out_unlock_bb:
++	mutex_unlock(&amp;big_buffer_mutex);
++
++	return res;
++}
++
+ static ssize_t txstat_read_file(struct file *file, char __user *userbuf,
+ 				size_t count, loff_t *ppos)
+ {
+@@ -405,6 +473,12 @@ static struct file_operations restart_fo
+ 	.open = open_file_generic,
+ };
+ 
++static struct file_operations power_fops = {
++	.read = power_read_file,
++	.write = power_write_file,
++	.open = open_file_generic,
++};
++
+ 
+ int bcm43xx_debug(struct bcm43xx_wldev *dev, enum bcm43xx_dyndbg feature)
+ {
+@@ -495,6 +569,11 @@ void bcm43xx_debugfs_add_device(struct b
+ 	if (IS_ERR(e-&gt;dentry_restart))
+ 		e-&gt;dentry_restart = NULL;
+ 
++	e-&gt;dentry_power = debugfs_create_file(&quot;power_level&quot;, 0600, e-&gt;subdir,
++					     dev, &amp;power_fops);
++	if (IS_ERR(e-&gt;dentry_power))
++		e-&gt;dentry_power = NULL;
++
+ 	bcm43xx_add_dynamic_debug(dev);
+ }
+ 
+@@ -512,6 +591,7 @@ void bcm43xx_debugfs_remove_device(struc
+ 	debugfs_remove(e-&gt;dentry_txstat);
+ 	debugfs_remove(e-&gt;dentry_restart);
+ 	debugfs_remove(e-&gt;dentry_txpower_g);
++	debugfs_remove(e-&gt;dentry_power);
+ 	debugfs_remove(e-&gt;subdir);
+ 	kfree(e-&gt;txstatlog.log);
+ 	kfree(e);
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_debugfs.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_debugfs.h
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_debugfs.h
+@@ -35,6 +35,7 @@ struct bcm43xx_dfsentry {
+ 	struct dentry *dentry_txstat;
+ 	struct dentry *dentry_txpower_g;
+ 	struct dentry *dentry_restart;
++	struct dentry *dentry_power;
+ 
+ 	struct bcm43xx_wldev *dev;
+ 
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+@@ -2762,12 +2762,11 @@ static int bcm43xx_dev_config(struct iee
+ 	}
+ 
+ 	/* Adjust the desired TX power level. */
+-	if (conf-&gt;power_level != 0) {
+-		if (conf-&gt;power_level != phy-&gt;power_level) {
+-			phy-&gt;power_level = conf-&gt;power_level;
+-			bcm43xx_phy_xmitpower(dev);
+-		}
+-	}
++	if (conf-&gt;power_level != 0 &amp;&amp; phy-&gt;power_level == 0) {
++		phy-&gt;power_level = conf-&gt;power_level;
++	} else
++		phy-&gt;power_level = 10;
++	bcm43xx_phy_xmitpower(dev);
+ 
+ 	/* Hide/Show the SSID (AP mode only). */
+ 	if (conf-&gt;flags &amp; IEEE80211_CONF_SSID_HIDDEN) {
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002095.html">mac80211 IPv6 problems
+</A></li>
+	<LI>Next message: <A HREF="001811.html">[RFC] bcm43xx-mac80211: Add TX power set file to debugfs
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1810">[ date ]</a>
+              <a href="thread.html#1810">[ thread ]</a>
+              <a href="subject.html#1810">[ subject ]</a>
+              <a href="author.html#1810">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

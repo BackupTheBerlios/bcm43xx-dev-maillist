@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20LP-PHY%20Fatal%20DMA%20error%200x00000800%20on%20non-ULV%20Core%202%20Duo%3F%21%3F%21%21%3F%3F%21&In-Reply-To=%3C201002272239.26257.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="007044.html">
+   <LINK REL="Next"  HREF="007047.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20LP-PHY%20Fatal%20DMA%20error%200x00000800%20on%20non-ULV%20Core%202%20Duo%3F%21%3F%21%21%3F%3F%21&In-Reply-To=%3C201002272239.26257.mb%40bu3sch.de%3E"
+       TITLE="LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!">mb at bu3sch.de
+       </A><BR>
+    <I>Sat Feb 27 22:39:25 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="007044.html">LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+</A></li>
+        <LI>Next message: <A HREF="007047.html">LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7046">[ date ]</a>
+              <a href="thread.html#7046">[ thread ]</a>
+              <a href="subject.html#7046">[ subject ]</a>
+              <a href="author.html#7046">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Saturday 27 February 2010 20:45:50 G&#225;bor Stefanik wrote:
+&gt;<i>     2. Just before the SPROM readout, we are missing a &quot;Set 0x8000 in
+</I>&gt;<i> MMIO offset 0x280a&quot;. This looks curiously like &quot;PCI-E Miscellaneous
+</I>&gt;<i> Configuration&quot;, from <A HREF="http://bcm-v4.sipsolutions.net/PCI-E">http://bcm-v4.sipsolutions.net/PCI-E</A> - and
+</I>&gt;<i> indeed, the value read out from 0x280a is identical to offset 0xa in
+</I>&gt;<i> my SPROM. So, the right thing to do here is probably &quot;Switch to the
+</I>&gt;<i> PCIE core, set 0x8000 in MIMO offset 0x80a (or maybe 0x1000a?), switch
+</I>&gt;<i> back to ChipCommon&quot;. I don't know what core is active during this
+</I>
+Well, 0x280a and 0x80a basically is not the same in my part of the world.
+To ask it again: Is it possible that the 0x2000 bit of the address comes from
+some random burp/bug in the tracing code? It _really_ doesn't make any sense,
+because it's beyond the mapped space of the device.
+
+&gt;<i> write, as mmiotrace doesn't catch pci_read/write_config_dword calls.
+</I>&gt;<i> Larry, do you know a way to monitor PCI config space access in a way
+</I>&gt;<i> that can be matched (e.g. using timestamps) to the MMIO trace?
+</I>&gt;<i>     3. Right after the SPROM is read, wl writes zeros to MMIO offsets
+</I>&gt;<i> 0x58 and 0x5c (32-bit), then does the PMU setup. These are not valid
+</I>&gt;<i> registers for ChipCommon and PCIE, but for 802.11, they fall directly
+</I>&gt;<i> into the DMA area!
+</I>
+The writes (_if_ they happen on the 802.11 core) fall into the
+interrupt status and masks of the 8th DMA engine (they do not fall into the
+MMIO of the DMA engines).
+We don't use the 8th engine. It probably is a good idea to write zeros
+to the mask register anyway, so I'll spin up a quick test patch.
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="007044.html">LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+</A></li>
+	<LI>Next message: <A HREF="007047.html">LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7046">[ date ]</a>
+              <a href="thread.html#7046">[ thread ]</a>
+              <a href="subject.html#7046">[ subject ]</a>
+              <a href="author.html#7046">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

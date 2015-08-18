@@ -1,0 +1,158 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH V2 05/10] b43: N-PHY: update post init of 2055 radio
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%2005/10%5D%20b43%3A%20N-PHY%3A%20update%20post%20init%20of%202055%20radio&In-Reply-To=%3C1267272221-1873-6-git-send-email-zajec5%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="007034.html">
+   <LINK REL="Next"  HREF="007028.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH V2 05/10] b43: N-PHY: update post init of 2055 radio</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%2005/10%5D%20b43%3A%20N-PHY%3A%20update%20post%20init%20of%202055%20radio&In-Reply-To=%3C1267272221-1873-6-git-send-email-zajec5%40gmail.com%3E"
+       TITLE="[PATCH V2 05/10] b43: N-PHY: update post init of 2055 radio">zajec5 at gmail.com
+       </A><BR>
+    <I>Sat Feb 27 13:03:36 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="007034.html">[PATCH V2 04/10] b43: N-PHY: update writing channel-specific radio	registers
+</A></li>
+        <LI>Next message: <A HREF="007028.html">[PATCH V2 06/10] b43: N-PHY: switch to chanspec struct
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7027">[ date ]</a>
+              <a href="thread.html#7027">[ thread ]</a>
+              <a href="subject.html#7027">[ subject ]</a>
+              <a href="author.html#7027">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_n.c |   61 +++++++++++++++++++++----------------
+ 1 files changed, 35 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 2c592d2..6774897 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -183,49 +183,58 @@ static void b43_radio_init2055_pre(struct b43_wldev *dev)
+ 
+ static void b43_radio_init2055_post(struct b43_wldev *dev)
+ {
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
+ 	struct ssb_sprom *sprom = &amp;(dev-&gt;dev-&gt;bus-&gt;sprom);
+ 	struct ssb_boardinfo *binfo = &amp;(dev-&gt;dev-&gt;bus-&gt;boardinfo);
+ 	int i;
+ 	u16 val;
++	bool workaround = false;
++
++	if (sprom-&gt;revision &lt; 4)
++		workaround = (binfo-&gt;vendor != PCI_VENDOR_ID_BROADCOM ||
++				binfo-&gt;type != 0x46D ||
++				binfo-&gt;rev &lt; 0x41);
++	else
++		workaround = ((sprom-&gt;boardflags_hi &amp; B43_BFH_NOPA) == 0);
+ 
+ 	b43_radio_mask(dev, B2055_MASTER1, 0xFFF3);
+-	msleep(1);
+-	if ((sprom-&gt;revision != 4) ||
+-	   !(sprom-&gt;boardflags_hi &amp; B43_BFH_RSSIINV)) {
+-		if ((binfo-&gt;vendor != PCI_VENDOR_ID_BROADCOM) ||
+-		    (binfo-&gt;type != 0x46D) ||
+-		    (binfo-&gt;rev &lt; 0x41)) {
+-			b43_radio_mask(dev, B2055_C1_RX_BB_REG, 0x7F);
+-			b43_radio_mask(dev, B2055_C1_RX_BB_REG, 0x7F);
+-			msleep(1);
+-		}
++	if (workaround) {
++		b43_radio_mask(dev, B2055_C1_RX_BB_REG, 0x7F);
++		b43_radio_mask(dev, B2055_C2_RX_BB_REG, 0x7F);
+ 	}
+-	b43_radio_maskset(dev, B2055_RRCCAL_NOPTSEL, 0x3F, 0x2C);
+-	msleep(1);
+-	b43_radio_write16(dev, B2055_CAL_MISC, 0x3C);
+-	msleep(1);
++	b43_radio_maskset(dev, B2055_RRCCAL_NOPTSEL, 0xFFC0, 0x2C);
++	b43_radio_write(dev, B2055_CAL_MISC, 0x3C);
+ 	b43_radio_mask(dev, B2055_CAL_MISC, 0xFFBE);
+-	msleep(1);
+ 	b43_radio_set(dev, B2055_CAL_LPOCTL, 0x80);
+-	msleep(1);
+ 	b43_radio_set(dev, B2055_CAL_MISC, 0x1);
+ 	msleep(1);
+ 	b43_radio_set(dev, B2055_CAL_MISC, 0x40);
+-	msleep(1);
+-	for (i = 0; i &lt; 100; i++) {
+-		val = b43_radio_read16(dev, B2055_CAL_COUT2);
+-		if (val &amp; 0x80)
++	for (i = 0; i &lt; 200; i++) {
++		val = b43_radio_read(dev, B2055_CAL_COUT2);
++		if (val &amp; 0x80) {
++			i = 0;
+ 			break;
++		}
+ 		udelay(10);
+ 	}
+-	msleep(1);
++	if (i)
++		b43err(dev-&gt;wl, &quot;radio post init timeout\n&quot;);
+ 	b43_radio_mask(dev, B2055_CAL_LPOCTL, 0xFF7F);
+-	msleep(1);
+ 	nphy_channel_switch(dev, dev-&gt;phy.channel);
+-	b43_radio_write16(dev, B2055_C1_RX_BB_LPF, 0x9);
+-	b43_radio_write16(dev, B2055_C2_RX_BB_LPF, 0x9);
+-	b43_radio_write16(dev, B2055_C1_RX_BB_MIDACHP, 0x83);
+-	b43_radio_write16(dev, B2055_C2_RX_BB_MIDACHP, 0x83);
++	b43_radio_write(dev, B2055_C1_RX_BB_LPF, 0x9);
++	b43_radio_write(dev, B2055_C2_RX_BB_LPF, 0x9);
++	b43_radio_write(dev, B2055_C1_RX_BB_MIDACHP, 0x83);
++	b43_radio_write(dev, B2055_C2_RX_BB_MIDACHP, 0x83);
++	b43_radio_maskset(dev, B2055_C1_LNA_GAINBST, 0xFFF8, 0x6);
++	b43_radio_maskset(dev, B2055_C2_LNA_GAINBST, 0xFFF8, 0x6);
++	if (!nphy-&gt;gain_boost) {
++		b43_radio_set(dev, B2055_C1_RX_RFSPC1, 0x2);
++		b43_radio_set(dev, B2055_C2_RX_RFSPC1, 0x2);
++	} else {
++		b43_radio_mask(dev, B2055_C1_RX_RFSPC1, 0xFFFD);
++		b43_radio_mask(dev, B2055_C2_RX_RFSPC1, 0xFFFD);
++	}
++	udelay(2);
+ }
+ 
+ /*
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="007034.html">[PATCH V2 04/10] b43: N-PHY: update writing channel-specific radio	registers
+</A></li>
+	<LI>Next message: <A HREF="007028.html">[PATCH V2 06/10] b43: N-PHY: switch to chanspec struct
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7027">[ date ]</a>
+              <a href="thread.html#7027">[ thread ]</a>
+              <a href="subject.html#7027">[ subject ]</a>
+              <a href="author.html#7027">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

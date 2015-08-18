@@ -1,0 +1,181 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Testing report for new patches
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Testing%20report%20for%20new%20patches&In-Reply-To=%3Cf1a9e67e0701131253g4c011b26jc004a5c1e34b3c45%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000067.html">
+   <LINK REL="Next"  HREF="000072.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Testing report for new patches</H1>
+    <B>Ryan Hurley</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Testing%20report%20for%20new%20patches&In-Reply-To=%3Cf1a9e67e0701131253g4c011b26jc004a5c1e34b3c45%40mail.gmail.com%3E"
+       TITLE="Testing report for new patches">spitty at gmail.com
+       </A><BR>
+    <I>Sat Jan 13 21:53:41 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000067.html">What is in bcm43xx-wireless-dev.git?
+</A></li>
+        <LI>Next message: <A HREF="000072.html">Testing report for new patches
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#68">[ date ]</a>
+              <a href="thread.html#68">[ thread ]</a>
+              <a href="subject.html#68">[ subject ]</a>
+              <a href="author.html#68">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi all,
+
+I'm running a newer Compaq laptop (v3000 series) which has one of these
+wonderful broadcom PCI-E 4311 chips in them.  I've been testing the
+devicescape bcm43xx  drivers from the wireless-dev tree for awhile, but I
+still haven't gotten anything to work.  This is the first time I've
+submitted to a development list proper, so I apologize in advance if I've
+forgotten anything or done something incorrectly.
+
+Output from lspci -vv:
+
+01:00.0 Network controller: Broadcom Corporation BCM4310 UART (rev 01)
+        Subsystem: Hewlett-Packard Company Unknown device 1360
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B-
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort-
+&lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR-
+        Latency: 0, Cache Line Size: 64 bytes
+        Interrupt: pin A routed to IRQ 20
+        Region 0: Memory at c3000000 (32-bit, non-prefetchable) [size=16K]
+        Capabilities: [40] Power Management version 2
+                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA
+PME(D0-,D1-,D2-,D3hot-,D3cold-)
+                Status: D0 PME-Enable- DSel=0 DScale=2 PME-
+        Capabilities: [58] Message Signalled Interrupts: 64bit- Queue=0/0
+Enable-
+                Address: 00000000  Data: 0000
+        Capabilities: [d0] Express Legacy Endpoint IRQ 0
+                Device: Supported: MaxPayload 128 bytes, PhantFunc 0,
+ExtTag+
+                Device: Latency L0s &lt;4us, L1 unlimited
+                Device: AtnBtn- AtnInd- PwrInd-
+                Device: Errors: Correctable- Non-Fatal- Fatal- Unsupported-
+                Device: RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
+                Device: MaxPayload 128 bytes, MaxReadReq 128 bytes
+                Link: Supported Speed 2.5Gb/s, Width x1, ASPM L0s, Port 0
+                Link: Latency L0s &lt;4us, L1 &lt;64us
+                Link: ASPM Disabled RCB 64 bytes CommClk- ExtSynch-
+                Link: Speed 2.5Gb/s, Width x1
+        Capabilities: [100] Advanced Error Reporting
+        Capabilities: [13c] Virtual Channel
+
+Even though lspci identifies this as a BCM4310 (UART), I've been told that
+this is actually a 4311 core.
+
+I compiled a 2.6.19.1 kernel to test out the new PCI-E patches this
+afternoon, and while it compiled cleanly and was able to scan, I was unable
+to associate with any access points, encrypted or otherwise.  The relevant
+parts of dmesg are:
+
+....
+[  127.078000] bcm43xx driver
+[  127.080000] ACPI: PCI Interrupt Link [LK2E] enabled at IRQ 19
+[  127.080000] ACPI: PCI Interrupt 0000:01:00.0[A] -&gt; Link [LK2E] -&gt; GSI 19
+(level, high) -&gt; IRQ 20
+[  127.080000] PCI: Setting latency timer of device 0000:01:00.0 to 64
+[  127.087000] bcm43xx: Chip ID 0x4311, rev 0x1
+[  127.087000] bcm43xx: Number of cores: 4
+[  127.087000] bcm43xx: Core 0: ID 0x800, rev 0x11, vendor 0x4243, enabled
+[  127.087000] bcm43xx: Core 1: ID 0x812, rev 0xa, vendor 0x4243, disabled
+[  127.087000] bcm43xx: Core 2: ID 0x817, rev 0x3, vendor 0x4243, disabled
+[  127.087000] bcm43xx: Core 3: ID 0x820, rev 0x1, vendor 0x4243, enabled
+[  127.088000] bcm43xx: PHY connected
+[  127.088000] bcm43xx: Detected PHY: Version: 4, Type 2, Revision 8
+[  127.088000] bcm43xx: Detected Radio: ID: 2205017f (Manuf: 17f Ver: 2050
+Rev: 2)
+[  127.088000] bcm43xx: Radio turned off
+[  127.088000] bcm43xx: Radio turned off
+[  127.153000] bcm43xx: PHY connected
+[  127.252000] bcm43xx: Microcode rev 0x127, pl 0xe (2005-04-18  02:36:27)
+[  127.260000] bcm43xx: Radio turned on
+[  127.260000] bcm43xx: Radio enabled by hardware
+[  127.449000] bcm43xx: Chip initialized
+[  127.449000] bcm43xx: 32-bit DMA initialized
+[  127.449000] bcm43xx: Keys cleared
+[  127.449000] bcm43xx: Selected 802.11 core (phytype 2)
+[  128.758000] SoftMAC: Authentication response received from
+00:11:50:a2:14:36 but no queue item exists.
+[  129.527000] bcm43xx: set security called, .level = 0, .enabled = 0,
+.encrypt = 0
+[  130.631000] bcm43xx: set security called, .level = 0, .enabled = 0,
+.encrypt = 0
+[  130.631000] bcm43xx: set security called, .level = 0, .enabled = 0,
+.encrypt = 0
+[  130.631000] bcm43xx: set security called, .level = 0, .enabled = 0,
+.encrypt = 0
+[  130.631000] bcm43xx: set security called, .level = 0, .enabled = 0,
+.encrypt = 0
+[  130.899000] SoftMAC: Authentication response received from
+00:14:6c:03:c5:ff but no queue item exists.
+[  130.899000] SoftMAC: Authentication response received from
+00:14:6c:03:c5:ff but no queue item exists.
+[  130.900000] SoftMAC: Authentication response received from
+00:14:6c:03:c5:ff but no queue item exists.
+[  136.380000] SoftMAC: Authentication response received from
+00:11:50:a2:14:36 but no queue item exists.
+[  137.977000] SoftMAC: Authentication response received from
+00:14:6c:03:c5:ff but no queue item exists.
+[  137.977000] SoftMAC: Authentication response received from
+00:14:6c:03:c5:ff but no queue item exists.
+[  137.978000] SoftMAC: Authentication response received from
+00:14:6c:03:c5:ff but no queue item exists.
+[  141.200000] bcm43xx: Radio turned off
+
+I turned the radio off myself when it failed to authenticate.  I repeated
+the process, (rmmod bcm43xx, modprobe 43xx, and then attempt to connect)
+but got  an identical result.
+
+Oh, and there's one other thing that I'd like to bring to the attention of
+this list.  The bcm43xx driver supplied with the default Ubuntu Edgy kernel
+works.  It runs very, very slowly (about 20 KB/s for download and even
+slower for upload) but it identifies my chip and authenticates- the whole 9
+yards.  Just a heads up.
+
+If anyone needs any other information about my setup or from the logs,
+please ask.  Thanks for all the hard work everyone is doing on this driver!
+
+-Ryan Hurley
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070113/7086561c/attachment.html">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070113/7086561c/attachment.html</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000067.html">What is in bcm43xx-wireless-dev.git?
+</A></li>
+	<LI>Next message: <A HREF="000072.html">Testing report for new patches
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#68">[ date ]</a>
+              <a href="thread.html#68">[ thread ]</a>
+              <a href="subject.html#68">[ subject ]</a>
+              <a href="author.html#68">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

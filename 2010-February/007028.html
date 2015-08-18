@@ -1,0 +1,237 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH V2 06/10] b43: N-PHY: switch to chanspec struct
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%2006/10%5D%20b43%3A%20N-PHY%3A%20switch%20to%20chanspec%20struct&In-Reply-To=%3C1267272221-1873-7-git-send-email-zajec5%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="007027.html">
+   <LINK REL="Next"  HREF="007029.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH V2 06/10] b43: N-PHY: switch to chanspec struct</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20V2%2006/10%5D%20b43%3A%20N-PHY%3A%20switch%20to%20chanspec%20struct&In-Reply-To=%3C1267272221-1873-7-git-send-email-zajec5%40gmail.com%3E"
+       TITLE="[PATCH V2 06/10] b43: N-PHY: switch to chanspec struct">zajec5 at gmail.com
+       </A><BR>
+    <I>Sat Feb 27 13:03:37 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="007027.html">[PATCH V2 05/10] b43: N-PHY: update post init of 2055 radio
+</A></li>
+        <LI>Next message: <A HREF="007029.html">[PATCH V2 07/10] b43: N-PHY: adjust gain table
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7028">[ date ]</a>
+              <a href="thread.html#7028">[ thread ]</a>
+              <a href="subject.html#7028">[ subject ]</a>
+              <a href="author.html#7028">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_n.c |   45 +++++++++++++++++++++++++------------
+ drivers/net/wireless/b43/phy_n.h |   11 +++++----
+ 2 files changed, 36 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 6774897..1952acc 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -73,6 +73,21 @@ static void b43_nphy_rf_control_override(struct b43_wldev *dev, u16 field,
+ static void b43_nphy_rf_control_intc_override(struct b43_wldev *dev, u8 field,
+ 						u16 value, u8 core);
+ 
++static inline bool b43_empty_chanspec(struct b43_chanspec *chanspec)
++{
++	return !chanspec-&gt;channel &amp;&amp; !chanspec-&gt;sideband &amp;&amp;
++		!chanspec-&gt;b_width &amp;&amp; !chanspec-&gt;b_freq;
++}
++
++static inline bool b43_eq_chanspecs(struct b43_chanspec *chanspec1,
++					struct b43_chanspec *chanspec2)
++{
++	return (chanspec1-&gt;channel == chanspec2-&gt;channel &amp;&amp;
++		chanspec1-&gt;sideband == chanspec2-&gt;sideband &amp;&amp;
++		chanspec1-&gt;b_width == chanspec2-&gt;b_width &amp;&amp;
++		chanspec1-&gt;b_freq == chanspec2-&gt;b_freq);
++}
++
+ void b43_nphy_set_rxantenna(struct b43_wldev *dev, int antenna)
+ {//TODO
+ }
+@@ -768,7 +783,7 @@ static void b43_nphy_spur_workaround(struct b43_wldev *dev)
+ {
+ 	struct b43_phy_n *nphy = dev-&gt;phy.n;
+ 
+-	unsigned int channel;
++	u8 channel = nphy-&gt;radio_chanspec.channel;
+ 	int tone[2] = { 57, 58 };
+ 	u32 noise[2] = { 0x3FF, 0x3FF };
+ 
+@@ -777,8 +792,6 @@ static void b43_nphy_spur_workaround(struct b43_wldev *dev)
+ 	if (nphy-&gt;hang_avoid)
+ 		b43_nphy_stay_in_carrier_search(dev, 1);
+ 
+-	/* FIXME: channel = radio_chanspec */
+-
+ 	if (nphy-&gt;gband_spurwar_en) {
+ 		/* TODO: N PHY Adjust Analog Pfbw (7) */
+ 		if (channel == 11 &amp;&amp; dev-&gt;phy.is_40mhz)
+@@ -2015,12 +2028,12 @@ static void b43_nphy_restore_rssi_cal(struct b43_wldev *dev)
+ 	u16 *rssical_phy_regs = NULL;
+ 
+ 	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
+-		if (!nphy-&gt;rssical_chanspec_2G)
++		if (b43_empty_chanspec(&amp;nphy-&gt;rssical_chanspec_2G))
+ 			return;
+ 		rssical_radio_regs = nphy-&gt;rssical_cache.rssical_radio_regs_2G;
+ 		rssical_phy_regs = nphy-&gt;rssical_cache.rssical_phy_regs_2G;
+ 	} else {
+-		if (!nphy-&gt;rssical_chanspec_5G)
++		if (b43_empty_chanspec(&amp;nphy-&gt;rssical_chanspec_5G))
+ 			return;
+ 		rssical_radio_regs = nphy-&gt;rssical_cache.rssical_radio_regs_5G;
+ 		rssical_phy_regs = nphy-&gt;rssical_cache.rssical_phy_regs_5G;
+@@ -2440,7 +2453,7 @@ static void b43_nphy_save_cal(struct b43_wldev *dev)
+ 
+ 	struct b43_phy_n_iq_comp *rxcal_coeffs = NULL;
+ 	u16 *txcal_radio_regs = NULL;
+-	u8 *iqcal_chanspec;
++	struct b43_chanspec *iqcal_chanspec;
+ 	u16 *table = NULL;
+ 
+ 	if (nphy-&gt;hang_avoid)
+@@ -2496,12 +2509,12 @@ static void b43_nphy_restore_cal(struct b43_wldev *dev)
+ 	struct b43_phy_n_iq_comp *rxcal_coeffs = NULL;
+ 
+ 	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
+-		if (nphy-&gt;iqcal_chanspec_2G == 0)
++		if (b43_empty_chanspec(&amp;nphy-&gt;iqcal_chanspec_2G))
+ 			return;
+ 		table = nphy-&gt;cal_cache.txcal_coeffs_2G;
+ 		loft = &amp;nphy-&gt;cal_cache.txcal_coeffs_2G[5];
+ 	} else {
+-		if (nphy-&gt;iqcal_chanspec_5G == 0)
++		if (b43_empty_chanspec(&amp;nphy-&gt;iqcal_chanspec_5G))
+ 			return;
+ 		table = nphy-&gt;cal_cache.txcal_coeffs_5G;
+ 		loft = &amp;nphy-&gt;cal_cache.txcal_coeffs_5G[5];
+@@ -2746,8 +2759,7 @@ static int b43_nphy_cal_tx_iq_lo(struct b43_wldev *dev,
+ 			b43_ntab_read_bulk(dev, B43_NTAB16(15, 96), length,
+ 						nphy-&gt;txiqlocal_bestc);
+ 			nphy-&gt;txiqlocal_coeffsvalid = true;
+-			/* TODO: Set nphy-&gt;txiqlocal_chanspec to
+-				the current channel */
++			nphy-&gt;txiqlocal_chanspec = nphy-&gt;radio_chanspec;
+ 		} else {
+ 			length = 11;
+ 			if (dev-&gt;phy.rev &lt; 3)
+@@ -2782,7 +2794,8 @@ static void b43_nphy_reapply_tx_cal_coeffs(struct b43_wldev *dev)
+ 	u16 buffer[7];
+ 	bool equal = true;
+ 
+-	if (!nphy-&gt;txiqlocal_coeffsvalid || 1 /* FIXME */)
++	if (!nphy-&gt;txiqlocal_coeffsvalid ||
++	    b43_eq_chanspecs(&amp;nphy-&gt;txiqlocal_chanspec, &amp;nphy-&gt;radio_chanspec))
+ 		return;
+ 
+ 	b43_ntab_read_bulk(dev, B43_NTAB16(15, 80), 7, buffer);
+@@ -3137,9 +3150,11 @@ int b43_phy_initn(struct b43_wldev *dev)
+ 	do_rssi_cal = false;
+ 	if (phy-&gt;rev &gt;= 3) {
+ 		if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)
+-			do_rssi_cal = (nphy-&gt;rssical_chanspec_2G == 0);
++			do_rssi_cal =
++				b43_empty_chanspec(&amp;nphy-&gt;rssical_chanspec_2G);
+ 		else
+-			do_rssi_cal = (nphy-&gt;rssical_chanspec_5G == 0);
++			do_rssi_cal =
++				b43_empty_chanspec(&amp;nphy-&gt;rssical_chanspec_5G);
+ 
+ 		if (do_rssi_cal)
+ 			b43_nphy_rssi_cal(dev);
+@@ -3151,9 +3166,9 @@ int b43_phy_initn(struct b43_wldev *dev)
+ 
+ 	if (!((nphy-&gt;measure_hold &amp; 0x6) != 0)) {
+ 		if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ)
+-			do_cal = (nphy-&gt;iqcal_chanspec_2G == 0);
++			do_cal = b43_empty_chanspec(&amp;nphy-&gt;iqcal_chanspec_2G);
+ 		else
+-			do_cal = (nphy-&gt;iqcal_chanspec_5G == 0);
++			do_cal = b43_empty_chanspec(&amp;nphy-&gt;iqcal_chanspec_5G);
+ 
+ 		if (nphy-&gt;mute)
+ 			do_cal = false;
+diff --git a/drivers/net/wireless/b43/phy_n.h b/drivers/net/wireless/b43/phy_n.h
+index 47d20dc..e7acae2 100644
+--- a/drivers/net/wireless/b43/phy_n.h
++++ b/drivers/net/wireless/b43/phy_n.h
+@@ -984,7 +984,7 @@ struct b43_phy_n {
+ 	u16 papd_epsilon_offset[2];
+ 	s32 preamble_override;
+ 	u32 bb_mult_save;
+-	u16 radio_chanspec;
++	struct b43_chanspec radio_chanspec;
+ 
+ 	bool gain_boost;
+ 	bool elna_gain_config;
+@@ -1000,6 +1000,7 @@ struct b43_phy_n {
+ 	u16 txiqlocal_bestc[11];
+ 	bool txiqlocal_coeffsvalid;
+ 	struct b43_phy_n_txpwrindex txpwrindex[2];
++	struct b43_chanspec txiqlocal_chanspec;
+ 
+ 	u8 txrx_chain;
+ 	u16 tx_rx_cal_phy_saveregs[11];
+@@ -1015,12 +1016,12 @@ struct b43_phy_n {
+ 	bool gband_spurwar_en;
+ 
+ 	bool ipa2g_on;
+-	u8 iqcal_chanspec_2G;
+-	u8 rssical_chanspec_2G;
++	struct b43_chanspec iqcal_chanspec_2G;
++	struct b43_chanspec rssical_chanspec_2G;
+ 
+ 	bool ipa5g_on;
+-	u8 iqcal_chanspec_5G;
+-	u8 rssical_chanspec_5G;
++	struct b43_chanspec iqcal_chanspec_5G;
++	struct b43_chanspec rssical_chanspec_5G;
+ 
+ 	struct b43_phy_n_rssical_cache rssical_cache;
+ 	struct b43_phy_n_cal_cache cal_cache;
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="007027.html">[PATCH V2 05/10] b43: N-PHY: update post init of 2055 radio
+</A></li>
+	<LI>Next message: <A HREF="007029.html">[PATCH V2 07/10] b43: N-PHY: adjust gain table
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7028">[ date ]</a>
+              <a href="thread.html#7028">[ thread ]</a>
+              <a href="subject.html#7028">[ subject ]</a>
+              <a href="author.html#7028">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

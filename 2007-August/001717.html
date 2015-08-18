@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC V3] bcm43xx-mac80211: Provide information to allow	transmission rate decreases
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%20V3%5D%20bcm43xx-mac80211%3A%20Provide%20information%20to%20allow%0A%09transmission%20rate%20decreases&In-Reply-To=%3C200708022159.44422.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001715.html">
+   <LINK REL="Next"  HREF="001693.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC V3] bcm43xx-mac80211: Provide information to allow	transmission rate decreases</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%20V3%5D%20bcm43xx-mac80211%3A%20Provide%20information%20to%20allow%0A%09transmission%20rate%20decreases&In-Reply-To=%3C200708022159.44422.mb%40bu3sch.de%3E"
+       TITLE="[RFC V3] bcm43xx-mac80211: Provide information to allow	transmission rate decreases">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Aug  2 21:59:44 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001715.html">[RFC V3] bcm43xx-mac80211: Provide information to allow	transmission rate decreases
+</A></li>
+        <LI>Next message: <A HREF="001693.html">[patch 0/4] New patch series for merge
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1717">[ date ]</a>
+              <a href="thread.html#1717">[ thread ]</a>
+              <a href="subject.html#1717">[ subject ]</a>
+              <a href="author.html#1717">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Thursday 02 August 2007, Larry Finger wrote:
+&gt;<i> Michael Buesch wrote:
+</I>&gt;<i> &gt; On Thursday 02 August 2007, Larry Finger wrote:
+</I>&gt;<i> &gt;&gt; Michael,
+</I>&gt;<i> &gt;&gt;
+</I>&gt;<i> &gt;&gt; I couldn't find any long/short indication in the header, so I added a bool that
+</I>&gt;<i> &gt;&gt; is set when the frame is sent.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; This is not going to work.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; But we can do this differently.
+</I>&gt;<i> &gt; You can do something like:
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; if (!status-&gt;acked &amp;&amp; !tx_control-&gt;noack)
+</I>&gt;<i> &gt; 	excessive_retries = 1;
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; So we don't need to care about the retry count.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Anyway. I don't know why we need excessive_retries _at_ _all_.
+</I>&gt;<i> &gt; The rc algorithm does already know if the frame succeed or failed
+</I>&gt;<i> &gt; anyway.
+</I>&gt;<i> 
+</I>&gt;<i> Is this what you had in mind?
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> @@ -1311,6 +1311,9 @@ void bcm43xx_dma_handle_txstatus(struct
+</I>&gt;<i>                           */
+</I>&gt;<i>                          if (status-&gt;acked)
+</I>&gt;<i>                                  meta-&gt;txstat.flags |= IEEE80211_TX_STATUS_ACK;
+</I>&gt;<i> +                       else
+</I>&gt;<i> +                               if (!(meta-&gt;txstat.flags &amp; IEEE80211_TXCTL_NO_ACK))
+</I>&gt;<i> +                                       meta-&gt;txstat.excessive_retries = 1;
+</I>&gt;<i>                          meta-&gt;txstat.retry_count = status-&gt;frame_count - 1;
+</I>&gt;<i>                          ieee80211_tx_status_irqsafe(dev-&gt;wl-&gt;hw, meta-&gt;skb, &amp;(meta-&gt;txstat));
+</I>&gt;<i>                          /* skb is freed by ieee80211_tx_status_irqsafe() */
+</I>
+
+Yeah, looks good. If you correctly diff that up, I'll queue it up for
+the next submission to John.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001715.html">[RFC V3] bcm43xx-mac80211: Provide information to allow	transmission rate decreases
+</A></li>
+	<LI>Next message: <A HREF="001693.html">[patch 0/4] New patch series for merge
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1717">[ date ]</a>
+              <a href="thread.html#1717">[ thread ]</a>
+              <a href="subject.html#1717">[ subject ]</a>
+              <a href="author.html#1717">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

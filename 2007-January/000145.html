@@ -1,0 +1,136 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] bcm43xx: Fix problem with &gt;1 GB RAM
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20problem%20with%20%3E1%20GB%20RAM&In-Reply-To=%3C45B51C31.10000%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000143.html">
+   <LINK REL="Next"  HREF="000146.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] bcm43xx: Fix problem with &gt;1 GB RAM</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20bcm43xx%3A%20Fix%20problem%20with%20%3E1%20GB%20RAM&In-Reply-To=%3C45B51C31.10000%40lwfinger.net%3E"
+       TITLE="[PATCH] bcm43xx: Fix problem with &gt;1 GB RAM">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Mon Jan 22 21:18:57 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000143.html">[PATCH] bcm43xx: Fix problem with &gt;1 GB RAM
+</A></li>
+        <LI>Next message: <A HREF="000146.html">[PATCH] bcm43xx: Fix problem with &gt;1 GB RAM
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#145">[ date ]</a>
+              <a href="thread.html#145">[ thread ]</a>
+              <a href="subject.html#145">[ subject ]</a>
+              <a href="author.html#145">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> On Saturday 20 January 2007 17:18, Larry Finger wrote:
+</I>&gt;&gt;<i> Some versions of the bcm43xx chips only support 30-bit DMA, which means
+</I>&gt;&gt;<i> that the descriptors and buffers must be in the first 1 GB of RAM. On
+</I>&gt;&gt;<i> the i386 and x86_64 architectures with more than 1 GB RAM, an incorrect
+</I>&gt;&gt;<i> assignment may occur. This patch ensures that the various DMA addresses
+</I>&gt;&gt;<i> are within the capability of the chip. Testing has been limited to x86_64
+</I>&gt;&gt;<i> as no one has an i386 system with more than 1 GB RAM.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;&gt;<i> ---
+</I>
+..snip..
+
+&gt;&gt;<i>  	assert(!ring-&gt;tx);
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -	dma_sync_single_for_cpu(&amp;ring-&gt;bcm-&gt;pci_dev-&gt;dev,
+</I>&gt;&gt;<i> -				addr, len, DMA_FROM_DEVICE);
+</I>&gt;&gt;<i> +	pci_dma_sync_single_for_cpu(ring-&gt;bcm-&gt;pci_dev,
+</I>&gt;&gt;<i> +				    addr, len, PCI_DMA_FROMDEVICE);
+</I>&gt;&gt;<i>  }
+</I>&gt;<i> 
+</I>&gt;<i> Any special reason why you convert the DMA operations to the PCI
+</I>&gt;<i> stuff? I ask, because if this makes a difference, it affects the
+</I>&gt;<i> new SSB subsystem as well.
+</I>
+When I looked at the b44 driver to see how that code handled the problem, it used the pci-form of
+the calls rather than the dma-version. Thus I switched early in the debug process - even before I
+had the necessary hardware. Once I got it working and understood the problem, I never tried
+restoring the dma-forms.
+
+At present, I have a problem getting NetworkManager to see the d80211 wireless interface. Once I get
+that solved, I plan to use my system to test with &gt; 1 GB RAM on your git tree. In that case, I'll
+switch to the pci-form only if necessary.
+
+&gt;<i> 
+</I>&gt;&gt;<i>  static inline
+</I>&gt;&gt;<i> @@ -194,8 +192,8 @@ void sync_descbuffer_for_device(struct b
+</I>
+..snip..
+
+&gt;&gt;<i> -	goto out;
+</I>&gt;&gt;<i> +no_dma:
+</I>&gt;&gt;<i> +#ifdef CONFIG_BCM43XX_PIO
+</I>&gt;&gt;<i> +	printk(KERN_WARNING PFX &quot;DMA not supported on this device.&quot;
+</I>&gt;&gt;<i> +				&quot; Falling back to PIO.\n&quot;);
+</I>&gt;&gt;<i> +	bcm-&gt;__using_pio = 1;
+</I>&gt;&gt;<i> +	BUG();
+</I>&gt;<i> 
+</I>&gt;<i> That isn't a BUG. Just remove this call, please.
+</I>
+It was accidentally left in from my debugging. I have already submitted a revised version to
+Linville that removes this, and one other BUG statement that you didn't note.
+
+
+&gt;&gt;<i> +	return -ENOSYS;
+</I>&gt;&gt;<i> +#else
+</I>&gt;&gt;<i> +	printk(KERN_ERR PFX &quot;FATAL: DMA not supported and PIO not configured. &quot;
+</I>&gt;&gt;<i> +			    &quot;Please recompile the driver with PIO support.\n&quot;);
+</I>&gt;&gt;<i> +	return -ENODEV;
+</I>&gt;&gt;<i> +#endif /* CONFIG_BCM43XX_PIO */
+</I>&gt;&gt;<i>  }
+</I>
+..snip..
+
+&gt;&gt;<i>  	u16 board_vendor;
+</I>&gt;&gt;<i>  	u16 board_type;
+</I>&gt;<i> 
+</I>&gt;<i> The rest is OK, I think.
+</I>&gt;<i> Thanks for the nice work.
+</I>
+Thank you. It certainly was a lot easier with the necessary hardware in house.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000143.html">[PATCH] bcm43xx: Fix problem with &gt;1 GB RAM
+</A></li>
+	<LI>Next message: <A HREF="000146.html">[PATCH] bcm43xx: Fix problem with &gt;1 GB RAM
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#145">[ date ]</a>
+              <a href="thread.html#145">[ thread ]</a>
+              <a href="subject.html#145">[ subject ]</a>
+              <a href="author.html#145">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

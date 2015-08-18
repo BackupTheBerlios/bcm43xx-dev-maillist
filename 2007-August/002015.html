@@ -1,0 +1,127 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 4311 not working
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%204311%20not%20working&In-Reply-To=%3C46C13815.7030302%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001998.html">
+   <LINK REL="Next"  HREF="002019.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>4311 not working</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%204311%20not%20working&In-Reply-To=%3C46C13815.7030302%40lwfinger.net%3E"
+       TITLE="4311 not working">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Tue Aug 14 07:05:25 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001998.html">4311 not working
+</A></li>
+        <LI>Next message: <A HREF="002019.html">4311 not working
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2015">[ date ]</a>
+              <a href="thread.html#2015">[ thread ]</a>
+              <a href="subject.html#2015">[ subject ]</a>
+              <a href="author.html#2015">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Jason Wood wrote:
+&gt;&gt;<i> From: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">larry.finger at lwfinger.net</A>&gt;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Analysis of the two dmesg outputs cannot be completed as your kernel 
+</I>&gt;&gt;<i> is compiled with a very small log buffer and it is wrapping around; 
+</I>&gt;&gt;<i> however, I see enough to suspect some kind of race condition in the 
+</I>&gt;&gt;<i> bus setup. I see a device with different IRQ's between the good/bad 
+</I>&gt;&gt;<i> boots. That shouldn't happen. I do not think you are having hardware 
+</I>&gt;&gt;<i> problems, and I'm pretty sure it is not a bcm43xx problem.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Is it possible for you to upgrade to a 2.6.22 or 2.6.23-rc2 kernel? If 
+</I>&gt;&gt;<i> so, please do. Whatever bug we are chasing may have already been fixed.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> If it is not possible to upgrade, I would like you to add the option 
+</I>&gt;&gt;<i> 'log_buf_len=262144' when you boot. That will increase the size of the 
+</I>&gt;&gt;<i> log buffer so that we see everything. Then send me the dmesg output 
+</I>&gt;&gt;<i> from a good and a bad boot.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Another thing to try is the boot option 'maxcpus=0'. That will run it 
+</I>&gt;&gt;<i> as a unit processor system and eliminate a lot of potential problems 
+</I>&gt;&gt;<i> with SMP. I'm particularly interested in knowing if it always works 
+</I>&gt;&gt;<i> with this option, or if it also fails sometimes.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> What is the make/model of your laptop? I probably have that info 
+</I>&gt;&gt;<i> somewhere, but I'm lazy. In addition, are your running a 32- or 64-bit 
+</I>&gt;&gt;<i> system?
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Thanks,
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Larry
+</I>&gt;&gt;<i>
+</I>&gt;<i> 
+</I>&gt;<i> I'm using a HP Pavilion dv6000.  I'm currently trying to solve a 
+</I>&gt;<i> separate issue that leads me to believe this may be a bios or hardware 
+</I>&gt;<i> issue.  I intermittently get bios beep codes for the video on startup, 
+</I>&gt;<i> forcing a power cycle.  And of course HP support is unwilling to work 
+</I>&gt;<i> with me because of my OS choice.
+</I>&gt;<i> 
+</I>&gt;<i> Anyway, I have working and non-working dmesg output attached with the 
+</I>&gt;<i> increased buffer limit set for kernel 2.6.22.1.  I also attempted 
+</I>&gt;<i> booting with 'maxcpus=0' set, however the system hard locked at random 
+</I>&gt;<i> points each time.  Line 278 of the dmesg.2.6.22.1.works file is where 
+</I>&gt;<i> the device first gets detected (0000:03:00.0), and does not show up in 
+</I>&gt;<i> the failed boot dmesg.  With this kernel, I'm having some SELinux errors 
+</I>&gt;<i> I believe, but I don't think it affects the bcm43xx module.
+</I>
+The crucial difference between the two dmesg outputs is in the following difference, where the + 
+indicates &quot;good&quot; and &quot;-&quot; means bad:
+
+@@ -275,6 +275,7 @@ PM: Adding info for pci:0000:00:18.0
+  PM: Adding info for pci:0000:00:18.1
+  PM: Adding info for pci:0000:00:18.2
+  PM: Adding info for pci:0000:00:18.3
++PM: Adding info for pci:0000:03:00.0
+  PM: Adding info for pci:0000:05:00.0
+  PM: Adding info for pci:0000:07:05.0
+  PM: Adding info for pci:0000:07:05.1
+
+In the bad case, the pci adapter with the wireless device is not being recognized. No bus == no adapter.
+
+The dmesg output says 'ACPI: Please test with &quot;acpi_osi=!Linux&quot;'. Have you tried that?
+The next line says 'Please send dmidecode to <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linux-acpi at vger.kernel.org</A>'. That is the output of a 
+dmidecode command, which has to be run as root.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001998.html">4311 not working
+</A></li>
+	<LI>Next message: <A HREF="002019.html">4311 not working
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2015">[ date ]</a>
+              <a href="thread.html#2015">[ thread ]</a>
+              <a href="subject.html#2015">[ subject ]</a>
+              <a href="author.html#2015">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

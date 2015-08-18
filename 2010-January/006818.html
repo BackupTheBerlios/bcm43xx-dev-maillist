@@ -1,0 +1,178 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 4/5] b43: N-PHY: add setting power amplifier filters
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%204/5%5D%20b43%3A%20N-PHY%3A%20add%20setting%20power%20amplifier%20filters&In-Reply-To=%3C1264121596-9616-5-git-send-email-zajec5%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006819.html">
+   <LINK REL="Next"  HREF="006820.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 4/5] b43: N-PHY: add setting power amplifier filters</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%204/5%5D%20b43%3A%20N-PHY%3A%20add%20setting%20power%20amplifier%20filters&In-Reply-To=%3C1264121596-9616-5-git-send-email-zajec5%40gmail.com%3E"
+       TITLE="[PATCH 4/5] b43: N-PHY: add setting power amplifier filters">zajec5 at gmail.com
+       </A><BR>
+    <I>Fri Jan 22 01:53:15 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006819.html">[PATCH 3/5] b43: N-PHY: add running samples
+</A></li>
+        <LI>Next message: <A HREF="006820.html">[PATCH 5/5] b43: N-PHY: add TX tone
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6818">[ date ]</a>
+              <a href="thread.html#6818">[ thread ]</a>
+              <a href="subject.html#6818">[ subject ]</a>
+              <a href="author.html#6818">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_n.c       |   41 ++++++++++++++++++++++++++++++-
+ drivers/net/wireless/b43/tables_nphy.c |   24 ++++++++++++++++++
+ drivers/net/wireless/b43/tables_nphy.h |    1 +
+ 3 files changed, 64 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index f5900f0..97a44e4 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -1628,6 +1628,43 @@ static void b43_nphy_update_tx_cal_ladder(struct b43_wldev *dev, u16 core)
+ 	}
+ }
+ 
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/ExtPaSetTxDigiFilts">http://bcm-v4.sipsolutions.net/802.11/PHY/N/ExtPaSetTxDigiFilts</A> */
++static void b43_nphy_ext_pa_set_tx_dig_filters(struct b43_wldev *dev)
++{
++	int i;
++	for (i = 0; i &lt; 15; i++)
++		b43_phy_write(dev, B43_PHY_N(0x2C5 + i),
++				tbl_tx_filter_coef_rev4[2][i]);
++}
++
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/IpaSetTxDigiFilts">http://bcm-v4.sipsolutions.net/802.11/PHY/N/IpaSetTxDigiFilts</A> */
++static void b43_nphy_int_pa_set_tx_dig_filters(struct b43_wldev *dev)
++{
++	int i, j;
++	/* B43_NPHY_TXF_20CO_S0A1, B43_NPHY_TXF_40CO_S0A1, unknown */
++	u16 offset[] = { 0x186, 0x195, 0x2C5 };
++
++	for (i = 0; i &lt; 3; i++)
++		for (j = 0; j &lt; 15; j++)
++			b43_phy_write(dev, B43_PHY_N(offset[i] + j),
++					tbl_tx_filter_coef_rev4[i][j]);
++
++	if (dev-&gt;phy.is_40mhz) {
++		for (j = 0; j &lt; 15; j++)
++			b43_phy_write(dev, B43_PHY_N(offset[0] + j),
++					tbl_tx_filter_coef_rev4[3][j]);
++	} else if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ) {
++		for (j = 0; j &lt; 15; j++)
++			b43_phy_write(dev, B43_PHY_N(offset[0] + j),
++					tbl_tx_filter_coef_rev4[5][j]);
++	}
++
++	if (dev-&gt;phy.channel == 14)
++		for (j = 0; j &lt; 15; j++)
++			b43_phy_write(dev, B43_PHY_N(offset[0] + j),
++					tbl_tx_filter_coef_rev4[6][j]);
++}
++
+ /* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/GetTxGain">http://bcm-v4.sipsolutions.net/802.11/PHY/N/GetTxGain</A> */
+ static struct nphy_txgains b43_nphy_get_tx_gains(struct b43_wldev *dev)
+ {
+@@ -2371,9 +2408,9 @@ int b43_phy_initn(struct b43_wldev *dev)
+ 		b43_phy_set(dev, B43_NPHY_PAPD_EN1, 0x1);
+ 		b43_phy_maskset(dev, B43_NPHY_EPS_TABLE_ADJ1, 0x007F,
+ 				nphy-&gt;papd_epsilon_offset[1] &lt;&lt; 7);
+-		/* TODO N PHY IPA Set TX Dig Filters */
++		b43_nphy_int_pa_set_tx_dig_filters(dev);
+ 	} else if (phy-&gt;rev &gt;= 5) {
+-		/* TODO N PHY Ext PA Set TX Dig Filters */
++		b43_nphy_ext_pa_set_tx_dig_filters(dev);
+ 	}
+ 
+ 	b43_nphy_workarounds(dev);
+diff --git a/drivers/net/wireless/b43/tables_nphy.c b/drivers/net/wireless/b43/tables_nphy.c
+index dd9687d..a00d509 100644
+--- a/drivers/net/wireless/b43/tables_nphy.c
++++ b/drivers/net/wireless/b43/tables_nphy.c
+@@ -2883,6 +2883,30 @@ const u16 tbl_tx_iqlo_cal_cmds_fullcal_nphyrev3[] = {
+ 	0x9084, 0x9267, 0x9056, 0x9234
+ };
+ 
++const s16 tbl_tx_filter_coef_rev4[7][15] = {
++	{  -377,   137,  -407,   208, -1527,
++	    956,    93,   186,    93,   230,
++	    -44,   230,    20,  -191,   201 },
++	{   -77,    20,   -98,    49,   -93,
++	     60,    56,   111,    56,    26,
++	     -5,    26,    34,   -32,    34 },
++	{  -360,   164,  -376,   164, -1533,
++	    576,   308,  -314,   308,   121,
++	    -73,   121,    91,   124,    91 },
++	{  -295,   200,  -363,   142, -1391,
++	    826,   151,   301,   151,   151,
++	    301,   151,   602,  -752,   602 },
++	{   -92,    58,   -96,    49,  -104,
++	     44,    17,    35,    17,    12,
++	     25,    12,    13,    27,    13 },
++	{  -375,   136,  -399,   209, -1479,
++	    949,   130,   260,   130,   230,
++	    -44,   230,   201,  -191,   201 },
++	{ 0xed9,  0xc8, 0xe95,  0x8e, 0xa91,
++	  0x33a,  0x97, 0x12d,  0x97,  0x97,
++	  0x12d,  0x97, 0x25a, 0xd10, 0x25a }
++};
++
+ /* addr0,  addr1,  bmask,  shift */
+ const struct nphy_rf_control_override_rev2 tbl_rf_control_override_rev2[] = {
+ 	{ 0x78, 0x78, 0x0038,  3 }, /* for field == 0x0002 (fls == 2) */
+diff --git a/drivers/net/wireless/b43/tables_nphy.h b/drivers/net/wireless/b43/tables_nphy.h
+index 5d38172..9c1c6ec 100644
+--- a/drivers/net/wireless/b43/tables_nphy.h
++++ b/drivers/net/wireless/b43/tables_nphy.h
+@@ -193,6 +193,7 @@ extern const u16 tbl_tx_iqlo_cal_cmds_recal_nphyrev3[];
+ extern const u16 tbl_tx_iqlo_cal_cmds_recal[];
+ extern const u16 tbl_tx_iqlo_cal_cmds_fullcal[];
+ extern const u16 tbl_tx_iqlo_cal_cmds_fullcal_nphyrev3[];
++extern const s16 tbl_tx_filter_coef_rev4[7][15];
+ 
+ extern const struct nphy_rf_control_override_rev2
+ 	tbl_rf_control_override_rev2[];
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006819.html">[PATCH 3/5] b43: N-PHY: add running samples
+</A></li>
+	<LI>Next message: <A HREF="006820.html">[PATCH 5/5] b43: N-PHY: add TX tone
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6818">[ date ]</a>
+              <a href="thread.html#6818">[ thread ]</a>
+              <a href="subject.html#6818">[ subject ]</a>
+              <a href="author.html#6818">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

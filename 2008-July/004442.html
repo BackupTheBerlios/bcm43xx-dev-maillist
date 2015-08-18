@@ -1,0 +1,144 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm4306 with 2.6.25 on Fedora
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4306%20with%202.6.25%20on%20Fedora&In-Reply-To=%3C1217140995.16601.31.camel%40ct%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004441.html">
+   <LINK REL="Next"  HREF="004443.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm4306 with 2.6.25 on Fedora</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4306%20with%202.6.25%20on%20Fedora&In-Reply-To=%3C1217140995.16601.31.camel%40ct%3E"
+       TITLE="bcm4306 with 2.6.25 on Fedora">proski at gnu.org
+       </A><BR>
+    <I>Sun Jul 27 08:43:15 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004441.html">bcm4306 with 2.6.25 on Fedora
+</A></li>
+        <LI>Next message: <A HREF="004443.html">bcm4306 with 2.6.25 on Fedora
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4442">[ date ]</a>
+              <a href="thread.html#4442">[ thread ]</a>
+              <a href="subject.html#4442">[ subject ]</a>
+              <a href="author.html#4442">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sun, 2008-07-27 at 05:59 +0000, Greg Matheson wrote:
+
+&gt;<i> I seem to be only able to get a bcm4306 chip to work when I power
+</I>&gt;<i> on, but powering on does not seem to be a sufficient condition
+</I>&gt;<i> for it to work. I am wondering if powering on after some time off
+</I>&gt;<i> is necessary and sufficient?
+</I>
+You mean it doesn't work after reboot?
+
+&gt;<i> This is with 2.6.25-14.fc9.i686  or 2.6.25.10-86.fc9.i686.
+</I>&gt;<i> 
+</I>&gt;<i> And I can only get this result with 4.150.10.5 firmware.
+</I>&gt;<i> With 3.130.20.0 firmware, ie b43legacy. after associating with
+</I>&gt;<i> the AP, it disassociates with reason=3. That is, it
+</I>&gt;<i> disassociates of its own accord.
+</I>&gt;<i> 
+</I>&gt;<i> That is, I haven't been able to get it working with 3.130.20.0.
+</I>
+You should not be able to use b43 and b43legacy with the same device.
+Perhaps you patched one of those drivers to support your card?  Then
+please be specific.
+
+&gt;<i> I wasn't able to get 4.80.53.0 working either, though I haven't
+</I>&gt;<i> tried as much.
+</I>&gt;<i> 
+</I>&gt;<i> Actually, I think b43legacy is the track this chip should be
+</I>&gt;<i> working with, rather than b43, because I think it has a 'MAC core
+</I>&gt;<i> revision' of 2, ie less than 4.
+</I>&gt;<i> 
+</I>&gt;<i> b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050,
+</I>&gt;<i> Revision 2
+</I>
+What matters is the 802.11 core revision reported by the ssb driver when
+SSB debugging is enabled.  b43 doesn't report it.  Perhaps ssb is too
+quiet without debugging.
+
+&gt;<i> b43-phy0: Broadcom 4306 WLAN found
+</I>&gt;<i> b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 2
+</I>&gt;<i> b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+</I>
+I have a bcm4306 card with the same PHY and radio, and it's supported by
+b43 only.  b43legacy can be patched to support it.  I have no problems
+with that card, even with reboots.
+
+&gt;<i> The output of uname -a:
+</I>&gt;<i> 
+</I>&gt;<i> Linux pl757.nas921.nara.nttpc.ne.jp 2.6.25.10-86.fc9.i686 #1 SMP Mon Jul 7 20:46:03 EDT 2008 i686 i686 i386 GNU/Linux
+</I>
+Fedora is known to pull some experimental stuff into its kernels.
+Anyway, it's not the latest Fedora kernel, please upgrade if you can.
+And all real wireless work is done on the wireless-testing kernel.
+
+&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at pl757</A> ~]# dhclient wlan0 -v
+</I>&gt;<i> Internet Systems Consortium DHCP Client 4.0.0
+</I>&gt;<i> Copyright 2004-2007 Internet Systems Consortium.
+</I>&gt;<i> All rights reserved.
+</I>&gt;<i> For info, please visit <A HREF="http://www.isc.org/sw/dhcp/">http://www.isc.org/sw/dhcp/</A>
+</I>&gt;<i> 
+</I>&gt;<i> Listening on LPF/wlan0/00:07:40:c4:f5:d6
+</I>&gt;<i> Sending on   LPF/wlan0/00:07:40:c4:f5:d6
+</I>&gt;<i> Sending on   Socket/fallback
+</I>&gt;<i> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 7
+</I>&gt;<i> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 10
+</I>&gt;<i> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 11
+</I>&gt;<i> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 21
+</I>&gt;<i> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 12
+</I>&gt;<i> No DHCPOFFERS received.
+</I>&gt;<i> No working leases in persistent database - sleeping.
+</I>
+dhclient on Fedora brings the interface down briefly.  b43 is very
+susceptible to disassociation if it happens (but sometimes the
+connection survives).  A workaround it to avoid dhclient.  If you have
+to use it, you'll need to set essid in another session while dhclient is
+waiting, or run &quot;wpa_cli -i wlan0 reassociate&quot;
+
+It is a known problem, but I think dhclient is entirely to blame.
+Bringing the interface down goes well beyond the &quot;zone of
+responsibility&quot; of dhclient, as it affects the lower layers that need to
+stay connected and keep their state.
+
+-- 
+Regards,
+Pavel Roskin
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004441.html">bcm4306 with 2.6.25 on Fedora
+</A></li>
+	<LI>Next message: <A HREF="004443.html">bcm4306 with 2.6.25 on Fedora
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4442">[ date ]</a>
+              <a href="thread.html#4442">[ thread ]</a>
+              <a href="subject.html#4442">[ subject ]</a>
+              <a href="author.html#4442">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

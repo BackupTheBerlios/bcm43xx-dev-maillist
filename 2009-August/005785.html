@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Implement channel switching for rev0/1/B2062	radio
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Implement%20channel%20switching%20for%20rev0/1/B2062%0A%09radio&In-Reply-To=%3C69e28c910908140351k64681bfav78d746d45e7b62e1%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005784.html">
+   <LINK REL="Next"  HREF="005786.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Implement channel switching for rev0/1/B2062	radio</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Implement%20channel%20switching%20for%20rev0/1/B2062%0A%09radio&In-Reply-To=%3C69e28c910908140351k64681bfav78d746d45e7b62e1%40mail.gmail.com%3E"
+       TITLE="[PATCH] b43: LP-PHY: Implement channel switching for rev0/1/B2062	radio">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Fri Aug 14 12:51:25 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005784.html">[PATCH] b43: LP-PHY: Implement channel switching for rev0/1/B2062	radio
+</A></li>
+        <LI>Next message: <A HREF="005786.html">[PATCH] b43: LP-PHY: Implement channel switching for rev0/1/B2062	radio
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5785">[ date ]</a>
+              <a href="thread.html#5785">[ thread ]</a>
+              <a href="subject.html#5785">[ subject ]</a>
+              <a href="author.html#5785">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>2009/8/14 Mark Huijgen &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mark.sf.net at huijgen.tk</A>&gt;:
+&gt;<i> G&#225;bor Stefanik wrote:
+</I>&gt;&gt;<i> Rev0/1/B2062 will now hopefully show some signs of life, though
+</I>&gt;&gt;<i> it won't work at full performance, as calibration is still missing.
+</I>&gt;&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Just compiled wireless-testing.git**, enabled LP phy support in config,
+</I>&gt;<i> to see how far it gets here:
+</I>
+Wireless-testing doesn't have all the needed patches yet - apply the
+outstanding patches from the list to test the real current state.
+
+&gt;<i>
+</I>&gt;<i> modprobe b43 verbose=3
+</I>&gt;<i>
+</I>&gt;<i> [ 1068.690053] b43-phy3: Broadcom 4312 WLAN found (core revision 15)
+</I>&gt;<i> [ 1068.732048] b43-phy3 debug: Found PHY: Analog 6, Type 5, Revision 1
+</I>&gt;<i> [ 1068.732062] b43-phy3 debug: Found Radio: Manuf 0x17F, Version 0x2062,
+</I>&gt;<i> Revision 2
+</I>&gt;<i> [ 1068.756465] phy3: Selected rate control algorithm 'minstrel'
+</I>&gt;<i> [ 1068.756581] Broadcom 43xx driver loaded [ Features: PL, Firmware-ID:
+</I>&gt;<i> FW13 ]
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> ifconfig wlan0
+</I>&gt;<i> wlan0 &#160; &#160; Link encap:Ethernet &#160;HWaddr FF:FF:FF:FF:FF:FF
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160;BROADCAST MULTICAST &#160;MTU:1500 &#160;Metric:1
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160;RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160;TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160;collisions:0 txqueuelen:1000
+</I>&gt;<i> &#160; &#160; &#160; &#160; &#160;RX bytes:0 (0.0 b) &#160;TX bytes:0 (0.0 b)
+</I>&gt;<i>
+</I>&gt;<i> ifconfig wlan0 up
+</I>&gt;<i> SIOCSIFFLAGS: Cannot assign requested address
+</I>
+Uhh, that doesn't look good...
+
+&gt;<i>
+</I>&gt;<i> Did some looking around and it seems b43_op_start() is never called, so
+</I>&gt;<i> its bailing out somewhere in mac80211? Something to do with the mac addr
+</I>&gt;<i> being alls FF's?
+</I>
+Yes, FF:FF:FF:FF:FF:FF is not a valid MAC. Mac80211 refuses to
+initialize a card with an invalid MAC address.
+Now, the question is, how does the MAC address end up being
+FF:FF:FF:FF:FF:FF...? Presumably there is a switch(phy-&gt;type) in the
+generic (non-LP-specific) code that doesn't have case B43_PHYTYPE_LP
+and returns FF:FF:FF:FF:FF:FF as the default. I'll investigate.
+
+BTW could you post the output of &quot;iwconfig wlan0&quot;, &quot;iw dev wlan0 info&quot;
+and &quot;iw phy phy3 info&quot; (replace phy3 with the phy name from dmesg)?
+
+&gt;<i>
+</I>&gt;<i> Mark
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> * Card pci id:
+</I>&gt;<i> 10:00.0 0280: 14e4:4315 (rev 01)
+</I>&gt;<i> &#160; &#160; &#160; &#160;Subsystem: 103c:137d
+</I>&gt;<i>
+</I>&gt;<i> ** git version:
+</I>&gt;<i> <A HREF="http://git.kernel.org/?p=linux/kernel/git/linville/wireless-testing.git;a=commit;h=b2004c4a9483b295a7413d41d08604943670ab26">http://git.kernel.org/?p=linux/kernel/git/linville/wireless-testing.git;a=commit;h=b2004c4a9483b295a7413d41d08604943670ab26</A>
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005784.html">[PATCH] b43: LP-PHY: Implement channel switching for rev0/1/B2062	radio
+</A></li>
+	<LI>Next message: <A HREF="005786.html">[PATCH] b43: LP-PHY: Implement channel switching for rev0/1/B2062	radio
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5785">[ date ]</a>
+              <a href="thread.html#5785">[ thread ]</a>
+              <a href="subject.html#5785">[ subject ]</a>
+              <a href="author.html#5785">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

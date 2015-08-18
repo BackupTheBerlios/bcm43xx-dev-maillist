@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Update LP-PHY rev2+ baseband init to match the specs
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Update%20LP-PHY%20rev2%2B%20baseband%20init%20to%20match%20the%20specs&In-Reply-To=%3C200908102046.00427.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005732.html">
+   <LINK REL="Next"  HREF="005735.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Update LP-PHY rev2+ baseband init to match the specs</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Update%20LP-PHY%20rev2%2B%20baseband%20init%20to%20match%20the%20specs&In-Reply-To=%3C200908102046.00427.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Update LP-PHY rev2+ baseband init to match the specs">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Aug 10 20:46:00 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005732.html">[PATCH] b43: Update LP-PHY rev2+ baseband init to match the specs
+</A></li>
+        <LI>Next message: <A HREF="005735.html">[PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed	for LP-PHY
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5734">[ date ]</a>
+              <a href="thread.html#5734">[ thread ]</a>
+              <a href="subject.html#5734">[ subject ]</a>
+              <a href="author.html#5734">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 10 August 2009 20:42:33 G&#225;bor Stefanik wrote:
+&gt;<i> +static void lpphy_save_dig_flt_state(struct b43_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +	static const u16 addr[] = {
+</I>&gt;<i> +		B43_PHY_OFDM(0xC1),
+</I>&gt;<i> +		B43_PHY_OFDM(0xC2),
+</I>&gt;<i> +		B43_PHY_OFDM(0xC3),
+</I>&gt;<i> +		B43_PHY_OFDM(0xC4),
+</I>&gt;<i> +		B43_PHY_OFDM(0xC5),
+</I>&gt;<i> +		B43_PHY_OFDM(0xC6),
+</I>&gt;<i> +		B43_PHY_OFDM(0xC7),
+</I>&gt;<i> +		B43_PHY_OFDM(0xC8),
+</I>&gt;<i> +		B43_PHY_OFDM(0xCF),
+</I>&gt;<i> +	};
+</I>&gt;<i> +
+</I>&gt;<i> +	static const u16 coeffs[] = {
+</I>&gt;<i> +		0xDE5E, 0xE832, 0xE331, 0x4D26,
+</I>&gt;<i> +		0x0026, 0x1420, 0x0020, 0xFE08,
+</I>&gt;<i> +		0x0008,
+</I>&gt;<i> +	};
+</I>&gt;<i> +
+</I>&gt;<i> +	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+</I>&gt;<i> +	int i;
+</I>&gt;<i> +
+</I>&gt;<i> +	for (i = 0; i &lt; 9; i++) {
+</I>
+Use ARRAY_SIZE, please.
+
+&gt;<i> +		lpphy-&gt;dig_flt_state[i] = b43_phy_read(dev, addr[i]);
+</I>&gt;<i> +		b43_phy_write(dev, addr[i], coefs[i]);
+</I>&gt;<i> +	}
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>&gt;<i> +static void lpphy_restore_dig_flt_state(struct b43_wldev *dev)
+</I>&gt;<i> +{
+</I>&gt;<i> +	static const u16 addr[] = {
+</I>&gt;<i> +		B43_PHY_OFDM(0xC1),
+</I>&gt;<i> +		B43_PHY_OFDM(0xC2),
+</I>&gt;<i> +		B43_PHY_OFDM(0xC3),
+</I>&gt;<i> +		B43_PHY_OFDM(0xC4),
+</I>&gt;<i> +		B43_PHY_OFDM(0xC5),
+</I>&gt;<i> +		B43_PHY_OFDM(0xC6),
+</I>&gt;<i> +		B43_PHY_OFDM(0xC7),
+</I>&gt;<i> +		B43_PHY_OFDM(0xC8),
+</I>&gt;<i> +		B43_PHY_OFDM(0xCF),
+</I>&gt;<i> +	};
+</I>&gt;<i> +
+</I>&gt;<i> +	struct b43_phy_lp *lpphy = dev-&gt;phy.lp;
+</I>&gt;<i> +	int i;
+</I>&gt;<i> +
+</I>&gt;<i> +	for (i = 0; i &lt; 9; i++)
+</I>
+Same here.
+
+&gt;<i> +		b43_phy_write(dev, addr[i], lpphy-&gt;dig_flt_state[i]);
+</I>&gt;<i> +}
+</I>&gt;<i> +
+</I>
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005732.html">[PATCH] b43: Update LP-PHY rev2+ baseband init to match the specs
+</A></li>
+	<LI>Next message: <A HREF="005735.html">[PATCH RFC] ssb: Implement the remaining rev.8 SPROM vars needed	for LP-PHY
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5734">[ date ]</a>
+              <a href="thread.html#5734">[ thread ]</a>
+              <a href="subject.html#5734">[ subject ]</a>
+              <a href="author.html#5734">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

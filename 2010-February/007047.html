@@ -1,0 +1,119 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20LP-PHY%20Fatal%20DMA%20error%200x00000800%20on%20non-ULV%20Core%202%20Duo%3F%21%3F%21%21%3F%3F%21&In-Reply-To=%3C4B899DA3.4030100%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="007046.html">
+   <LINK REL="Next"  HREF="007048.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20LP-PHY%20Fatal%20DMA%20error%200x00000800%20on%20non-ULV%20Core%202%20Duo%3F%21%3F%21%21%3F%3F%21&In-Reply-To=%3C4B899DA3.4030100%40lwfinger.net%3E"
+       TITLE="LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Feb 27 23:33:07 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="007046.html">LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+</A></li>
+        <LI>Next message: <A HREF="007048.html">LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7047">[ date ]</a>
+              <a href="thread.html#7047">[ thread ]</a>
+              <a href="subject.html#7047">[ subject ]</a>
+              <a href="author.html#7047">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 02/27/2010 01:45 PM, G&#225;bor Stefanik wrote:
+&gt;<i> 
+</I>&gt;<i> So, a quick status update, from what I've found yesterday:
+</I>&gt;<i> 
+</I>&gt;<i>     1. We get the PMU setup wrong. Bit 0x200 is being set, despite the
+</I>&gt;<i> PMU being rev1. Also, PMU setup is done too early - at least wl reads
+</I>&gt;<i> the SPROM before setting up the PMU. A write of 0xcbb to offset 0x618
+</I>&gt;<i> is also missing - I seem to remember that this change has been tried
+</I>&gt;<i> already, to no avail; but it may be a prerequisite of the real fix.
+</I>&gt;<i>     2. Just before the SPROM readout, we are missing a &quot;Set 0x8000 in
+</I>&gt;<i> MMIO offset 0x280a&quot;. This looks curiously like &quot;PCI-E Miscellaneous
+</I>&gt;<i> Configuration&quot;, from <A HREF="http://bcm-v4.sipsolutions.net/PCI-E">http://bcm-v4.sipsolutions.net/PCI-E</A> - and
+</I>&gt;<i> indeed, the value read out from 0x280a is identical to offset 0xa in
+</I>&gt;<i> my SPROM. So, the right thing to do here is probably &quot;Switch to the
+</I>&gt;<i> PCIE core, set 0x8000 in MIMO offset 0x80a (or maybe 0x1000a?), switch
+</I>&gt;<i> back to ChipCommon&quot;. I don't know what core is active during this
+</I>&gt;<i> write, as mmiotrace doesn't catch pci_read/write_config_dword calls.
+</I>&gt;<i> Larry, do you know a way to monitor PCI config space access in a way
+</I>&gt;<i> that can be matched (e.g. using timestamps) to the MMIO trace?
+</I>
+The printk's I sent yesterday can have timing info, but the timestamps would not
+be exactly coordinated - printk values seem to be generated when logged, not
+when requested.
+
+&gt;<i>     3. Right after the SPROM is read, wl writes zeros to MMIO offsets
+</I>&gt;<i> 0x58 and 0x5c (32-bit), then does the PMU setup. These are not valid
+</I>&gt;<i> registers for ChipCommon and PCIE, but for 802.11, they fall directly
+</I>&gt;<i> into the DMA area! So, if these writes happened with the 802.11 core
+</I>&gt;<i> active, they are probably significant.
+</I>
+That sounds promising. I think I found the section, which will have the
+following specs:
+
+ 1. If the Chip Common revision &gt;= 20
+  a. Save the current core index
+  a. Set core to chip common
+  a. Write 0 to GPIO Pullup (register 0x58)
+  a. Write 0 to GPIO Pulldown (register 0x5C)
+  a. Restore the original core
+ 1. If PMU Control Enabled
+  a. Init the PMU
+  ...
+
+A quick look ar the code suggests this should go into ssb_chipcommon_init() just
+after the return for not having a chip common. In addition, chip common will
+already be selected, thus that part can be skipped.
+
+
+&gt;<i> I second Larry's question: where are the specs for the PMU init code?
+</I>
+&gt;<i>From what Michael replied, they do not exist in a public place other that the
+</I>reference code for embedded systems. I have started them - there is now a PMU
+Init page and I'll fill them in as I can. If you have a specific routine, let me
+know.
+
+Larry
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="007046.html">LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+</A></li>
+	<LI>Next message: <A HREF="007048.html">LP-PHY Fatal DMA error 0x00000800 on non-ULV Core 2 Duo?!?!!??!
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7047">[ date ]</a>
+              <a href="thread.html#7047">[ thread ]</a>
+              <a href="subject.html#7047">[ subject ]</a>
+              <a href="author.html#7047">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

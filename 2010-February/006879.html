@@ -1,0 +1,142 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> BCM4311/02 ABG disconnects on 2.6.32
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4311/02%20ABG%20disconnects%20on%202.6.32&In-Reply-To=%3C4B68FF7A.8080108%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006878.html">
+   <LINK REL="Next"  HREF="006880.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>BCM4311/02 ABG disconnects on 2.6.32</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20BCM4311/02%20ABG%20disconnects%20on%202.6.32&In-Reply-To=%3C4B68FF7A.8080108%40lwfinger.net%3E"
+       TITLE="BCM4311/02 ABG disconnects on 2.6.32">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Wed Feb  3 05:45:46 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006878.html">[PATCH] b43: Fix regression from commit c7ab5ef
+</A></li>
+        <LI>Next message: <A HREF="006880.html">BCM4311/02 ABG disconnects on 2.6.32
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6879">[ date ]</a>
+              <a href="thread.html#6879">[ thread ]</a>
+              <a href="subject.html#6879">[ subject ]</a>
+              <a href="author.html#6879">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 01/29/2010 03:05 AM, Orivej Desh wrote:
+&gt;<i> Not sure if this helps, but on my system (Network controller [0280]: Broadcom 
+</I>&gt;<i> Corporation BCM4311 802.11b/g WLAN [14e4:4311] (rev 01); b43-phy0: Broadcom 4311 
+</I>&gt;<i> WLAN found (core revision 10)) network controller no longer operates after 
+</I>&gt;<i> disconnect. That is, &quot;iwlist wlan0 scan&quot; finds nothing.
+</I>&gt;<i> 
+</I>&gt;<i> My other details are similar to Yuval's one &#8212; I've got the latest firmware, the 
+</I>&gt;<i> problem appeared in 2.6.32, I've tested latest git without luck. Can't help too 
+</I>&gt;<i> much, though, because there is no unprotected network over here (from which 
+</I>&gt;<i> laptop disconnects immediately), and on the protected one on-line time is too 
+</I>&gt;<i> large: at this session the first disconnect occured after 35 hours, the second - 
+</I>&gt;<i> after half an hour after driver reset with ifconfig wlan0 down/up, the third - 
+</I>&gt;<i> hour and an half after reset; this is not normal because I had no disconnects 
+</I>&gt;<i> before 2.6.32.
+</I>
+I installed my BCM4311/2 device to try to duplicate your results from above. I
+found a problem with performance and have posted a patch for that. I set my AP,
+which is a Linksys WRT54GL V1.1 running openWRT Kamikaze r16206 firmware. I set
+my network to be unencrypted as  you said that made the failure to occur more
+quickly. As I write this, my device has been running for 32 hours with no
+dropouts. I cannot duplicate your results.
+
+My system is wireless-testing 2.6.33-rc5 with the two patches below. Please add
+them to your system and try again.
+
+Larry
+
+===================
+
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c
++++ wireless-testing/drivers/net/wireless/b43/main.c
+@@ -637,10 +637,17 @@ static void b43_upload_card_macaddress(s
+ static void b43_set_slot_time(struct b43_wldev *dev, u16 slot_time)
+ {
+ 	/* slot_time is in usec. */
+-	if (dev-&gt;phy.type != B43_PHYTYPE_G)
++	/* This test used to exit for all but a G PHY. */
++	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ)
+ 		return;
+-	b43_write16(dev, 0x684, 510 + slot_time);
+-	b43_shm_write16(dev, B43_SHM_SHARED, 0x0010, slot_time);
++	b43_write16(dev, B43_MMIO_IFSSLOT, 510 + slot_time);
++	/* Shared memory location 0x0010 is the slot time and should be
++	 * set to slot_time; however, this register is initially 0 and changing
++	 * the value adversely affects the transmit rate for BCM4311
++	 * devices. Until this behavior is unterstood, delete this step
++	 *
++	 * b43_shm_write16(dev, B43_SHM_SHARED, 0x0010, slot_time);
++	 */
+ }
+
+ static void b43_short_slot_timing_enable(struct b43_wldev *dev)
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h
++++ wireless-testing/drivers/net/wireless/b43/b43.h
+@@ -115,6 +115,7 @@
+ #define B43_MMIO_TSF_2			0x636	/* core rev &lt; 3 only */
+ #define B43_MMIO_TSF_3			0x638	/* core rev &lt; 3 only */
+ #define B43_MMIO_RNG			0x65A
++#define B43_MMIO_IFSSLOT		0x684	/* Interframe slot time */
+ #define B43_MMIO_IFSCTL			0x688 /* Interframe space control */
+ #define  B43_MMIO_IFSCTL_USE_EDCF	0x0004
+ #define B43_MMIO_POWERUP_DELAY		0x6A8
+
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c
++++ wireless-testing/drivers/net/wireless/b43/main.c
+@@ -3980,6 +3980,7 @@ static int b43_wireless_core_start(struc
+ 	}
+
+ 	/* We are ready to run. */
++	ieee80211_wake_queues(dev-&gt;wl-&gt;hw);
+ 	b43_set_status(dev, B43_STAT_STARTED);
+
+ 	/* Start data flow (TX/RX). */
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006878.html">[PATCH] b43: Fix regression from commit c7ab5ef
+</A></li>
+	<LI>Next message: <A HREF="006880.html">BCM4311/02 ABG disconnects on 2.6.32
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6879">[ date ]</a>
+              <a href="thread.html#6879">[ thread ]</a>
+              <a href="subject.html#6879">[ subject ]</a>
+              <a href="author.html#6879">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

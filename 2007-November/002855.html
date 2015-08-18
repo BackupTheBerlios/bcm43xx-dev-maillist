@@ -1,0 +1,108 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Changes to enable BCM4311 rev 02 with wireless core	revision 13
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Changes%20to%20enable%20BCM4311%20rev%2002%20with%20wireless%20core%0A%09revision%2013&In-Reply-To=%3C47448ED1.9090100%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002854.html">
+   <LINK REL="Next"  HREF="002856.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Changes to enable BCM4311 rev 02 with wireless core	revision 13</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Changes%20to%20enable%20BCM4311%20rev%2002%20with%20wireless%20core%0A%09revision%2013&In-Reply-To=%3C47448ED1.9090100%40lwfinger.net%3E"
+       TITLE="[PATCH] b43: Changes to enable BCM4311 rev 02 with wireless core	revision 13">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Wed Nov 21 21:02:25 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002854.html">[PATCH] b43: Changes to enable BCM4311 rev 02 with wireless core	revision 13
+</A></li>
+        <LI>Next message: <A HREF="002856.html">[PATCH] b43: Changes to enable BCM4311 rev 02 with wireless core	revision 13
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2855">[ date ]</a>
+              <a href="thread.html#2855">[ thread ]</a>
+              <a href="subject.html#2855">[ subject ]</a>
+              <a href="author.html#2855">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> On Wednesday 21 November 2007 20:31:53 Larry Finger wrote:
+</I>&gt;&gt;<i> The BCM94311MCG rev 02 chip has an 802.11 core with revision 13 and
+</I>&gt;&gt;<i> has not been supported until now. The changes include the following:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> (1) Add the 802.11 rev 13 device to the ssb_device_id table to load b43.
+</I>&gt;&gt;<i> (2) Add PHY revision 9 to the supported list.
+</I>&gt;&gt;<i> (3) Fix 64-bit addressing errors.
+</I>&gt;&gt;<i> (4) Remove some magic numbers in the DMA setup.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> The DMA implementation for this chip supports full 64-bit addressing with
+</I>&gt;&gt;<i> one exception. Whenever the Descriptor Ring Buffer is in high memory, a
+</I>&gt;&gt;<i> fatal DMA error occurs. This problem was not present in 2.6.24-rc2 due
+</I>&gt;&gt;<i> to code to &quot;Bias the placement of kernel pages at lower PFNs&quot;. When
+</I>&gt;&gt;<i> commit 44048d70 reverted that code, the DMA error appeared. As a &quot;fix&quot;,
+</I>&gt;&gt;<i> use the GFP_DMA flag when allocating the buffer for 64-bit DMA. At present,
+</I>&gt;&gt;<i> this problem is thought to arise from a hardware error. The present driver
+</I>&gt;&gt;<i> allocates one ring buffer for RX and six for TX; however, only one of the
+</I>&gt;&gt;<i> TX buffers is used. To minimize any system impact associated with using low
+</I>&gt;&gt;<i> memory, this patch removes the allocation of the unused buffers.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> This patch has been tested by C&#233;dric Caumont &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">icare40 at hotmail.com</A>&gt;.
+</I>&gt;&gt;<i>
+</I>&gt;<i> 
+</I>&gt;&gt;<i> @@ -954,19 +955,21 @@ int b43_dma_init(struct b43_wldev *dev)
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i>  	err = -ENOMEM;
+</I>&gt;&gt;<i>  	/* setup TX DMA channels. */
+</I>&gt;&gt;<i> -	ring = b43_setup_dmaring(dev, 0, 1, dma64);
+</I>&gt;&gt;<i> +	ring = b43_setup_dmaring(dev, 1, 1, dma64);
+</I>&gt;&gt;<i>  	if (!ring)
+</I>&gt;&gt;<i>  		goto out;
+</I>&gt;&gt;<i> -	dma-&gt;tx_ring0 = ring;
+</I>&gt;&gt;<i> +	dma-&gt;tx_ring1 = ring;
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -	ring = b43_setup_dmaring(dev, 1, 1, dma64);
+</I>&gt;&gt;<i> +	/* The driver only uses ring1 for TX - skip setup for the rest */
+</I>&gt;&gt;<i> +#if 0
+</I>&gt;<i> 
+</I>&gt;<i> NACK.
+</I>
+Are you NACKing the &quot;if 0&quot; or the elimination of the unused TX rings? Perhaps we could have
+
+	if (ring-&gt;dma64)
+		goto out;
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002854.html">[PATCH] b43: Changes to enable BCM4311 rev 02 with wireless core	revision 13
+</A></li>
+	<LI>Next message: <A HREF="002856.html">[PATCH] b43: Changes to enable BCM4311 rev 02 with wireless core	revision 13
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2855">[ date ]</a>
+              <a href="thread.html#2855">[ thread ]</a>
+              <a href="subject.html#2855">[ subject ]</a>
+              <a href="author.html#2855">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

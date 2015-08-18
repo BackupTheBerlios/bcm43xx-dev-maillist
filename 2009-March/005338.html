@@ -1,0 +1,249 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/1] ath5k: fix hw rate index condition
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/1%5D%20ath5k%3A%20fix%20hw%20rate%20index%20condition&In-Reply-To=%3C200903230146.02071.s.L-H%40gmx.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005306.html">
+   <LINK REL="Next"  HREF="005307.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/1] ath5k: fix hw rate index condition</H1>
+    <B>Stefan Lippers-Hollmann</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/1%5D%20ath5k%3A%20fix%20hw%20rate%20index%20condition&In-Reply-To=%3C200903230146.02071.s.L-H%40gmx.de%3E"
+       TITLE="[PATCH 1/1] ath5k: fix hw rate index condition">s.L-H at gmx.de
+       </A><BR>
+    <I>Mon Mar 23 01:45:58 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005306.html">[PATCH 1/1] ath5k: fix hw rate index condition
+</A></li>
+        <LI>Next message: <A HREF="005307.html">b43 AP Support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5338">[ date ]</a>
+              <a href="thread.html#5338">[ thread ]</a>
+              <a href="subject.html#5338">[ subject ]</a>
+              <a href="author.html#5338">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi
+
+On Sonntag, 15. M&#228;rz 2009, Stefan Lippers-Hollmann wrote:
+&gt;<i> Hi
+</I>&gt;<i> 
+</I>&gt;<i> On Mittwoch, 7. Januar 2009, Jiri Slaby wrote:
+</I>&gt;<i> &gt; On 01/07/2009 02:51 PM, Jiri Slaby wrote:
+</I>&gt;<i> &gt; &gt; Dhaval Giani wrote:
+</I>&gt;<i> &gt; &gt;&gt; I see this on current git. Not sure how to reproduce it, has happened on
+</I>&gt;<i> &gt; &gt;&gt; two random occasions. At both times, I was not connected to a wireless
+</I>&gt;<i> &gt; &gt;&gt; network, but to wired networks.
+</I>&gt;<i> &gt; &gt;&gt;
+</I>&gt;<i> &gt; &gt;&gt; ------------[ cut here ]------------
+</I>&gt;<i> &gt; &gt;&gt; WARNING: at net/mac80211/rx.c:2234 __ieee80211_rx+0x7f/0x559
+</I>&gt;<i> &gt; &gt;&gt; ...
+</I>&gt;<i> &gt; &gt;&gt; Call Trace:
+</I>&gt;<i> &gt; &gt;&gt;  [&lt;f80d4192&gt;] __ieee80211_rx+0x7f/0x559 [mac80211]
+</I>&gt;<i> &gt; &gt;&gt;  [&lt;f80a19f4&gt;] ath5k_tasklet_rx+0x4f7/0x53b [ath5k]
+</I>&gt;<i> &gt; &gt;&gt; ...
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; Hmm, maybe ath5k is culprit. Could you apply the attached patch and
+</I>&gt;<i> &gt; &gt; use the kernel till the problem appears again?
+</I>&gt;<i> 
+</I>&gt;<i> It seems as if this problem wouldn't be restricted to ath5k, I just 
+</I>&gt;<i> triggered something very similar on b43 and 2.6.29-rc8-git1 (i386, hard 
+</I>&gt;<i> preemption):
+</I>&gt;<i> 
+</I>&gt;<i> b43-phy0: Broadcom 4306 WLAN found (core revision 5)
+</I>[...]
+&gt;<i> wlan1: no IPv6 routers present
+</I>&gt;<i> b43-phy0 ERROR: PHY transmission error
+</I>&gt;<i> b43-phy0 ERROR: PHY transmission error
+</I>&gt;<i> 
+</I>&gt;<i> [ lots of these, likely to be caused by minstrel being a little too 
+</I>&gt;<i>   optimistic about the possible wlan rates (it was more conservative in 
+</I>&gt;<i>   2.6.28 and didn't happen there); the distance between both stations is 
+</I>&gt;<i>   on the upper end ]
+</I>&gt;<i> 
+</I>&gt;<i> b43-phy0 ERROR: PHY transmission error
+</I>&gt;<i> __ratelimit: 9 callbacks suppressed
+</I>&gt;<i> b43-phy0 ERROR: PHY transmission error
+</I>&gt;<i> b43-phy0 ERROR: PHY transmission error
+</I>&gt;<i> ------------[ cut here ]------------
+</I>&gt;<i> WARNING: at net/mac80211/rx.c:2234 __ieee80211_rx+0xa2/0x6a0 [mac80211]()
+</I>&gt;<i> Hardware name: Amilo D-Series
+</I>&gt;<i> Modules linked in: ppdev lp aes_i586 aes_generic ipv6 af_packet rfkill_input arc4 ecb b43 rfkill rng_core mac80211 cfg80211 led_class input_polldev ssb joydev pcmcia snd_via82xx gameport snd_ac97_codec ac97_bus snd_pcm_oss snd_mixer_oss snd_pcm snd_timer snd_page_alloc snd_mpu401_uart snd_rawmidi snd_seq_device i2c_viapro serio_raw snd i2c_core pcspkr psmouse evdev soundcore via686a via_agp shpchp yenta_socket rsrc_nonstatic pcmcia_core pci_hotplug rtc_cmos battery rtc_core rtc_lib parport_pc parport ac button ext3 jbd mbcache sg sr_mod cdrom sd_mod ata_generic pata_acpi pata_via uhci_hcd ehci_hcd floppy firewire_ohci libata tulip firewire_core crc_itu_t usbcore scsi_mod thermal processor fan
+</I>&gt;<i> Pid: 0, comm: swapper Not tainted 2.6.29-rc8-sidux-686 #1
+</I>&gt;<i> Call Trace:
+</I>&gt;<i>  [&lt;c01319d7&gt;] warn_slowpath+0x87/0xe0
+</I>&gt;<i>  [&lt;d00523b7&gt;] op32_set_current_rxslot+0x27/0x40 [b43]
+</I>&gt;<i>  [&lt;d0052d93&gt;] b43_dma_rx+0x193/0x420 [b43]
+</I>&gt;<i>  [&lt;c0124fc3&gt;] __wake_up_common+0x43/0x70
+</I>&gt;<i>  [&lt;cfffcc62&gt;] __ieee80211_rx+0xa2/0x6a0 [mac80211]
+</I>&gt;<i>  [&lt;c011e9a5&gt;] default_spin_lock_flags+0x5/0x10
+</I>&gt;<i>  [&lt;c03a3f2e&gt;] _spin_lock_irqsave+0x3e/0x60
+</I>&gt;<i>  [&lt;cffeb337&gt;] ieee80211_tasklet_handler+0x107/0x130 [mac80211]
+</I>&gt;<i>  [&lt;c013692c&gt;] tasklet_action+0x6c/0xf0
+</I>&gt;<i>  [&lt;c0137147&gt;] __do_softirq+0x87/0x140
+</I>&gt;<i>  [&lt;c011e9a5&gt;] default_spin_lock_flags+0x5/0x10
+</I>&gt;<i>  [&lt;c03a3f2e&gt;] _spin_lock_irqsave+0x3e/0x60
+</I>&gt;<i>  [&lt;c0137255&gt;] do_softirq+0x55/0x60
+</I>&gt;<i>  [&lt;c0137495&gt;] irq_exit+0x75/0x90
+</I>&gt;<i>  [&lt;c0106378&gt;] do_IRQ+0x48/0x90
+</I>&gt;<i>  [&lt;c0104527&gt;] common_interrupt+0x27/0x2c
+</I>&gt;<i>  [&lt;cf8372e4&gt;] acpi_idle_enter_simple+0x17a/0x1f4 [processor]
+</I>&gt;<i>  [&lt;c02fd3bf&gt;] cpuidle_idle_call+0x6f/0xc0
+</I>&gt;<i>  [&lt;c0102de6&gt;] cpu_idle+0x66/0xa0
+</I>&gt;<i> ---[ end trace c754f566bbe5ac47 ]---
+</I>[...]
+&gt;<i> Sometimes even the firmware crashes and gets reloaded continously.
+</I>[...]
+&gt;<i> Setting a fixed wlan rate (like 11M) seems to avoid this problem.
+</I>&gt;<i> 
+</I>&gt;<i> &gt; I don't think this will print anything, the rate won't be 32, it's rather
+</I>&gt;<i> &gt; too high. Could you apply also the appended debug one?
+</I>&gt;<i> 
+</I>&gt;<i> I will apply this patch and give it some more testing tomorrow evening, 
+</I>&gt;<i> this problem is almost 100% reproducable for me at the end of my router's
+</I>&gt;<i> range and doesn't happen in closer proximity.
+</I>[...]
+
+Sorry for the late response, but I've been unexpectedly away from my 
+BCM4306 system until today.
+
+Thanks to the following (not yet mainline) patches by Michael Buesch and 
+Lorenzo Nava on top of 2.6.29-rc8-git5, these problems seem to be &quot;fixed&quot; 
+(well, the PHY errors are basically just hidden, but as they don't 
+trigger the firmware watchdog anymore, it's much less of a problem and 
+isn't actually a user visible problem anymore).
+
+[PATCH] b43: Mask PHY TX error interrupt, if not debugging
+	<A HREF="http://marc.info/?l=linux-wireless&amp;m=123748731831778&amp;w=2">http://marc.info/?l=linux-wireless&amp;m=123748731831778&amp;w=2</A>
+
+[PATCH] b43: fix b43_plcp_get_bitrate_idx_ofdm return type
+	<A HREF="http://marc.info/?l=linux-wireless&amp;m=123774585529189&amp;w=2">http://marc.info/?l=linux-wireless&amp;m=123774585529189&amp;w=2</A>
+
+
+Confirming the patch descriptions, Jiri Slaby's debugging patch did reveal 
+a signedness problem of the return value of in 
+b43_plcp_get_bitrate_idx_ofdm(), which has been fixed by the patch above:
+
+[ this trace happened *without* &quot;b43: fix b43_plcp_get_bitrate_idx_ofdm 
+  return type&quot;, and only &quot;b43: Mask PHY TX error interrupt, if not 
+  debugging&quot; applied on top of 2.6.29-rc8-git5 ]
+------------[ cut here ]------------
+WARNING: at net/mac80211/rx.c:2236 __ieee80211_rx+0xab/0x6b0 [mac80211]()
+Hardware name: Amilo D-Series
+RATE=255, BAND=c
+Modules linked in: ppdev lp aes_i586 aes_generic ipv6 af_packet rfkill_input arc4 ecb b43 rfkill rng_core mac80211 cfg80211 led_class input_polldev ssb joydev snd_via82xx gameport snd_ac97_codec ac97_bus snd_pcm_oss snd_mixer_oss pcmcia snd_pcm snd_timer snd_page_alloc snd_mpu401_uart snd_rawmidi i2c_viapro serio_raw snd_seq_device pcspkr i2c_core psmouse snd evdev soundcore via686a shpchp yenta_socket rsrc_nonstatic pcmcia_core via_agp pci_hotplug rtc_cmos parport_pc battery rtc_core rtc_lib parport ac button ext3 jbd mbcache sg sr_mod cdrom sd_mod ata_generic pata_acpi pata_via uhci_hcd ehci_hcd floppy firewire_ohci libata tulip firewire_core crc_itu_t usbcore scsi_mod thermal processor fan
+Pid: 0, comm: swapper Not tainted 2.6.29-rc8-sidux-686 #1
+Call Trace:
+ [&lt;c0131a67&gt;] warn_slowpath+0x87/0xe0
+ [&lt;d002d377&gt;] op32_set_current_rxslot+0x27/0x40 [b43]
+ [&lt;d002dd53&gt;] b43_dma_rx+0x193/0x420 [b43]
+ [&lt;c01ae229&gt;] add_partial+0x19/0x70
+ [&lt;cfcd834f&gt;] ieee80211_tasklet_handler+0x11f/0x130 [mac80211]
+ [&lt;c03a4195&gt;] _spin_unlock+0x5/0x20
+ [&lt;cfce9c6b&gt;] __ieee80211_rx+0xab/0x6b0 [mac80211]
+ [&lt;c011ea35&gt;] default_spin_lock_flags+0x5/0x10
+ [&lt;c03a3d7e&gt;] _spin_lock_irqsave+0x3e/0x60
+ [&lt;cfcd8337&gt;] ieee80211_tasklet_handler+0x107/0x130 [mac80211]
+ [&lt;c01369bc&gt;] tasklet_action+0x6c/0xf0
+ [&lt;c01371d7&gt;] __do_softirq+0x87/0x140
+ [&lt;c011ea35&gt;] default_spin_lock_flags+0x5/0x10
+ [&lt;c03a3d7e&gt;] _spin_lock_irqsave+0x3e/0x60
+ [&lt;c01372e5&gt;] do_softirq+0x55/0x60
+ [&lt;c0137525&gt;] irq_exit+0x75/0x90
+ [&lt;c0106378&gt;] do_IRQ+0x48/0x90
+ [&lt;c0104527&gt;] common_interrupt+0x27/0x2c
+ [&lt;cf8372cb&gt;] acpi_idle_enter_simple+0x17a/0x1f4 [processor]
+ [&lt;c02fcfcf&gt;] cpuidle_idle_call+0x6f/0xc0
+ [&lt;c0102de6&gt;] cpu_idle+0x66/0xa0
+---[ end trace ba8601a4d52a20d2 ]---
+------------[ cut here ]------------		
+
+So far (after 2.9 GB continuous kernel tarball downloads from a local 
+mirror) b43 seems to be fine again:
+
+wlan1     IEEE 802.11bg  ESSID:&quot;gemini&quot;
+          Mode:Managed  Frequency:2.412 GHz  Access Point: 00:21:27:FF:51:A8
+          Bit Rate=54 Mb/s   Tx-Power=20 dBm
+          Retry min limit:7   RTS thr:off   Fragment thr=2352 B
+          Power Management:off
+          Link Quality=54/100  Signal level:-82 dBm  Noise level=-69 dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+wlan1     Link encap:Ethernet  HWaddr 00:0f:66:d8:67:ca
+          inet addr:192.168.0.70  Bcast:192.168.0.255  Mask:255.255.255.0
+          inet6 addr: fe80::20f:66ff:fed8:67ca/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:2090104 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:1082081 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:3146865411 (2.9 GiB)  TX bytes:93054386 (88.7 MiB)
+
+Fetched 83.2MB in 1min18s (1058kB/s)
+[...]
+Fetched 83.2MB in 1min1s (1362kB/s)
+
+Thank you and sorry about the late response.
+
+Regards
+	Stefan Lippers-Hollmann
+
+
+Post scriptum: I'm not able to trigger this trace with ath5k/ AR2425.
+-- 
+&gt;<i> &gt;  net/mac80211/rx.c |    6 ++++--
+</I>&gt;<i> &gt;  1 files changed, 4 insertions(+), 2 deletions(-)
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+</I>&gt;<i> &gt; index 7175ae8..5e17e57 100644
+</I>&gt;<i> &gt; --- a/net/mac80211/rx.c
+</I>&gt;<i> &gt; +++ b/net/mac80211/rx.c
+</I>&gt;<i> &gt; @@ -2230,8 +2230,10 @@ void __ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb,
+</I>&gt;<i> &gt;  		 * MCS aware. */
+</I>&gt;<i> &gt;  		rate = &amp;sband-&gt;bitrates[sband-&gt;n_bitrates - 1];
+</I>&gt;<i> &gt;  	} else {
+</I>&gt;<i> &gt; -		if (WARN_ON(status-&gt;rate_idx &lt; 0 ||
+</I>&gt;<i> &gt; -			    status-&gt;rate_idx &gt;= sband-&gt;n_bitrates))
+</I>&gt;<i> &gt; +		if (WARN(status-&gt;rate_idx &lt; 0 ||
+</I>&gt;<i> &gt; +			    status-&gt;rate_idx &gt;= sband-&gt;n_bitrates,
+</I>&gt;<i> &gt; +			    &quot;RATE=%u, BAND=%x\n&quot;, status-&gt;rate_idx,
+</I>&gt;<i> &gt; +			    sband-&gt;n_bitrates))
+</I>&gt;<i> &gt;  			return;
+</I>&gt;<i> &gt;  		rate = &amp;sband-&gt;bitrates[status-&gt;rate_idx];
+</I>&gt;<i> &gt;  	}
+</I>
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005306.html">[PATCH 1/1] ath5k: fix hw rate index condition
+</A></li>
+	<LI>Next message: <A HREF="005307.html">b43 AP Support
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5338">[ date ]</a>
+              <a href="thread.html#5338">[ thread ]</a>
+              <a href="subject.html#5338">[ subject ]</a>
+              <a href="author.html#5338">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

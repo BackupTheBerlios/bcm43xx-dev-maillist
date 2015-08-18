@@ -1,0 +1,561 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Corrupted frames with latest bcm43xx-mac80211?
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Corrupted%20frames%20with%20latest%20bcm43xx-mac80211%3F&In-Reply-To=%3C200708071251.46865.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001825.html">
+   <LINK REL="Next"  HREF="001827.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Corrupted frames with latest bcm43xx-mac80211?</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Corrupted%20frames%20with%20latest%20bcm43xx-mac80211%3F&In-Reply-To=%3C200708071251.46865.mb%40bu3sch.de%3E"
+       TITLE="Corrupted frames with latest bcm43xx-mac80211?">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Aug  7 12:51:46 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001825.html">[RFC] bcm43xx-mac80211: Hack to turn automatic pctl off
+</A></li>
+        <LI>Next message: <A HREF="001827.html">Dell Inspirson 9400 with Dell 1390 wireless card
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1826">[ date ]</a>
+              <a href="thread.html#1826">[ thread ]</a>
+              <a href="subject.html#1826">[ subject ]</a>
+              <a href="author.html#1826">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi,
+
+(bringing this topic on list again)
+
+I got a bugreport that latest bcm43xx-mac80211 generates
+corrupted frames. So when doing tcpdump on the interface
+just crap would come out.
+I can not reproduce this. Does someone else see this behaviour?
+
+The commit that introduced the bug was claimed to be
+85a83d26697dd2203ac4e5f33022951f2c3e6e33
+The patch is attached.
+
+But I don't see how this patch could possibly break anything
+in the TX or RX paths.
+
+Someone any idea, or someone who can reproduce this and tell
+me how to do?
+
+
+diff --git a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx.h b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx.h
+index 2802fc0..c5f9ef5 100644
+--- a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx.h
++++ b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx.h
+@@ -698,13 +698,13 @@ struct bcm43xx_firmware {
+ 
+ /* Device (802.11 core) initialization status. */
+ enum {
+-	BCM43xx_STAT_UNINIT,		/* Uninitialized. */
+-	BCM43xx_STAT_INITIALIZING,	/* bcm43xx_wireless_core_init() in progress. */
+-	BCM43xx_STAT_INITIALIZED,	/* Initialized. Note that this doesn't mean it's started. */
++	BCM43xx_STAT_UNINIT		= 0, /* Uninitialized. */
++	BCM43xx_STAT_INITIALIZED	= 1, /* Initialized, but not started, yet. */
++	BCM43xx_STAT_STARTED		= 2, /* Up and running. */
+ };
+-#define bcm43xx_status(bcm)		atomic_read(&amp;(bcm)-&gt;init_status)
+-#define bcm43xx_set_status(bcm, stat)	do {			\
+-		atomic_set(&amp;(bcm)-&gt;init_status, (stat));	\
++#define bcm43xx_status(wldev)		atomic_read(&amp;(wldev)-&gt;__init_status)
++#define bcm43xx_set_status(wldev, stat)	do {			\
++		atomic_set(&amp;(wldev)-&gt;__init_status, (stat));	\
+ 		smp_wmb();					\
+ 					} while (0)
+ 
+@@ -721,19 +721,18 @@ struct bcm43xx_wldev {
+ 	struct ssb_device *dev;
+ 	struct bcm43xx_wl *wl;
+ 
+-	/* Driver initialization status BCM43xx_STAT_*** */
+-	atomic_t init_status;
+-	/* Interface started? (bcm43xx_wireless_core_start()) */
+-	u8 started;
+-
+-	u16 was_initialized:1,		/* for suspend/resume. */
+-	    was_started:1,		/* for suspend/resume. */
+-	    __using_pio:1,		/* Internal, use bcm43xx_using_pio(). */
+-	    bad_frames_preempt:1,	/* Use &quot;Bad Frames Preemption&quot; (default off) */
+-	    reg124_set_0x4:1,		/* Some variable to keep track of IRQ stuff. */
+-	    short_preamble:1,		/* TRUE, if short preamble is enabled. */
+-	    short_slot:1,		/* TRUE, if short slot timing is enabled. */
+-	    radio_hw_enable:1;          /* saved state of radio hardware enabled state */
++	/* The device initialization status.
++	 * Use bcm43xx_status() to query. */
++	atomic_t __init_status;
++	/* Saved init status for handling suspend. */
++	int suspend_init_status;
++
++	u8 __using_pio:1,		/* Internal, use bcm43xx_using_pio(). */
++	   bad_frames_preempt:1,	/* Use &quot;Bad Frames Preemption&quot; (default off) */
++	   reg124_set_0x4:1,		/* Some variable to keep track of IRQ stuff. */
++	   short_preamble:1,		/* TRUE, if short preamble is enabled. */
++	   short_slot:1,		/* TRUE, if short slot timing is enabled. */
++	   radio_hw_enable:1;          /* saved state of radio hardware enabled state */
+ 
+ 	/* PHY/Radio device. */
+ 	struct bcm43xx_phy phy;
+diff --git a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_debugfs.c b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_debugfs.c
+index e623cfd..8956199 100644
+--- a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_debugfs.c
++++ b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_debugfs.c
+@@ -92,7 +92,7 @@ static ssize_t tsf_read_file(struct file
+ 	mutex_lock(&amp;big_buffer_mutex);
+ 	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+ 	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	if (bcm43xx_status(dev) != BCM43xx_STAT_INITIALIZED) {
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED) {
+ 		fappend(&quot;Board not initialized.\n&quot;);
+ 		goto out;
+ 	}
+@@ -128,7 +128,7 @@ static ssize_t tsf_write_file(struct fil
+ 	}
+ 	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+ 	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	if (bcm43xx_status(dev) != BCM43xx_STAT_INITIALIZED) {
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED) {
+ 		printk(KERN_INFO PFX &quot;debugfs: Board not initialized.\n&quot;);
+ 		res = -EFAULT;
+ 		goto out_unlock;
+@@ -234,7 +234,7 @@ static ssize_t restart_write_file(struct
+ 	}
+ 	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+ 	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	if (bcm43xx_status(dev) != BCM43xx_STAT_INITIALIZED) {
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_INITIALIZED) {
+ 		printk(KERN_INFO PFX &quot;debugfs: Board not initialized.\n&quot;);
+ 		res = -EFAULT;
+ 		goto out_unlock;
+@@ -267,8 +267,7 @@ static ssize_t txpower_g_read_file(struc
+ 	mutex_lock(&amp;big_buffer_mutex);
+ 	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+ 	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	if ((bcm43xx_status(dev) != BCM43xx_STAT_INITIALIZED) ||
+-	    !dev-&gt;started) {
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED) {
+ 		fappend(&quot;Not initialized\n&quot;);
+ 		goto out;
+ 	}
+@@ -322,8 +321,7 @@ static ssize_t txpower_g_write_file(stru
+ 	}
+ 	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+ 	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+-	if ((bcm43xx_status(dev) != BCM43xx_STAT_INITIALIZED) ||
+-	    !dev-&gt;started) {
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED) {
+ 		printk(KERN_INFO PFX &quot;debugfs: Board not initialized.\n&quot;);
+ 		res = -ENODEV;
+ 		goto out_unlock;
+diff --git a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.c b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.c
+index aa1a298..f36ca80 100644
+--- a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.c
++++ b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_lo.c
+@@ -1013,7 +1013,7 @@ #if BCM43xx_DEBUG
+ static void do_validate_loctl(struct bcm43xx_wldev *dev,
+ 			      struct bcm43xx_loctl *control)
+ {
+-	const int is_initializing = (bcm43xx_status(dev) == BCM43xx_STAT_INITIALIZING);
++	const int is_initializing = (bcm43xx_status(dev) == BCM43xx_STAT_UNINIT);
+ 
+ 	if (unlikely(abs(control-&gt;i) &gt; 16 ||
+ 		     abs(control-&gt;q) &gt; 16 ||
+diff --git a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
+index e13c116..6f39cdf 100644
+--- a/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
++++ b/drivers/net/wireless/mac80211/bcm43xx/bcm43xx_main.c
+@@ -1311,8 +1311,7 @@ static void bcm43xx_interrupt_tasklet(st
+ 
+ 	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+ 
+-	assert(bcm43xx_status(dev) == BCM43xx_STAT_INITIALIZED);
+-	assert(dev-&gt;started);
++	assert(bcm43xx_status(dev) == BCM43xx_STAT_STARTED);
+ 
+ 	reason = dev-&gt;irq_reason;
+ 	for (i = 0; i &lt; ARRAY_SIZE(dma_reason); i++) {
+@@ -1441,7 +1440,7 @@ static void bcm43xx_interrupt_ack(struct
+ /* Interrupt handler top-half */
+ static irqreturn_t bcm43xx_interrupt_handler(int irq, void *dev_id)
+ {
+-	irqreturn_t ret = IRQ_HANDLED;
++	irqreturn_t ret = IRQ_NONE;
+ 	struct bcm43xx_wldev *dev = dev_id;
+ 	u32 reason;
+ 
+@@ -1450,18 +1449,17 @@ static irqreturn_t bcm43xx_interrupt_han
+ 
+ 	spin_lock(&amp;dev-&gt;wl-&gt;irq_lock);
+ 
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED)
++		goto out;
+ 	reason = bcm43xx_read32(dev, BCM43xx_MMIO_GEN_IRQ_REASON);
+-	if (reason == 0xffffffff) {
+-		/* irq not for us (shared irq) */
+-		ret = IRQ_NONE;
++	if (reason == 0xffffffff) /* shared IRQ */
+ 		goto out;
+-	}
++	ret = IRQ_HANDLED;
+ 	reason &amp;= bcm43xx_read32(dev, BCM43xx_MMIO_GEN_IRQ_MASK);
+ 	if (!reason)
+ 		goto out;
+ 
+-	assert(bcm43xx_status(dev) == BCM43xx_STAT_INITIALIZED);
+-	assert(dev-&gt;started);
++	assert(bcm43xx_status(dev) == BCM43xx_STAT_STARTED);
+ 
+ 	dev-&gt;dma_reason[0] = bcm43xx_read32(dev, BCM43xx_MMIO_DMA0_REASON)
+ 			     &amp; 0x0001DC00;
+@@ -2258,9 +2256,7 @@ static void bcm43xx_periodic_work_handle
+ 
+ 	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
+ 
+-	if (unlikely(bcm43xx_status(dev) != BCM43xx_STAT_INITIALIZED))
+-		goto out;
+-	if (unlikely(!dev-&gt;started))
++	if (unlikely(bcm43xx_status(dev) != BCM43xx_STAT_STARTED))
+ 		goto out;
+ 	if (bcm43xx_debug(dev, BCM43xx_DBG_PWORK_STOP))
+ 		goto out_requeue;
+@@ -2314,7 +2310,6 @@ static void bcm43xx_periodic_tasks_setup
+ {
+ 	struct delayed_work *work = &amp;dev-&gt;periodic_work;
+ 
+-	assert(bcm43xx_status(dev) == BCM43xx_STAT_INITIALIZED);
+ 	dev-&gt;periodic_state = 0;
+ 	INIT_DELAYED_WORK(work, bcm43xx_periodic_work_handler);
+ 	queue_delayed_work(dev-&gt;wl-&gt;hw-&gt;workqueue, work, 0);
+@@ -2419,11 +2414,11 @@ static int bcm43xx_tx(struct ieee80211_h
+ 	int err = -ENODEV;
+ 	unsigned long flags;
+ 
+-	/* DMA-TX is done without a global lock. */
+ 	if (unlikely(!dev))
+ 		goto out;
+-	assert(bcm43xx_status(dev) == BCM43xx_STAT_INITIALIZED);
+-	assert(dev-&gt;started);
++	if (unlikely(bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED))
++		goto out;
++	/* DMA-TX is done without a global lock. */
+ 	if (bcm43xx_using_pio(dev)) {
+ 		spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+ 		err = bcm43xx_pio_tx(dev, skb, ctl);
+@@ -2454,7 +2449,7 @@ static int bcm43xx_get_tx_stats(struct i
+ 	if (!dev)
+ 		goto out;
+ 	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-	if (likely(bcm43xx_status(dev) == BCM43xx_STAT_INITIALIZED)) {
++	if (likely(bcm43xx_status(dev) &gt;= BCM43xx_STAT_STARTED)) {
+ 		if (bcm43xx_using_pio(dev))
+ 			bcm43xx_pio_get_tx_stats(dev, stats);
+ 		else
+@@ -2553,6 +2548,7 @@ static void bcm43xx_put_phy_into_reset(s
+ 	msleep(1);
+ }
+ 
++/* Expects wl-&gt;mutex locked */
+ static int bcm43xx_switch_phymode(struct bcm43xx_wl *wl,
+ 				  unsigned int new_mode)
+ {
+@@ -2560,8 +2556,7 @@ static int bcm43xx_switch_phymode(struct
+ 	struct bcm43xx_wldev *down_dev;
+ 	int err;
+ 	int gmode = -1;
+-	int old_was_started = 0;
+-	int old_was_inited = 0;
++	int prev_status;
+ 
+ 	err = find_wldev_for_phymode(wl, new_mode, &amp;up_dev, &amp;gmode);
+ 	if (err) {
+@@ -2579,15 +2574,12 @@ static int bcm43xx_switch_phymode(struct
+ 		phymode_to_string(new_mode));
+ 	down_dev = wl-&gt;current_dev;
+ 
++	prev_status = bcm43xx_status(down_dev);
+ 	/* Shutdown the currently running core. */
+-	if (down_dev-&gt;started) {
+-		old_was_started = 1;
++	if (prev_status &gt;= BCM43xx_STAT_STARTED)
+ 		bcm43xx_wireless_core_stop(down_dev);
+-	}
+-	if (bcm43xx_status(down_dev) == BCM43xx_STAT_INITIALIZED) {
+-		old_was_inited = 1;
++	if (prev_status &gt;= BCM43xx_STAT_INITIALIZED)
+ 		bcm43xx_wireless_core_exit(down_dev);
+-	}
+ 
+ 	if (down_dev != up_dev) {
+ 		/* We switch to a different core, so we put PHY into
+@@ -2597,30 +2589,34 @@ static int bcm43xx_switch_phymode(struct
+ 
+ 	/* Now start the new core. */
+ 	up_dev-&gt;phy.gmode = gmode;
+-	if (old_was_inited) {
++	if (prev_status &gt;= BCM43xx_STAT_INITIALIZED) {
+ 		err = bcm43xx_wireless_core_init(up_dev);
+ 		if (err) {
+ 			printk(KERN_INFO PFX &quot;Fatal: Could not initialize device for &quot;
+-			       &quot;new selected %s-PHY mode\n&quot;,
++			       &quot;newly selected %s-PHY mode\n&quot;,
+ 			       phymode_to_string(new_mode));
+-			return err;
++			goto init_failure;
+ 		}
+ 	}
+-	if (old_was_started) {
+-		assert(old_was_inited);
++	if (prev_status &gt;= BCM43xx_STAT_STARTED) {
+ 		err = bcm43xx_wireless_core_start(up_dev);
+ 		if (err) {
+ 			printk(KERN_INFO PFX &quot;Fatal: Coult not start device for &quot;
+-			       &quot;new selected %s-PHY mode\n&quot;,
++			       &quot;newly selected %s-PHY mode\n&quot;,
+ 			       phymode_to_string(new_mode));
+ 			bcm43xx_wireless_core_exit(up_dev);
+-			return err;
++			goto init_failure;
+ 		}
+ 	}
++	assert(bcm43xx_status(up_dev) == prev_status);
+ 
+ 	wl-&gt;current_dev = up_dev;
+ 
+ 	return 0;
++init_failure:
++	/* Whoops, failed to init the new core. No core is operating now. */
++	wl-&gt;current_dev = NULL;
++	return err;
+ }
+ 
+ static int bcm43xx_antenna_from_ieee80211(u8 antenna)
+@@ -2679,8 +2675,7 @@ static int bcm43xx_dev_config(struct iee
+ 	 * This makes it possible to drop the spinlock throughout
+ 	 * the reconfiguration process. */
+ 	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-	if ((bcm43xx_status(dev) != BCM43xx_STAT_INITIALIZED) ||
+-	    !dev-&gt;started) {
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED) {
+ 		spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 		goto out_unlock_mutex;
+ 	}
+@@ -2916,9 +2911,9 @@ static void bcm43xx_wireless_core_stop(s
+ 	struct bcm43xx_wl *wl = dev-&gt;wl;
+ 	unsigned long flags;
+ 
+-	if (!dev-&gt;started)
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED)
+ 		return;
+-	dev-&gt;started = 0;
++	bcm43xx_set_status(dev, BCM43xx_STAT_INITIALIZED);
+ 
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 	/* Must unlock as it would otherwise deadlock. No races here. */
+@@ -2943,10 +2938,9 @@ static void bcm43xx_wireless_core_stop(s
+ /* Locking: wl-&gt;mutex */
+ static int bcm43xx_wireless_core_start(struct bcm43xx_wldev *dev)
+ {
+-	struct bcm43xx_wl *wl = dev-&gt;wl;
+ 	int err;
+ 
+-	assert(!dev-&gt;started);
++	assert(bcm43xx_status(dev) == BCM43xx_STAT_INITIALIZED);
+ 
+ 	drain_txstatus_queue(dev);
+ 	err = request_irq(dev-&gt;dev-&gt;irq, bcm43xx_interrupt_handler,
+@@ -2956,12 +2950,13 @@ static int bcm43xx_wireless_core_start(s
+ 		       dev-&gt;dev-&gt;irq);
+ 		goto out;
+ 	}
+-	dev-&gt;started = 1;
+ 	bcm43xx_interrupt_enable(dev, dev-&gt;irq_savedstate);
+ 	bcm43xx_mac_enable(dev);
+ 
+-	ieee80211_start_queues(wl-&gt;hw);
+ 	bcm43xx_periodic_tasks_setup(dev);
++
++	ieee80211_start_queues(dev-&gt;wl-&gt;hw);
++	bcm43xx_set_status(dev, BCM43xx_STAT_STARTED);
+ 	dprintk(KERN_INFO PFX &quot;Wireless interface started\n&quot;);
+ out:
+ 	return err;
+@@ -3189,6 +3184,7 @@ static void bcm43xx_wireless_core_exit(s
+ {
+ 	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+ 
++	assert(bcm43xx_status(dev) &lt;= BCM43xx_STAT_INITIALIZED);
+ 	if (bcm43xx_status(dev) != BCM43xx_STAT_INITIALIZED)
+ 		return;
+ 
+@@ -3218,7 +3214,6 @@ static int bcm43xx_wireless_core_init(st
+ 	u32 hf, tmp;
+ 
+ 	assert(bcm43xx_status(dev) == BCM43xx_STAT_UNINIT);
+-	bcm43xx_set_status(dev, BCM43xx_STAT_INITIALIZING);
+ 
+ 	err = ssb_bus_powerup(bus, 0);
+ 	if (err)
+@@ -3339,7 +3334,7 @@ err_kfree_lo_control:
+ 	phy-&gt;lo_control = NULL;
+ err_busdown:
+ 	ssb_bus_may_powerdown(bus);
+-	bcm43xx_set_status(dev, BCM43xx_STAT_UNINIT);
++	assert(bcm43xx_status(dev) == BCM43xx_STAT_UNINIT);
+ 	return err;
+ }
+ 
+@@ -3360,13 +3355,13 @@ static int bcm43xx_add_interface(struct 
+ 	dprintk(KERN_INFO PFX &quot;Adding Interface type %d\n&quot;, conf-&gt;type);
+ 
+ 	dev = wl-&gt;current_dev;
+-	if (bcm43xx_status(dev) == BCM43xx_STAT_UNINIT) {
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_INITIALIZED) {
+ 		err = bcm43xx_wireless_core_init(dev);
+ 		if (err)
+ 			goto out_mutex_unlock;
+ 		did_init = 1;
+ 	}
+-	if (!dev-&gt;started) {
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED) {
+ 		err = bcm43xx_wireless_core_start(dev);
+ 		if (err) {
+ 			if (did_init)
+@@ -3417,7 +3412,7 @@ static void bcm43xx_remove_interface(str
+ 	dev = wl-&gt;current_dev;
+ 	if (!wl-&gt;operating &amp;&amp; wl-&gt;monitor == 0) {
+ 		/* No interface left. */
+-		if (dev-&gt;started)
++		if (bcm43xx_status(dev) &gt;= BCM43xx_STAT_STARTED)
+ 			bcm43xx_wireless_core_stop(dev);
+ 		bcm43xx_wireless_core_exit(dev);
+ 	} else {
+@@ -3454,30 +3449,25 @@ static void bcm43xx_chip_reset(struct wo
+ 	struct bcm43xx_wldev *dev =
+ 		container_of(work, struct bcm43xx_wldev, restart_work);
+ 	struct bcm43xx_wl *wl = dev-&gt;wl;
+-	int err;
+-	int was_started = 0;
+-	int was_inited = 0;
++	int err = 0;
++	int prev_status;
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 
++	prev_status = bcm43xx_status(dev);
+ 	/* Bring the device down... */
+-	if (dev-&gt;started) {
+-		was_started = 1;
++	if (prev_status &gt;= BCM43xx_STAT_STARTED)
+ 		bcm43xx_wireless_core_stop(dev);
+-	}
+-	if (bcm43xx_status(dev) == BCM43xx_STAT_INITIALIZED) {
+-		was_inited = 1;
++	if (prev_status &gt;= BCM43xx_STAT_INITIALIZED)
+ 		bcm43xx_wireless_core_exit(dev);
+-	}
+ 
+ 	/* ...and up again. */
+-	if (was_inited) {
++	if (prev_status &gt;= BCM43xx_STAT_INITIALIZED) {
+ 		err = bcm43xx_wireless_core_init(dev);
+ 		if (err)
+ 			goto out;
+ 	}
+-	if (was_started) {
+-		assert(was_inited);
++	if (prev_status &gt;= BCM43xx_STAT_STARTED) {
+ 		err = bcm43xx_wireless_core_start(dev);
+ 		if (err) {
+ 			bcm43xx_wireless_core_exit(dev);
+@@ -3890,13 +3880,11 @@ static int bcm43xx_suspend(struct ssb_de
+ 	dprintk(KERN_INFO PFX &quot;Suspending...\n&quot;);
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+-	wldev-&gt;was_started = !!wldev-&gt;started;
+-	wldev-&gt;was_initialized = (bcm43xx_status(wldev) == BCM43xx_STAT_INITIALIZED);
+-	if (wldev-&gt;started)
++	wldev-&gt;suspend_init_status = bcm43xx_status(wldev);
++	if (wldev-&gt;suspend_init_status &gt;= BCM43xx_STAT_STARTED)
+ 		bcm43xx_wireless_core_stop(wldev);
+-	if (bcm43xx_status(wldev) == BCM43xx_STAT_INITIALIZED)
++	if (wldev-&gt;suspend_init_status &gt;= BCM43xx_STAT_INITIALIZED)
+ 		bcm43xx_wireless_core_exit(wldev);
+-
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+ 	dprintk(KERN_INFO PFX &quot;Device suspended.\n&quot;);
+@@ -3907,25 +3895,28 @@ static int bcm43xx_suspend(struct ssb_de
+ static int bcm43xx_resume(struct ssb_device *dev)
+ {
+ 	struct bcm43xx_wldev *wldev = ssb_get_drvdata(dev);
++	struct bcm43xx_wl *wl = wldev-&gt;wl;
+ 	int err = 0;
+ 
+ 	dprintk(KERN_INFO PFX &quot;Resuming...\n&quot;);
+ 
+-	if (wldev-&gt;was_initialized) {
++	mutex_lock(&amp;wl-&gt;mutex);
++	if (wldev-&gt;suspend_init_status &gt;= BCM43xx_STAT_INITIALIZED) {
+ 		err = bcm43xx_wireless_core_init(wldev);
+ 		if (err) {
+ 			printk(KERN_ERR PFX &quot;Resume failed at core init\n&quot;);
+ 			goto out;
+ 		}
+ 	}
+-	if (wldev-&gt;was_started) {
+-		assert(wldev-&gt;was_initialized);
++	if (wldev-&gt;suspend_init_status &gt;= BCM43xx_STAT_STARTED) {
+ 		err = bcm43xx_wireless_core_start(wldev);
+ 		if (err) {
++			bcm43xx_wireless_core_exit(wldev);
+ 			printk(KERN_ERR PFX &quot;Resume failed at core start\n&quot;);
+ 			goto out;
+ 		}
+ 	}
++	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+ 	dprintk(KERN_INFO PFX &quot;Device resumed.\n&quot;);
+ out:
+
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001825.html">[RFC] bcm43xx-mac80211: Hack to turn automatic pctl off
+</A></li>
+	<LI>Next message: <A HREF="001827.html">Dell Inspirson 9400 with Dell 1390 wireless card
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1826">[ date ]</a>
+              <a href="thread.html#1826">[ thread ]</a>
+              <a href="subject.html#1826">[ subject ]</a>
+              <a href="author.html#1826">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

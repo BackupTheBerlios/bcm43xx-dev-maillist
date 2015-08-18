@@ -1,0 +1,175 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> integration of opensource firmware with b43 kernel driver
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20integration%20of%20opensource%20firmware%20with%20b43%20kernel%20driver&In-Reply-To=%3C82AB87FD-0247-4049-AA3D-309C3C1539FF%40ing.unibs.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005080.html">
+   <LINK REL="Next"  HREF="005085.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>integration of opensource firmware with b43 kernel driver</H1>
+    <B>Francesco Gringoli</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20integration%20of%20opensource%20firmware%20with%20b43%20kernel%20driver&In-Reply-To=%3C82AB87FD-0247-4049-AA3D-309C3C1539FF%40ing.unibs.it%3E"
+       TITLE="integration of opensource firmware with b43 kernel driver">francesco.gringoli at ing.unibs.it
+       </A><BR>
+    <I>Fri Jan 23 20:18:52 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005080.html">integration of opensource firmware with b43 kernel driver
+</A></li>
+        <LI>Next message: <A HREF="005085.html">integration of opensource firmware with b43 kernel driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5083">[ date ]</a>
+              <a href="thread.html#5083">[ thread ]</a>
+              <a href="subject.html#5083">[ subject ]</a>
+              <a href="author.html#5083">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Jan 23, 2009, at 7:02 PM, Michael Buesch wrote:
+
+&gt;<i> On Friday 23 January 2009 18:36:37 Francesco Gringoli wrote:
+</I>&gt;&gt;<i> Hello,
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> we have been testing the firmware for a week now and it seems stable.
+</I>&gt;&gt;<i> I personally tested it also on a Linksys WRT54GL and it works both in
+</I>&gt;&gt;<i> station and in AP modes. I collected the feedbacks that some of you
+</I>&gt;&gt;<i> sent and it seems that the firmware now runs on these board:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> - 4306, 4311, 4318, 4320
+</I>&gt;<i>
+</I>&gt;<i> I don't think it has enough testing, yet.
+</I>Sure, it seems to be stable on _our_ boards but I can't tell if it  
+shows the same behavior on other hardware revisions.
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;&gt;<i> I was considering the suggestions you all gave me a few days ago and
+</I>&gt;&gt;<i> other questions related to the possible integration of this firmware
+</I>&gt;&gt;<i> into the kernel, and I came to these conclusions/questions (please
+</I>&gt;&gt;<i> forgive me for this long message :-) )
+</I>&gt;<i>
+</I>&gt;<i> I don't think we want to have the firmware in the kernel.
+</I>&gt;<i> Instead distributions should simply ship the firmware in a package.
+</I>&gt;<i> That's not our business.
+</I>
+I agree with you, distributions could easily package the firmware and  
+distribute it to users when it will be stable, I was just wondering  
+about.
+
+&gt;&gt;<i> - change the name of the initvals for the opensource firmware: this
+</I>&gt;<i>
+</I>&gt;<i> Why?
+</I>&gt;<i>
+</I>&gt;&gt;<i> [cut]
+</I>&gt;&gt;<i> initvals have already been uploaded. What can we do?
+</I>&gt;<i>
+</I>&gt;<i> Nothing. Why do we need to have different names?
+</I>Well, I was only considering a question raised by John, we can surely  
+maintain these names.
+
+&gt;&gt;<i> - detection of the opensource firmware capabilities: are you really
+</I>&gt;&gt;<i> sure we cannot use a shm location that the bcm proprietary firmware
+</I>&gt;&gt;<i> uses for some other purpose?
+</I>&gt;<i>
+</I>&gt;<i> Yes, well. You're not intermixing an earlier discussion into this,  
+</I>&gt;<i> where
+</I>&gt;<i> you didn't indicate opensource capabilities to the kernel.
+</I>&gt;<i> If you indicate OS capabilities, you can use whatever offset you  
+</I>&gt;<i> want, of course.
+</I>Excellent. We will modify the firmware accordingly and encode the  
+options.
+
+&gt;&gt;<i> - what to do with rts procedure: we can implement this feature easily
+</I>&gt;&gt;<i> but I'm not sure about the value it can add to people (the majority  
+</I>&gt;&gt;<i> of
+</I>&gt;&gt;<i> users?) that use the bcm board in station mode. This is different for
+</I>&gt;&gt;<i> those who run a bcm card in AP mode, but we can clearly discourage
+</I>&gt;&gt;<i> them to run this firmware in AP mode if  not sure about rts usage by
+</I>&gt;&gt;<i> stations. However, we put this task in the todo list.
+</I>&gt;<i>
+</I>&gt;<i> RTS/CTS is not specific to AP mode. It's used on any station in the  
+</I>&gt;<i> BSS.
+</I>&gt;<i> See IEEE 802.11 specs.
+</I>Yes, in fact we put this task in the todo list.
+
+&gt;&gt;<i> - tx header layout: the opensource firmware is now using the old
+</I>&gt;&gt;<i> memory layout in the tx header (&lt;351). Do you think switching to 410
+</I>&gt;&gt;<i> format is mandatory now or we can concentrate on the other tasks?
+</I>&gt;<i>
+</I>&gt;<i> Yes, the old format is deprecated and will be removed soon.
+</I>Ok, first task in the todo list!
+
+&gt;&gt;<i> - I would like to start considering N-phy on the firmware side. I  
+</I>&gt;&gt;<i> have
+</I>&gt;&gt;<i> a late 2008 MacBook Pro and I'm not sure if beginning this work on
+</I>&gt;&gt;<i> this platform is a waste of time or not as Apple could have asked
+</I>&gt;&gt;<i> Broadcom a customized chipset. Should I start or is it better if I  
+</I>&gt;&gt;<i> buy
+</I>&gt;&gt;<i> a N-phy pci board for my x86 box?
+</I>&gt;<i>
+</I>&gt;<i> A little bit of b43-asm work is still needed for this core.
+</I>&gt;<i> There are a few FIXMEs in the code. Not sure, maybe there's more to  
+</I>&gt;<i> do.
+</I>&gt;<i> I didn't try that, yet.
+</I>&gt;<i> Before you start, you'll have to verify whether the assembler works  
+</I>&gt;<i> correctly.
+</I>&gt;<i> Same for the disassembler.
+</I>Ok, thanks for the hint. I will check,
+
+Cheers,
+-FG
+
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> -- 
+</I>&gt;<i> Greetings, Michael.
+</I>
+-------
+
+Francesco Gringoli, PhD - Assistant Professor
+Dept. of Electrical Engineering for Automation
+University of Brescia
+via Branze, 38
+25123 Brescia
+ITALY
+
+Ph:  ++39.030.3715843
+FAX: ++39.030.380014
+WWW: <A HREF="http://www.ing.unibs.it/~gringoli">http://www.ing.unibs.it/~gringoli</A>
+
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005080.html">integration of opensource firmware with b43 kernel driver
+</A></li>
+	<LI>Next message: <A HREF="005085.html">integration of opensource firmware with b43 kernel driver
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5083">[ date ]</a>
+              <a href="thread.html#5083">[ thread ]</a>
+              <a href="subject.html#5083">[ subject ]</a>
+              <a href="author.html#5083">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

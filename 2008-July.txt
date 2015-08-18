@@ -1,0 +1,4903 @@
+From navalorenx at gmail.com  Tue Jul  1 09:14:15 2008
+From: navalorenx at gmail.com (Lorenzo Nava)
+Date: Tue, 1 Jul 2008 09:14:15 +0200
+Subject: b43 firmware on 2 different card
+Message-ID: <A3010D3C-5F08-4A88-BBC4-FD3BD762014A@gmail.com>
+
+Hello,
+
+I have a PC with 2 broadcom card installed on it. Here is the details  
+of the cards:
+
+BCM4306 PCI card:
+
+[   16.748857] ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x04,  
+vendor 0x4243)
+[   16.748866] ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x05,  
+vendor 0x4243)
+[   16.748874] ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x02, vendor  
+0x4243)
+[   16.748882] ssb: Core 3 found: V90 (cc 0x807, rev 0x02, vendor  
+0x4243)
+[   16.748890] ssb: Core 4 found: PCI (cc 0x804, rev 0x09, vendor  
+0x4243)
+
+BCM4318 PCI card:
+
+[   16.823994] ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x0D,  
+vendor 0x4243)
+[   16.824011] ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x09,  
+vendor 0x4243)
+[   16.824042] ssb: Core 2 found: PCI (cc 0x804, rev 0x0C, vendor  
+0x4243)
+[   16.824050] ssb: Core 3 found: PCMCIA (cc 0x80D, rev 0x07, vendor  
+0x4243)
+
+Is it possible to make the cards work with different firmware? I'd  
+like to use b43-open-firmware on the 4306 card and the "normal"  
+firmware on the 4318 one.
+
+Thank you
+
+regards
+
+
+From mb at bu3sch.de  Tue Jul  1 10:53:49 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Tue, 1 Jul 2008 10:53:49 +0200
+Subject: b43 firmware on 2 different card
+In-Reply-To: <A3010D3C-5F08-4A88-BBC4-FD3BD762014A@gmail.com>
+References: <A3010D3C-5F08-4A88-BBC4-FD3BD762014A@gmail.com>
+Message-ID: <200807011053.49426.mb@bu3sch.de>
+
+On Tuesday 01 July 2008 09:14:15 Lorenzo Nava wrote:
+> Hello,
+> 
+> I have a PC with 2 broadcom card installed on it. Here is the details  
+> of the cards:
+> 
+> BCM4306 PCI card:
+> 
+> [   16.748857] ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x04,  
+> vendor 0x4243)
+> [   16.748866] ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x05,  
+> vendor 0x4243)
+> [   16.748874] ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x02, vendor  
+> 0x4243)
+> [   16.748882] ssb: Core 3 found: V90 (cc 0x807, rev 0x02, vendor  
+> 0x4243)
+> [   16.748890] ssb: Core 4 found: PCI (cc 0x804, rev 0x09, vendor  
+> 0x4243)
+> 
+> BCM4318 PCI card:
+> 
+> [   16.823994] ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x0D,  
+> vendor 0x4243)
+> [   16.824011] ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x09,  
+> vendor 0x4243)
+> [   16.824042] ssb: Core 2 found: PCI (cc 0x804, rev 0x0C, vendor  
+> 0x4243)
+> [   16.824050] ssb: Core 3 found: PCMCIA (cc 0x80D, rev 0x07, vendor  
+> 0x4243)
+> 
+> Is it possible to make the cards work with different firmware? I'd  
+> like to use b43-open-firmware on the 4306 card and the "normal"  
+> firmware on the 4318 one.
+
+Sure. Hack the driver.
+
+-- 
+Greetings Michael.
+
+
+From gavron at wetwork.net  Tue Jul  1 17:33:58 2008
+From: gavron at wetwork.net (Ehud Gavron)
+Date: Tue, 01 Jul 2008 08:33:58 -0700
+Subject: Some help with understanding iperf... please?
+In-Reply-To: <200807011053.49426.mb@bu3sch.de>
+References: <A3010D3C-5F08-4A88-BBC4-FD3BD762014A@gmail.com>
+	<200807011053.49426.mb@bu3sch.de>
+Message-ID: <486A4E66.7080307@wetwork.net>
+
+This isn't a strictly b43 thing, but since so many of the developers 
+regularly use iperf for testing I thought I'd get some of your expertise 
+on something which has been baffling me for two weeks, and which appears 
+to make no sense.
+
+When testing a metropolitan-Ethernet link the following was repeatably 
+observed.  (Repeatably means over several test days with different test 
+laptops and each test repeated 5+ times in either direction and 
+bidirectionaly)  This is supposed to be 100Mbps bridged Ethernet so 
+numbers around 90Mbps are fine.
+
+Unidirectionally the links check out fine:
+A->B 90Mbps
+B->A 90Mbps
+
+Bidirectionally one of them is slow:
+A<-=>B (A: iperf -s   B: iperf -c A -d)      A->B 86Mbps    B-A>  55Mbps
+B<-=>A (A: iperf -c B -d    B: iperf -s)     A->B 86Mbps    B-A>  
+55Mbps   (yes, that's right, with client/server flipped the B->A side is 
+still the slow one)
+
+Thinking this clearly indicated a lack of bandwidth on the return leg 
+(B->A) we've been working with the carrier.  However, today, for the 
+sake of further testing, I moved the testset to the local LAN separated 
+only by gigabit switches and both A and B on 100Mbps FDX ports.   I got 
+the same test results.
+
+I then downloaded tcpperf, which claims to be a very simple test used 
+for simulation modeling (perfect!) from 
+http://wand.cs.waikato.ac.nz/~stj2/nsc/software.html and ran it.  
+tcpperf showed 90Mbps A->B, B->A and A<->B
+
+This leaves me with two baffling questions:
+1. What am I doing wrong with iperf?
+2. Why is it the B->A path is always the one that suffers in the 
+bidirectional test no matter who is acting as client and who is acting 
+as server?
+
+I spent hours yesterday and today googling everything iperf and 
+bidirectional, and then just plain iperf (which is how I found tcpperf) 
+and got no information. 
+
+Any ideas?
+
+Thanks in advance,
+
+Ehud
+PS iperf -r (instead of -d) performs the same as the unidirectional 
+tests above.
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/x-pkcs7-signature
+Size: 3283 bytes
+Desc: S/MIME Cryptographic Signature
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080701/f3e33ed0/attachment.bin>
+
+From Larry.Finger at lwfinger.net  Wed Jul  2 18:56:18 2008
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Wed, 02 Jul 2008 11:56:18 -0500
+Subject: +
+	drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init.patch
+	added to -mm tree
+In-Reply-To: <200807020835.m628Zx2e007473@imap1.linux-foundation.org>
+References: <200807020835.m628Zx2e007473@imap1.linux-foundation.org>
+Message-ID: <486BB332.6000703@lwfinger.net>
+
+akpm at linux-foundation.org wrote:
+> The patch titled
+>      drivers/net/wireless/b43legacy/dma.c: remove the switch in b43legacy_dma_init()
+> has been added to the -mm tree.  Its filename is
+>      drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init.patch
+> 
+> ------------------------------------------------------
+> Subject: drivers/net/wireless/b43legacy/dma.c: remove the switch in b43legacy_dma_init()
+> From: Adrian Bunk <bunk at stusta.de>
+> 
+> The gcc 3.4 fork used to compile the MN10300 port emits unwanted
+> __ucmpdi2() calls for this switch on a 64bit value.
+> 
+> Fix it by transforming the switch to equivalent "if ... else if ..."
+> statements.
+> 
+> Signed-off-by: Adrian Bunk <bunk at kernel.org>
+> Cc: David Howells <dhowells at redhat.com>
+> Cc: Stefano Brivio <stefano.brivio at polimi.it>
+> Cc: John W. Linville <linville at tuxdriver.com>
+> Cc: Michael Buesch <mb at bu3sch.de>
+> Cc: Larry Finger <Larry.Finger at lwfinger.net>
+> Signed-off-by: Andrew Morton <akpm at linux-foundation.org>
+> ---
+> 
+>  drivers/net/wireless/b43legacy/dma.c |   16 ++++++----------
+>  1 file changed, 6 insertions(+), 10 deletions(-)
+> 
+> diff -puN drivers/net/wireless/b43legacy/dma.c~drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init drivers/net/wireless/b43legacy/dma.c
+> --- a/drivers/net/wireless/b43legacy/dma.c~drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init
+> +++ a/drivers/net/wireless/b43legacy/dma.c
+> @@ -1027,19 +1027,15 @@ int b43legacy_dma_init(struct b43legacy_
+>  	enum b43legacy_dmatype type;
+>  
+>  	dmamask = supported_dma_mask(dev);
+> -	switch (dmamask) {
+> -	default:
+> -		B43legacy_WARN_ON(1);
+> -	case DMA_30BIT_MASK:
+> +
+> +	if (dmamask == DMA_30BIT_MASK)
+>  		type = B43legacy_DMA_30BIT;
+> -		break;
+> -	case DMA_32BIT_MASK:
+> +	else if (dmamask == DMA_32BIT_MASK)
+>  		type = B43legacy_DMA_32BIT;
+> -		break;
+> -	case DMA_64BIT_MASK:
+> +	else if (dmamask == DMA_64BIT_MASK)
+>  		type = B43legacy_DMA_64BIT;
+> -		break;
+> -	}
+> +	else
+> +		B43legacy_WARN_ON(1);
+>  
+>  	err = ssb_dma_set_mask(dev->dev, dmamask);
+>  	if (err) {
+> _
+
+Andrew,
+
+When I received your E-mail, I wondered why there was not a similar
+"fix" for b43. It was then I discovered how much b43 and b43legacy had
+diverged while I wasn't looking. I have no objections to your patch;
+however, I wonder if it might be better to fix b43legacy in the same
+way that b43 was changed. I have prepared and tested such a fix (shown
+below). The only problem with this is that the patch is much more
+intrusive than Adrian's and there may be a problem getting it into
+2.6.26 before it is released, but then I do not think that you intend to
+send the -mm patch to 2.6.26.
+
+What do you think is the best route to go?
+
+Larry
+
+=================================================
+
+Index: linux-2.6/drivers/net/wireless/b43legacy/dma.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/b43legacy/dma.c
++++ linux-2.6/drivers/net/wireless/b43legacy/dma.c
+@@ -860,6 +860,18 @@ static u64 supported_dma_mask(struct b43
+  	return DMA_30BIT_MASK;
+  }
+
++static enum b43legacy_dmatype dma_mask_to_engine_type(u64 dmamask)
++{
++	if (dmamask == DMA_30BIT_MASK)
++		return B43legacy_DMA_30BIT;
++	if (dmamask == DMA_32BIT_MASK)
++		return B43legacy_DMA_32BIT;
++	if (dmamask == DMA_64BIT_MASK)
++		return B43legacy_DMA_64BIT;
++	B43legacy_WARN_ON(1);
++	return B43legacy_DMA_30BIT;
++}
++
+  /* Main initialization function. */
+  static
+  struct b43legacy_dmaring *b43legacy_setup_dmaring(struct b43legacy_wldev *dev,
+@@ -1019,6 +1031,43 @@ void b43legacy_dma_free(struct b43legacy
+  	dma->tx_ring0 = NULL;
+  }
+
++static int b43legacy_dma_set_mask(struct b43legacy_wldev *dev, u64 mask)
++{
++	u64 orig_mask = mask;
++	bool fallback = 0;
++	int err;
++
++	/* Try to set the DMA mask. If it fails, try falling back to a
++	 * lower mask, as we can always also support a lower one. */
++	while (1) {
++		err = ssb_dma_set_mask(dev->dev, mask);
++		if (!err)
++			break;
++		if (mask == DMA_64BIT_MASK) {
++			mask = DMA_32BIT_MASK;
++			fallback = 1;
++			continue;
++		}
++		if (mask == DMA_32BIT_MASK) {
++			mask = DMA_30BIT_MASK;
++			fallback = 1;
++			continue;
++		}
++		b43legacyerr(dev->wl, "The machine/kernel does not support "
++		       "the required %u-bit DMA mask\n",
++		       (unsigned int)dma_mask_to_engine_type(orig_mask));
++		return -EOPNOTSUPP;
++	}
++	if (fallback) {
++		b43legacyinfo(dev->wl, "DMA mask fallback from %u-bit to %u-"
++			"bit\n",
++			(unsigned int)dma_mask_to_engine_type(orig_mask),
++			(unsigned int)dma_mask_to_engine_type(mask));
++	}
++
++	return 0;
++}
++
+  int b43legacy_dma_init(struct b43legacy_wldev *dev)
+  {
+  	struct b43legacy_dma *dma = &dev->dma;
+@@ -1028,21 +1077,8 @@ int b43legacy_dma_init(struct b43legacy_
+  	enum b43legacy_dmatype type;
+
+  	dmamask = supported_dma_mask(dev);
+-	switch (dmamask) {
+-	default:
+-		B43legacy_WARN_ON(1);
+-	case DMA_30BIT_MASK:
+-		type = B43legacy_DMA_30BIT;
+-		break;
+-	case DMA_32BIT_MASK:
+-		type = B43legacy_DMA_32BIT;
+-		break;
+-	case DMA_64BIT_MASK:
+-		type = B43legacy_DMA_64BIT;
+-		break;
+-	}
+-
+-	err = ssb_dma_set_mask(dev->dev, dmamask);
++	type = dma_mask_to_engine_type(dmamask);
++	err = b43legacy_dma_set_mask(dev, dmamask);
+  	if (err) {
+  #ifdef CONFIG_B43LEGACY_PIO
+  		b43legacywarn(dev->wl, "DMA for this device not supported. "
+
+
+From Larry.Finger at lwfinger.net  Wed Jul  2 19:48:19 2008
+From: Larry.Finger at lwfinger.net (Larry.Finger at lwfinger.net)
+Date: Wed, 02 Jul 2008 12:48:19 -0500
+Subject: [RFC] b43legacy: Change DMA setup to be similar to b43
+Message-ID: <486bbf63.q7D3OltS6Sq2clv/%Larry.Finger@lwfinger.net>
+
+The gcc 3.4 fork used to compile the MN10300 port emits unwanted
+__ucmpdi2() calls for switch statements that use a 64bit value.
+This patch removes such a switch from b43legacy, and makes the code
+more like that used in b43.
+
+Signed-off-by: Larry Finger <Larry.Finger at lwfinger.net>
+---
+
+Michael,
+
+Is it worth including this patch to make b43legacy DMA setup more like
+the b43 version, and to fix the gcc problem in MN10300?
+
+This has been tested with my BCM4306/2 card.
+
+Larry
+
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/dma.c
++++ wireless-testing/drivers/net/wireless/b43legacy/dma.c
+@@ -859,6 +859,18 @@ static u64 supported_dma_mask(struct b43
+ 	return DMA_30BIT_MASK;
+ }
+ 
++static enum b43legacy_dmatype dma_mask_to_engine_type(u64 dmamask)
++{
++	if (dmamask == DMA_30BIT_MASK)
++		return B43legacy_DMA_30BIT;
++	if (dmamask == DMA_32BIT_MASK)
++		return B43legacy_DMA_32BIT;
++	if (dmamask == DMA_64BIT_MASK)
++		return B43legacy_DMA_64BIT;
++	B43legacy_WARN_ON(1);
++	return B43legacy_DMA_30BIT;
++}
++
+ /* Main initialization function. */
+ static
+ struct b43legacy_dmaring *b43legacy_setup_dmaring(struct b43legacy_wldev *dev,
+@@ -1018,6 +1030,43 @@ void b43legacy_dma_free(struct b43legacy
+ 	dma->tx_ring0 = NULL;
+ }
+ 
++static int b43legacy_dma_set_mask(struct b43legacy_wldev *dev, u64 mask)
++{
++	u64 orig_mask = mask;
++	bool fallback = 0;
++	int err;
++
++	/* Try to set the DMA mask. If it fails, try falling back to a
++	 * lower mask, as we can always also support a lower one. */
++	while (1) {
++		err = ssb_dma_set_mask(dev->dev, mask);
++		if (!err)
++			break;
++		if (mask == DMA_64BIT_MASK) {
++			mask = DMA_32BIT_MASK;
++			fallback = 1;
++			continue;
++		}
++		if (mask == DMA_32BIT_MASK) {
++			mask = DMA_30BIT_MASK;
++			fallback = 1;
++			continue;
++		}
++		b43legacyerr(dev->wl, "The machine/kernel does not support "
++		       "the required %u-bit DMA mask\n",
++		       (unsigned int)dma_mask_to_engine_type(orig_mask));
++		return -EOPNOTSUPP;
++	}
++	if (fallback) {
++		b43legacyinfo(dev->wl, "DMA mask fallback from %u-bit to %u-"
++			"bit\n",
++			(unsigned int)dma_mask_to_engine_type(orig_mask),
++			(unsigned int)dma_mask_to_engine_type(mask));
++	}
++
++	return 0;
++}
++
+ int b43legacy_dma_init(struct b43legacy_wldev *dev)
+ {
+ 	struct b43legacy_dma *dma = &dev->dma;
+@@ -1027,21 +1076,8 @@ int b43legacy_dma_init(struct b43legacy_
+ 	enum b43legacy_dmatype type;
+ 
+ 	dmamask = supported_dma_mask(dev);
+-	switch (dmamask) {
+-	default:
+-		B43legacy_WARN_ON(1);
+-	case DMA_30BIT_MASK:
+-		type = B43legacy_DMA_30BIT;
+-		break;
+-	case DMA_32BIT_MASK:
+-		type = B43legacy_DMA_32BIT;
+-		break;
+-	case DMA_64BIT_MASK:
+-		type = B43legacy_DMA_64BIT;
+-		break;
+-	}
+-
+-	err = ssb_dma_set_mask(dev->dev, dmamask);
++	type = dma_mask_to_engine_type(dmamask);
++	err = b43legacy_dma_set_mask(dev, dmamask);
+ 	if (err) {
+ #ifdef CONFIG_B43LEGACY_PIO
+ 		b43legacywarn(dev->wl, "DMA for this device not supported. "
+
+---
+
+
+From mb at bu3sch.de  Wed Jul  2 23:03:49 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Wed, 2 Jul 2008 23:03:49 +0200
+Subject: +
+	drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init.patch
+	added to -mm tree
+In-Reply-To: <20080702101650.3f579d21.akpm@linux-foundation.org>
+References: <200807020835.m628Zx2e007473@imap1.linux-foundation.org>
+	<486BB332.6000703@lwfinger.net>
+	<20080702101650.3f579d21.akpm@linux-foundation.org>
+Message-ID: <200807022303.50142.mb@bu3sch.de>
+
+On Wednesday 02 July 2008 19:16:50 Andrew Morton wrote:
+> I don't think we need to fix this in 2.6.26 - I doubt if anyone uses
+> this driver on frv - it's mainly a "make allmodconfig work on FRV"
+> thing.
+
+I fully agree.
+
+
+-- 
+Greetings Michael.
+
+
+From mb at bu3sch.de  Wed Jul  2 23:03:28 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Wed, 2 Jul 2008 23:03:28 +0200
+Subject: +
+	drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init.patch
+	added to -mm tree
+In-Reply-To: <486BB332.6000703@lwfinger.net>
+References: <200807020835.m628Zx2e007473@imap1.linux-foundation.org>
+	<486BB332.6000703@lwfinger.net>
+Message-ID: <200807022303.28887.mb@bu3sch.de>
+
+On Wednesday 02 July 2008 18:56:18 Larry Finger wrote:
+> akpm at linux-foundation.org wrote:
+> > The patch titled
+> >      drivers/net/wireless/b43legacy/dma.c: remove the switch in b43legacy_dma_init()
+> > has been added to the -mm tree.  Its filename is
+> >      drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init.patch
+> > 
+> > ------------------------------------------------------
+> > Subject: drivers/net/wireless/b43legacy/dma.c: remove the switch in b43legacy_dma_init()
+> > From: Adrian Bunk <bunk at stusta.de>
+> > 
+> > The gcc 3.4 fork used to compile the MN10300 port emits unwanted
+> > __ucmpdi2() calls for this switch on a 64bit value.
+> > 
+> > Fix it by transforming the switch to equivalent "if ... else if ..."
+> > statements.
+> > 
+> > Signed-off-by: Adrian Bunk <bunk at kernel.org>
+> > Cc: David Howells <dhowells at redhat.com>
+> > Cc: Stefano Brivio <stefano.brivio at polimi.it>
+> > Cc: John W. Linville <linville at tuxdriver.com>
+> > Cc: Michael Buesch <mb at bu3sch.de>
+> > Cc: Larry Finger <Larry.Finger at lwfinger.net>
+> > Signed-off-by: Andrew Morton <akpm at linux-foundation.org>
+> > ---
+> > 
+> >  drivers/net/wireless/b43legacy/dma.c |   16 ++++++----------
+> >  1 file changed, 6 insertions(+), 10 deletions(-)
+> > 
+> > diff -puN drivers/net/wireless/b43legacy/dma.c~drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init drivers/net/wireless/b43legacy/dma.c
+> > --- a/drivers/net/wireless/b43legacy/dma.c~drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init
+> > +++ a/drivers/net/wireless/b43legacy/dma.c
+> > @@ -1027,19 +1027,15 @@ int b43legacy_dma_init(struct b43legacy_
+> >  	enum b43legacy_dmatype type;
+> >  
+> >  	dmamask = supported_dma_mask(dev);
+> > -	switch (dmamask) {
+> > -	default:
+> > -		B43legacy_WARN_ON(1);
+> > -	case DMA_30BIT_MASK:
+> > +
+> > +	if (dmamask == DMA_30BIT_MASK)
+> >  		type = B43legacy_DMA_30BIT;
+> > -		break;
+> > -	case DMA_32BIT_MASK:
+> > +	else if (dmamask == DMA_32BIT_MASK)
+> >  		type = B43legacy_DMA_32BIT;
+> > -		break;
+> > -	case DMA_64BIT_MASK:
+> > +	else if (dmamask == DMA_64BIT_MASK)
+> >  		type = B43legacy_DMA_64BIT;
+> > -		break;
+> > -	}
+> > +	else
+> > +		B43legacy_WARN_ON(1);
+> >  
+> >  	err = ssb_dma_set_mask(dev->dev, dmamask);
+> >  	if (err) {
+> > _
+> 
+> Andrew,
+> 
+> When I received your E-mail, I wondered why there was not a similar
+> "fix" for b43. It was then I discovered how much b43 and b43legacy had
+> diverged while I wasn't looking. I have no objections to your patch;
+> however, I wonder if it might be better to fix b43legacy in the same
+> way that b43 was changed. I have prepared and tested such a fix (shown
+> below). The only problem with this is that the patch is much more
+> intrusive than Adrian's and there may be a problem getting it into
+> 2.6.26 before it is released, but then I do not think that you intend to
+> send the -mm patch to 2.6.26.
+> 
+> What do you think is the best route to go?
+
+I think it hardly matters, as there are no 64bit legacy devices.
+So you don't need that probing loop.
+
+
+-- 
+Greetings Michael.
+
+
+From rjw at sisk.pl  Wed Jul  2 23:40:31 2008
+From: rjw at sisk.pl (Rafael J. Wysocki)
+Date: Wed, 2 Jul 2008 23:40:31 +0200
+Subject: b43 locks the machine when resuming after suspend to disk
+In-Reply-To: <alpine.DEB.1.10.0807021830300.32045@capitanata.ca.astro.it>
+References: <alpine.DEB.1.10.0807021830300.32045@capitanata.ca.astro.it>
+Message-ID: <200807022340.31894.rjw@sisk.pl>
+
+On Wednesday, 2 of July 2008, Giacomo Mulas wrote:
+> I tried searching on the list for this, before posting, but searching the
+> mailing list archives with keywords such as b43, suspend, resume... brings
+> up such a ludicrous amount of threads that it's not realistic to check them
+> all, so just tell me what to look for if it's been asked already.
+> 
+> Whenever I do a suspend to disk after using b43, the computer freezes hard
+> as soon as it attempts again to access b43 after resume.
+> 
+> Minimal how to reproduce the freeze:
+> 1) modprobe b43
+> 2) hibernate (using any suspend to disk, which one is irrelevant)
+> 3) resume
+> 4) ifconfig wlan0 up
+> 
+> This has been happening (at least) since b43 was included in the mainline
+> kernel, on my Asus A6K laptop running an x86_64 kernel (now the latest
+> 2.6.25 stable release or compiled from the latest released debian sid
+> sources). The nvidia module is not responsible: I explicitely booted my
+> laptop in single user mode without any unnecessary modules, same result. It
+> does not happen using the windows driver with ndiswrapper (which I would
+> prefer to avoid for other reasons), so it definitely depends on b43 or
+> something it depends on. Unloading and reloading the b43 module and all the
+> other modules it depends on does not change anything. Just loading the
+> module once, hibernating and resuming means freeze-up as soon as the module
+> is actually initialised next time, regardless of it having been unloaded and
+> reloaded any number of times before or after the suspend-resume cycle. No
+> oopses, nothing on system logs, just instant freeze-up. Is there some
+> testing a user can do to help nailing this? I am not a kernel developer,
+> even if I am a decent C programmer.
+> 
+> Please CC me on replies, I am not on the list.
+
+I think you need the appended patch, but it only applies to linux-next.
+
+Thanks,
+Rafael
+
+---
+When a driver rejects a frame in it's ->tx() callback, it must also
+stop queues, otherwise mac80211 can go into a loop here. Detect this
+situation and abort the loop after five retries, warning about the
+driver bug.
+
+Signed-off-by: Johannes Berg <johannes at sipsolutions.net>
+---
+ net/mac80211/tx.c |    9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+Index: linux-next/net/mac80211/tx.c
+===================================================================
+--- linux-next.orig/net/mac80211/tx.c
++++ linux-next/net/mac80211/tx.c
+@@ -1144,7 +1144,7 @@ static int ieee80211_tx(struct net_devic
+ 	struct ieee80211_tx_data tx;
+ 	ieee80211_tx_result res_prepare;
+ 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+-	int ret, i;
++	int ret, i, retries = 0;
+ 	u16 queue;
+ 
+ 	queue = skb_get_queue_mapping(skb);
+@@ -1206,6 +1206,13 @@ retry:
+ 		 */
+ 		if (!__netif_subqueue_stopped(local->mdev, queue)) {
+ 			clear_bit(queue, local->queues_pending);
++			retries++;
++			/*
++			 * Driver bug, it's rejecting packets but
++			 * not stopping queues.
++			 */
++			if (WARN_ON_ONCE(retries > 5))
++				goto drop;
+ 			goto retry;
+ 		}
+ 		store->skb = skb;
+
+
+From johannes at sipsolutions.net  Wed Jul  2 23:46:07 2008
+From: johannes at sipsolutions.net (Johannes Berg)
+Date: Wed, 02 Jul 2008 23:46:07 +0200
+Subject: b43 locks the machine when resuming after suspend to disk
+In-Reply-To: <200807022340.31894.rjw@sisk.pl>
+References: <alpine.DEB.1.10.0807021830300.32045@capitanata.ca.astro.it>
+	<200807022340.31894.rjw@sisk.pl>
+Message-ID: <1215035167.13270.8.camel@johannes.berg>
+
+On Wed, 2008-07-02 at 23:40 +0200, Rafael J. Wysocki wrote:
+> On Wednesday, 2 of July 2008, Giacomo Mulas wrote:
+> > I tried searching on the list for this, before posting, but searching the
+> > mailing list archives with keywords such as b43, suspend, resume... brings
+> > up such a ludicrous amount of threads that it's not realistic to check them
+> > all, so just tell me what to look for if it's been asked already.
+> > 
+> > Whenever I do a suspend to disk after using b43, the computer freezes hard
+> > as soon as it attempts again to access b43 after resume.
+> > 
+> > Minimal how to reproduce the freeze:
+> > 1) modprobe b43
+> > 2) hibernate (using any suspend to disk, which one is irrelevant)
+> > 3) resume
+> > 4) ifconfig wlan0 up
+> > 
+> > This has been happening (at least) since b43 was included in the mainline
+> > kernel, on my Asus A6K laptop running an x86_64 kernel (now the latest
+> > 2.6.25 stable release or compiled from the latest released debian sid
+> > sources). The nvidia module is not responsible: I explicitely booted my
+> > laptop in single user mode without any unnecessary modules, same result. It
+> > does not happen using the windows driver with ndiswrapper (which I would
+> > prefer to avoid for other reasons), so it definitely depends on b43 or
+> > something it depends on. Unloading and reloading the b43 module and all the
+> > other modules it depends on does not change anything. Just loading the
+> > module once, hibernating and resuming means freeze-up as soon as the module
+> > is actually initialised next time, regardless of it having been unloaded and
+> > reloaded any number of times before or after the suspend-resume cycle. No
+> > oopses, nothing on system logs, just instant freeze-up. Is there some
+> > testing a user can do to help nailing this? I am not a kernel developer,
+> > even if I am a decent C programmer.
+> > 
+> > Please CC me on replies, I am not on the list.
+> 
+> I think you need the appended patch, but it only applies to linux-next.
+
+A different version has been merged into what will become 2.6.26. I'll
+see what we can do about stable.
+
+johannes
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 836 bytes
+Desc: This is a digitally signed message part
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080702/51cb42f2/attachment.pgp>
+
+From johannes at sipsolutions.net  Wed Jul  2 23:56:01 2008
+From: johannes at sipsolutions.net (Johannes Berg)
+Date: Wed, 02 Jul 2008 23:56:01 +0200
+Subject: b43 locks the machine when resuming after suspend to disk
+In-Reply-To: <1215035167.13270.8.camel@johannes.berg>
+References: <alpine.DEB.1.10.0807021830300.32045@capitanata.ca.astro.it>
+	<200807022340.31894.rjw@sisk.pl>
+	<1215035167.13270.8.camel@johannes.berg>
+Message-ID: <1215035761.13270.10.camel@johannes.berg>
+
+
+> > I think you need the appended patch, but it only applies to linux-next.
+> 
+> A different version has been merged into what will become 2.6.26. I'll
+> see what we can do about stable.
+
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=ef3a62d272f033989e83eb1f26505f93f93e3e69;hp=6d1a3fb567a728d31474636e167c324702a0c38b
+
+Anybody have a stable tree around to see if that applies? I think it
+should.
+
+johannes
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 836 bytes
+Desc: This is a digitally signed message part
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080702/595d666b/attachment.pgp>
+
+From Larry.Finger at lwfinger.net  Thu Jul  3 00:32:38 2008
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Wed, 02 Jul 2008 17:32:38 -0500
+Subject: b43 locks the machine when resuming after suspend to disk
+In-Reply-To: <1215035761.13270.10.camel@johannes.berg>
+References: <alpine.DEB.1.10.0807021830300.32045@capitanata.ca.astro.it>	<200807022340.31894.rjw@sisk.pl>	<1215035167.13270.8.camel@johannes.berg>
+	<1215035761.13270.10.camel@johannes.berg>
+Message-ID: <486C0206.7060606@lwfinger.net>
+
+Johannes Berg wrote:
+>>> I think you need the appended patch, but it only applies to linux-next.
+>> A different version has been merged into what will become 2.6.26. I'll
+>> see what we can do about stable.
+> 
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=ef3a62d272f033989e83eb1f26505f93f93e3e69;hp=6d1a3fb567a728d31474636e167c324702a0c38b
+> 
+> Anybody have a stable tree around to see if that applies? I think it
+> should.
+
+It didn't, but this version will. It has been compile tested only.
+
+Larry
+
+===========================
+
+
+Index: linux-2.6/net/mac80211/tx.c
+===================================================================
+--- linux-2.6.orig/net/mac80211/tx.c
++++ linux-2.6/net/mac80211/tx.c
+@@ -1090,7 +1090,7 @@ static int ieee80211_tx(struct net_devic
+  	ieee80211_tx_handler *handler;
+  	struct ieee80211_txrx_data tx;
+  	ieee80211_txrx_result res = TXRX_DROP, res_prepare;
+-	int ret, i;
++	int ret, i, retries = 0;
+
+  	WARN_ON(__ieee80211_queue_pending(local, control->queue));
+
+@@ -1181,6 +1181,13 @@ retry:
+  		if (!__ieee80211_queue_stopped(local, control->queue)) {
+  			clear_bit(IEEE80211_LINK_STATE_PENDING,
+  				  &local->state[control->queue]);
++			retries++;
++			/*
++			 * Driver bug, it's rejecting packets but
++			 * not stopping queues.
++			 */
++			if (WARN_ON_ONCE(retries > 5))
++				goto drop;
+  			goto retry;
+  		}
+  		memcpy(&store->control, control,
+
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: mac80211_tx_patch
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080702/5c96991b/attachment.ksh>
+
+From johannes at sipsolutions.net  Thu Jul  3 00:37:36 2008
+From: johannes at sipsolutions.net (Johannes Berg)
+Date: Thu, 03 Jul 2008 00:37:36 +0200
+Subject: b43 locks the machine when resuming after suspend to disk
+In-Reply-To: <486C0206.7060606@lwfinger.net>
+References: <alpine.DEB.1.10.0807021830300.32045@capitanata.ca.astro.it>
+	<200807022340.31894.rjw@sisk.pl>	<1215035167.13270.8.camel@johannes.berg>
+	<1215035761.13270.10.camel@johannes.berg>
+	<486C0206.7060606@lwfinger.net>
+Message-ID: <1215038256.13270.16.camel@johannes.berg>
+
+On Wed, 2008-07-02 at 17:32 -0500, Larry Finger wrote:
+> Johannes Berg wrote:
+> >>> I think you need the appended patch, but it only applies to linux-next.
+> >> A different version has been merged into what will become 2.6.26. I'll
+> >> see what we can do about stable.
+> > 
+> > http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=ef3a62d272f033989e83eb1f26505f93f93e3e69;hp=6d1a3fb567a728d31474636e167c324702a0c38b
+> > 
+> > Anybody have a stable tree around to see if that applies? I think it
+> > should.
+> 
+> It didn't, but this version will. It has been compile tested only.
+
+Ah, the TXRX result thing, thanks a bunch. Adding stable to CC, can you
+pick this up?
+
+
+Subject: mac80211: detect driver tx bugs
+
+When a driver rejects a frame in it's ->tx() callback, it must also
+stop queues, otherwise mac80211 can go into a loop here. Detect this
+situation and abort the loop after five retries, warning about the
+driver bug.
+
+Thanks to Larry Finger <Larry.Finger at lwfinger.net> for doing the -stable
+port.
+
+
+--- linux-2.6.orig/net/mac80211/tx.c
++++ linux-2.6/net/mac80211/tx.c
+@@ -1090,7 +1090,7 @@ static int ieee80211_tx(struct net_devic
+ 	ieee80211_tx_handler *handler;
+ 	struct ieee80211_txrx_data tx;
+ 	ieee80211_txrx_result res = TXRX_DROP, res_prepare;
+-	int ret, i;
++	int ret, i, retries = 0;
+ 
+ 	WARN_ON(__ieee80211_queue_pending(local, control->queue));
+ 
+@@ -1181,6 +1181,13 @@ retry:
+ 		if (!__ieee80211_queue_stopped(local, control->queue)) {
+ 			clear_bit(IEEE80211_LINK_STATE_PENDING,
+ 				  &local->state[control->queue]);
++			retries++;
++			/*
++			 * Driver bug, it's rejecting packets but
++			 * not stopping queues.
++			 */
++			if (WARN_ON_ONCE(retries > 5))
++				goto drop;
+ 			goto retry;
+ 		}
+ 		memcpy(&store->control, control,
+
+
+
+
+
+From johannes at sipsolutions.net  Thu Jul  3 00:56:59 2008
+From: johannes at sipsolutions.net (Johannes Berg)
+Date: Thu, 03 Jul 2008 00:56:59 +0200
+Subject: b43 locks the machine when resuming after suspend to disk
+In-Reply-To: <200807022340.31894.rjw@sisk.pl>
+References: <alpine.DEB.1.10.0807021830300.32045@capitanata.ca.astro.it>
+	<200807022340.31894.rjw@sisk.pl>
+Message-ID: <1215039419.13270.18.camel@johannes.berg>
+
+On Wed, 2008-07-02 at 23:40 +0200, Rafael J. Wysocki wrote:
+> On Wednesday, 2 of July 2008, Giacomo Mulas wrote:
+> > I tried searching on the list for this, before posting, but searching the
+> > mailing list archives with keywords such as b43, suspend, resume... brings
+> > up such a ludicrous amount of threads that it's not realistic to check them
+> > all, so just tell me what to look for if it's been asked already.
+> > 
+> > Whenever I do a suspend to disk after using b43, the computer freezes hard
+> > as soon as it attempts again to access b43 after resume.
+> > 
+> > Minimal how to reproduce the freeze:
+> > 1) modprobe b43
+> > 2) hibernate (using any suspend to disk, which one is irrelevant)
+> > 3) resume
+> > 4) ifconfig wlan0 up
+
+> I think you need the appended patch, but it only applies to linux-next.
+
+Rafael, you misled me :) This is a completely different thing.
+
+johannes
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 836 bytes
+Desc: This is a digitally signed message part
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080703/466496c2/attachment.pgp>
+
+From mb at bu3sch.de  Thu Jul  3 01:04:29 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 3 Jul 2008 01:04:29 +0200
+Subject: [PATCH stable] b43: Do not return TX_BUSY from op_tx
+Message-ID: <200807030104.30100.mb@bu3sch.de>
+
+Never return TX_BUSY from op_tx. It doesn't make sense to return
+TX_BUSY, if we can not transmit the packet.
+Drop the packet and return TX_OK.
+This will fix the resume hang.
+
+Upstream commit is
+66193a7cef2239bfd1b9b96e304770facf7a49c7
+
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+
+Index: linux-2.6.25.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- linux-2.6.25.6.orig/drivers/net/wireless/b43/main.c	2008-06-14 22:47:31.000000000 +0200
++++ linux-2.6.25.6/drivers/net/wireless/b43/main.c	2008-07-03 00:50:53.000000000 +0200
+@@ -2604,25 +2604,30 @@ static int b43_op_tx(struct ieee80211_hw
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev = wl->current_dev;
+ 	unsigned long flags;
+ 	int err;
+ 
+ 	if (unlikely(!dev))
+-		return NETDEV_TX_BUSY;
++		goto drop_packet;
+ 
+ 	/* Transmissions on seperate queues can run concurrently. */
+ 	read_lock_irqsave(&wl->tx_lock, flags);
+ 
+ 	err = -ENODEV;
+ 	if (likely(b43_status(dev) >= B43_STAT_STARTED))
+ 		err = b43_dma_tx(dev, skb, ctl);
+ 
+ 	read_unlock_irqrestore(&wl->tx_lock, flags);
+ 
+ 	if (unlikely(err))
+-		return NETDEV_TX_BUSY;
++		goto drop_packet;
++	return NETDEV_TX_OK;
++
++drop_packet:
++	/* We can not transmit this packet. Drop it. */
++	dev_kfree_skb_any(skb);
+ 	return NETDEV_TX_OK;
+ }
+ 
+ static int b43_op_conf_tx(struct ieee80211_hw *hw,
+ 			  int queue,
+ 			  const struct ieee80211_tx_queue_params *params)
+
+
+From rjw at sisk.pl  Thu Jul  3 01:08:36 2008
+From: rjw at sisk.pl (Rafael J. Wysocki)
+Date: Thu, 3 Jul 2008 01:08:36 +0200
+Subject: b43 locks the machine when resuming after suspend to disk
+In-Reply-To: <1215039419.13270.18.camel@johannes.berg>
+References: <alpine.DEB.1.10.0807021830300.32045@capitanata.ca.astro.it>
+	<200807022340.31894.rjw@sisk.pl>
+	<1215039419.13270.18.camel@johannes.berg>
+Message-ID: <200807030108.37614.rjw@sisk.pl>
+
+On Thursday, 3 of July 2008, Johannes Berg wrote:
+> On Wed, 2008-07-02 at 23:40 +0200, Rafael J. Wysocki wrote:
+> > On Wednesday, 2 of July 2008, Giacomo Mulas wrote:
+> > > I tried searching on the list for this, before posting, but searching the
+> > > mailing list archives with keywords such as b43, suspend, resume... brings
+> > > up such a ludicrous amount of threads that it's not realistic to check them
+> > > all, so just tell me what to look for if it's been asked already.
+> > > 
+> > > Whenever I do a suspend to disk after using b43, the computer freezes hard
+> > > as soon as it attempts again to access b43 after resume.
+> > > 
+> > > Minimal how to reproduce the freeze:
+> > > 1) modprobe b43
+> > > 2) hibernate (using any suspend to disk, which one is irrelevant)
+> > > 3) resume
+> > > 4) ifconfig wlan0 up
+> 
+> > I think you need the appended patch, but it only applies to linux-next.
+> 
+> Rafael, you misled me :) This is a completely different thing.
+
+Ah, sorry then.  I was too quick with my response.
+
+Rafael
+
+
+From mb at bu3sch.de  Thu Jul  3 01:06:32 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 3 Jul 2008 01:06:32 +0200
+Subject: [PATCH stable] b43legacy: Do not return TX_BUSY from op_tx
+Message-ID: <200807030106.32960.mb@bu3sch.de>
+
+Never return TX_BUSY from op_tx. It doesn't make sense to return
+TX_BUSY, if we can not transmit the packet.
+Drop the packet and return TX_OK.
+
+Upstream commit is
+eb803e419ca6be06ece2e42027bb4ebd8ec09f91
+
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+
+Index: linux-2.6.25.6/drivers/net/wireless/b43legacy/main.c
+===================================================================
+--- linux-2.6.25.6.orig/drivers/net/wireless/b43legacy/main.c	2008-06-14 22:41:44.000000000 +0200
++++ linux-2.6.25.6/drivers/net/wireless/b43legacy/main.c	2008-07-03 00:51:33.000000000 +0200
+@@ -2347,14 +2347,16 @@ static int b43legacy_op_tx(struct ieee80
+ 		spin_lock_irqsave(&wl->irq_lock, flags);
+ 		err = b43legacy_pio_tx(dev, skb, ctl);
+ 		spin_unlock_irqrestore(&wl->irq_lock, flags);
+ 	} else
+ 		err = b43legacy_dma_tx(dev, skb, ctl);
+ out:
+-	if (unlikely(err))
+-		return NETDEV_TX_BUSY;
++	if (unlikely(err)) {
++		/* Drop the packet. */
++		dev_kfree_skb_any(skb);
++	}
+ 	return NETDEV_TX_OK;
+ }
+ 
+ static int b43legacy_op_conf_tx(struct ieee80211_hw *hw,
+ 				int queue,
+ 				const struct ieee80211_tx_queue_params *params)
+
+
+From johannes at sipsolutions.net  Thu Jul  3 01:07:44 2008
+From: johannes at sipsolutions.net (Johannes Berg)
+Date: Thu, 03 Jul 2008 01:07:44 +0200
+Subject: b43 locks the machine when resuming after suspend to disk
+In-Reply-To: <200807030108.37614.rjw@sisk.pl>
+References: <alpine.DEB.1.10.0807021830300.32045@capitanata.ca.astro.it>
+	<200807022340.31894.rjw@sisk.pl>
+	<1215039419.13270.18.camel@johannes.berg>
+	<200807030108.37614.rjw@sisk.pl>
+Message-ID: <1215040064.13270.20.camel@johannes.berg>
+
+On Thu, 2008-07-03 at 01:08 +0200, Rafael J. Wysocki wrote:
+> On Thursday, 3 of July 2008, Johannes Berg wrote:
+> > On Wed, 2008-07-02 at 23:40 +0200, Rafael J. Wysocki wrote:
+> > > On Wednesday, 2 of July 2008, Giacomo Mulas wrote:
+> > > > I tried searching on the list for this, before posting, but searching the
+> > > > mailing list archives with keywords such as b43, suspend, resume... brings
+> > > > up such a ludicrous amount of threads that it's not realistic to check them
+> > > > all, so just tell me what to look for if it's been asked already.
+> > > > 
+> > > > Whenever I do a suspend to disk after using b43, the computer freezes hard
+> > > > as soon as it attempts again to access b43 after resume.
+> > > > 
+> > > > Minimal how to reproduce the freeze:
+> > > > 1) modprobe b43
+> > > > 2) hibernate (using any suspend to disk, which one is irrelevant)
+> > > > 3) resume
+> > > > 4) ifconfig wlan0 up
+> > 
+> > > I think you need the appended patch, but it only applies to linux-next.
+> > 
+> > Rafael, you misled me :) This is a completely different thing.
+> 
+> Ah, sorry then.  I was too quick with my response.
+
+No trouble, it reminded me that I wanted to ask stable to pick up that
+patch anyway although I don't think we ever ran into the issue there.
+
+This seems very odd though, Giacomo, are you sure it also happens if you
+unload the module?
+
+johannes
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 836 bytes
+Desc: This is a digitally signed message part
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080703/768eaa04/attachment.pgp>
+
+From Larry.Finger at lwfinger.net  Thu Jul  3 01:27:12 2008
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Wed, 02 Jul 2008 18:27:12 -0500
+Subject: b43 locks the machine when resuming after suspend to disk
+In-Reply-To: <1215040064.13270.20.camel@johannes.berg>
+References: <alpine.DEB.1.10.0807021830300.32045@capitanata.ca.astro.it>	<200807022340.31894.rjw@sisk.pl>	<1215039419.13270.18.camel@johannes.berg>	<200807030108.37614.rjw@sisk.pl>
+	<1215040064.13270.20.camel@johannes.berg>
+Message-ID: <486C0ED0.3080608@lwfinger.net>
+
+Johannes Berg wrote:
+> On Thu, 2008-07-03 at 01:08 +0200, Rafael J. Wysocki wrote:
+>> On Thursday, 3 of July 2008, Johannes Berg wrote:
+>>> Rafael, you misled me :) This is a completely different thing.
+>> Ah, sorry then.  I was too quick with my response.
+> 
+> No trouble, it reminded me that I wanted to ask stable to pick up that
+> patch anyway although I don't think we ever ran into the issue there.
+> 
+> This seems very odd though, Giacomo, are you sure it also happens if you
+> unload the module?
+
+I'm confused. Should the "mac80211: detect driver tx bugs" patch be sent to stable?
+
+Larry
+
+
+
+
+From johannes at sipsolutions.net  Thu Jul  3 01:41:34 2008
+From: johannes at sipsolutions.net (Johannes Berg)
+Date: Thu, 03 Jul 2008 01:41:34 +0200
+Subject: b43 locks the machine when resuming after suspend to disk
+In-Reply-To: <486C0ED0.3080608@lwfinger.net>
+References: <alpine.DEB.1.10.0807021830300.32045@capitanata.ca.astro.it>
+	<200807022340.31894.rjw@sisk.pl>	<1215039419.13270.18.camel@johannes.berg>
+	<200807030108.37614.rjw@sisk.pl>
+	<1215040064.13270.20.camel@johannes.berg>
+	<486C0ED0.3080608@lwfinger.net>
+Message-ID: <1215042094.13270.26.camel@johannes.berg>
+
+On Wed, 2008-07-02 at 18:27 -0500, Larry Finger wrote:
+> Johannes Berg wrote:
+> > On Thu, 2008-07-03 at 01:08 +0200, Rafael J. Wysocki wrote:
+> >> On Thursday, 3 of July 2008, Johannes Berg wrote:
+> >>> Rafael, you misled me :) This is a completely different thing.
+> >> Ah, sorry then.  I was too quick with my response.
+> > 
+> > No trouble, it reminded me that I wanted to ask stable to pick up that
+> > patch anyway although I don't think we ever ran into the issue there.
+> > 
+> > This seems very odd though, Giacomo, are you sure it also happens if you
+> > unload the module?
+> 
+> I'm confused. Should the "mac80211: detect driver tx bugs" patch be sent to stable?
+
+Yeah I think it still should even if that's not the bug here.
+
+johannes
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 836 bytes
+Desc: This is a digitally signed message part
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080703/5547ed99/attachment.pgp>
+
+From mb at bu3sch.de  Thu Jul  3 02:04:33 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 3 Jul 2008 02:04:33 +0200
+Subject: [PATCH stable] b43: Fix possible MMIO access while device is down
+Message-ID: <200807030204.33987.mb@bu3sch.de>
+
+This fixes a possible MMIO access while the device is still down
+from a suspend cycle. MMIO accesses with the device powered down
+may cause crashes on certain devices.
+
+Upstream commit is
+33598cf261e393f2b3349cb55509e358014bfd1f
+
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+
+Index: linux-2.6.25.9/drivers/net/wireless/b43/leds.c
+===================================================================
+--- linux-2.6.25.9.orig/drivers/net/wireless/b43/leds.c	2008-07-03 01:12:00.000000000 +0200
++++ linux-2.6.25.9/drivers/net/wireless/b43/leds.c	2008-07-03 01:15:01.000000000 +0200
+@@ -69,12 +69,15 @@ static void b43_led_brightness_set(struc
+ 				   enum led_brightness brightness)
+ {
+ 	struct b43_led *led = container_of(led_dev, struct b43_led, led_dev);
+ 	struct b43_wldev *dev = led->dev;
+ 	bool radio_enabled;
+ 
++	if (unlikely(b43_status(dev) < B43_STAT_INITIALIZED))
++		return;
++
+ 	/* Checking the radio-enabled status here is slightly racy,
+ 	 * but we want to avoid the locking overhead and we don't care
+ 	 * whether the LED has the wrong state for a second. */
+ 	radio_enabled = (dev->phy.radio_on && dev->radio_hw_enable);
+ 
+ 	if (brightness == LED_OFF || !radio_enabled)
+
+
+From mb at bu3sch.de  Thu Jul  3 10:31:45 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 3 Jul 2008 10:31:45 +0200
+Subject: [PATCH stable] b43: Do not return TX_BUSY from op_tx
+In-Reply-To: <87y74jtqz8.fsf@nokia.com>
+References: <200807030104.30100.mb@bu3sch.de> <87y74jtqz8.fsf@nokia.com>
+Message-ID: <200807031031.45955.mb@bu3sch.de>
+
+On Thursday 03 July 2008 08:35:23 Kalle Valo wrote:
+> Michael Buesch <mb at bu3sch.de> writes:
+> 
+> > +drop_packet:
+> > +	/* We can not transmit this packet. Drop it. */
+> > +	dev_kfree_skb_any(skb);
+> >  	return NETDEV_TX_OK;
+> 
+> So no need to call ieee80211_tx_status() in this case? I'm just
+> curious about this, nothing else.
+
+I don't think we must call tx_status for dropped or lost packets.
+
+-- 
+Greetings Michael.
+
+
+From johannes at sipsolutions.net  Thu Jul  3 14:24:13 2008
+From: johannes at sipsolutions.net (Johannes Berg)
+Date: Thu, 03 Jul 2008 14:24:13 +0200
+Subject: [PATCH stable] b43: Do not return TX_BUSY from op_tx
+In-Reply-To: <200807031031.45955.mb@bu3sch.de>
+	(sfid-20080703_141240_408789_D701059A)
+References: <200807030104.30100.mb@bu3sch.de> <87y74jtqz8.fsf@nokia.com>
+	<200807031031.45955.mb@bu3sch.de>
+	(sfid-20080703_141240_408789_D701059A)
+Message-ID: <1215087853.9975.9.camel@johannes.berg>
+
+On Thu, 2008-07-03 at 10:31 +0200, Michael Buesch wrote:
+> On Thursday 03 July 2008 08:35:23 Kalle Valo wrote:
+> > Michael Buesch <mb at bu3sch.de> writes:
+> > 
+> > > +drop_packet:
+> > > +	/* We can not transmit this packet. Drop it. */
+> > > +	dev_kfree_skb_any(skb);
+> > >  	return NETDEV_TX_OK;
+> > 
+> > So no need to call ieee80211_tx_status() in this case? I'm just
+> > curious about this, nothing else.
+> 
+> I don't think we must call tx_status for dropped or lost packets.
+
+That's a bit of a corner case really. If you call tx-status then the
+rate control algorithm will adjust to something that hasn't happened,
+and if you don't then the packet won't be on the monitor interface.
+
+In practice, it doesn't really matter because so far this only happens
+during resume and that'll hopefully get fixed.
+
+johannes
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 836 bytes
+Desc: This is a digitally signed message part
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080703/af37aa35/attachment.pgp>
+
+From felipe.maya at vexcorp.com  Thu Jul  3 18:30:18 2008
+From: felipe.maya at vexcorp.com (Felipe Maya)
+Date: Thu, 03 Jul 2008 12:30:18 -0400
+Subject: [PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+In-Reply-To: <200806201150.29497.mb@bu3sch.de>
+References: <200806201150.29497.mb@bu3sch.de>
+Message-ID: <1215102618.17143.13.camel@you>
+
+Hi, I have applied this patch and i tested on a wl500gpv2 (BCM5354). The
+following part disable the ethernet device. If this part of the patch is
+restored the device work ok.
+>  
+> -int ssb_dma_set_mask(struct ssb_device *ssb_dev, u64 mask)
+> +int ssb_dma_set_mask(struct ssb_device *dev, u64 mask)
+>  {
+> -	struct device *dma_dev = ssb_dev->dma_dev;
+> -	int err = 0;
+> +	int err;
+>  
+> -#ifdef CONFIG_SSB_PCIHOST
+> -	if (ssb_dev->bus->bustype == SSB_BUSTYPE_PCI) {
+> -		err = pci_set_dma_mask(ssb_dev->bus->host_pci, mask);
+> +	switch (dev->bus->bustype) {
+> +	case SSB_BUSTYPE_PCI:
+> +		err = pci_set_dma_mask(dev->bus->host_pci, mask);
+>  		if (err)
+>  			return err;
+> -		err = pci_set_consistent_dma_mask(ssb_dev->bus->host_pci, mask);
+> +		err = pci_set_consistent_dma_mask(dev->bus->host_pci, mask);
+>  		return err;
+> +	case SSB_BUSTYPE_SSB:
+> +		return dma_set_mask(dev->dev, mask);
+> +	default:
+> +		__ssb_dma_not_implemented(dev);
+>  	}
+> -#endif
+> -	dma_dev->coherent_dma_mask = mask;
+> -	dma_dev->dma_mask = &dma_dev->coherent_dma_mask;
+> -
+> -	return err;
+> +	return -ENOSYS;
+>  }
+>  EXPORT_SYMBOL(ssb_dma_set_mask);
+
+
+
+
+From mb at bu3sch.de  Thu Jul  3 22:52:35 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 3 Jul 2008 22:52:35 +0200
+Subject: [PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+In-Reply-To: <1215102618.17143.13.camel@you>
+References: <200806201150.29497.mb@bu3sch.de> <1215102618.17143.13.camel@you>
+Message-ID: <200807032252.35662.mb@bu3sch.de>
+
+On Thursday 03 July 2008 18:30:18 Felipe Maya wrote:
+> Hi, I have applied this patch and i tested on a wl500gpv2 (BCM5354). The
+> following part disable the ethernet device. If this part of the patch is
+> restored the device work ok.
+
+
+Well, I would say your architecture is pretty broken then.
+This patch replaces an incorrect manual DMA mask setting by
+a call to the official API.
+Please report this to your archtitecture maintainer.
+
+
+> > -int ssb_dma_set_mask(struct ssb_device *ssb_dev, u64 mask)
+> > +int ssb_dma_set_mask(struct ssb_device *dev, u64 mask)
+> >  {
+> > -	struct device *dma_dev = ssb_dev->dma_dev;
+> > -	int err = 0;
+> > +	int err;
+> >  
+> > -#ifdef CONFIG_SSB_PCIHOST
+> > -	if (ssb_dev->bus->bustype == SSB_BUSTYPE_PCI) {
+> > -		err = pci_set_dma_mask(ssb_dev->bus->host_pci, mask);
+> > +	switch (dev->bus->bustype) {
+> > +	case SSB_BUSTYPE_PCI:
+> > +		err = pci_set_dma_mask(dev->bus->host_pci, mask);
+> >  		if (err)
+> >  			return err;
+> > -		err = pci_set_consistent_dma_mask(ssb_dev->bus->host_pci, mask);
+> > +		err = pci_set_consistent_dma_mask(dev->bus->host_pci, mask);
+> >  		return err;
+> > +	case SSB_BUSTYPE_SSB:
+> > +		return dma_set_mask(dev->dev, mask);
+> > +	default:
+> > +		__ssb_dma_not_implemented(dev);
+> >  	}
+> > -#endif
+> > -	dma_dev->coherent_dma_mask = mask;
+> > -	dma_dev->dma_mask = &dma_dev->coherent_dma_mask;
+> > -
+> > -	return err;
+> > +	return -ENOSYS;
+> >  }
+> >  EXPORT_SYMBOL(ssb_dma_set_mask);
+> 
+> 
+> 
+> 
+
+
+
+-- 
+Greetings Michael.
+
+
+From mb at bu3sch.de  Thu Jul  3 23:07:20 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 3 Jul 2008 23:07:20 +0200
+Subject: [PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+In-Reply-To: <200807032252.35662.mb@bu3sch.de>
+References: <200806201150.29497.mb@bu3sch.de> <1215102618.17143.13.camel@you>
+	<200807032252.35662.mb@bu3sch.de>
+Message-ID: <200807032307.20680.mb@bu3sch.de>
+
+On Thursday 03 July 2008 22:52:35 Michael Buesch wrote:
+> On Thursday 03 July 2008 18:30:18 Felipe Maya wrote:
+> > Hi, I have applied this patch and i tested on a wl500gpv2 (BCM5354). The
+> > following part disable the ethernet device. If this part of the patch is
+> > restored the device work ok.
+> 
+> 
+> Well, I would say your architecture is pretty broken then.
+> This patch replaces an incorrect manual DMA mask setting by
+> a call to the official API.
+> Please report this to your archtitecture maintainer.
+
+Ah and btw, the bug most likely is that dma_set_mask does not
+set the dev->coherent_dma_mask or something like that
+while the dma remapping function require it to be set (I could be wrong,
+this is just guesswork). In any case, I think the bug really is in the
+arch DMA implementation and we must not workaround that in the ssb code.
+So I will reject a patch that adds the
+	dev->coherent_dma_mask = mask;
+	dma_dev->dma_mask = &dma_dev->coherent_dma_mask;
+stuff back. dma_set_mask should set all required masks for the dma_...
+remapping functions. If it doesn't, it's either a bug in dma_set_mask
+or in the remapping functions using the wrong mask.
+We need to fix it correctly this time, as the whole purpose of
+my SSB patch was the get the DMA remapping _right_ so it doesn't break
+every two months if somebody changes some arch internal assumption.
+So please do not to send me any SSB patch that works around the bug. ;)
+
+> 
+> > > -int ssb_dma_set_mask(struct ssb_device *ssb_dev, u64 mask)
+> > > +int ssb_dma_set_mask(struct ssb_device *dev, u64 mask)
+> > >  {
+> > > -	struct device *dma_dev = ssb_dev->dma_dev;
+> > > -	int err = 0;
+> > > +	int err;
+> > >  
+> > > -#ifdef CONFIG_SSB_PCIHOST
+> > > -	if (ssb_dev->bus->bustype == SSB_BUSTYPE_PCI) {
+> > > -		err = pci_set_dma_mask(ssb_dev->bus->host_pci, mask);
+> > > +	switch (dev->bus->bustype) {
+> > > +	case SSB_BUSTYPE_PCI:
+> > > +		err = pci_set_dma_mask(dev->bus->host_pci, mask);
+> > >  		if (err)
+> > >  			return err;
+> > > -		err = pci_set_consistent_dma_mask(ssb_dev->bus->host_pci, mask);
+> > > +		err = pci_set_consistent_dma_mask(dev->bus->host_pci, mask);
+> > >  		return err;
+> > > +	case SSB_BUSTYPE_SSB:
+> > > +		return dma_set_mask(dev->dev, mask);
+> > > +	default:
+> > > +		__ssb_dma_not_implemented(dev);
+> > >  	}
+> > > -#endif
+> > > -	dma_dev->coherent_dma_mask = mask;
+> > > -	dma_dev->dma_mask = &dma_dev->coherent_dma_mask;
+> > > -
+> > > -	return err;
+> > > +	return -ENOSYS;
+> > >  }
+> > >  EXPORT_SYMBOL(ssb_dma_set_mask);
+> > 
+> > 
+> > 
+> > 
+> 
+> 
+> 
+
+
+
+-- 
+Greetings Michael.
+
+
+From Larry.Finger at lwfinger.net  Fri Jul  4 15:39:01 2008
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Fri, 04 Jul 2008 08:39:01 -0500
+Subject: [PATCH] b43legacy: Remove switch statement with 64-bit index
+Message-ID: <486e27f5.x+ZVJKUCENAIEq11%Larry.Finger@lwfinger.net>
+
+The gcc 3.4 fork used to compile the MN10300 port emits unwanted
+__ucmpdi2() calls for switch statements that use a 64bit value.
+
+This patch removes such a switch from b43legacy, and makes the code
+more like that used in b43. Thanks to Adrian Bunk <bunk at kernel.org>
+for reporting the problem.
+
+Signed-off-by: Larry Finger <Larry.Finger at lwfinger.net>
+---
+
+John,
+
+This is 2.6.27 material.
+
+This has been tested with my BCM4306/2 card.
+
+Larry
+---
+
+ dma.c |   66 +++++++++++++++++++++++++++++++++++++++++++++++++++---------------
+ 1 file changed, 51 insertions(+), 15 deletions(-)
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/dma.c
++++ wireless-testing/drivers/net/wireless/b43legacy/dma.c
+@@ -859,6 +859,18 @@ static u64 supported_dma_mask(struct b43
+ 	return DMA_30BIT_MASK;
+ }
+ 
++static enum b43legacy_dmatype dma_mask_to_engine_type(u64 dmamask)
++{
++	if (dmamask == DMA_30BIT_MASK)
++		return B43legacy_DMA_30BIT;
++	if (dmamask == DMA_32BIT_MASK)
++		return B43legacy_DMA_32BIT;
++	if (dmamask == DMA_64BIT_MASK)
++		return B43legacy_DMA_64BIT;
++	B43legacy_WARN_ON(1);
++	return B43legacy_DMA_30BIT;
++}
++
+ /* Main initialization function. */
+ static
+ struct b43legacy_dmaring *b43legacy_setup_dmaring(struct b43legacy_wldev *dev,
+@@ -1018,6 +1030,43 @@ void b43legacy_dma_free(struct b43legacy
+ 	dma->tx_ring0 = NULL;
+ }
+ 
++static int b43legacy_dma_set_mask(struct b43legacy_wldev *dev, u64 mask)
++{
++	u64 orig_mask = mask;
++	bool fallback = 0;
++	int err;
++
++	/* Try to set the DMA mask. If it fails, try falling back to a
++	 * lower mask, as we can always also support a lower one. */
++	while (1) {
++		err = ssb_dma_set_mask(dev->dev, mask);
++		if (!err)
++			break;
++		if (mask == DMA_64BIT_MASK) {
++			mask = DMA_32BIT_MASK;
++			fallback = 1;
++			continue;
++		}
++		if (mask == DMA_32BIT_MASK) {
++			mask = DMA_30BIT_MASK;
++			fallback = 1;
++			continue;
++		}
++		b43legacyerr(dev->wl, "The machine/kernel does not support "
++		       "the required %u-bit DMA mask\n",
++		       (unsigned int)dma_mask_to_engine_type(orig_mask));
++		return -EOPNOTSUPP;
++	}
++	if (fallback) {
++		b43legacyinfo(dev->wl, "DMA mask fallback from %u-bit to %u-"
++			"bit\n",
++			(unsigned int)dma_mask_to_engine_type(orig_mask),
++			(unsigned int)dma_mask_to_engine_type(mask));
++	}
++
++	return 0;
++}
++
+ int b43legacy_dma_init(struct b43legacy_wldev *dev)
+ {
+ 	struct b43legacy_dma *dma = &dev->dma;
+@@ -1027,21 +1076,8 @@ int b43legacy_dma_init(struct b43legacy_
+ 	enum b43legacy_dmatype type;
+ 
+ 	dmamask = supported_dma_mask(dev);
+-	switch (dmamask) {
+-	default:
+-		B43legacy_WARN_ON(1);
+-	case DMA_30BIT_MASK:
+-		type = B43legacy_DMA_30BIT;
+-		break;
+-	case DMA_32BIT_MASK:
+-		type = B43legacy_DMA_32BIT;
+-		break;
+-	case DMA_64BIT_MASK:
+-		type = B43legacy_DMA_64BIT;
+-		break;
+-	}
+-
+-	err = ssb_dma_set_mask(dev->dev, dmamask);
++	type = dma_mask_to_engine_type(dmamask);
++	err = b43legacy_dma_set_mask(dev, dmamask);
+ 	if (err) {
+ #ifdef CONFIG_B43LEGACY_PIO
+ 		b43legacywarn(dev->wl, "DMA for this device not supported. "
+
+---
+
+
+From mb at bu3sch.de  Fri Jul  4 23:44:37 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Fri, 4 Jul 2008 23:44:37 +0200
+Subject: [PATCH] ssb-pcicore: Fix IRQ-vector init on embedded devices
+Message-ID: <200807042344.38034.mb@bu3sch.de>
+
+On embedded devices we must not route the interrupts through
+the PCI core, if our host-bus is not PCI.
+
+Reported-by: Steve Brown <sbrown at cortland.com>
+Signed-off-by: Michael Buesch <mb at bu3sch.de>
+
+---
+
+John, If still possible, please queue for 2.6.26.
+
+
+Index: wireless-testing/drivers/ssb/driver_pcicore.c
+===================================================================
+--- wireless-testing.orig/drivers/ssb/driver_pcicore.c	2008-06-10 13:58:23.000000000 +0200
++++ wireless-testing/drivers/ssb/driver_pcicore.c	2008-07-04 23:16:02.000000000 +0200
+@@ -537,6 +537,13 @@ int ssb_pcicore_dev_irqvecs_enable(struc
+ 	int err = 0;
+ 	u32 tmp;
+ 
++	if (dev->bus->bustype != SSB_BUSTYPE_PCI) {
++		/* This SSB device is not on a PCI host-bus. So the IRQs are
++		 * not routed through the PCI core.
++		 * So we must not enable routing through the PCI core. */
++		goto out;
++	}
++
+ 	if (!pdev)
+ 		goto out;
+ 	bus = pdev->bus;
+
+-- 
+Greetings Michael.
+
+
+From david at identd.dyndns.org  Sun Jul  6 20:06:18 2008
+From: david at identd.dyndns.org (David Ellingsworth)
+Date: Sun, 6 Jul 2008 14:06:18 -0400
+Subject: b43legacy: local packet loss
+Message-ID: <30353c3d0807061106x78e796f4r95f2ce7e56a4bb5c@mail.gmail.com>
+
+While using the latest b43legacy driver, I have severe packet loss
+originating from the machine using the b43legacy driver. However, when
+packets are routed through the machine using NAT, no packet loss
+occurs. Ping results are as follows:
+
+using 'ping -c 100 192.168.1.1'
+
+
+From Larry.Finger at lwfinger.net  Sun Jul  6 20:37:02 2008
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Sun, 06 Jul 2008 13:37:02 -0500
+Subject: b43legacy: local packet loss
+In-Reply-To: <30353c3d0807061106x78e796f4r95f2ce7e56a4bb5c@mail.gmail.com>
+References: <30353c3d0807061106x78e796f4r95f2ce7e56a4bb5c@mail.gmail.com>
+Message-ID: <487110CE.3050304@lwfinger.net>
+
+David Ellingsworth wrote:
+> While using the latest b43legacy driver, I have severe packet loss
+> originating from the machine using the b43legacy driver. However, when
+> packets are routed through the machine using NAT, no packet loss
+> occurs. Ping results are as follows:
+> 
+> using 'ping -c 100 192.168.1.1'
+> 
+>>From local machine (192.168.1.100) to wireless router (192.168.1.1)
+>     43% packet loss, average rtt 13.987ms
+> 
+>>From nat machine(192.168.2.100) to wireless router (192.168.1.1) via
+> b43legacy router(eth0:192.168.2.1, wlan0:192.168.1.100)
+>     0% packet loss, average rtt 3.621ms
+> 
+> The only logical conclusion I can draw from the above information is
+> that there is something wrong with how packets are created locally and
+> delivered to the device. I'm willing to provide any help necessary
+> needed to correct the issue.
+
+More information please.
+
+1. Is your "latest b43legacy" from wireless-testing, 2.6.26-rc9, or what?
+
+2. What BCM43xx card are you using?
+
+3. What wireless router are you using?
+
+Using the wireless-testing git tree with a BCM4306/2 and working with a Linksys 
+WRT54GL router with standard firmware, my statistics for the ping -c 100 
+192.168.1.1 command are 0% packet loss with average rtt of 2.919 ms.
+
+Larry
+
+
+From david at identd.dyndns.org  Sun Jul  6 21:42:54 2008
+From: david at identd.dyndns.org (David Ellingsworth)
+Date: Sun, 6 Jul 2008 15:42:54 -0400
+Subject: b43legacy: local packet loss
+In-Reply-To: <487110CE.3050304@lwfinger.net>
+References: <30353c3d0807061106x78e796f4r95f2ce7e56a4bb5c@mail.gmail.com>
+	<487110CE.3050304@lwfinger.net>
+Message-ID: <30353c3d0807061242s48dfeed0i2f1e44c02d4c4c73@mail.gmail.com>
+
+On Sun, Jul 6, 2008 at 2:37 PM, Larry Finger <Larry.Finger at lwfinger.net> wrote:
+> David Ellingsworth wrote:
+>>
+>> While using the latest b43legacy driver, I have severe packet loss
+>> originating from the machine using the b43legacy driver. However, when
+>> packets are routed through the machine using NAT, no packet loss
+>> occurs. Ping results are as follows:
+>>
+>> using 'ping -c 100 192.168.1.1'
+>>
+>>> From local machine (192.168.1.100) to wireless router (192.168.1.1)
+>>
+>>    43% packet loss, average rtt 13.987ms
+>>
+>>> From nat machine(192.168.2.100) to wireless router (192.168.1.1) via
+>>
+>> b43legacy router(eth0:192.168.2.1, wlan0:192.168.1.100)
+>>    0% packet loss, average rtt 3.621ms
+>>
+>> The only logical conclusion I can draw from the above information is
+>> that there is something wrong with how packets are created locally and
+>> delivered to the device. I'm willing to provide any help necessary
+>> needed to correct the issue.
+>
+> More information please.
+>
+> 1. Is your "latest b43legacy" from wireless-testing, 2.6.26-rc9, or what?
+>
+> 2. What BCM43xx card are you using?
+>
+> 3. What wireless router are you using?
+>
+> Using the wireless-testing git tree with a BCM4306/2 and working with a
+> Linksys WRT54GL router with standard firmware, my statistics for the ping -c
+> 100 192.168.1.1 command are 0% packet loss with average rtt of 2.919 ms.
+>
+> Larry
+>
+
+1. I'm using the latest b43legacy driver from wireless-testing as of
+this morning, which looks to be 2.6.26-rc8-wl.
+
+2. The card is a BCM4306/2 mini-pci card in a Compaq Presario laptop.
+relevant lspci info is as follows:
+00:09.0 0280: 14e4:4320 (rev 02)
+        Subsystem: 0e11:00e7
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64
+        Interrupt: pin A routed to IRQ 10
+        Region 0: Memory at d0000000 (32-bit, non-prefetchable) [size=8K]
+        Capabilities: [40] Power Management version 2
+                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA
+PME(D0+,D1+,D2+,D3hot+,D3cold+)
+                Status: D0 PME-Enable- DSel=0 DScale=2 PME+
+        Kernel driver in use: b43-pci-bridge
+        Kernel modules: ssb
+
+dmesg info is as follows:
+b43legacy-phy0: Broadcom 4306 WLAN found
+b43legacy-phy0 debug: Found PHY: Analog 1, Type 2, Revision 1
+b43legacy-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+b43legacy-phy0 debug: Radio initialized
+firmware: requesting b43legacy/ucode4.fw
+firmware: requesting b43legacy/pcm4.fw
+firmware: requesting b43legacy/b0g0initvals2.fw
+b43legacy-phy0: Loading firmware version 0x127, patch level 14
+(2005-04-18 02:36:27)
+b43legacy-phy0 debug: Chip initialized
+b43legacy-phy0 debug: 30-bit DMA initialized
+b43legacy-phy0 debug: Wireless interface started
+b43legacy-phy0 debug: Adding Interface type 2
+
+3. I'm using the laptop as the wireless router. My current setup is as follows:
+comp(192.168.2.100)->(eth0:192.168.2.1)laptop(wlan0:192.168.1.100)->(192.168.1.1)WRT54G->internet.
+Pings from the laptop to the WRT54G experience a high packet loss.
+Those from the computer being routed through the laptop to the WRT54G
+do not.
+
+Regards,
+
+David Ellingsworth
+
+
+From sbrown at cortland.com  Tue Jul  8 17:58:58 2008
+From: sbrown at cortland.com (Steve Brown)
+Date: Tue, 08 Jul 2008 11:58:58 -0400
+Subject: [PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+In-Reply-To: <200807032252.35662.mb@bu3sch.de>
+References: <200806201150.29497.mb@bu3sch.de> <1215102618.17143.13.camel@you>
+	<200807032252.35662.mb@bu3sch.de>
+Message-ID: <48738EC2.1060402@cortland.com>
+
+Michael Buesch wrote:
+> On Thursday 03 July 2008 18:30:18 Felipe Maya wrote:
+>   
+>> Hi, I have applied this patch and i tested on a wl500gpv2 (BCM5354). The
+>> following part disable the ethernet device. If this part of the patch is
+>> restored the device work ok.
+>>     
+>
+>
+> Well, I would say your architecture is pretty broken then.
+> This patch replaces an incorrect manual DMA mask setting by
+> a call to the official API.
+> Please report this to your archtitecture maintainer.
+>
+>
+>   
+This also breaks at least b44 on my wl500gpv1.
+
+with wireless-testing rc9-wl tree:
+b44.c:v2.0
+b44 ssb0:0: Required 30BIT DMA mask unsupported by the system.
+b44: probe of ssb0:0 failed with error -5
+b44 ssb0:1: Required 30BIT DMA mask unsupported by the system.
+b44: probe of ssb0:1 failed with error -5
+
+and reverting the patch:
+b44.c:v2.0
+eth0: Broadcom 44xx/47xx 10/100BaseT Ethernet 00:17:31:ba:ec:35
+eth1: Broadcom 44xx/47xx 10/100BaseT Ethernet 40:10:18:00:00:2d
+
+The problem appears to be a missing non-pci equivalent of 
+pci_set_consistent_dma_mask. Maybe that's why the mask was set manually. 
+I can not find anything that sets coherent_dma_mask for other than a pci 
+device. If somebody can confirm my (mis)understanding of this, I'll post 
+the problem to linux-mips.
+
+Steve
+
+
+
+
+From mb at bu3sch.de  Tue Jul  8 19:04:42 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Tue, 8 Jul 2008 19:04:42 +0200
+Subject: [PATCH] ssb, b43, b43legacy, b44: Rewrite SSB DMA API
+In-Reply-To: <48738EC2.1060402@cortland.com>
+References: <200806201150.29497.mb@bu3sch.de> <200807032252.35662.mb@bu3sch.de>
+	<48738EC2.1060402@cortland.com>
+Message-ID: <200807081904.42837.mb@bu3sch.de>
+
+On Tuesday 08 July 2008 17:58:58 Steve Brown wrote:
+> I'll post the problem to linux-mips.
+
+Please do so. This really is a DMA API issue. It's either using the masks
+incorrectly, or ot should provide a function to set the coherent mask.
+
+SSB does use The Right (TM) API. So it should not break, in my opinion.
+I'm fully aware, that there is no non-PCI function that sets the coherent
+mask. But I really expected that nobody is using it for non-PCI devices
+either.
+
+-- 
+Greetings Michael.
+
+
+From netrolller.3d at gmail.com  Wed Jul  9 15:51:35 2008
+From: netrolller.3d at gmail.com (=?ISO-8859-1?Q?Stefanik_G=E1bor?=)
+Date: Wed, 9 Jul 2008 15:51:35 +0200
+Subject: Slow b43 with 2.6.25.9 on an asus wl-700ge home-router
+In-Reply-To: <jwvlk0bsjk7.fsf-monnier+gmane.linux.kernel.wireless.general@gnu.org>
+References: <jwvlk0bsjk7.fsf-monnier+gmane.linux.kernel.wireless.general@gnu.org>
+Message-ID: <69e28c910807090651xc253bcawf3900c53d1a3e046@mail.gmail.com>
+
+On Wed, Jul 9, 2008 at 7:50 AM, Stefan Monnier <monnier at iro.umontreal.ca> wrote:
+> I finally started to use the b43 driver on my home-router and am happy
+> to have it working at all (with WPA), but I notice that the speed is
+> pretty terrible: I cannot seem to get more than 100KB/s out of it (I
+> use it as a personal web proxy, so it ends up slowing down my
+> web-surfing :-( ).
+>
+> Originally "iwconfig" told me that the bit rate was 2Mb/s (and even
+> that should allow me to get a bit more than 100KB/s).
+> After "iwconfig wlan0 rate 54M", the result is the same (except that
+> "iwconfig" tells me the bit rate is 54Mb/s).
+>
+> More specifically, iwconfig tells me things like:
+>
+> wlan0     IEEE 802.11  ESSID:"test"
+>          Mode:Managed  Frequency:2.457 GHz  Access Point: 00:10:30:C0:50:50
+>          Bit Rate=54 Mb/s   Tx-Power=27 dBm
+>          Retry min limit:7   RTS thr:off   Fragment thr=2352 B
+>          Link Quality=95/100  Signal level:-54 dBm  Noise level=-63 dBm
+>          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+>          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+>
+> which seems to indicate that the reception is indeed good.
+> Any idea what I might want to check?
+>
+> I did notice that my dmesg says things like
+> "received packet with  own address as source address".  This seems
+> related to my use of bridging, but:
+> 1 - I have no bridging loop (actually I unplugged all ethernet cables,
+>    so the only active network interface in the bridge is wlan0).
+> 2 - taking wlan0 out of the bridge eliminates those messages, but
+>    doesn't improve the bandwidth.
+>
+> Any idea what might be going on?
+>
+>
+>        Stefan
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo at vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
+Can you see "PHY transmission error" messages in dmesg? If you get
+those, then that's a known bug.
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+
+From dale at daleenterprise.com  Fri Jul 11 00:20:21 2008
+From: dale at daleenterprise.com (Dale Walsh)
+Date: Thu, 10 Jul 2008 18:20:21 -0400
+Subject: product verdor ID's
+Message-ID: <C58780C7-A5CF-412C-A38C-2AC9E306A53C@daleenterprise.com>
+
+I have a list of ID's I have confirmed working to add to the  
+supported hardware list (BCM4321 11n cards need the wifi-rc kernel).
+
+Apple:
+BCM4318	0x14e4 / 0x4318		0x106b / 0x0086 (dual band)
+BCM4306	0x14e4 / 0x431a		0x106b / 0x004e
+BCM4318	0x14e4 / 0x4320		0x106b / 0x004e
+BCM4309	0x14e4 / 0x4324		0x106b / 0x004e
+BCM4309	0x14e4 / 0x4324		0x106b / 0x0086 (dual band)
+BCM4321	0x14e4 / 0x4328		0x106b / 0x0086 (dual band)
+BCM4321	0x14e4 / 0x4329		0x106b / 0x004e
+BCM4321	0x14e4 / 0x432a		0x106b / 0x004e
+BCM4321	0x14e4 / 0x432b		0x106b / 0x004e
+BCM4321	0x14e4 / 0x432c		0x106b / 0x004e (dual band)
+BCM4321	0x14e4 / 0x432d		0x106b / 0x004e
+
+HP:
+BCM4309	0x14e4 / 0x4324		0x103c / 0x12f9 (dual band)
+BCM4309	0x14e4 / 0x4324		0x103c / 0x12fa (dual band)
+BCM4321	0x14e4 / 0x4329		0x103c / 0x1414 (dual band)
+
+Buffalo Technology:
+BCM4321	0x14e4 / 0x4329		0x1154 / 0x0353
+BCM4321	0x14e4 / 0x4329		0x1154 / 0x0354
+
+
+-- Dale
+
+
+
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080710/37bdc987/attachment.html>
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: PGP.sig
+Type: application/pgp-signature
+Size: 188 bytes
+Desc: This is a digitally signed message part
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080710/37bdc987/attachment.pgp>
+
+From martin at marquesminen.com.ar  Mon Jul 21 20:36:06 2008
+From: martin at marquesminen.com.ar (Martin Marques)
+Date: Mon, 21 Jul 2008 15:36:06 -0300
+Subject: Wireless gone on Compaq Presario
+Message-ID: <4884D716.3050509@marquesminen.com.ar>
+
+Just turned on my Compaq Presario F506la and the broadcom wireless 
+wouldn't come up, checking where the problem could be I found that the 
+wireless slot didn't appear anymore with lspci.
+
+Has anybody experienced this same problem?
+
+Wifi was working great until now.
+
+
+From Larry.Finger at lwfinger.net  Mon Jul 21 21:07:24 2008
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Mon, 21 Jul 2008 14:07:24 -0500
+Subject: Wireless gone on Compaq Presario
+In-Reply-To: <4884D716.3050509@marquesminen.com.ar>
+References: <4884D716.3050509@marquesminen.com.ar>
+Message-ID: <4884DE6C.7080204@lwfinger.net>
+
+Martin Marques wrote:
+> Just turned on my Compaq Presario F506la and the broadcom wireless 
+> wouldn't come up, checking where the problem could be I found that the 
+> wireless slot didn't appear anymore with lspci.
+> 
+> Has anybody experienced this same problem?
+> 
+> Wifi was working great until now.
+
+Some recent HP laptops had a bug in the BIOS that did not run the fan 
+aggressively enough, the motherboard overheated, and the PCI interface to the 
+wireless card failed. It happened to me with the computer under warranty. While 
+it was in for repair, HP suddenly recalled it and mine was replaced with the 
+model that was roughly the same cost. After a year, that meant 1 GB RAM => 3, 
+120 GB hard drive => 250, etc.
+
+I think it is likely that Compaq models also had the same problem. How old is 
+the unit? If not under warranty, I would bitch to Compaq - the squeaky wheel 
+might just get some grease.
+
+Larry
+
+
+From martin at marquesminen.com.ar  Mon Jul 21 21:17:09 2008
+From: martin at marquesminen.com.ar (Martin Marques)
+Date: Mon, 21 Jul 2008 16:17:09 -0300
+Subject: Wireless gone on Compaq Presario
+In-Reply-To: <4884DE6C.7080204@lwfinger.net>
+References: <4884D716.3050509@marquesminen.com.ar>
+	<4884DE6C.7080204@lwfinger.net>
+Message-ID: <4884E0B5.50803@marquesminen.com.ar>
+
+Larry Finger escribi?:
+> Martin Marques wrote:
+>> Just turned on my Compaq Presario F506la and the broadcom wireless 
+>> wouldn't come up, checking where the problem could be I found that the 
+>> wireless slot didn't appear anymore with lspci.
+>>
+>> Has anybody experienced this same problem?
+>>
+>> Wifi was working great until now.
+> 
+> Some recent HP laptops had a bug in the BIOS that did not run the fan 
+> aggressively enough, the motherboard overheated, and the PCI interface 
+> to the wireless card failed. It happened to me with the computer under 
+> warranty. While it was in for repair, HP suddenly recalled it and mine 
+> was replaced with the model that was roughly the same cost. After a 
+> year, that meant 1 GB RAM => 3, 120 GB hard drive => 250, etc.
+> 
+> I think it is likely that Compaq models also had the same problem. How 
+> old is the unit? If not under warranty, I would bitch to Compaq - the 
+> squeaky wheel might just get some grease.
+
+It has just under one year. I already contacted HP and they are going to 
+send some one from the local support to check it out.
+
+
+From richie at coderworld.net  Tue Jul 22 01:37:09 2008
+From: richie at coderworld.net (Richard Jonsson)
+Date: Tue, 22 Jul 2008 01:37:09 +0200
+Subject: FYI: Disabled by hardware, but switch is on
+Message-ID: <48851DA5.8000703@coderworld.net>
+
+(originally sent July 12 from a different mail addy, apparently the mail didn't make it then, but I got a copy back.. also I see at least one message didn't get delivered to me from berlios)
+
+---8<---[snip]-----
+
+I've been unplugged for a few days now with everything b43 related working great, then today I put away the laptop for a few minutes, and when I came back the signal appeared to be lost. Knetworkmanager indicates that no network is present by showing the unplugged icon. Also it shows no scan results.
+
+dmesg shows that I disabled radio (attached), but I didn't, and the led tells it's active. There is no reaction whatsoever when switching on and off.
+
+Also lspci shows a borked output:
+01:00.0 0280: 14e4:4312 (rev ff) (prog-if ff)
+        !!! Unknown header type 7f
+
+Kernel is a stock ubuntu 8.04:
+Linux laptop 2.6.24-19-generic #1 SMP Wed Jun 18 14:15:37 UTC 2008 x86_64 GNU/Linux
+
+The computer had gotten through about 5 suspend/resume cycles before the above happened.
+
+After a soft reboot the card behaves again. If you think I left out some information, feel free to flame me  :) 
+
+Unless this issue appears again, I will not persuade it further. But if you want me to test something I'll gladly help.
+
+regards / Richard
+
+
+From richie at coderworld.net  Tue Jul 22 01:46:44 2008
+From: richie at coderworld.net (Richard Jonsson)
+Date: Tue, 22 Jul 2008 01:46:44 +0200
+Subject: FYI: Disabled by hardware, but switch is on
+In-Reply-To: <48851DA5.8000703@coderworld.net>
+References: <48851DA5.8000703@coderworld.net>
+Message-ID: <48851FE4.8040208@coderworld.net>
+
+Richard Jonsson skrev:
+> (originally sent July 12 from a different mail addy, apparently the mail didn't make it then, but I got a copy back.. also I see at least one message didn't get delivered to me from berlios)
+> 
+
+Just to clarify I just realized that I didn't get a copy back from 
+berlios at all, but a bcc from my other account, sorry about the noise / 
+Richard
+
+
+From artem.v.antonov at gmail.com  Tue Jul 22 18:34:23 2008
+From: artem.v.antonov at gmail.com (Artem Antonov)
+Date: Tue, 22 Jul 2008 20:34:23 +0400
+Subject: BCM4318 + PHY transmission error
+Message-ID: <6bc534830807220934k4737e0bcuf0ee02f343f666dc@mail.gmail.com>
+
+Hi!
+
+I have a problem with bcm4318 (ASUS WL-500gP router).
+I'm using latest b43 driver from wireless-testing git + hostapd from git.
+They seems to work well, but there are lots of errors in "dmesg":
+
+b43-phy0 ERROR: PHY transmission error
+b43-phy0 ERROR: PHY transmission error
+.....
+
+I've noticed, that it happens, when I move my PDA (I've tested it with
+ASUS 696) to the neighbour room. There is no errors when PDA is near
+router (< 2m).
+
+Best regards.
+
+
+From netrolller.3d at gmail.com  Tue Jul 22 18:50:42 2008
+From: netrolller.3d at gmail.com (=?ISO-8859-1?Q?Stefanik_G=E1bor?=)
+Date: Tue, 22 Jul 2008 18:50:42 +0200
+Subject: BCM4318 + PHY transmission error
+In-Reply-To: <6bc534830807220934k4737e0bcuf0ee02f343f666dc@mail.gmail.com>
+References: <6bc534830807220934k4737e0bcuf0ee02f343f666dc@mail.gmail.com>
+Message-ID: <69e28c910807220950t3402587jb75fc03f1267c94d@mail.gmail.com>
+
+On Tue, Jul 22, 2008 at 6:34 PM, Artem Antonov
+<artem.v.antonov at gmail.com> wrote:
+> Hi!
+>
+> I have a problem with bcm4318 (ASUS WL-500gP router).
+> I'm using latest b43 driver from wireless-testing git + hostapd from git.
+> They seems to work well, but there are lots of errors in "dmesg":
+>
+> b43-phy0 ERROR: PHY transmission error
+> b43-phy0 ERROR: PHY transmission error
+> .....
+>
+> I've noticed, that it happens, when I move my PDA (I've tested it with
+> ASUS 696) to the neighbour room. There is no errors when PDA is near
+> router (< 2m).
+>
+> Best regards.
+> _______________________________________________
+> Bcm43xx-dev mailing list
+> Bcm43xx-dev at lists.berlios.de
+> https://lists.berlios.de/mailman/listinfo/bcm43xx-dev
+>
+
+I am seeing these too, but it's kinda hard to figure out what's wrong,
+as the firmware only returns that "Something in the PHY has failed",
+but nothing more.
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+
+From mb at bu3sch.de  Tue Jul 22 23:03:20 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Tue, 22 Jul 2008 23:03:20 +0200
+Subject: BCM4318 + PHY transmission error
+In-Reply-To: <69e28c910807220950t3402587jb75fc03f1267c94d@mail.gmail.com>
+References: <6bc534830807220934k4737e0bcuf0ee02f343f666dc@mail.gmail.com>
+	<69e28c910807220950t3402587jb75fc03f1267c94d@mail.gmail.com>
+Message-ID: <200807222303.21196.mb@bu3sch.de>
+
+On Tuesday 22 July 2008 18:50:42 Stefanik G?bor wrote:
+> > b43-phy0 ERROR: PHY transmission error
+> > b43-phy0 ERROR: PHY transmission error
+> > .....
+> >
+> > I've noticed, that it happens, when I move my PDA (I've tested it with
+> > ASUS 696) to the neighbour room. There is no errors when PDA is near
+> > router (< 2m).
+
+> I am seeing these too, but it's kinda hard to figure out what's wrong,
+> as the firmware only returns that "Something in the PHY has failed",
+> but nothing more.
+> 
+
+I'm currently trying to patch the firmware to reveal more information.
+But it turns out to be hard, as there are strict timing requirements in
+that codepath.
+
+But most of the time these PHY errors are harmless and you can ignore
+them unless your device doesn't work.
+
+
+-- 
+Greetings Michael.
+
+
+From mb at bu3sch.de  Thu Jul 24 13:30:15 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 24 Jul 2008 13:30:15 +0200
+Subject: b43: Debugging PHY TX errors
+Message-ID: <200807241330.15439.mb@bu3sch.de>
+
+I hacked up some scripts for debugging of the PHY transmission
+errors. It consists of two parts. One patch that has to be applied
+to the kernel driver (latest wireless-testing!) and one firmware
+binary patcher script (for latest supported firmware only!)
+
+Both are included in the attached tarball. Extract the tarball.
+
+So you first have to apply the included "b43-kernel-patch.patch" to
+the kernel driver and recompile your kernel.
+Then you have to patch your firmware by doing:
+
+cd phyerr-patcher-001
+bash ./patch-phyerr-logger.sh /lib/firmware/b43/ucode5.fw
+
+You might have to adjust the path to your firmware.
+On successful patching, the script will exit with a nice smilie: :)
+
+
+So when running the modified driver with the patched firmware, it should
+dump the shared memory every time a PHY error occurs.
+More state dumps can be added to the kernel driver. The firmware is halted
+while the phyerr logger function is running, so state should be consistent.
+
+WARNING: This patch might kill your cat, or at least disturb your wireless
+connectivity. Only use it for debugging the PHY transmission errors.
+
+Note that these scripts require a complete compiler toolchain, including
+flex and bison, on your machine, as it will compile the assembler and
+disassembler tools.
+
+-- 
+Greetings Michael.
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: phyerr-patcher-001.tar.bz2
+Type: application/x-tbz
+Size: 58586 bytes
+Desc: not available
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080724/a31d630a/attachment.bin>
+
+From netrolller.3d at gmail.com  Thu Jul 24 17:06:39 2008
+From: netrolller.3d at gmail.com (=?ISO-8859-1?Q?Stefanik_G=E1bor?=)
+Date: Thu, 24 Jul 2008 17:06:39 +0200
+Subject: b43: Debugging PHY TX errors
+In-Reply-To: <200807241330.15439.mb@bu3sch.de>
+References: <200807241330.15439.mb@bu3sch.de>
+Message-ID: <69e28c910807240806t24a1c2f9l8814a2d98aac34d@mail.gmail.com>
+
+On Thu, Jul 24, 2008 at 1:30 PM, Michael Buesch <mb at bu3sch.de> wrote:
+> I hacked up some scripts for debugging of the PHY transmission
+> errors. It consists of two parts. One patch that has to be applied
+> to the kernel driver (latest wireless-testing!) and one firmware
+> binary patcher script (for latest supported firmware only!)
+>
+> Both are included in the attached tarball. Extract the tarball.
+>
+> So you first have to apply the included "b43-kernel-patch.patch" to
+> the kernel driver and recompile your kernel.
+> Then you have to patch your firmware by doing:
+>
+> cd phyerr-patcher-001
+> bash ./patch-phyerr-logger.sh /lib/firmware/b43/ucode5.fw
+>
+> You might have to adjust the path to your firmware.
+> On successful patching, the script will exit with a nice smilie: :)
+>
+>
+> So when running the modified driver with the patched firmware, it should
+> dump the shared memory every time a PHY error occurs.
+> More state dumps can be added to the kernel driver. The firmware is halted
+> while the phyerr logger function is running, so state should be consistent.
+>
+> WARNING: This patch might kill your cat, or at least disturb your wireless
+> connectivity. Only use it for debugging the PHY transmission errors.
+>
+> Note that these scripts require a complete compiler toolchain, including
+> flex and bison, on your machine, as it will compile the assembler and
+> disassembler tools.
+>
+> --
+> Greetings Michael.
+
+Please add this functionality to the open-source firmware too.
+
+--G?bor
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+
+From artem.v.antonov at gmail.com  Thu Jul 24 19:37:14 2008
+From: artem.v.antonov at gmail.com (Artem Antonov)
+Date: Thu, 24 Jul 2008 21:37:14 +0400
+Subject: b43: Debugging PHY TX errors
+In-Reply-To: <200807241330.15439.mb@bu3sch.de>
+References: <200807241330.15439.mb@bu3sch.de>
+Message-ID: <6bc534830807241037i56d69345vc2953b4244f88862@mail.gmail.com>
+
+Here is attachment with my log, if it can help debugging :)
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: b43.log
+Type: application/octet-stream
+Size: 22139 bytes
+Desc: not available
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080724/5a535214/attachment.obj>
+
+From mb at bu3sch.de  Thu Jul 24 23:13:19 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 24 Jul 2008 23:13:19 +0200
+Subject: b43: Debugging PHY TX errors
+In-Reply-To: <69e28c910807240806t24a1c2f9l8814a2d98aac34d@mail.gmail.com>
+References: <200807241330.15439.mb@bu3sch.de>
+	<69e28c910807240806t24a1c2f9l8814a2d98aac34d@mail.gmail.com>
+Message-ID: <200807242313.19808.mb@bu3sch.de>
+
+On Thursday 24 July 2008 17:06:39 Stefanik G?bor wrote:
+> Please add this functionality to the open-source firmware too.
+
+No this is very intrusive.
+The hacked firmware restarts itself on a PHY error. We don't want this in
+a production environment, because as I said it will disturb your
+connectivity (a PHY error every few minutes with vanilla firmware will not).
+
+I also forgot to say that the patcher currently only works for ucode5.fw.
+So if your device uses another firmware and you really want to debug
+a PHY error, I can port the patcher to your version. Just poke me.
+
+-- 
+Greetings Michael.
+
+
+From mb at bu3sch.de  Thu Jul 24 23:15:54 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 24 Jul 2008 23:15:54 +0200
+Subject: b43: Debugging PHY TX errors
+In-Reply-To: <6bc534830807241037i56d69345vc2953b4244f88862@mail.gmail.com>
+References: <200807241330.15439.mb@bu3sch.de>
+	<6bc534830807241037i56d69345vc2953b4244f88862@mail.gmail.com>
+Message-ID: <200807242315.54806.mb@bu3sch.de>
+
+On Thursday 24 July 2008 19:37:14 Artem Antonov wrote:
+> Here is attachment with my log, if it can help debugging :)
+
+Hm, some chars in the file seem to be corrupted.
+Anyway, thanks for this.
+
+-- 
+Greetings Michael.
+
+
+From mb at bu3sch.de  Thu Jul 24 23:58:32 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 24 Jul 2008 23:58:32 +0200
+Subject: b43: Debugging PHY TX errors
+In-Reply-To: <6bc534830807241037i56d69345vc2953b4244f88862@mail.gmail.com>
+References: <200807241330.15439.mb@bu3sch.de>
+	<6bc534830807241037i56d69345vc2953b4244f88862@mail.gmail.com>
+Message-ID: <200807242358.32623.mb@bu3sch.de>
+
+On Thursday 24 July 2008, Artem Antonov wrote:
+> Here is attachment with my log, if it can help debugging :)
+
+
+Ok, can you produce more of these errors?
+What I'm most interested in is this SHM offset:
+
+SHM-000008f0: 00 00 00 00 19 00 53 00 08 42 00 00 c1 00 00 00  ......S..B......
+                                      ^^^^^
+It tells me that the last frame that was transmitted was a protected
+data frame from-DS.
+That frame _might_ have caused the TX error. But it doesn't mean it has
+caused it. The error might also be caused by a frame that was sent
+by the firmware. I'm currently not sure how to tell which one was the
+bad guy.
+
+
+-- 
+Greetings Michael.
+
+
+From thipvieira at gmail.com  Fri Jul 25 03:33:49 2008
+From: thipvieira at gmail.com (Thiago Peixoto Vieira)
+Date: Thu, 24 Jul 2008 22:33:49 -0300
+Subject: bcm 4310
+Message-ID: <c226d6120807241833x108fcf70ted645f5b2e5ca3b1@mail.gmail.com>
+
+Hi friends
+
+I`d like to know what are the problems because bcm 4310 still not supported.
+
+I don`t know if it can help something but, anyway i will give a brief
+description of my system.
+
+I`m using Ubuntu 8.04 64bits under a Laptop HP Pavilion DV2810us with an AMD
+64bits
+below follows my wireless card informations
+
+# lspci -vv
+04:00.0 Network controller: Broadcom Corporation BCM4310 USB Controller (rev
+01)
+    Subsystem: Hewlett-Packard Company Unknown device 137c
+    Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B-
+    Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort-
+<MAbort- >SERR- <PERR-
+    Latency: 0, Cache Line Size: 64 bytes
+    Interrupt: pin A routed to IRQ 10
+    Region 0: Memory at fc000000 (64-bit, non-prefetchable) [size=16K]
+    Capabilities: <access denied>
+
+
+# lspci -vn
+04:00.0 0280: 14e4:4315 (rev 01)
+    Subsystem: 103c:137c
+    Flags: bus master, fast devsel, latency 0, IRQ 10
+    Memory at fc000000 (64-bit, non-prefetchable) [size=16K]
+    Capabilities: <access denied>
+
+
+# lspci -n | grep 04:00.0
+04:00.0 0280: 14e4:4315 (rev 01)
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080724/92ad7874/attachment.html>
+
+From ajonat at gmail.com  Fri Jul 25 04:10:04 2008
+From: ajonat at gmail.com (Alex Weil)
+Date: Thu, 24 Jul 2008 23:10:04 -0300
+Subject: bcm 4310
+In-Reply-To: <c226d6120807241833x108fcf70ted645f5b2e5ca3b1@mail.gmail.com>
+References: <c226d6120807241833x108fcf70ted645f5b2e5ca3b1@mail.gmail.com>
+Message-ID: <20080725021004.GB14156@daphne>
+
+On Thu, Jul 24, 2008 at 10:33:49PM -0300, Thiago Peixoto Vieira wrote:
+> Hi friends
+>
+
+Hi!
+
+> I`d like to know what are the problems because bcm 4310 still not supported.
+> 
+
+Please read this:
+http://www.mail-archive.com/bcm43xx-dev at lists.berlios.de/msg07017.html
+Maybe this should be in http://linuxwireless.org/en/users/Drivers/b43?
+
+> I don`t know if it can help something but, anyway i will give a brief
+> description of my system.
+> 
+> I`m using Ubuntu 8.04 64bits under a Laptop HP Pavilion DV2810us with an AMD
+> 64bits
+> below follows my wireless card informations
+> 
+> # lspci -vv
+> 04:00.0 Network controller: Broadcom Corporation BCM4310 USB Controller (rev
+> 01)
+>     Subsystem: Hewlett-Packard Company Unknown device 137c
+>     Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR+ FastB2B-
+>     Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort-
+> <MAbort- >SERR- <PERR-
+>     Latency: 0, Cache Line Size: 64 bytes
+>     Interrupt: pin A routed to IRQ 10
+>     Region 0: Memory at fc000000 (64-bit, non-prefetchable) [size=16K]
+>     Capabilities: <access denied>
+> 
+> 
+> # lspci -vn
+> 04:00.0 0280: 14e4:4315 (rev 01)
+>     Subsystem: 103c:137c
+>     Flags: bus master, fast devsel, latency 0, IRQ 10
+>     Memory at fc000000 (64-bit, non-prefetchable) [size=16K]
+>     Capabilities: <access denied>
+> 
+> 
+> # lspci -n | grep 04:00.0
+> 04:00.0 0280: 14e4:4315 (rev 01)
+
+Regards,
+Alex.
+
+
+
+From artem.v.antonov at gmail.com  Fri Jul 25 18:04:57 2008
+From: artem.v.antonov at gmail.com (Artem Antonov)
+Date: Fri, 25 Jul 2008 20:04:57 +0400
+Subject: b43: Debugging PHY TX errors
+In-Reply-To: <200807242358.32623.mb@bu3sch.de>
+References: <200807241330.15439.mb@bu3sch.de>
+	<6bc534830807241037i56d69345vc2953b4244f88862@mail.gmail.com>
+	<200807242358.32623.mb@bu3sch.de>
+Message-ID: <6bc534830807250904g60f2f22by968f0cd6a18610b6@mail.gmail.com>
+
+2008/7/25, Michael Buesch <mb at bu3sch.de>:
+> On Thursday 24 July 2008, Artem Antonov wrote:
+>  > Here is attachment with my log, if it can help debugging :)
+>
+>
+>
+> Ok, can you produce more of these errors?
+
+ok, here are some more dumps.
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: dump1.log
+Type: application/octet-stream
+Size: 20737 bytes
+Desc: not available
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080725/1183cb6c/attachment.obj>
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: dump2.log
+Type: application/octet-stream
+Size: 20734 bytes
+Desc: not available
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080725/1183cb6c/attachment-0001.obj>
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: dump3.log
+Type: application/octet-stream
+Size: 20735 bytes
+Desc: not available
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080725/1183cb6c/attachment-0002.obj>
+
+From mb at bu3sch.de  Sat Jul 26 17:26:52 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Sat, 26 Jul 2008 17:26:52 +0200
+Subject: [PATCH RFC/RFT] b43: Rewrite TX power adjustment
+Message-ID: <200807261726.53279.mb@bu3sch.de>
+
+This is an experimental attempt for fixing the currently-not-so-good
+TX power adjustment.
+
+This patch rewrites the algorithms to scale better. If there's no
+TX traffic, the power will be checked against the desired values
+every 15 seconds (can probably be lowered to 30 or 60 seconds now).
+If there is TX traffic, the check is redone every 2 seconds. This improves
+the reaction times a lot and confuses the rate control less.
+
+If you want to test this, please apply to latest wireless-testing.git
+and compile b43 with debugging support.
+After loading the driver, mount debugfs and do
+	echo 1 >/debug/b43/phy*/debug_xmitpower
+to enable TX power calculation debugging. This will print a lot of useful messages
+in the kernel log.
+
+This patch is only tested on a 4306 card.
+Have fun.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h	2008-07-24 12:10:45.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/b43.h	2008-07-26 01:04:26.000000000 +0200
+@@ -170,12 +170,17 @@ enum {
+ #define B43_SHM_SH_RADAR		0x0066	/* Radar register */
+ #define B43_SHM_SH_PHYTXNOI		0x006E	/* PHY noise directly after TX (lower 8bit only) */
+ #define B43_SHM_SH_RFRXSP1		0x0072	/* RF RX SP Register 1 */
+ #define B43_SHM_SH_CHAN			0x00A0	/* Current channel (low 8bit only) */
+ #define  B43_SHM_SH_CHAN_5GHZ		0x0100	/* Bit set, if 5Ghz channel */
+ #define B43_SHM_SH_BCMCFIFOID		0x0108	/* Last posted cookie to the bcast/mcast FIFO */
++/* TSSI information */
++#define B43_SHM_SH_TSSI_CCK		0x0058	/* TSSI for last 4 CCK frames (32bit) */
++#define B43_SHM_SH_TSSI_OFDM_A		0x0068	/* TSSI for last 4 OFDM frames (32bit) */
++#define B43_SHM_SH_TSSI_OFDM_G		0x0070	/* TSSI for last 4 OFDM frames (32bit) */
++#define  B43_TSSI_MAX			0x7F	/* Max value for one TSSI value */
+ /* SHM_SHARED TX FIFO variables */
+ #define B43_SHM_SH_SIZE01		0x0098	/* TX FIFO size for FIFO 0 (low) and 1 (high) */
+ #define B43_SHM_SH_SIZE23		0x009A	/* TX FIFO size for FIFO 2 and 3 */
+ #define B43_SHM_SH_SIZE45		0x009C	/* TX FIFO size for FIFO 4 and 5 */
+ #define B43_SHM_SH_SIZE67		0x009E	/* TX FIFO size for FIFO 6 and 7 */
+ /* SHM_SHARED background noise */
+@@ -505,12 +510,51 @@ struct b43_iv {
+ 		__be16 d16;
+ 		__be32 d32;
+ 	} data __attribute__((__packed__));
+ } __attribute__((__packed__));
+ 
+ 
++/* Transmission Power values.
++ * (Almost) everything related to and required for TX-power adjustment
++ * is stored in this structure. */
++struct b43_txpower_context {
++	/* Pointer to the table used to convert a
++	 * TSSI value to dBm-Q5.2 */
++	const s8 *tssi2dbm;
++	/* tssi2dbm is kmalloc()ed. Only used for free()ing. */
++	bool dyn_tssi_tbl;
++	/* Target idle TSSI */
++	int tgt_idle_tssi;
++	/* Current idle TSSI */
++	int cur_idle_tssi;
++	/* The current average TSSI.
++	 * Needs irq_lock, as it's updated in the IRQ path. */
++	u8 average_tssi;
++	/* jiffies when the next TSSI read (from SHM) is required.
++	 * Needs irq_lock, as it's updated in the IRQ path. */
++	unsigned long next_tssi_average;
++	/* User-desired TX power level (in dBm). */
++	u8 desired_power;
++
++	/* A-PHY TX Power control value. */
++	u16 txpwr_offset;
++
++	/* Current TX power level attenuation control values */
++	struct b43_bbatt bbatt;
++	struct b43_rfatt rfatt;
++	u8 tx_control;		/* B43_TXCTL_XXX */
++
++	/* The calculated attenuation deltas that are used later
++	 * when adjusting the actual power output. */
++	int bbatt_delta;
++	int rfatt_delta;
++
++	/* Hardware Power Control enabled? */
++	bool hardware_power_control;
++};
++
+ struct b43_phy {
+ 	/* Band support flags. */
+ 	bool supports_2ghz;
+ 	bool supports_5ghz;
+ 
+ 	/* GMODE bit enabled? */
+@@ -525,14 +569,12 @@ struct b43_phy {
+ 
+ 	/* Radio versioning */
+ 	u16 radio_manuf;	/* Radio manufacturer */
+ 	u16 radio_ver;		/* Radio version */
+ 	u8 radio_rev;		/* Radio revision */
+ 
+-	bool dyn_tssi_tbl;	/* tssi2dbm is kmalloc()ed. */
+-
+ 	/* ACI (adjacent channel interference) flags. */
+ 	bool aci_enable;
+ 	bool aci_wlan_automatic;
+ 	bool aci_hw_rssi;
+ 
+ 	/* Radio switched on/off */
+@@ -545,41 +587,23 @@ struct b43_phy {
+ 		u16 rfoverval;
+ 	} radio_off_context;
+ 
+ 	u16 minlowsig[2];
+ 	u16 minlowsigpos[2];
+ 
+-	/* TSSI to dBm table in use */
+-	const s8 *tssi2dbm;
+-	/* Target idle TSSI */
+-	int tgt_idle_tssi;
+-	/* Current idle TSSI */
+-	int cur_idle_tssi;
+-
+ 	/* LocalOscillator control values. */
+ 	struct b43_txpower_lo_control *lo_control;
+ 	/* Values from b43_calc_loopback_gain() */
+ 	s16 max_lb_gain;	/* Maximum Loopback gain in hdB */
+ 	s16 trsw_rx_gain;	/* TRSW RX gain in hdB */
+ 	s16 lna_lod_gain;	/* LNA lod */
+ 	s16 lna_gain;		/* LNA */
+ 	s16 pga_gain;		/* PGA */
+ 
+-	/* Desired TX power level (in dBm).
+-	 * This is set by the user and adjusted in b43_phy_xmitpower(). */
+-	u8 power_level;
+-	/* A-PHY TX Power control value. */
+-	u16 txpwr_offset;
+-
+-	/* Current TX power level attenuation control values */
+-	struct b43_bbatt bbatt;
+-	struct b43_rfatt rfatt;
+-	u8 tx_control;		/* B43_TXCTL_XXX */
+-
+-	/* Hardware Power Control enabled? */
+-	bool hardware_power_control;
++	/* (Almost) everything related to TX power is stored here. */
++	struct b43_txpower_context txpwr;
+ 
+ 	/* Current Interference Mitigation mode */
+ 	int interfmode;
+ 	/* Stack of saved values from the Interference Mitigation code.
+ 	 * Each value in the stack is layed out as follows:
+ 	 * bit 0-11:  offset
+@@ -761,12 +785,17 @@ struct b43_wl {
+ 
+ 	/* The current QOS parameters for the 4 queues.
+ 	 * This is protected by the irq_lock. */
+ 	struct b43_qos_params qos_params[4];
+ 	/* Workqueue for updating QOS parameters in hardware. */
+ 	struct work_struct qos_update_work;
++
++	/* Work for adjustment of the transmission power.
++	 * This is scheduled when we determine that the actual TX output
++	 * power doesn't match what we want. */
++	struct work_struct txpower_adjust_work;
+ };
+ 
+ /* In-memory representation of a cached microcode file. */
+ struct b43_firmware_file {
+ 	const char *filename;
+ 	const struct firmware *data;
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-07-26 01:03:26.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-07-26 17:06:17.000000000 +0200
+@@ -2866,13 +2866,15 @@ static void b43_periodic_every15sec(stru
+ 			b43_mac_enable(dev);
+ 		} else if (phy->interfmode == B43_INTERFMODE_NONWLAN &&
+ 			   phy->rev == 1) {
+ 			//TODO: implement rev1 workaround
+ 		}
+ 	}
+-	b43_phy_xmitpower(dev);	//FIXME: unless scanning?
++	spin_lock_irq(&dev->wl->irq_lock);
++	b43_phy_txpower_check(dev, B43_TXPWR_IGNORE_TIME);
++	spin_unlock_irq(&dev->wl->irq_lock);
+ 	b43_lo_g_maintanance_work(dev);
+ 	//TODO for APHY (temperature?)
+ 
+ 	atomic_set(&phy->txerr_cnt, B43_PHY_TX_BADNESS_LIMIT);
+ 	wmb();
+ }
+@@ -3448,16 +3450,19 @@ static int b43_op_config(struct ieee8021
+ 	}
+ 
+ 	dev->wl->radiotap_enabled = !!(conf->flags & IEEE80211_CONF_RADIOTAP);
+ 
+ 	/* Adjust the desired TX power level. */
+ 	if (conf->power_level != 0) {
+-		if (conf->power_level != phy->power_level) {
+-			phy->power_level = conf->power_level;
+-			b43_phy_xmitpower(dev);
++		spin_lock_irqsave(&wl->irq_lock, flags);
++		if (conf->power_level != phy->txpwr.desired_power) {
++			phy->txpwr.desired_power = conf->power_level;
++			b43_phy_txpower_check(dev, B43_TXPWR_IGNORE_TIME |
++						   B43_TXPWR_IGNORE_TSSI);
+ 		}
++		spin_unlock_irqrestore(&wl->irq_lock, flags);
+ 	}
+ 
+ 	/* Antennas for RX and management frame TX. */
+ 	antenna = b43_antenna_from_ieee80211(dev, conf->antenna_sel_tx);
+ 	b43_mgmtframe_txantenna(dev, antenna);
+ 	antenna = b43_antenna_from_ieee80211(dev, conf->antenna_sel_rx);
+@@ -3861,21 +3866,24 @@ static void setup_struct_phy_for_init(st
+ 	phy->aci_enable = 0;
+ 	phy->aci_wlan_automatic = 0;
+ 	phy->aci_hw_rssi = 0;
+ 
+ 	phy->radio_off_context.valid = 0;
+ 
++	memset(&phy->txpwr, 0, sizeof(phy->txpwr));
++	phy->txpwr.next_tssi_average = jiffies;
++	phy->txpwr.hardware_power_control = !!modparam_hwpctl;
++
+ 	lo = phy->lo_control;
+ 	if (lo) {
+ 		memset(lo, 0, sizeof(*(phy->lo_control)));
+ 		lo->tx_bias = 0xFF;
+ 		INIT_LIST_HEAD(&lo->calib_list);
+ 	}
+ 	phy->max_lb_gain = 0;
+ 	phy->trsw_rx_gain = 0;
+-	phy->txpwr_offset = 0;
+ 
+ 	/* NRSSI */
+ 	phy->nrssislope = 0;
+ 	for (i = 0; i < ARRAY_SIZE(phy->nrssi); i++)
+ 		phy->nrssi[i] = -1000;
+ 	for (i = 0; i < ARRAY_SIZE(phy->nrssi_lt); i++)
+@@ -3884,14 +3892,12 @@ static void setup_struct_phy_for_init(st
+ 	phy->lofcal = 0xFFFF;
+ 	phy->initval = 0xFFFF;
+ 
+ 	phy->interfmode = B43_INTERFMODE_NONE;
+ 	phy->channel = 0xFF;
+ 
+-	phy->hardware_power_control = !!modparam_hwpctl;
+-
+ 	/* PHY TX errors counter. */
+ 	atomic_set(&phy->txerr_cnt, B43_PHY_TX_BADNESS_LIMIT);
+ 
+ 	/* OFDM-table address caching. */
+ 	phy->ofdmtab_addr_direction = B43_OFDMTAB_DIRECTION_UNKNOWN;
+ }
+@@ -4049,14 +4055,14 @@ static void b43_wireless_core_exit(struc
+ 	}
+ 	b43_dma_free(dev);
+ 	b43_pio_free(dev);
+ 	b43_chip_exit(dev);
+ 	b43_radio_turn_off(dev, 1);
+ 	b43_switch_analog(dev, 0);
+-	if (phy->dyn_tssi_tbl)
+-		kfree(phy->tssi2dbm);
++	if (phy->txpwr.dyn_tssi_tbl)
++		kfree(phy->txpwr.tssi2dbm);
+ 	kfree(phy->lo_control);
+ 	phy->lo_control = NULL;
+ 	if (dev->wl->current_beacon) {
+ 		dev_kfree_skb_any(dev->wl->current_beacon);
+ 		dev->wl->current_beacon = NULL;
+ 	}
+@@ -4174,14 +4180,14 @@ static int b43_wireless_core_init(struct
+ out:
+ 	return err;
+ 
+       err_chip_exit:
+ 	b43_chip_exit(dev);
+       err_kfree_tssitbl:
+-	if (phy->dyn_tssi_tbl)
+-		kfree(phy->tssi2dbm);
++	if (phy->txpwr.dyn_tssi_tbl)
++		kfree(phy->txpwr.tssi2dbm);
+       err_kfree_lo_control:
+ 	kfree(phy->lo_control);
+ 	phy->lo_control = NULL;
+       err_busdown:
+ 	ssb_bus_may_powerdown(bus);
+ 	B43_WARN_ON(b43_status(dev) != B43_STAT_UNINIT);
+@@ -4322,12 +4328,14 @@ static void b43_op_stop(struct ieee80211
+ 
+ 	mutex_lock(&wl->mutex);
+ 	if (b43_status(dev) >= B43_STAT_STARTED)
+ 		b43_wireless_core_stop(dev);
+ 	b43_wireless_core_exit(dev);
+ 	mutex_unlock(&wl->mutex);
++
++	cancel_work_sync(&(wl->txpower_adjust_work));
+ }
+ 
+ static int b43_op_set_retry_limit(struct ieee80211_hw *hw,
+ 				  u32 short_retry_limit, u32 long_retry_limit)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+@@ -4699,12 +4707,13 @@ static int b43_wireless_init(struct ssb_
+ 	spin_lock_init(&wl->leds_lock);
+ 	spin_lock_init(&wl->shm_lock);
+ 	mutex_init(&wl->mutex);
+ 	INIT_LIST_HEAD(&wl->devlist);
+ 	INIT_WORK(&wl->qos_update_work, b43_qos_update_work);
+ 	INIT_WORK(&wl->beacon_update_trigger, b43_beacon_update_trigger_work);
++	INIT_WORK(&wl->txpower_adjust_work, b43_phy_txpower_adjust_work);
+ 
+ 	ssb_set_devtypedata(dev, wl);
+ 	b43info(wl, "Broadcom %04X WLAN found\n", dev->bus->chip_id);
+ 	err = 0;
+       out:
+ 	return err;
+Index: wireless-testing/drivers/net/wireless/b43/phy.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy.c	2008-06-12 11:42:15.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy.c	2008-07-26 17:10:47.000000000 +0200
+@@ -173,13 +173,13 @@ static void generate_bbatt_list(struct b
+ 	list->min_val = 0;
+ 	list->max_val = 8;
+ }
+ 
+ bool b43_has_hardware_pctl(struct b43_phy *phy)
+ {
+-	if (!phy->hardware_power_control)
++	if (!phy->txpwr.hardware_power_control)
+ 		return 0;
+ 	switch (phy->type) {
+ 	case B43_PHYTYPE_A:
+ 		if (phy->rev >= 5)
+ 			return 1;
+ 		break;
+@@ -325,16 +325,16 @@ void b43_set_txpower_g(struct b43_wldev 
+ 	tx_bias = lo->tx_bias;
+ 	tx_magn = lo->tx_magn;
+ 	if (unlikely(tx_bias == 0xFF))
+ 		tx_bias = 0;
+ 
+ 	/* Save the values for later */
+-	phy->tx_control = tx_control;
+-	memcpy(&phy->rfatt, rfatt, sizeof(*rfatt));
+-	phy->rfatt.with_padmix = !!(tx_control & B43_TXCTL_TXMIX);
+-	memcpy(&phy->bbatt, bbatt, sizeof(*bbatt));
++	phy->txpwr.tx_control = tx_control;
++	memcpy(&phy->txpwr.rfatt, rfatt, sizeof(*rfatt));
++	phy->txpwr.rfatt.with_padmix = !!(tx_control & B43_TXCTL_TXMIX);
++	memcpy(&phy->txpwr.bbatt, bbatt, sizeof(*bbatt));
+ 
+ 	if (b43_debug(dev, B43_DBG_XMITPOWER)) {
+ 		b43dbg(dev->wl, "Tuning TX-power to bbatt(%u), "
+ 		       "rfatt(%u), tx_control(0x%02X), "
+ 		       "tx_bias(0x%02X), tx_magn(0x%02X)\n",
+ 		       bb, rf, tx_control, tx_bias, tx_magn);
+@@ -492,15 +492,15 @@ static u16 default_tx_control(struct b43
+ /* This func is called "PHY calibrate" in the specs... */
+ void b43_phy_early_init(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &dev->phy;
+ 	struct b43_txpower_lo_control *lo = phy->lo_control;
+ 
+-	default_baseband_attenuation(dev, &phy->bbatt);
+-	default_radio_attenuation(dev, &phy->rfatt);
+-	phy->tx_control = (default_tx_control(dev) << 4);
++	default_baseband_attenuation(dev, &phy->txpwr.bbatt);
++	default_radio_attenuation(dev, &phy->txpwr.rfatt);
++	phy->txpwr.tx_control = (default_tx_control(dev) << 4);
+ 
+ 	/* Commit previous writes */
+ 	b43_read32(dev, B43_MMIO_MACCTL);
+ 
+ 	if (phy->type == B43_PHYTYPE_B || phy->type == B43_PHYTYPE_G) {
+ 		generate_rfatt_list(dev, &lo->rfatt_list);
+@@ -521,19 +521,23 @@ void b43_phy_early_init(struct b43_wldev
+ static void b43_gphy_tssi_power_lt_init(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &dev->phy;
+ 	int i;
+ 	u16 value;
+ 
+-	for (i = 0; i < 32; i++)
+-		b43_ofdmtab_write16(dev, 0x3C20, i, phy->tssi2dbm[i]);
+-	for (i = 32; i < 64; i++)
+-		b43_ofdmtab_write16(dev, 0x3C00, i - 32, phy->tssi2dbm[i]);
++	for (i = 0; i < 32; i++) {
++		b43_ofdmtab_write16(dev, 0x3C20, i,
++				    phy->txpwr.tssi2dbm[i]);
++	}
++	for (i = 32; i < 64; i++) {
++		b43_ofdmtab_write16(dev, 0x3C00, i - 32,
++				    phy->txpwr.tssi2dbm[i]);
++	}
+ 	for (i = 0; i < 64; i += 2) {
+-		value = (u16) phy->tssi2dbm[i];
+-		value |= ((u16) phy->tssi2dbm[i + 1]) << 8;
++		value = (u16) phy->txpwr.tssi2dbm[i];
++		value |= ((u16) phy->txpwr.tssi2dbm[i + 1]) << 8;
+ 		b43_phy_write(dev, 0x380 + (i / 2), value);
+ 	}
+ }
+ 
+ /* GPHY_Gain_Lookup_Table_Init */
+ static void b43_gphy_gain_lt_init(struct b43_wldev *dev)
+@@ -568,15 +572,15 @@ static void hardware_pctl_init_aphy(stru
+ 
+ static void hardware_pctl_init_gphy(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &dev->phy;
+ 
+ 	b43_phy_write(dev, 0x0036, (b43_phy_read(dev, 0x0036) & 0xFFC0)
+-		      | (phy->tgt_idle_tssi - phy->cur_idle_tssi));
++		      | (phy->txpwr.tgt_idle_tssi - phy->txpwr.cur_idle_tssi));
+ 	b43_phy_write(dev, 0x0478, (b43_phy_read(dev, 0x0478) & 0xFF00)
+-		      | (phy->tgt_idle_tssi - phy->cur_idle_tssi));
++		      | (phy->txpwr.tgt_idle_tssi - phy->txpwr.cur_idle_tssi));
+ 	b43_gphy_tssi_power_lt_init(dev);
+ 	b43_gphy_gain_lt_init(dev);
+ 	b43_phy_write(dev, 0x0060, b43_phy_read(dev, 0x0060) & 0xFFBF);
+ 	b43_phy_write(dev, 0x0014, 0x0000);
+ 
+ 	B43_WARN_ON(phy->rev < 6);
+@@ -676,47 +680,44 @@ static void b43_phy_init_pctl(struct b43
+ 	b43_write16(dev, B43_MMIO_PHY0, b43_read16(dev, B43_MMIO_PHY0)
+ 		    & 0xFFDF);
+ 
+ 	if (phy->type == B43_PHYTYPE_G && !phy->gmode)
+ 		return;
+ 	b43_hardware_pctl_early_init(dev);
+-	if (phy->cur_idle_tssi == 0) {
++	if (phy->txpwr.cur_idle_tssi == 0) {
+ 		if (phy->radio_ver == 0x2050 && phy->analog == 0) {
+ 			b43_radio_write16(dev, 0x0076,
+ 					  (b43_radio_read16(dev, 0x0076)
+ 					   & 0x00F7) | 0x0084);
+ 		} else {
+ 			struct b43_rfatt rfatt;
+ 			struct b43_bbatt bbatt;
+ 
+-			memcpy(&old_rfatt, &phy->rfatt, sizeof(old_rfatt));
+-			memcpy(&old_bbatt, &phy->bbatt, sizeof(old_bbatt));
+-			old_tx_control = phy->tx_control;
++			memcpy(&old_rfatt, &phy->txpwr.rfatt, sizeof(old_rfatt));
++			memcpy(&old_bbatt, &phy->txpwr.bbatt, sizeof(old_bbatt));
++			old_tx_control = phy->txpwr.tx_control;
+ 
+ 			bbatt.att = 11;
+ 			if (phy->radio_rev == 8) {
+ 				rfatt.att = 15;
+ 				rfatt.with_padmix = 1;
+ 			} else {
+ 				rfatt.att = 9;
+ 				rfatt.with_padmix = 0;
+ 			}
+ 			b43_set_txpower_g(dev, &bbatt, &rfatt, 0);
+ 		}
+ 		b43_dummy_transmission(dev);
+-		phy->cur_idle_tssi = b43_phy_read(dev, B43_PHY_ITSSI);
+-		if (B43_DEBUG) {
+-			/* Current-Idle-TSSI sanity check. */
+-			if (abs(phy->cur_idle_tssi - phy->tgt_idle_tssi) >= 20) {
+-				b43dbg(dev->wl,
+-				       "!WARNING! Idle-TSSI phy->cur_idle_tssi "
+-				       "measuring failed. (cur=%d, tgt=%d). Disabling TX power "
+-				       "adjustment.\n", phy->cur_idle_tssi,
+-				       phy->tgt_idle_tssi);
+-				phy->cur_idle_tssi = 0;
+-			}
++		phy->txpwr.cur_idle_tssi = b43_phy_read(dev, B43_PHY_ITSSI);
++		/* Current-Idle-TSSI sanity check. */
++		if (abs(phy->txpwr.cur_idle_tssi - phy->txpwr.tgt_idle_tssi) >= 30) {
++			b43dbg(dev->wl,
++			       "!WARNING! Idle-TSSI phy->cur_idle_tssi "
++			       "measuring failed. (cur=%d, tgt=%d).\n",
++			       phy->txpwr.cur_idle_tssi,
++			       phy->txpwr.tgt_idle_tssi);
+ 		}
+ 		if (phy->radio_ver == 0x2050 && phy->analog == 0) {
+ 			b43_radio_write16(dev, 0x0076,
+ 					  b43_radio_read16(dev, 0x0076)
+ 					  & 0xFF7B);
+ 		} else {
+@@ -973,13 +974,14 @@ static void b43_phy_initb5(struct b43_wl
+ 	b43_radio_selectchannel(dev, old_channel, 0);
+ 
+ 	b43_phy_write(dev, 0x0014, 0x0080);
+ 	b43_phy_write(dev, 0x0032, 0x00CA);
+ 	b43_phy_write(dev, 0x002A, 0x88A3);
+ 
+-	b43_set_txpower_g(dev, &phy->bbatt, &phy->rfatt, phy->tx_control);
++	b43_set_txpower_g(dev, &phy->txpwr.bbatt,
++			  &phy->txpwr.rfatt, phy->txpwr.tx_control);
+ 
+ 	if (phy->radio_ver == 0x2050)
+ 		b43_radio_write16(dev, 0x005D, 0x000D);
+ 
+ 	b43_write16(dev, 0x03E4, (b43_read16(dev, 0x03E4) & 0xFFC0) | 0x0004);
+ }
+@@ -1081,13 +1083,14 @@ static void b43_phy_initb6(struct b43_wl
+ 	b43_phy_write(dev, 0x0014, 0x0200);
+ 	if (phy->radio_rev >= 6)
+ 		b43_phy_write(dev, 0x2A, 0x88C2);
+ 	else
+ 		b43_phy_write(dev, 0x2A, 0x8AC0);
+ 	b43_phy_write(dev, 0x0038, 0x0668);
+-	b43_set_txpower_g(dev, &phy->bbatt, &phy->rfatt, phy->tx_control);
++	b43_set_txpower_g(dev, &phy->txpwr.bbatt,
++			  &phy->txpwr.rfatt, phy->txpwr.tx_control);
+ 	if (phy->radio_rev <= 5) {
+ 		b43_phy_write(dev, 0x5D, (b43_phy_read(dev, 0x5D)
+ 					  & 0xFF80) | 0x0003);
+ 	}
+ 	if (phy->radio_rev <= 2)
+ 		b43_radio_write16(dev, 0x005D, 0x000D);
+@@ -1131,13 +1134,13 @@ static void b43_calc_loopback_gain(struc
+ 	backup_phy[10] = b43_phy_read(dev, B43_PHY_CCK(0x03));
+ 	backup_phy[11] = b43_phy_read(dev, B43_PHY_LO_MASK);
+ 	backup_phy[12] = b43_phy_read(dev, B43_PHY_LO_CTL);
+ 	backup_phy[13] = b43_phy_read(dev, B43_PHY_CCK(0x2B));
+ 	backup_phy[14] = b43_phy_read(dev, B43_PHY_PGACTL);
+ 	backup_phy[15] = b43_phy_read(dev, B43_PHY_LO_LEAKAGE);
+-	backup_bband = phy->bbatt.att;
++	backup_bband = phy->txpwr.bbatt.att;
+ 	backup_radio[0] = b43_radio_read16(dev, 0x52);
+ 	backup_radio[1] = b43_radio_read16(dev, 0x43);
+ 	backup_radio[2] = b43_radio_read16(dev, 0x7A);
+ 
+ 	b43_phy_write(dev, B43_PHY_CRS0,
+ 		      b43_phy_read(dev, B43_PHY_CRS0) & 0x3FFF);
+@@ -1454,25 +1457,25 @@ void b43_phy_set_baseband_attenuation(st
+ static s8 b43_phy_estimate_power_out(struct b43_wldev *dev, s8 tssi)
+ {
+ 	struct b43_phy *phy = &dev->phy;
+ 	s8 dbm = 0;
+ 	s32 tmp;
+ 
+-	tmp = (phy->tgt_idle_tssi - phy->cur_idle_tssi + tssi);
++	tmp = (phy->txpwr.tgt_idle_tssi - phy->txpwr.cur_idle_tssi + tssi);
+ 
+ 	switch (phy->type) {
+ 	case B43_PHYTYPE_A:
+ 		tmp += 0x80;
+ 		tmp = clamp_val(tmp, 0x00, 0xFF);
+-		dbm = phy->tssi2dbm[tmp];
++		dbm = phy->txpwr.tssi2dbm[tmp];
+ 		//TODO: There's a FIXME on the specs
+ 		break;
+ 	case B43_PHYTYPE_B:
+ 	case B43_PHYTYPE_G:
+ 		tmp = clamp_val(tmp, 0x00, 0x3F);
+-		dbm = phy->tssi2dbm[tmp];
++		dbm = phy->txpwr.tssi2dbm[tmp];
+ 		break;
+ 	default:
+ 		B43_WARN_ON(1);
+ 	}
+ 
+ 	return dbm;
+@@ -1528,187 +1531,363 @@ void b43_put_attenuation_into_ranges(str
+ 	}
+ 
+ 	*_rfatt = clamp_val(rfatt, rf_min, rf_max);
+ 	*_bbatt = clamp_val(bbatt, bb_min, bb_max);
+ }
+ 
+-/* http://bcm-specs.sipsolutions.net/RecalculateTransmissionPower */
+-void b43_phy_xmitpower(struct b43_wldev *dev)
++static void b43_adjust_txpwr_aphy(struct b43_wldev *dev,
++				  const struct b43_txpower_context *ctx)
++{//TODO
++	B43_WARN_ON(1);
++}
++
++static void b43_adjust_txpwr_bgphy(struct b43_wldev *dev,
++				   const struct b43_txpower_context *ctx)
++{//TODO
++	struct b43_phy *phy = &dev->phy;
++	int rfatt, bbatt;
++	u8 tx_control;
++
++	/* Calculate the new attenuation values. */
++	bbatt = ctx->bbatt.att;
++	bbatt += ctx->bbatt_delta;
++	rfatt = ctx->rfatt.att;
++	rfatt += ctx->rfatt_delta;
++
++	b43_put_attenuation_into_ranges(dev, &bbatt, &rfatt);
++	tx_control = ctx->tx_control;
++	if ((phy->radio_ver == 0x2050) && (phy->radio_rev == 2)) {
++		if (rfatt <= 1) {
++			if (tx_control == 0) {
++				tx_control =
++				    B43_TXCTL_PA2DB |
++				    B43_TXCTL_TXMIX;
++				rfatt += 2;
++				bbatt += 2;
++			} else if (dev->dev->bus->sprom.
++				   boardflags_lo &
++				   B43_BFL_PACTRL) {
++				bbatt += 4 * (rfatt - 2);
++				rfatt = 2;
++			}
++		} else if (rfatt > 4 && tx_control) {
++			tx_control = 0;
++			if (bbatt < 3) {
++				rfatt -= 3;
++				bbatt += 2;
++			} else {
++				rfatt -= 2;
++				bbatt -= 2;
++			}
++		}
++	}
++	/* Save the control values */
++	//FIXME lock?
++	phy->txpwr.tx_control = tx_control;
++	b43_put_attenuation_into_ranges(dev, &bbatt, &rfatt);
++	phy->txpwr.rfatt.att = rfatt;
++	phy->txpwr.bbatt.att = bbatt;
++
++	/* Adjust the hardware */
++	b43_phy_lock(dev);
++	b43_radio_lock(dev);
++	b43_set_txpower_g(dev, &phy->txpwr.bbatt, &phy->txpwr.rfatt,
++			  phy->txpwr.tx_control);
++	b43_radio_unlock(dev);
++	b43_phy_unlock(dev);
++printk("Adjusted power\n");
++}
++
++/* Adjust the power output, if needed. */
++static void b43_adjust_tx_output_power(struct b43_wldev *dev,
++				       const struct b43_txpower_context *ctx)
+ {
+-	struct ssb_bus *bus = dev->dev->bus;
+ 	struct b43_phy *phy = &dev->phy;
+ 
+-	if (phy->cur_idle_tssi == 0)
+-		return;
++	switch (phy->type) {
++	case B43_PHYTYPE_A:
++		b43_adjust_txpwr_aphy(dev, ctx);
++		break;
++	case B43_PHYTYPE_B:
++	case B43_PHYTYPE_G:
++		b43_adjust_txpwr_bgphy(dev, ctx);
++		break;
++	case B43_PHYTYPE_N:
++//TODO		b43_adjust_txpwr_nphy(dev, ctx);
++		B43_WARN_ON(1);
++		break;
++	default:
++		B43_WARN_ON(1);
++	}
++}
++
++static bool b43_recalculate_txpower_aphy(struct b43_wldev *dev,
++					 u8 average_tssi)
++{/* TODO */
++	B43_WARN_ON(1);
++	return 0;
++}
++
++static bool b43_recalculate_txpower_bgphy(struct b43_wldev *dev,
++					  u8 average_tssi)
++{
++	struct b43_phy *phy = &dev->phy;
++	int estimated_pwr, desired_pwr, pwr_adjust;
++	int rfatt_delta, bbatt_delta;
++	unsigned int max_pwr;
++
++	estimated_pwr = b43_phy_estimate_power_out(dev, average_tssi);
++
++	B43_WARN_ON(phy->type != B43_PHYTYPE_G);
++	max_pwr = dev->dev->bus->sprom.maxpwr_bg;
++	if (dev->dev->bus->sprom.boardflags_lo & B43_BFL_PACTRL)
++		max_pwr -= 3; /* minus 0.75 */
++	if (unlikely(max_pwr >= INT_TO_Q52(30/*dBm*/))) {
++		b43warn(dev->wl,
++			"Invalid max-TX-power value in SPROM.\n");
++		max_pwr = INT_TO_Q52(15); /* fake it */
++		dev->dev->bus->sprom.maxpwr_bg = max_pwr;
++	}
++
++	/* Get desired power (in Q5.2) */
++	desired_pwr = INT_TO_Q52(phy->txpwr.desired_power);
++	/* And limit it. max_pwr already is Q5.2 */
++	desired_pwr = clamp_val(desired_pwr, 0, max_pwr);
++	if (b43_debug(dev, B43_DBG_XMITPOWER)) {
++		b43dbg(dev->wl,
++		       "[TX power]  current = " Q52_FMT
++		       " dBm,  desired = " Q52_FMT
++		       " dBm,  max = " Q52_FMT "\n",
++		       Q52_ARG(estimated_pwr),
++		       Q52_ARG(desired_pwr),
++		       Q52_ARG(max_pwr));
++	}
++
++	/* Calculate the adjustment delta. */
++	pwr_adjust = desired_pwr - estimated_pwr;
++	if (pwr_adjust == 0)
++		goto no_adjustment_needed;
++/*	if (pwr_adjust == -1) {
++XXX b43info(dev->wl, "Ignoring power adjust of minus 0.25 dBm\n");
++		goto no_adjustment_needed;
++	}*/
++
++	/* RF attenuation delta. */
++	rfatt_delta = ((pwr_adjust + 7) / 8);
++	/* Lower attenuation => Bigger power output. Negate it. */
++	rfatt_delta = -rfatt_delta;
++
++	/* Baseband attenuation delta. */
++	bbatt_delta = pwr_adjust / 2;
++	/* Lower attenuation => Bigger power output. Negate it. */
++	bbatt_delta = -bbatt_delta;
++	/* RF att affects power level 4 times as much as
++	 * Baseband attennuation. Subtract it. */
++	bbatt_delta -= 4 * rfatt_delta;
++
++	if (b43_debug(dev, B43_DBG_XMITPOWER)) {
++		int dbm = pwr_adjust < 0 ? -pwr_adjust : pwr_adjust;
++		b43dbg(dev->wl,
++		       "[TX power deltas]  %s" Q52_FMT " dBm   =>   "
++		       "bbatt-delta = %d,  rfatt-delta = %d\n",
++		       (pwr_adjust < 0 ? "-" : ""), Q52_ARG(dbm),
++		       bbatt_delta, rfatt_delta);
++	}
++	/* So do we finally need to adjust something in hardware? */
++	if ((rfatt_delta == 0) && (bbatt_delta == 0))
++		goto no_adjustment_needed;
++
++	/* Save the deltas for later when we adjust the power. */
++	phy->txpwr.bbatt_delta = bbatt_delta;
++	phy->txpwr.rfatt_delta = rfatt_delta;
++
++	/* We need to adjust the TX power on the device. */
++	return 1;
++
++no_adjustment_needed:
++	return 0;
++}
++
++/**
++ * b43_recalculate_txpower - Recalculate the hardware attenuation settings.
++ *
++ * This recalculates the hardware attenuation settings based on the
++ * passed average_tssi value.
++ * Returns 1, if the hardware needs adjustment. Returns 0, if no hardware
++ * adjustment is needed.
++ *
++ * Requires wl->irq_lock
++ */
++static bool b43_recalculate_txpower(struct b43_wldev *dev,
++				    u8 average_tssi)
++{
++	struct ssb_bus *bus = dev->dev->bus;
++
+ 	if ((bus->boardinfo.vendor == SSB_BOARDVENDOR_BCM) &&
+ 	    (bus->boardinfo.type == SSB_BOARD_BU4306))
+-		return;
++		return 0;
+ #ifdef CONFIG_B43_DEBUG
+-	if (phy->manual_txpower_control)
+-		return;
++	if (dev->phy.manual_txpower_control)
++		return 0;
+ #endif
+ 
+-	switch (phy->type) {
+-	case B43_PHYTYPE_A:{
+-
+-			//TODO: Nothing for A PHYs yet :-/
+-
+-			break;
+-		}
++	switch (dev->phy.type) {
++	case B43_PHYTYPE_A:
++		return b43_recalculate_txpower_aphy(dev, average_tssi);
+ 	case B43_PHYTYPE_B:
+-	case B43_PHYTYPE_G:{
+-			u16 tmp;
+-			s8 v0, v1, v2, v3;
+-			s8 average;
+-			int max_pwr;
+-			int desired_pwr, estimated_pwr, pwr_adjust;
+-			int rfatt_delta, bbatt_delta;
+-			int rfatt, bbatt;
+-			u8 tx_control;
+-
+-			tmp = b43_shm_read16(dev, B43_SHM_SHARED, 0x0058);
+-			v0 = (s8) (tmp & 0x00FF);
+-			v1 = (s8) ((tmp & 0xFF00) >> 8);
+-			tmp = b43_shm_read16(dev, B43_SHM_SHARED, 0x005A);
+-			v2 = (s8) (tmp & 0x00FF);
+-			v3 = (s8) ((tmp & 0xFF00) >> 8);
+-			tmp = 0;
+-
+-			if (v0 == 0x7F || v1 == 0x7F || v2 == 0x7F
+-			    || v3 == 0x7F) {
+-				tmp =
+-				    b43_shm_read16(dev, B43_SHM_SHARED, 0x0070);
+-				v0 = (s8) (tmp & 0x00FF);
+-				v1 = (s8) ((tmp & 0xFF00) >> 8);
+-				tmp =
+-				    b43_shm_read16(dev, B43_SHM_SHARED, 0x0072);
+-				v2 = (s8) (tmp & 0x00FF);
+-				v3 = (s8) ((tmp & 0xFF00) >> 8);
+-				if (v0 == 0x7F || v1 == 0x7F || v2 == 0x7F
+-				    || v3 == 0x7F)
+-					return;
+-				v0 = (v0 + 0x20) & 0x3F;
+-				v1 = (v1 + 0x20) & 0x3F;
+-				v2 = (v2 + 0x20) & 0x3F;
+-				v3 = (v3 + 0x20) & 0x3F;
+-				tmp = 1;
+-			}
+-			b43_shm_clear_tssi(dev);
+-
+-			average = (v0 + v1 + v2 + v3 + 2) / 4;
+-
+-			if (tmp
+-			    && (b43_shm_read16(dev, B43_SHM_SHARED, 0x005E) &
+-				0x8))
+-				average -= 13;
+-
+-			estimated_pwr =
+-			    b43_phy_estimate_power_out(dev, average);
+-
+-			max_pwr = dev->dev->bus->sprom.maxpwr_bg;
+-			if ((dev->dev->bus->sprom.boardflags_lo
+-			    & B43_BFL_PACTRL) && (phy->type == B43_PHYTYPE_G))
+-				max_pwr -= 0x3;
+-			if (unlikely(max_pwr <= 0)) {
+-				b43warn(dev->wl,
+-					"Invalid max-TX-power value in SPROM.\n");
+-				max_pwr = 60;	/* fake it */
+-				dev->dev->bus->sprom.maxpwr_bg = max_pwr;
+-			}
+-
+-			/*TODO:
+-			   max_pwr = min(REG - dev->dev->bus->sprom.antennagain_bgphy - 0x6, max_pwr)
+-			   where REG is the max power as per the regulatory domain
+-			 */
++	case B43_PHYTYPE_G:
++		return b43_recalculate_txpower_bgphy(dev, average_tssi);
++	case B43_PHYTYPE_N:
++break;//TODO		return b43_recalculate_txpower_nphy(dev, average_tssi);
++	}
++	B43_WARN_ON(1);
++	return 0;
++}
+ 
+-			/* Get desired power (in Q5.2) */
+-			desired_pwr = INT_TO_Q52(phy->power_level);
+-			/* And limit it. max_pwr already is Q5.2 */
+-			desired_pwr = clamp_val(desired_pwr, 0, max_pwr);
+-			if (b43_debug(dev, B43_DBG_XMITPOWER)) {
+-				b43dbg(dev->wl,
+-				       "Current TX power output: " Q52_FMT
+-				       " dBm, " "Desired TX power output: "
+-				       Q52_FMT " dBm\n", Q52_ARG(estimated_pwr),
+-				       Q52_ARG(desired_pwr));
+-			}
+-
+-			/* Calculate the adjustment delta. */
+-			pwr_adjust = desired_pwr - estimated_pwr;
+-
+-			/* RF attenuation delta. */
+-			rfatt_delta = ((pwr_adjust + 7) / 8);
+-			/* Lower attenuation => Bigger power output. Negate it. */
+-			rfatt_delta = -rfatt_delta;
+-
+-			/* Baseband attenuation delta. */
+-			bbatt_delta = pwr_adjust / 2;
+-			/* Lower attenuation => Bigger power output. Negate it. */
+-			bbatt_delta = -bbatt_delta;
+-			/* RF att affects power level 4 times as much as
+-			 * Baseband attennuation. Subtract it. */
+-			bbatt_delta -= 4 * rfatt_delta;
++/**
++ * b43_tssi_average_add - Read the 4 TSSI values at the SHM offset.
++ *
++ * Read the 4 TSSI values and store the average in the TX power
++ * context data structure.
++ * Returns 1, if the average value was changed (0 otherwise).
++ *
++ * Requires wl->irq_lock
++ */
++static bool b43_tssi_average_add(struct b43_wldev *dev, u16 shm_offset)
++{
++	const bool is_ofdm = (shm_offset != B43_SHM_SH_TSSI_CCK);
++	unsigned int a, b, c, d;
++	unsigned int average;
++	u32 tmp;
++
++	tmp = b43_shm_read32(dev, B43_SHM_SHARED, shm_offset);
++//printk("Reading TSSI for SHM 0x%04X  0x%08X\n", shm_offset, tmp);
++	a = tmp & 0xFF;
++	b = (tmp >> 8) & 0xFF;
++	c = (tmp >> 16) & 0xFF;
++	d = (tmp >> 24) & 0xFF;
++	if (a == 0 || a == B43_TSSI_MAX ||
++	    b == 0 || b == B43_TSSI_MAX ||
++	    c == 0 || c == B43_TSSI_MAX ||
++	    d == 0 || d == B43_TSSI_MAX)
++		return 0;
++	/* The values are OK. Clear them. */
++	tmp = B43_TSSI_MAX | (B43_TSSI_MAX << 8) |
++	      (B43_TSSI_MAX << 16) | (B43_TSSI_MAX << 24);
++	b43_shm_write32(dev, B43_SHM_SHARED, shm_offset, tmp);
++
++	if (is_ofdm) {//FIXME min?
++		a = (a + 32) & 0x3F;
++		b = (b + 32) & 0x3F;
++		c = (c + 32) & 0x3F;
++		d = (d + 32) & 0x3F;
++	}
++
++	/* Get the average of the values with 0.5 added to each value. */
++	average = (a + b + c + d + 2) / 4;
++printk("Average is %u\n", average);
++	if (is_ofdm) {
++		/* Adjust for CCK-boost */
++		if (b43_shm_read16(dev, B43_SHM_SHARED, B43_SHM_SH_HOSTFLO)
++		    & B43_HF_CCKBOOST) //FIXME
++			average = (average >= 13) ? (average - 13) : 0;
++	}
++	/* And finally add it to the stored average value for later
++	 * use by the hardware adjustment routines. */
++	if (likely(dev->phy.txpwr.average_tssi))
++		average = (average + dev->phy.txpwr.average_tssi) / 2;
++	dev->phy.txpwr.average_tssi = average;
++	B43_WARN_ON(average >= B43_TSSI_MAX);
++
++	return 1;
++}
++
++/**
++ * b43_phy_txpower_check - Check if a TX power adjustment is needed.
++ *
++ * This function will check if a TX power adjustment is needed and
++ * recalculate the attenuation values, if it's the case.
++ * The TX power adjust workqueue is scheduled afterwards to do the
++ * adjustment in hardware.
++ *
++ * Requires wl->irq_lock
++ */
++void b43_phy_txpower_check(struct b43_wldev *dev, unsigned int flags)
++{
++	struct b43_phy *phy = &dev->phy;
++	unsigned long now = jiffies;
++	bool avg_changed = 0, need_hw_adjust;
+ 
+-			/* So do we finally need to adjust something? */
+-			if ((rfatt_delta == 0) && (bbatt_delta == 0))
+-				return;
++	if (!(flags & B43_TXPWR_IGNORE_TIME)) {
++		/* Check if it's time for a TXpower check. */
++		if (time_before(now, phy->txpwr.next_tssi_average))
++			return; /* Not yet */
++	}
++	/* The next check will be needed in two seconds, or later. */
++	phy->txpwr.next_tssi_average = round_jiffies(now + (HZ * 2));
+ 
+-			/* Calculate the new attenuation values. */
+-			bbatt = phy->bbatt.att;
+-			bbatt += bbatt_delta;
+-			rfatt = phy->rfatt.att;
+-			rfatt += rfatt_delta;
+-
+-			b43_put_attenuation_into_ranges(dev, &bbatt, &rfatt);
+-			tx_control = phy->tx_control;
+-			if ((phy->radio_ver == 0x2050) && (phy->radio_rev == 2)) {
+-				if (rfatt <= 1) {
+-					if (tx_control == 0) {
+-						tx_control =
+-						    B43_TXCTL_PA2DB |
+-						    B43_TXCTL_TXMIX;
+-						rfatt += 2;
+-						bbatt += 2;
+-					} else if (dev->dev->bus->sprom.
+-						   boardflags_lo &
+-						   B43_BFL_PACTRL) {
+-						bbatt += 4 * (rfatt - 2);
+-						rfatt = 2;
+-					}
+-				} else if (rfatt > 4 && tx_control) {
+-					tx_control = 0;
+-					if (bbatt < 3) {
+-						rfatt -= 3;
+-						bbatt += 2;
+-					} else {
+-						rfatt -= 2;
+-						bbatt -= 2;
+-					}
+-				}
+-			}
+-			/* Save the control values */
+-			phy->tx_control = tx_control;
+-			b43_put_attenuation_into_ranges(dev, &bbatt, &rfatt);
+-			phy->rfatt.att = rfatt;
+-			phy->bbatt.att = bbatt;
+-
+-			/* Adjust the hardware */
+-			b43_phy_lock(dev);
+-			b43_radio_lock(dev);
+-			b43_set_txpower_g(dev, &phy->bbatt, &phy->rfatt,
+-					  phy->tx_control);
+-			b43_radio_unlock(dev);
+-			b43_phy_unlock(dev);
+-			break;
+-		}
++	switch (phy->type) {
++	case B43_PHYTYPE_A:
+ 	case B43_PHYTYPE_N:
+-		b43_nphy_xmitpower(dev);
++		avg_changed |= b43_tssi_average_add(dev,
++					B43_SHM_SH_TSSI_OFDM_A);
++		if (phy->type == B43_PHYTYPE_A)
++			break;
++		/* Fallthrough */
++	case B43_PHYTYPE_G:
++		avg_changed |= b43_tssi_average_add(dev,
++					B43_SHM_SH_TSSI_CCK);
++		avg_changed |= b43_tssi_average_add(dev,
++					B43_SHM_SH_TSSI_OFDM_G);
+ 		break;
+ 	default:
+ 		B43_WARN_ON(1);
+ 	}
++	if (!(flags & B43_TXPWR_IGNORE_TSSI)) {
++		if (!avg_changed)
++			return; /* No adjustment needed */
++	}
++	need_hw_adjust = b43_recalculate_txpower(dev, phy->txpwr.average_tssi);
++	if (!need_hw_adjust)
++		return; /* No adjustment needed */
++
++	/* We must adjust the transmission power in hardware.
++	 * Schedule the work. */
++	queue_work(dev->wl->hw->workqueue, &dev->wl->txpower_adjust_work);
++}
++
++/**
++ * b43_phy_txpower_adjust_work - TX power workqueue.
++ *
++ * Workqueue for updating the TX power parameters in hardware.
++ */
++void b43_phy_txpower_adjust_work(struct work_struct *work)
++{
++	struct b43_wl *wl = container_of(work, struct b43_wl,
++					 txpower_adjust_work);
++	struct b43_wldev *dev;
++	struct b43_txpower_context ctx;
++
++	mutex_lock(&wl->mutex);
++	dev = wl->current_dev;
++	if (unlikely(!dev || b43_status(dev) < B43_STAT_STARTED))
++		goto out_unlock;
++
++	/* We make a local copy of the TX power parameters, so we
++	 * can drop the spinlock and sleep while adjusting the
++	 * hardware. Possible races with b43_phy_txpower_check()
++	 * are harmless, because we will be called again and redo the
++	 * work if a race happened. */
++	spin_lock_irq(&wl->irq_lock);
++	memcpy(&ctx, &dev->phy.txpwr, sizeof(ctx));
++	spin_unlock_irq(&wl->irq_lock);
++
++	b43_adjust_tx_output_power(dev, &ctx);
++
++out_unlock:
++	mutex_unlock(&wl->mutex);
+ }
+ 
+ static inline s32 b43_tssi2dbm_ad(s32 num, s32 den)
+ {
+ 	if (num < 0)
+ 		return num / den;
+@@ -1753,68 +1932,68 @@ int b43_phy_init_tssi2dbm_table(struct b
+ 		pab0 = (s16) (dev->dev->bus->sprom.pa0b0);
+ 		pab1 = (s16) (dev->dev->bus->sprom.pa0b1);
+ 		pab2 = (s16) (dev->dev->bus->sprom.pa0b2);
+ 	}
+ 
+ 	if ((dev->dev->bus->chip_id == 0x4301) && (phy->radio_ver != 0x2050)) {
+-		phy->tgt_idle_tssi = 0x34;
+-		phy->tssi2dbm = b43_tssi2dbm_b_table;
++		phy->txpwr.tgt_idle_tssi = 0x34;
++		phy->txpwr.tssi2dbm = b43_tssi2dbm_b_table;
+ 		return 0;
+ 	}
+ 
+ 	if (pab0 != 0 && pab1 != 0 && pab2 != 0 &&
+ 	    pab0 != -1 && pab1 != -1 && pab2 != -1) {
+ 		/* The pabX values are set in SPROM. Use them. */
+ 		if (phy->type == B43_PHYTYPE_A) {
+ 			if ((s8) dev->dev->bus->sprom.itssi_a != 0 &&
+ 			    (s8) dev->dev->bus->sprom.itssi_a != -1)
+-				phy->tgt_idle_tssi =
++				phy->txpwr.tgt_idle_tssi =
+ 				    (s8) (dev->dev->bus->sprom.itssi_a);
+ 			else
+-				phy->tgt_idle_tssi = 62;
++				phy->txpwr.tgt_idle_tssi = 62;
+ 		} else {
+ 			if ((s8) dev->dev->bus->sprom.itssi_bg != 0 &&
+ 			    (s8) dev->dev->bus->sprom.itssi_bg != -1)
+-				phy->tgt_idle_tssi =
++				phy->txpwr.tgt_idle_tssi =
+ 				    (s8) (dev->dev->bus->sprom.itssi_bg);
+ 			else
+-				phy->tgt_idle_tssi = 62;
++				phy->txpwr.tgt_idle_tssi = 62;
+ 		}
+ 		dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
+ 		if (dyn_tssi2dbm == NULL) {
+ 			b43err(dev->wl, "Could not allocate memory "
+ 			       "for tssi2dbm table\n");
+ 			return -ENOMEM;
+ 		}
+ 		for (idx = 0; idx < 64; idx++)
+ 			if (b43_tssi2dbm_entry
+ 			    (dyn_tssi2dbm, idx, pab0, pab1, pab2)) {
+-				phy->tssi2dbm = NULL;
++				phy->txpwr.tssi2dbm = NULL;
+ 				b43err(dev->wl, "Could not generate "
+ 				       "tssi2dBm table\n");
+ 				kfree(dyn_tssi2dbm);
+ 				return -ENODEV;
+ 			}
+-		phy->tssi2dbm = dyn_tssi2dbm;
+-		phy->dyn_tssi_tbl = 1;
++		phy->txpwr.tssi2dbm = dyn_tssi2dbm;
++		phy->txpwr.dyn_tssi_tbl = 1;
+ 	} else {
+ 		/* pabX values not set in SPROM. */
+ 		switch (phy->type) {
+ 		case B43_PHYTYPE_A:
+ 			/* APHY needs a generated table. */
+-			phy->tssi2dbm = NULL;
++			phy->txpwr.tssi2dbm = NULL;
+ 			b43err(dev->wl, "Could not generate tssi2dBm "
+ 			       "table (wrong SPROM info)!\n");
+ 			return -ENODEV;
+ 		case B43_PHYTYPE_B:
+-			phy->tgt_idle_tssi = 0x34;
+-			phy->tssi2dbm = b43_tssi2dbm_b_table;
++			phy->txpwr.tgt_idle_tssi = 0x34;
++			phy->txpwr.tssi2dbm = b43_tssi2dbm_b_table;
+ 			break;
+ 		case B43_PHYTYPE_G:
+-			phy->tgt_idle_tssi = 0x34;
+-			phy->tssi2dbm = b43_tssi2dbm_g_table;
++			phy->txpwr.tgt_idle_tssi = 0x34;
++			phy->txpwr.tssi2dbm = b43_tssi2dbm_g_table;
+ 			break;
+ 		}
+ 	}
+ 
+ 	return 0;
+ }
+@@ -3684,13 +3863,15 @@ void b43_radio_set_tx_iq(struct b43_wlde
+ 	}
+ }
+ 
+ int b43_radio_selectchannel(struct b43_wldev *dev,
+ 			    u8 channel, int synthetic_pu_workaround)
+ {
++	struct b43_wl *wl = dev->wl;
+ 	struct b43_phy *phy = &dev->phy;
++	unsigned long flags;
+ 	u16 r8, tmp;
+ 	u16 freq;
+ 	u16 channelcookie, savedcookie;
+ 	int err = 0;
+ 
+ 	if (channel == 0xFF) {
+@@ -3769,13 +3950,16 @@ int b43_radio_selectchannel(struct b43_w
+ 		b43_radio_write16(dev, 0x0035,
+ 				  b43_radio_read16(dev, 0x0035) & 0xFFEF);
+ 		b43_radio_write16(dev, 0x0035, (b43_radio_read16(dev, 0x0035)
+ 						& 0xFFEF) | 0x0010);
+ 		b43_radio_set_tx_iq(dev);
+ 		//TODO: TSSI2dbm workaround
+-		b43_phy_xmitpower(dev);	//FIXME correct?
++		spin_lock_irqsave(&wl->irq_lock, flags);
++		b43_phy_txpower_check(dev, B43_TXPWR_IGNORE_TIME |
++					   B43_TXPWR_IGNORE_TSSI); //FIXME correct?
++		spin_unlock_irqrestore(&wl->irq_lock, flags);
+ 		break;
+ 	case B43_PHYTYPE_G:
+ 		if ((channel < 1) || (channel > 14)) {
+ 			err = -EINVAL;
+ 			goto out;
+ 		}
+Index: wireless-testing/drivers/net/wireless/b43/phy.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy.h	2008-05-02 12:19:03.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy.h	2008-07-26 17:04:20.000000000 +0200
+@@ -221,13 +221,12 @@ int b43_phy_init_tssi2dbm_table(struct b
+ 
+ void b43_phy_early_init(struct b43_wldev *dev);
+ int b43_phy_init(struct b43_wldev *dev);
+ 
+ void b43_set_rx_antenna(struct b43_wldev *dev, int antenna);
+ 
+-void b43_phy_xmitpower(struct b43_wldev *dev);
+ 
+ /* Returns the boolean whether the board has HardwarePowerControl */
+ bool b43_has_hardware_pctl(struct b43_phy *phy);
+ /* Returns the boolean whether "TX Magnification" is enabled. */
+ #define has_tx_magnification(phy) \
+ 	(((phy)->rev >= 2) &&			\
+@@ -334,7 +333,23 @@ void b43_put_attenuation_into_ranges(str
+ 				     int *_bbatt, int *_rfatt);
+ 
+ void b43_set_txpower_g(struct b43_wldev *dev,
+ 		       const struct b43_bbatt *bbatt,
+ 		       const struct b43_rfatt *rfatt, u8 tx_control);
+ 
++void b43_phy_txpower_check(struct b43_wldev *dev, unsigned int flags);
++/**
++ * enum b43_phy_txpower_check_flags - Flags for b43_phy_txpower_check()
++ *
++ * @B43_TXPWR_IGNORE_TIME: Ignore the schedule time and force-redo
++ *                         the check now.
++ * @B43_TXPWR_IGNORE_TSSI: Redo the recalculation, even if the average
++ *                         TSSI did not change.
++ */
++enum b43_phy_txpower_check_flags {
++	B43_TXPWR_IGNORE_TIME		= (1 << 0),
++	B43_TXPWR_IGNORE_TSSI		= (1 << 1),
++};
++
++void b43_phy_txpower_adjust_work(struct work_struct *work);
++
+ #endif /* B43_PHY_H_ */
+Index: wireless-testing/drivers/net/wireless/b43/debugfs.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/debugfs.c	2008-07-24 12:10:44.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/debugfs.c	2008-07-26 17:07:30.000000000 +0200
+@@ -451,20 +451,20 @@ static ssize_t txpower_g_read_file(struc
+ 	if (dev->phy.type != B43_PHYTYPE_G) {
+ 		fappend("Device is not a G-PHY\n");
+ 		goto out;
+ 	}
+ 	fappend("Control:               %s\n", dev->phy.manual_txpower_control ?
+ 		"MANUAL" : "AUTOMATIC");
+-	fappend("Baseband attenuation:  %u\n", dev->phy.bbatt.att);
+-	fappend("Radio attenuation:     %u\n", dev->phy.rfatt.att);
++	fappend("Baseband attenuation:  %u\n", dev->phy.txpwr.bbatt.att);
++	fappend("Radio attenuation:     %u\n", dev->phy.txpwr.rfatt.att);
+ 	fappend("TX Mixer Gain:         %s\n",
+-		(dev->phy.tx_control & B43_TXCTL_TXMIX) ? "ON" : "OFF");
++		(dev->phy.txpwr.tx_control & B43_TXCTL_TXMIX) ? "ON" : "OFF");
+ 	fappend("PA Gain 2dB:           %s\n",
+-		(dev->phy.tx_control & B43_TXCTL_PA2DB) ? "ON" : "OFF");
++		(dev->phy.txpwr.tx_control & B43_TXCTL_PA2DB) ? "ON" : "OFF");
+ 	fappend("PA Gain 3dB:           %s\n",
+-		(dev->phy.tx_control & B43_TXCTL_PA3DB) ? "ON" : "OFF");
++		(dev->phy.txpwr.tx_control & B43_TXCTL_PA3DB) ? "ON" : "OFF");
+ 	fappend("\n\n");
+ 	fappend("You can write to this file:\n");
+ 	fappend("Writing \"auto\" enables automatic txpower control.\n");
+ 	fappend
+ 	    ("Writing the attenuation values as \"bbatt rfatt txmix pa2db pa3db\" "
+ 	     "enables manual txpower control.\n");
+@@ -480,35 +480,39 @@ static int txpower_g_write_file(struct b
+ 				const char *buf, size_t count)
+ {
+ 	if (dev->phy.type != B43_PHYTYPE_G)
+ 		return -ENODEV;
+ 	if ((count >= 4) && (memcmp(buf, "auto", 4) == 0)) {
+ 		/* Automatic control */
++		spin_lock_irq(&dev->wl->irq_lock);
+ 		dev->phy.manual_txpower_control = 0;
+-		b43_phy_xmitpower(dev);
++		b43_phy_txpower_check(dev, B43_TXPWR_IGNORE_TIME |
++					   B43_TXPWR_IGNORE_TSSI);
++		spin_unlock_irq(&dev->wl->irq_lock);
+ 	} else {
+ 		int bbatt = 0, rfatt = 0, txmix = 0, pa2db = 0, pa3db = 0;
+ 		/* Manual control */
+ 		if (sscanf(buf, "%d %d %d %d %d", &bbatt, &rfatt,
+ 			   &txmix, &pa2db, &pa3db) != 5)
+ 			return -EINVAL;
+ 		b43_put_attenuation_into_ranges(dev, &bbatt, &rfatt);
+ 		dev->phy.manual_txpower_control = 1;
+-		dev->phy.bbatt.att = bbatt;
+-		dev->phy.rfatt.att = rfatt;
+-		dev->phy.tx_control = 0;
++		dev->phy.txpwr.bbatt.att = bbatt;
++		dev->phy.txpwr.rfatt.att = rfatt;
++		dev->phy.txpwr.tx_control = 0;
+ 		if (txmix)
+-			dev->phy.tx_control |= B43_TXCTL_TXMIX;
++			dev->phy.txpwr.tx_control |= B43_TXCTL_TXMIX;
+ 		if (pa2db)
+-			dev->phy.tx_control |= B43_TXCTL_PA2DB;
++			dev->phy.txpwr.tx_control |= B43_TXCTL_PA2DB;
+ 		if (pa3db)
+-			dev->phy.tx_control |= B43_TXCTL_PA3DB;
++			dev->phy.txpwr.tx_control |= B43_TXCTL_PA3DB;
+ 		b43_phy_lock(dev);
+ 		b43_radio_lock(dev);
+-		b43_set_txpower_g(dev, &dev->phy.bbatt,
+-				  &dev->phy.rfatt, dev->phy.tx_control);
++		b43_set_txpower_g(dev, &dev->phy.txpwr.bbatt,
++				  &dev->phy.txpwr.rfatt,
++				  dev->phy.txpwr.tx_control);
+ 		b43_radio_unlock(dev);
+ 		b43_phy_unlock(dev);
+ 	}
+ 
+ 	return 0;
+ }
+@@ -560,13 +564,13 @@ static ssize_t loctls_read_file(struct b
+ 		err = -ENODEV;
+ 		goto out;
+ 	}
+ 	lo = phy->lo_control;
+ 	fappend("-- Local Oscillator calibration data --\n\n");
+ 	fappend("HW-power-control enabled: %d\n",
+-		dev->phy.hardware_power_control);
++		dev->phy.txpwr.hardware_power_control);
+ 	fappend("TX Bias: 0x%02X,  TX Magn: 0x%02X  (expire in %lu sec)\n",
+ 		lo->tx_bias, lo->tx_magn,
+ 		calc_expire_secs(now, lo->txctl_measured_time,
+ 				 B43_LO_TXCTL_EXPIRE));
+ 	fappend("Power Vector: 0x%08X%08X  (expires in %lu sec)\n",
+ 		(unsigned int)((lo->power_vector & 0xFFFFFFFF00000000ULL) >> 32),
+@@ -575,14 +579,14 @@ static ssize_t loctls_read_file(struct b
+ 				 B43_LO_PWRVEC_EXPIRE));
+ 
+ 	fappend("\nCalibrated settings:\n");
+ 	list_for_each_entry(cal, &lo->calib_list, list) {
+ 		bool active;
+ 
+-		active = (b43_compare_bbatt(&cal->bbatt, &phy->bbatt) &&
+-			  b43_compare_rfatt(&cal->rfatt, &phy->rfatt));
++		active = (b43_compare_bbatt(&cal->bbatt, &phy->txpwr.bbatt) &&
++			  b43_compare_rfatt(&cal->rfatt, &phy->txpwr.rfatt));
+ 		fappend("BB(%d), RF(%d,%d)  ->  I=%d, Q=%d  "
+ 			"(expires in %lu sec)%s\n",
+ 			cal->bbatt.att,
+ 			cal->rfatt.att, cal->rfatt.with_padmix,
+ 			cal->ctl.i, cal->ctl.q,
+ 			calc_expire_secs(now, cal->calib_time,
+Index: wireless-testing/drivers/net/wireless/b43/lo.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/lo.c	2008-06-14 22:50:12.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/lo.c	2008-07-26 01:25:07.000000000 +0200
+@@ -918,16 +918,16 @@ static inline void b43_lo_fixup_rfatt(st
+ void b43_lo_g_adjust(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &dev->phy;
+ 	struct b43_lo_calib *cal;
+ 	struct b43_rfatt rf;
+ 
+-	memcpy(&rf, &phy->rfatt, sizeof(rf));
++	memcpy(&rf, &phy->txpwr.rfatt, sizeof(rf));
+ 	b43_lo_fixup_rfatt(&rf);
+ 
+-	cal = b43_get_calib_lo_settings(dev, &phy->bbatt, &rf);
++	cal = b43_get_calib_lo_settings(dev, &phy->txpwr.bbatt, &rf);
+ 	if (!cal)
+ 		return;
+ 	b43_lo_write(dev, &cal->ctl);
+ }
+ 
+ void b43_lo_g_adjust_to(struct b43_wldev *dev,
+@@ -980,14 +980,14 @@ void b43_lo_g_maintanance_work(struct b4
+ 	 * Recalibrate the current setting, if expired. */
+ 	expire = now - B43_LO_CALIB_EXPIRE;
+ 	list_for_each_entry_safe(cal, tmp, &lo->calib_list, list) {
+ 		if (!time_before(cal->calib_time, expire))
+ 			continue;
+ 		/* This item expired. */
+-		if (b43_compare_bbatt(&cal->bbatt, &phy->bbatt) &&
+-		    b43_compare_rfatt(&cal->rfatt, &phy->rfatt)) {
++		if (b43_compare_bbatt(&cal->bbatt, &phy->txpwr.bbatt) &&
++		    b43_compare_rfatt(&cal->rfatt, &phy->txpwr.rfatt)) {
+ 			B43_WARN_ON(current_item_expired);
+ 			current_item_expired = 1;
+ 		}
+ 		if (b43_debug(dev, B43_DBG_LO)) {
+ 			b43dbg(dev->wl, "LO: Item BB(%u), RF(%u,%u), "
+ 			       "I=%d, Q=%d expired\n",
+@@ -999,13 +999,14 @@ void b43_lo_g_maintanance_work(struct b4
+ 		kfree(cal);
+ 	}
+ 	if (current_item_expired || unlikely(list_empty(&lo->calib_list))) {
+ 		/* Recalibrate currently used LO setting. */
+ 		if (b43_debug(dev, B43_DBG_LO))
+ 			b43dbg(dev->wl, "LO: Recalibrating current LO setting\n");
+-		cal = b43_calibrate_lo_setting(dev, &phy->bbatt, &phy->rfatt);
++		cal = b43_calibrate_lo_setting(dev, &phy->txpwr.bbatt,
++					       &phy->txpwr.rfatt);
+ 		if (cal) {
+ 			list_add(&cal->list, &lo->calib_list);
+ 			b43_lo_write(dev, &cal->ctl);
+ 		} else
+ 			b43warn(dev->wl, "Failed to recalibrate current LO setting\n");
+ 	}
+Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/xmit.c	2008-07-26 01:03:26.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/xmit.c	2008-07-26 17:06:33.000000000 +0200
+@@ -675,12 +675,14 @@ void b43_handle_txstatus(struct b43_wlde
+ 	}
+ 
+ 	if (b43_using_pio_transfers(dev))
+ 		b43_pio_handle_txstatus(dev, status);
+ 	else
+ 		b43_dma_handle_txstatus(dev, status);
++
++	b43_phy_txpower_check(dev, 0);
+ }
+ 
+ /* Fill out the mac80211 TXstatus report based on the b43-specific
+  * txstatus report data. This returns a boolean whether the frame was
+  * successfully transmitted. */
+ bool b43_fill_txstatus_report(struct ieee80211_tx_info *report,
+
+
+From drbean at freeshell.org  Sun Jul 27 07:59:48 2008
+From: drbean at freeshell.org (Greg Matheson)
+Date: Sun, 27 Jul 2008 05:59:48 +0000
+Subject: bcm4306 with 2.6.25 on Fedora
+Message-ID: <20080727055948.GA12008@sdf.freeshell.org>
+
+I sent this earlier before being subscribed. I am sending a 
+revised version again with latest developments.
+
+I said:
+
+I seem to be only able to get a bcm4306 chip to work when I power
+on, but powering on does not seem to be a sufficient condition
+for it to work. I am wondering if powering on after some time off
+is necessary and sufficient?
+
+This is with 2.6.25-14.fc9.i686  or 2.6.25.10-86.fc9.i686.
+
+And I can only get this result with 4.150.10.5 firmware.
+With 3.130.20.0 firmware, ie b43legacy. after associating with
+the AP, it disassociates with reason=3. That is, it
+disassociates of its own accord.
+
+That is, I haven't been able to get it working with 3.130.20.0.
+
+I wasn't able to get 4.80.53.0 working either, though I haven't
+tried as much.
+
+Actually, I think b43legacy is the track this chip should be
+working with, rather than b43, because I think it has a 'MAC core
+revision' of 2, ie less than 4.
+
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050,
+Revision 2
+
+Is this a regression with 2.6.25? 
+
+I'm going to show you the [relevant] output of dmesg after the successful session, and then an unsuccessful session immediately afterwards, after releasing the dhcp lease.
+
+I will show you the output with the b43legacy driver if you want to see it.
+
+The successful session with bcm4306 (note this is 1 of 3
+successful sessions over 18 hours of struggling with it. All of
+the above statements I am unconfident about :)
+
+After powering on:
+
+[root at pl757 ~]# ifconfig wlan0 up
+[root at pl757 ~]# iwconfig wlan0 essid 3100SV-297B9E
+[root at pl757 ~]# dhclient wlan0 -v
+Internet Systems Consortium DHCP Client 4.0.0
+Copyright 2004-2007 Internet Systems Consortium.
+All rights reserved.
+For info, please visit http://www.isc.org/sw/dhcp/
+
+Listening on LPF/wlan0/00:07:40:c4:f5:d6
+Sending on   LPF/wlan0/00:07:40:c4:f5:d6
+Sending on   Socket/fallback
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 8
+DHCPOFFER from 192.168.1.1
+DHCPREQUEST on wlan0 to 255.255.255.255 port 67
+DHCPACK from 192.168.1.1
+bound to 192.168.1.3 -- renewal in 1651 seconds.
+
+The [relevant] output of dmesg [for the successful session]:
+
+[root at pl757 ~]# dmesg
+
+b43-phy0: Broadcom 4306 WLAN found
+b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 2
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+phy0: Selected rate control algorithm 'pid'
+
+Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID: FW13 ]
+
+input: b43-phy0 as /devices/virtual/input/input6
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 30-bit DMA initialized
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+wlan0: authenticate with AP 00:0b:a2:29:7b:9e
+wlan0: authenticated
+wlan0: associate with AP 00:0b:a2:29:7b:9e
+wlan0: RX AssocResp from 00:0b:a2:29:7b:9e (capab=0x421 status=0 aid=1)
+wlan0: associated
+ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+wlan0: no IPv6 routers present
+[root at pl757 ~]#
+
+The output of uname -a:
+
+Linux pl757.nas921.nara.nttpc.ne.jp 2.6.25.10-86.fc9.i686 #1 SMP Mon Jul 7 20:46:03 EDT 2008 i686 i686 i386 GNU/Linux
+
+The b43 section of lspci --vvn
+
+
+03:01.0 0280: 14e4:4320 (rev 03)
+        Subsystem: 1154:0325
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64
+        Interrupt: pin A routed to IRQ 18
+        Region 0: Memory at febfe000 (32-bit, non-prefetchable) [size=8K]
+        Kernel driver in use: b43-pci-bridge
+        Kernel modules: ssb
+
+
+Then the unsuccessful session immediately afterwards:
+
+The output of dmesg appears to say it successfully associates
+with the AP, as before, but then right at the end, Interface
+type 2 is removed and the Wireless interface stopped.
+
+But read on!
+
+[root at pl757 ~]#
+[root at pl757 ~]# dhclient wlan0 -r
+[root at pl757 ~]# dhclient wlan0 -v
+Internet Systems Consortium DHCP Client 4.0.0
+Copyright 2004-2007 Internet Systems Consortium.
+All rights reserved.
+For info, please visit http://www.isc.org/sw/dhcp/
+
+Listening on LPF/wlan0/00:07:40:c4:f5:d6
+Sending on   LPF/wlan0/00:07:40:c4:f5:d6
+Sending on   Socket/fallback
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 7
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 10
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 11
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 21
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 12
+No DHCPOFFERS received.
+No working leases in persistent database - sleeping.
+
+[root at pl757 ~]# dmesg
+
+b43-phy0: Broadcom 4306 WLAN found
+b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 2
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+phy0: Selected rate control algorithm 'pid'
+
+Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID: FW13 ]
+
+input: b43-phy0 as /devices/virtual/input/input6
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 30-bit DMA initialized
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+wlan0: authenticate with AP 00:0b:a2:29:7b:9e
+wlan0: authenticated
+wlan0: associate with AP 00:0b:a2:29:7b:9e
+wlan0: RX AssocResp from 00:0b:a2:29:7b:9e (capab=0x421 status=0 aid=1)
+wlan0: associated
+ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+wlan0: no IPv6 routers present
+b43-phy0 debug: Removing Interface type 2
+b43-phy0 debug: Wireless interface stopped
+b43-phy0 debug: DMA-30 rx_ring: Used slots 2/64, Failed frames 0/0 = 0.0%, Average tries 0.00
+b43-phy0 debug: DMA-30 tx_ring_AC_BK: Used slots 0/128, Failed frames 0/0 = 0.0%, Average tries 0.00
+b43-phy0 debug: DMA-30 tx_ring_AC_BE: Used slots 0/128, Failed frames 0/0 = 0.0%, Average tries 0.00
+b43-phy0 debug: DMA-30 tx_ring_AC_VI: Used slots 0/128, Failed frames 0/0 = 0.0%, Average tries 0.00
+b43-phy0 debug: DMA-30 tx_ring_AC_VO: Used slots 6/128, Failed frames 0/901 = 0.0%, Average tries 1.03
+b43-phy0 debug: DMA-30 tx_ring_mcast: Used slots 0/128, Failed frames 0/0 = 0.0%, Average tries 0.00
+input: b43-phy0 as /devices/virtual/input/input7
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 30-bit DMA initialized
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+
+The output of uname -a and lspci -vvn are th e same for this
+unsuccessful session as for the successful session.
+
+Subsequent to writing this I read 
+https://lists.berlios.de/pipermail/bcm43xx-dev/2008-June/007647.html
+about problems with dhclient.
+
+I am now using a fixed IP address, and I also turned off Fedora's 
+NetworkManager.
+
+But I don't have b43legacy driver installed. (I believe if I delete 
+/lib/firmware/b43legacy and rmmod b43legacy, the b43legacy driver 
+will not be installed.)
+
+Now I can bring the wireless card up at will.
+
+The releavant parts of dmesg are:
+
+b43-phy0: Broadcom 4306 WLAN found
+b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 2
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, 
+Revision 2
+phy0: Selected rate control algorithm 'pid'
+Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID: FW13 ]
+
+input: b43-phy0 as /devices/virtual/input/input6
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 30-bit DMA initialized
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+wlan0: authenticate with AP 00:0b:a2:29:7b:9e
+wlan0: authenticated
+wlan0: associate with AP 00:0b:a2:29:7b:9e
+wlan0: RX AssocResp from 00:0b:a2:29:7b:9e (capab=0x421 status=0 aid=1)
+wlan0: associated
+ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+
+This ouput is the same as the successful session with dhclient 
+after first boot in the morning.
+
+I am using this wireless card on a non-roaming desktop with no 
+other machines on the LAN, so I am happy with using a fixed 
+address and not using NetworkManager.
+
+-- 
+Greg Matheson                All teaching is teaching 
+                             under difficult circumstances.
+                             --Dr Bean
+
+
+From proski at gnu.org  Sun Jul 27 08:43:15 2008
+From: proski at gnu.org (Pavel Roskin)
+Date: Sun, 27 Jul 2008 02:43:15 -0400
+Subject: bcm4306 with 2.6.25 on Fedora
+In-Reply-To: <20080727055948.GA12008@sdf.freeshell.org>
+References: <20080727055948.GA12008@sdf.freeshell.org>
+Message-ID: <1217140995.16601.31.camel@ct>
+
+On Sun, 2008-07-27 at 05:59 +0000, Greg Matheson wrote:
+
+> I seem to be only able to get a bcm4306 chip to work when I power
+> on, but powering on does not seem to be a sufficient condition
+> for it to work. I am wondering if powering on after some time off
+> is necessary and sufficient?
+
+You mean it doesn't work after reboot?
+
+> This is with 2.6.25-14.fc9.i686  or 2.6.25.10-86.fc9.i686.
+> 
+> And I can only get this result with 4.150.10.5 firmware.
+> With 3.130.20.0 firmware, ie b43legacy. after associating with
+> the AP, it disassociates with reason=3. That is, it
+> disassociates of its own accord.
+> 
+> That is, I haven't been able to get it working with 3.130.20.0.
+
+You should not be able to use b43 and b43legacy with the same device.
+Perhaps you patched one of those drivers to support your card?  Then
+please be specific.
+
+> I wasn't able to get 4.80.53.0 working either, though I haven't
+> tried as much.
+> 
+> Actually, I think b43legacy is the track this chip should be
+> working with, rather than b43, because I think it has a 'MAC core
+> revision' of 2, ie less than 4.
+> 
+> b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050,
+> Revision 2
+
+What matters is the 802.11 core revision reported by the ssb driver when
+SSB debugging is enabled.  b43 doesn't report it.  Perhaps ssb is too
+quiet without debugging.
+
+> b43-phy0: Broadcom 4306 WLAN found
+> b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 2
+> b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+
+I have a bcm4306 card with the same PHY and radio, and it's supported by
+b43 only.  b43legacy can be patched to support it.  I have no problems
+with that card, even with reboots.
+
+> The output of uname -a:
+> 
+> Linux pl757.nas921.nara.nttpc.ne.jp 2.6.25.10-86.fc9.i686 #1 SMP Mon Jul 7 20:46:03 EDT 2008 i686 i686 i386 GNU/Linux
+
+Fedora is known to pull some experimental stuff into its kernels.
+Anyway, it's not the latest Fedora kernel, please upgrade if you can.
+And all real wireless work is done on the wireless-testing kernel.
+
+> [root at pl757 ~]# dhclient wlan0 -v
+> Internet Systems Consortium DHCP Client 4.0.0
+> Copyright 2004-2007 Internet Systems Consortium.
+> All rights reserved.
+> For info, please visit http://www.isc.org/sw/dhcp/
+> 
+> Listening on LPF/wlan0/00:07:40:c4:f5:d6
+> Sending on   LPF/wlan0/00:07:40:c4:f5:d6
+> Sending on   Socket/fallback
+> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 7
+> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 10
+> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 11
+> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 21
+> DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 12
+> No DHCPOFFERS received.
+> No working leases in persistent database - sleeping.
+
+dhclient on Fedora brings the interface down briefly.  b43 is very
+susceptible to disassociation if it happens (but sometimes the
+connection survives).  A workaround it to avoid dhclient.  If you have
+to use it, you'll need to set essid in another session while dhclient is
+waiting, or run "wpa_cli -i wlan0 reassociate"
+
+It is a known problem, but I think dhclient is entirely to blame.
+Bringing the interface down goes well beyond the "zone of
+responsibility" of dhclient, as it affects the lower layers that need to
+stay connected and keep their state.
+
+-- 
+Regards,
+Pavel Roskin
+
+
+From Larry.Finger at lwfinger.net  Sun Jul 27 18:32:07 2008
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Sun, 27 Jul 2008 11:32:07 -0500
+Subject: bcm4306 with 2.6.25 on Fedora
+In-Reply-To: <20080727055948.GA12008@sdf.freeshell.org>
+References: <20080727055948.GA12008@sdf.freeshell.org>
+Message-ID: <488CA307.7060709@lwfinger.net>
+
+Greg Matheson wrote:
+> I sent this earlier before being subscribed. I am sending a 
+> revised version again with latest developments.
+> 
+> I said:
+> 
+> I seem to be only able to get a bcm4306 chip to work when I power
+> on, but powering on does not seem to be a sufficient condition
+> for it to work. I am wondering if powering on after some time off
+> is necessary and sufficient?
+> 
+> This is with 2.6.25-14.fc9.i686  or 2.6.25.10-86.fc9.i686.
+
+I don't use Fedora and have no idea what the state of the b43 driver is in 
+either of those kernels. From what I read, the development kernels (rawhide?) 
+are the closest to wireless-testing, which is the state of the art for wireless. 
+You should ask questions about the kernels on Fedora's forums.
+
+> And I can only get this result with 4.150.10.5 firmware.
+> With 3.130.20.0 firmware, ie b43legacy. after associating with
+> the AP, it disassociates with reason=3. That is, it
+> disassociates of its own accord.
+> 
+> That is, I haven't been able to get it working with 3.130.20.0.
+> 
+> I wasn't able to get 4.80.53.0 working either, though I haven't
+> tried as much.
+> 
+> Actually, I think b43legacy is the track this chip should be
+> working with, rather than b43, because I think it has a 'MAC core
+> revision' of 2, ie less than 4.
+
+As was pointed out earlier, you do not select whether your chip runs b43 or 
+b43legacy. It is the 802.11 core revision that counts. Just for your info - if 
+you had a BCM4306 revision 2, it would use b43legacy. Your system selects b43 
+because you have a BCM4306 revision 3. Do not mess around with b43legacy and/or 
+the firmware in /lib/firmrare/b43legacy. It will not matter!!!
+
+I suggest using NetworkManager to operate your wireless device, rather than 
+using ifconfig directly. I also suggest that you use DHCP rather than a fixed 
+IP. It is altogether too easy to mess up your routing tables and your DNS server 
+entries with fixed IP.
+
+> b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050,
+> Revision 2
+> 
+> Is this a regression with 2.6.25? 
+
+No, the revision level that really counts is that of the 802.11 core that is 
+read by ssb.
+
+Larry
+
+
+From mb at bu3sch.de  Mon Jul 28 20:17:04 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Mon, 28 Jul 2008 20:17:04 +0200
+Subject: [PATCH RFC/RFT] b43: Rewrite TX power adjustment
+In-Reply-To: <200807261726.53279.mb@bu3sch.de>
+References: <200807261726.53279.mb@bu3sch.de>
+Message-ID: <200807282017.04979.mb@bu3sch.de>
+
+On Saturday 26 July 2008 17:26:52 Michael Buesch wrote:
+> This is an experimental attempt for fixing the currently-not-so-good
+> TX power adjustment.
+
+Hm, is anybody going to test this, or are there really no transmission
+problems left? :)
+
+But please note that current wireless-testing tree seems to have some
+unrelated TX issues in mac80211 (see the discussions about the qdisc
+and skb->cb stuff.)
+
+In any case, I'd like to have some initial testing of this patch? :)
+I think it really is a good step forward, once all bugs in it are fixed.
+
+-- 
+Greetings Michael.
+
+
+From Larry.Finger at lwfinger.net  Tue Jul 29 00:51:42 2008
+From: Larry.Finger at lwfinger.net (Larry Finger)
+Date: Mon, 28 Jul 2008 17:51:42 -0500
+Subject: [PATCH RFC/RFT] b43: Rewrite TX power adjustment
+In-Reply-To: <200807282017.04979.mb@bu3sch.de>
+References: <200807261726.53279.mb@bu3sch.de> <200807282017.04979.mb@bu3sch.de>
+Message-ID: <488E4D7E.6010003@lwfinger.net>
+
+Michael Buesch wrote:
+> On Saturday 26 July 2008 17:26:52 Michael Buesch wrote:
+>> This is an experimental attempt for fixing the currently-not-so-good
+>> TX power adjustment.
+> 
+> Hm, is anybody going to test this, or are there really no transmission
+> problems left? :)
+
+It seems to work here. The dmesg output for my BCM4312 is:
+
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x11, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x0A, vendor 0x4243)
+ssb: Core 2 found: USB 1.1 Host (cc 0x817, rev 0x03, vendor 0x4243)
+ssb: Core 3 found: PCI-E (cc 0x820, rev 0x01, vendor 0x4243)
+ssb: SPROM revision 2 detected.
+ssb: Sonics Silicon Backplane found on PCI device 0000:04:00.0
+b43-phy0: Broadcom 4311 WLAN found
+b43-phy0 debug: Found PHY: Analog 4, Type 2, Revision 8
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+phy0: Selected rate control algorithm 'pid'
+Broadcom 43xx driver loaded [ Features: PLR, Firmware-ID: FW13 ]
+udev: renamed network interface wlan0 to wlan1
+input: b43-phy0 as /class/input/input9
+firmware: requesting b43/ucode5.fw
+firmware: requesting b43/pcm5.fw
+firmware: requesting b43/b0g0initvals5.fw
+firmware: requesting b43/b0g0bsinitvals5.fw
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 32-bit DMA initialized
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0 debug: Wireless interface started
+b43-phy0 debug: Adding Interface type 2
+Adjusted power
+wlan1: authenticate with AP 00:1a:70:46:ba:b1
+wlan1: authenticated
+wlan1: associate with AP 00:1a:70:46:ba:b1
+wlan1: RX AssocResp from 00:1a:70:46:ba:b1 (capab=0x431 status=0 aid=3)
+wlan1: associated
+Average is 39
+Adjusted power
+Average is 17
+Average is 18
+Adjusted power
+Average is 4
+Adjusted power
+Average is 4
+Average is 4
+Adjusted power
+Average is 8
+Adjusted power
+Average is 6
+Average is 12
+Average is 11
+Average is 12
+Average is 11
+Average is 12
+Average is 10
+Average is 12
+Average is 11
+Average is 12
+Average is 12
+Average is 11
+Average is 12
+Average is 11
+Average is 12
+Average is 12
+Average is 11
+Average is 13
+Average is 13
+Adjusted power
+Average is 13
+Adjusted power
+Average is 11
+Average is 13
+Adjusted power
+Average is 12
+Average is 13
+Adjusted power
+Average is 13
+Adjusted power
+Average is 11
+Average is 13
+Adjusted power
+Average is 11
+Average is 13
+Adjusted power
+Average is 13
+Adjusted power
+Average is 8
+Average is 9
+Average is 13
+Average is 12
+Average is 13
+Adjusted power
+Average is 13
+Adjusted power
+Average is 12
+Average is 13
+Adjusted power
+Average is 12
+Average is 13
+Adjusted power
+Average is 12
+Average is 13
+Adjusted power
+Average is 7
+Average is 9
+Average is 12
+Average is 10
+Average is 7
+Average is 7
+Adjusted power
+Average is 9
+Average is 13
+Average is 13
+Average is 13
+Adjusted power
+Average is 13
+Adjusted power
+Average is 8
+Average is 8
+Average is 13
+Average is 12
+
+Is this sufficient, or is there other output that you want to see?
+
+
+> But please note that current wireless-testing tree seems to have some
+> unrelated TX issues in mac80211 (see the discussions about the qdisc
+> and skb->cb stuff.)
+
+AFAIK, this particular bug is limited to mainline. At least wireless still works 
+in wireless-testing, but fails completely in Linus's tree.
+
+Larry
+
+
+
+From mb at bu3sch.de  Tue Jul 29 14:53:35 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Tue, 29 Jul 2008 14:53:35 +0200
+Subject: [PATCH RFC/RFT] b43: Rewrite TX power adjustment
+In-Reply-To: <488E4D7E.6010003@lwfinger.net>
+References: <200807261726.53279.mb@bu3sch.de> <200807282017.04979.mb@bu3sch.de>
+	<488E4D7E.6010003@lwfinger.net>
+Message-ID: <200807291453.36132.mb@bu3sch.de>
+
+On Tuesday 29 July 2008 00:51:42 Larry Finger wrote:
+> Michael Buesch wrote:
+> > On Saturday 26 July 2008 17:26:52 Michael Buesch wrote:
+> >> This is an experimental attempt for fixing the currently-not-so-good
+> >> TX power adjustment.
+> > 
+> > Hm, is anybody going to test this, or are there really no transmission
+> > problems left? :)
+> 
+> It seems to work here. The dmesg output for my BCM4312 is:
+
+Thanks.
+
+> Is this sufficient,
+
+No.
+
+> or is there other output that you want to see? 
+
+Please do
+        echo 1 >/debug/b43/phy*/debug_xmitpower
+to enable verbose xmitpower debugging.
+
+> > But please note that current wireless-testing tree seems to have some
+> > unrelated TX issues in mac80211 (see the discussions about the qdisc
+> > and skb->cb stuff.)
+> 
+> AFAIK, this particular bug is limited to mainline. At least wireless still works 
+> in wireless-testing, but fails completely in Linus's tree.
+
+Yeah, I noticed. So please ignore this.
+
+-- 
+Greetings Michael.
+
+
+From sbrown at cortland.com  Wed Jul 30 19:31:00 2008
+From: sbrown at cortland.com (Steve Brown)
+Date: Wed, 30 Jul 2008 13:31:00 -0400
+Subject: BCM4306 and Virtual AP
+In-Reply-To: <20070908123428.41E9018F498@mail.geryon.com.ar>
+References: <20070908123428.41E9018F498@mail.geryon.com.ar>
+Message-ID: <4890A554.5090003@cortland.com>
+
+Guillermo Javier Nardoni wrote:
+> Hi guys, once again... Me.....
+>
+> I'm wandering if BCM43xx actually does support for virtual AP, 
+> What i mean for VAP is to bradcast more than one SSID being in AP mode or
+> AdHoc mode
+> For example: PUBLIC_SSID for those who want to connect to the AP and
+> PRIVATE_SSID (for
+> nodes links with Encryption)
+> According to dd-wrt it does actually support.
+> I've tried showing the SSID of one of them and hidding the other one but i
+> only see and
+> Can connect just with one. 
+> Is about driver issues?, am i doing something wrong?
+>
+> Thanks again.-
+>
+> Regards
+> Guillermo Nardoni
+>   
+I've tried something similar with 2 mesh interfaces. However, only one 
+can be brought up at a time. Bringing up the second interface yields a 
+"SIOCSIFFLAGS: Operation not supported". It's probably the test at the 
+beginning of b43_op_add_interface. I haven't any idea what's involved in 
+removing that restriction.
+
+I ran wireshark on dd-wrt w/ multiple ap's. Some sample beacon output is 
+attached.
+
+Steve
+
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: wireshark.out
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080730/c348f5db/attachment.ksh>
+
+From mb at bu3sch.de  Wed Jul 30 19:49:14 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Wed, 30 Jul 2008 19:49:14 +0200
+Subject: BCM4306 and Virtual AP
+In-Reply-To: <4890A554.5090003@cortland.com>
+References: <20070908123428.41E9018F498@mail.geryon.com.ar>
+	<4890A554.5090003@cortland.com>
+Message-ID: <200807301949.14520.mb@bu3sch.de>
+
+On Wednesday 30 July 2008 19:31:00 Steve Brown wrote:
+> Guillermo Javier Nardoni wrote:
+> > Hi guys, once again... Me.....
+> >
+> > I'm wandering if BCM43xx actually does support for virtual AP, 
+> > What i mean for VAP is to bradcast more than one SSID being in AP mode or
+> > AdHoc mode
+> > For example: PUBLIC_SSID for those who want to connect to the AP and
+> > PRIVATE_SSID (for
+> > nodes links with Encryption)
+> > According to dd-wrt it does actually support.
+> > I've tried showing the SSID of one of them and hidding the other one but i
+> > only see and
+> > Can connect just with one. 
+> > Is about driver issues?, am i doing something wrong?
+> >
+> > Thanks again.-
+> >
+> > Regards
+> > Guillermo Nardoni
+> >   
+> I've tried something similar with 2 mesh interfaces. However, only one 
+> can be brought up at a time. Bringing up the second interface yields a 
+> "SIOCSIFFLAGS: Operation not supported". It's probably the test at the 
+> beginning of b43_op_add_interface. I haven't any idea what's involved in 
+> removing that restriction.
+
+The firmware doesn't support that, out of the box. So we return
+-EOPNOTSUPP
+
+
+-- 
+Greetings Michael.
+
+
+From sbrown at cortland.com  Thu Jul 31 13:03:02 2008
+From: sbrown at cortland.com (Steve Brown)
+Date: Thu, 31 Jul 2008 07:03:02 -0400
+Subject: BCM4306 and Virtual AP
+In-Reply-To: <200807301949.14520.mb@bu3sch.de>
+References: <20070908123428.41E9018F498@mail.geryon.com.ar>
+	<4890A554.5090003@cortland.com> <200807301949.14520.mb@bu3sch.de>
+Message-ID: <48919BE6.9040402@cortland.com>
+
+Michael Buesch wrote:
+> On Wednesday 30 July 2008 19:31:00 Steve Brown wrote:
+>   
+>> Guillermo Javier Nardoni wrote:
+>>     
+>>> Hi guys, once again... Me.....
+>>>
+>>> I'm wandering if BCM43xx actually does support for virtual AP, 
+>>> What i mean for VAP is to bradcast more than one SSID being in AP mode or
+>>> AdHoc mode
+>>> For example: PUBLIC_SSID for those who want to connect to the AP and
+>>> PRIVATE_SSID (for
+>>> nodes links with Encryption)
+>>> According to dd-wrt it does actually support.
+>>> I've tried showing the SSID of one of them and hidding the other one but i
+>>> only see and
+>>> Can connect just with one. 
+>>> Is about driver issues?, am i doing something wrong?
+>>>
+>>> Thanks again.-
+>>>
+>>> Regards
+>>> Guillermo Nardoni
+>>>   
+>>>       
+>> I've tried something similar with 2 mesh interfaces. However, only one 
+>> can be brought up at a time. Bringing up the second interface yields a 
+>> "SIOCSIFFLAGS: Operation not supported". It's probably the test at the 
+>> beginning of b43_op_add_interface. I haven't any idea what's involved in 
+>> removing that restriction.
+>>     
+>
+> The firmware doesn't support that, out of the box. So we return
+> -EOPNOTSUPP
+>   
+I ran the following experiment on the 2.4 openwrt kamikaze on a Buffalo 
+hp-g54 (bcm5352).
+
+I was able to connect to either VAP with my laptop running XP, dhcp gave 
+me an address, etc. and all worked.
+
+This seems to be the same v4 firmware used by b43. Is this more a 
+reverse engineering issue than firmware?
+
+Steve
+
+---
+
+Comments:
+Initially both interfaces came up with OpenWrt2 as the ssid, but with 
+unique bssid's. I manually changed wl0 to OpenWrt1 using iwconfig. 
+Probably a pilot error or bug, but not significant to the experiment.
+
+/etc/config/wireless:
+config wifi-device  wl0
+        option type     broadcom
+        option channel  6
+config wifi-iface
+        option device   wl0
+        option network  lan
+        option mode     ap
+        option ssid     OpenWrt1
+        option encryption none
+config wifi-iface
+        option device   wl0
+        option network  lan
+        option mode     ap
+        option ssid     OpenWrt2
+        option encryption none
+
+iwconfig output - note the unique bssid's
+wl0       IEEE 802.11-DS  ESSID:"OpenWrt1" 
+          Mode:Master  Frequency:2.437 GHz  Access Point: 
+00:16:01:2E:0C:4B  
+          Bit Rate=54 Mb/s   Tx-Power:32 dBm  
+          Retry min limit:7   RTS thr:off   Fragment thr:off
+          Link Quality:5  Signal level:0  Noise level:175
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+wl0.1     IEEE 802.11-DS  ESSID:"OpenWrt2" 
+          Mode:Master  Channel:6  Access Point: 02:16:01:2E:0C:48  
+          Bit Rate=54 Mb/s  
+          RTS thr:off   Fragment thr:off
+
+Firmware:
+wl0: wlc_attach: chiprev 0 coreunit 0 corerev 9 cccap 0x4787a2 maccap 
+0x0 band 2.4G, phy_type 2 phy_rev 7 ana_rev 2
+wl0: Broadcom BCM4318 802.11 Wireless Controller 4.150.10.5
+
+Wireshark beacon dump:
+Attached.
+
+
+
+
+
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: multi-ssid.log
+URL: <https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20080731/6443a39a/attachment.ksh>
+
+From netrolller.3d at gmail.com  Thu Jul 31 13:47:45 2008
+From: netrolller.3d at gmail.com (=?ISO-8859-1?Q?Stefanik_G=E1bor?=)
+Date: Thu, 31 Jul 2008 13:47:45 +0200
+Subject: BCM4306 and Virtual AP
+In-Reply-To: <200807301949.14520.mb@bu3sch.de>
+References: <20070908123428.41E9018F498@mail.geryon.com.ar>
+	<4890A554.5090003@cortland.com> <200807301949.14520.mb@bu3sch.de>
+Message-ID: <69e28c910807310447m4c40de5andf8871c90f1cd4a8@mail.gmail.com>
+
+On Wed, Jul 30, 2008 at 7:49 PM, Michael Buesch <mb at bu3sch.de> wrote:
+> The firmware doesn't support that, out of the box. So we return
+> -EOPNOTSUPP
+
+AFAIK Broadcom cards are softmac, so why do we depend on firmware
+support for multi-interfacing? Also, given that the card supports raw
+mode (and it does, as it is used at least in monitor mode), it is
+possible to implement almost anything in software on top of raw mode
+(possibly even in userspace, with the help of monitor mode & Radiotap
+injection).
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+
+From mb at bu3sch.de  Thu Jul 31 15:33:44 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 31 Jul 2008 15:33:44 +0200
+Subject: BCM4306 and Virtual AP
+In-Reply-To: <69e28c910807310447m4c40de5andf8871c90f1cd4a8@mail.gmail.com>
+References: <20070908123428.41E9018F498@mail.geryon.com.ar>
+	<200807301949.14520.mb@bu3sch.de>
+	<69e28c910807310447m4c40de5andf8871c90f1cd4a8@mail.gmail.com>
+Message-ID: <200807311533.44170.mb@bu3sch.de>
+
+On Thursday 31 July 2008 13:47:45 Stefanik G?bor wrote:
+> On Wed, Jul 30, 2008 at 7:49 PM, Michael Buesch <mb at bu3sch.de> wrote:
+> > The firmware doesn't support that, out of the box. So we return
+> > -EOPNOTSUPP
+> 
+> AFAIK Broadcom cards are softmac, so why do we depend on firmware
+> support for multi-interfacing?
+
+beaconing, QoS, probably lots of other stuff.
+
+> Also, given that the card supports raw 
+> mode (and it does, as it is used at least in monitor mode), it is
+> possible to implement almost anything in software on top of raw mode
+> (possibly even in userspace, with the help of monitor mode & Radiotap
+> injection).
+
+Certainly not.
+
+-- 
+Greetings Michael.
+
+
+From sbrown at cortland.com  Thu Jul 31 17:53:10 2008
+From: sbrown at cortland.com (Steve Brown)
+Date: Thu, 31 Jul 2008 11:53:10 -0400
+Subject: BCM4306 and Virtual AP
+In-Reply-To: <200807301949.14520.mb@bu3sch.de>
+References: <20070908123428.41E9018F498@mail.geryon.com.ar>
+	<4890A554.5090003@cortland.com> <200807301949.14520.mb@bu3sch.de>
+Message-ID: <4891DFE6.3040207@cortland.com>
+
+Michael Buesch wrote:
+> On Wednesday 30 July 2008 19:31:00 Steve Brown wrote:
+>   
+>> Guillermo Javier Nardoni wrote:
+>>     
+>>> Hi guys, once again... Me.....
+>>>
+>>> I'm wandering if BCM43xx actually does support for virtual AP, 
+>>> What i mean for VAP is to bradcast more than one SSID being in AP mode or
+>>> AdHoc mode
+>>> For example: PUBLIC_SSID for those who want to connect to the AP and
+>>> PRIVATE_SSID (for
+>>> nodes links with Encryption)
+>>> According to dd-wrt it does actually support.
+>>> I've tried showing the SSID of one of them and hidding the other one but i
+>>> only see and
+>>> Can connect just with one. 
+>>> Is about driver issues?, am i doing something wrong?
+>>>
+>>> Thanks again.-
+>>>
+>>> Regards
+>>> Guillermo Nardoni
+>>>   
+>>>       
+>> I've tried something similar with 2 mesh interfaces. However, only one 
+>> can be brought up at a time. Bringing up the second interface yields a 
+>> "SIOCSIFFLAGS: Operation not supported". It's probably the test at the 
+>> beginning of b43_op_add_interface. I haven't any idea what's involved in 
+>> removing that restriction.
+>>     
+>
+> The firmware doesn't support that, out of the box. So we return
+> -EOPNOTSUPP
+>   
+I know that I'm horribly over simplifying this issue. That 
+notwithstanding, I hooked up wlcompat-debug. There about 50 calls to the 
+Broadcom driver to set up both ssid's and start the beacons.
+
+ From reading the reverse engineering web site, it looks like they have 
+a tool that traces pci bus transactions. Perhaps it's feasible to use 
+that to see what the driver sent to the 802.11 core during those 50 
+calls. If somebody can point me to their mailing list, I'll post the 
+trace over there and see what happens.
+
+Steve
+
+
+
+From mb at bu3sch.de  Thu Jul 31 18:03:01 2008
+From: mb at bu3sch.de (Michael Buesch)
+Date: Thu, 31 Jul 2008 18:03:01 +0200
+Subject: BCM4306 and Virtual AP
+In-Reply-To: <4891DFE6.3040207@cortland.com>
+References: <20070908123428.41E9018F498@mail.geryon.com.ar>
+	<200807301949.14520.mb@bu3sch.de> <4891DFE6.3040207@cortland.com>
+Message-ID: <200807311803.01651.mb@bu3sch.de>
+
+On Thursday 31 July 2008 17:53:10 Steve Brown wrote:
+> > The firmware doesn't support that, out of the box. So we return
+> > -EOPNOTSUPP
+> >   
+> I know that I'm horribly over simplifying this issue. That 
+> notwithstanding, I hooked up wlcompat-debug. There about 50 calls to the 
+> Broadcom driver to set up both ssid's and start the beacons.
+> 
+>  From reading the reverse engineering web site, it looks like they have 
+> a tool that traces pci bus transactions. Perhaps it's feasible to use 
+> that to see what the driver sent to the 802.11 core during those 50 
+> calls. If somebody can point me to their mailing list, I'll post the 
+> trace over there and see what happens.
+
+Which part of
+"The firmware doesn't support that"
+don't you understand?
+
+-- 
+Greetings Michael.
+
+

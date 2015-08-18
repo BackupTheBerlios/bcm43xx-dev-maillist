@@ -1,0 +1,151 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> kernel oops with 2.6.32-rc2
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20kernel%20oops%20with%202.6.32-rc2&In-Reply-To=%3C20091008185857.997d5cdd.celejar%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006148.html">
+   <LINK REL="Next"  HREF="006151.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>kernel oops with 2.6.32-rc2</H1>
+    <B>Celejar</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20kernel%20oops%20with%202.6.32-rc2&In-Reply-To=%3C20091008185857.997d5cdd.celejar%40gmail.com%3E"
+       TITLE="kernel oops with 2.6.32-rc2">celejar at gmail.com
+       </A><BR>
+    <I>Fri Oct  9 00:58:57 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006148.html">[PATCH v2] b43: do not stack-allocate pio rx/tx header and tail	buffers
+</A></li>
+        <LI>Next message: <A HREF="006151.html">kernel oops with 2.6.32-rc2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6150">[ date ]</a>
+              <a href="thread.html#6150">[ thread ]</a>
+              <a href="subject.html#6150">[ subject ]</a>
+              <a href="author.html#6150">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Card is a 4318:
+
+06:02.0 Network controller: Broadcom Corporation BCM4318 [AirForce One 54g] 802.11g Wireless LAN Controller (rev 02)
+	Subsystem: AMBIT Microsystem Corp. TravelMate 2410
+	Flags: bus master, fast devsel, latency 64, IRQ 22
+	Memory at d0002000 (32-bit, non-prefetchable) [size=8K]
+	Kernel driver in use: b43-pci-bridge
+
+This has been working fine, but I've recently been seeing oopses with .32-rc2 from mainline git repo:
+
+~$ uname -a
+Linux lizzie 2.6.32-rc2-lizzie-00134-g84d88d5 #2 Thu Oct 1 00:08:23 EDT 2009 i686 GNU/Linux
+
+Here's one, when I tried to unload b43, after
+the card had stopped working:
+
+Message from <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">syslogd at localhost</A> at Oct  8 18:46:17 ...
+ kernel:[24031.297331] Oops: 0000 [#1] 
+
+Message from <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">syslogd at localhost</A> at Oct  8 18:46:17 ...
+ kernel:[24031.297334] last sysfs file: /sys/module/b43/refcnt
+
+Message from <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">syslogd at localhost</A> at Oct  8 18:46:17 ...
+ kernel:[24031.297448] Process modprobe (pid: 1421, ti=f2116000 task=f6b18be0 task.ti=f2116000)
+
+Message from <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">syslogd at localhost</A> at Oct  8 18:46:17 ...
+ kernel:[24031.297451] Stack:
+
+Message from <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">syslogd at localhost</A> at Oct  8 18:46:17 ...
+ kernel:[24031.297473] Call Trace:
+
+Message from <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">syslogd at localhost</A> at Oct  8 18:46:17 ...
+ kernel:[24031.297547] Code: f0 0f b6 93 30 02 00 00 5b 5b 5e e9 48 fe ff ff e8 f3 d9 50 c8 8d 76 00 53 83 ec 04 65 8b 15 14 00 00 00 89 14 24 31 d2 8b 58 04 &lt;8b&gt; 83 f4 00 00 00 85 c0 74 13 8d 83 f8 00 00 00 e8 48 db 78 ff 
+
+Message from <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">syslogd at localhost</A> at Oct  8 18:46:17 ...
+ kernel:[24031.297579] EIP: [&lt;f8b1e5a3&gt;] b43_leds_unregister+0x13/0xa0 [b43] SS:ESP 0068:f2117ef4
+
+Message from <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">syslogd at localhost</A> at Oct  8 18:46:17 ...
+ kernel:[24031.297588] CR2: 000000002f40666a
+
+Here's syslog:
+
+Oct  8 18:46:17 localhost kernel: [24031.297304] BUG: unable to handle kernel paging request at 2f40666a
+Oct  8 18:46:17 localhost kernel: [24031.297312] IP: [&lt;f8b1e5a3&gt;] b43_leds_unregister+0x13/0xa0 [b43]
+Oct  8 18:46:17 localhost kernel: [24031.297328] *pde = 00000000 
+Oct  8 18:46:17 localhost kernel: [24031.297331] Oops: 0000 [#1] 
+Oct  8 18:46:17 localhost kernel: [24031.297334] last sysfs file: /sys/module/b43/refcnt
+Oct  8 18:46:17 localhost kernel: [24031.297337] Modules linked in: pl2303 usbserial sd_mod usb_storage scsi_mod usbhid hid i
+915 drm_kms_helper drm fb i2c_algo_bit cfbcopyarea i2c_core cfbimgblt cfbfillrect ipv6 iptable_raw ipt_ULOG ipt_REJECT ipt_MA
+SQUERADE ipt_ECN ipt_ecn ipt_ah ipt_addrtype xt_multiport ipt_LOG xt_tcpudp xt_state iptable_nat nf_nat nf_conntrack_ipv4 nf_
+defrag_ipv4 nf_conntrack iptable_mangle nfnetlink iptable_filter ip_tables x_tables loop arc4 ecb snd_hda_codec_realtek b43(-
+) snd_hda_intel pcmcia snd_hda_codec mac80211 snd_pcm snd_seq snd_timer snd_seq_device yenta_socket cfg80211 rsrc_nonstatic r
+fkill rtc_cmos pcmcia_core rtc_core rng_core battery ac snd rtc_lib psmouse evdev wmi processor soundcore snd_page_alloc ext3
+ jbd sha256_generic aes_i586 aes_generic cbc dm_crypt dm_mod ide_cd_mod ide_gd_mod cdrom ide_pci_generic uhci_hcd sdhci_pci s
+dhci b44 piix intel_agp mmc_core video backlight output led_class ide_core button ssb mii ehci_hcd agpgart usbcore thermal fa
+n krng chainiv crypto_wq rng c
+Oct  8 18:46:17 localhost kernel: ryptomgr crypto_hash aead pcompress crypto_blkcipher crypto_algapi
+Oct  8 18:46:17 localhost kernel: [24031.297419] 
+Oct  8 18:46:17 localhost kernel: [24031.297423] Pid: 1421, comm: modprobe Not tainted (2.6.32-rc2-lizzie-00134-g84d88d5 #2) 
+Aspire 3690     
+Oct  8 18:46:17 localhost kernel: [24031.297427] EIP: 0060:[&lt;f8b1e5a3&gt;] EFLAGS: 00010246 CPU: 0
+Oct  8 18:46:17 localhost kernel: [24031.297435] EIP is at b43_leds_unregister+0x13/0xa0 [b43]
+Oct  8 18:46:17 localhost kernel: [24031.297438] EAX: f6acdc00 EBX: 2f406576 ECX: d911253d EDX: 00000000
+Oct  8 18:46:17 localhost kernel: [24031.297441] ESI: f68e2858 EDI: f6acdc00 EBP: f2116000 ESP: f2117ef4
+Oct  8 18:46:17 localhost kernel: [24031.297444]  DS: 007b ES: 007b FS: 0000 GS: 00e0 SS: 0068
+Oct  8 18:46:17 localhost kernel: [24031.297448] Process modprobe (pid: 1421, ti=f2116000 task=f6b18be0 task.ti=f2116000)
+Oct  8 18:46:17 localhost kernel: [24031.297451] Stack:
+Oct  8 18:46:17 localhost kernel: [24031.297453]  d911253d f6b64960 f8b06cb5 d911253d f68e2858 f8b236dc f8b236dc f824c3d9
+Oct  8 18:46:17 localhost kernel: [24031.297459] &lt;0&gt; d911253d f6a22680 c1173fd4 d911253d f6a22680 f6a226b4 c11740df d911253d
+Oct  8 18:46:17 localhost kernel: [24031.297466] &lt;0&gt; fffffff0 f8b236dc f82536e0 c1173005 d911253d fffffff0 00000000 f8b254e0
+Oct  8 18:46:17 localhost kernel: [24031.297473] Call Trace:
+Oct  8 18:46:17 localhost kernel: [24031.297482]  [&lt;f8b06cb5&gt;] ? b43_remove+0x85/0x110 [b43]
+Oct  8 18:46:17 localhost kernel: [24031.297498]  [&lt;f824c3d9&gt;] ? ssb_device_remove+0x29/0x50 [ssb]
+Oct  8 18:46:17 localhost kernel: [24031.297506]  [&lt;c1173fd4&gt;] ? __device_release_driver+0x64/0xe0
+Oct  8 18:46:17 localhost kernel: [24031.297510]  [&lt;c11740df&gt;] ? driver_detach+0x8f/0xa0
+Oct  8 18:46:17 localhost kernel: [24031.297519]  [&lt;c1173005&gt;] ? bus_remove_driver+0x85/0xe0
+Oct  8 18:46:17 localhost kernel: [24031.297527]  [&lt;f8b20718&gt;] ? b43_exit+0x18/0x4d [b43]
+Oct  8 18:46:17 localhost kernel: [24031.297533]  [&lt;c105a9b4&gt;] ? sys_delete_module+0x154/0x220
+Oct  8 18:46:17 localhost kernel: [24031.297539]  [&lt;c101d426&gt;] ? do_page_fault+0x136/0x2f0
+Oct  8 18:46:17 localhost kernel: [24031.297544]  [&lt;c10030cf&gt;] ? sysenter_do_call+0x12/0x26
+Oct  8 18:46:17 localhost kernel: [24031.297547] Code: f0 0f b6 93 30 02 00 00 5b 5b 5e e9 48 fe ff ff e8 f3 d9 50 c8 8d 76 00 53 83 ec 04 65 8b 15 14 00 00 00 89 14 24 31 d2 8b 58 04 &lt;8b&gt; 83 f4 00 00 00 85 c0 74 13 8d 83 f8 00 00 00 e8 48 db 78 ff 
+Oct  8 18:46:17 localhost kernel: [24031.297579] EIP: [&lt;f8b1e5a3&gt;] b43_leds_unregister+0x13/0xa0 [b43] SS:ESP 0068:f2117ef4
+Oct  8 18:46:17 localhost kernel: [24031.297588] CR2: 000000002f40666a
+Oct  8 18:46:17 localhost kernel: [24031.297592] ---[ end trace 1d5756a54c8bdcd5 ]---
+
+Celejar
+-- 
+mailmin.sourceforge.net - remote access via secure (OpenPGP) email
+ssuds.sourceforge.net - A Simple Sudoku Solver and Generator
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006148.html">[PATCH v2] b43: do not stack-allocate pio rx/tx header and tail	buffers
+</A></li>
+	<LI>Next message: <A HREF="006151.html">kernel oops with 2.6.32-rc2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6150">[ date ]</a>
+              <a href="thread.html#6150">[ thread ]</a>
+              <a href="subject.html#6150">[ subject ]</a>
+              <a href="author.html#6150">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

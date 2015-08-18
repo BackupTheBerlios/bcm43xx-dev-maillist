@@ -1,0 +1,379 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Dynamically control log verbosity
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Dynamically%20control%20log%20verbosity&In-Reply-To=%3C200901251550.00288.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005095.html">
+   <LINK REL="Next"  HREF="005102.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Dynamically control log verbosity</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Dynamically%20control%20log%20verbosity&In-Reply-To=%3C200901251550.00288.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Dynamically control log verbosity">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Jan 25 15:49:59 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005095.html">[PATCH] b43: Fix phy_g.c compiler warning
+</A></li>
+        <LI>Next message: <A HREF="005102.html">LP-PHY reverse engineering progress
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5099">[ date ]</a>
+              <a href="thread.html#5099">[ thread ]</a>
+              <a href="subject.html#5099">[ subject ]</a>
+              <a href="author.html#5099">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Dynamically control the log verbosity with a module parameter.
+This enables us to dynamically enable debugging messages (or disable
+info, warn, error messages) via module parameter or /sys/module/b43/parameters/verbose.
+
+This increases the module size by about 3k. But in practice it reduces the
+module size for the user, because some distributions ship the b43 module
+with CONFIG_B43_DEBUG set, which increases the module by about 15k.
+
+So with this patch applied, distributions should really _disable_ CONFIG_B43_DEBUG.
+There is no reason to keep it in a production-release kernel.
+So we have a net reduction in size by about 12k.
+
+This patch also adds a printk of the wireless core revision, so people
+don't have to enable SSB debugging to get the wireless core revision.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+---
+
+John, please queue for the next feature push.
+
+
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h	2009-01-25 15:29:55.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/b43.h	2009-01-25 15:31:41.000000000 +0100
+@@ -875,18 +875,15 @@ static inline bool b43_using_pio_transfe
+ void b43info(struct b43_wl *wl, const char *fmt, ...)
+     __attribute__ ((format(printf, 2, 3)));
+ void b43err(struct b43_wl *wl, const char *fmt, ...)
+     __attribute__ ((format(printf, 2, 3)));
+ void b43warn(struct b43_wl *wl, const char *fmt, ...)
+     __attribute__ ((format(printf, 2, 3)));
+-#if B43_DEBUG
+ void b43dbg(struct b43_wl *wl, const char *fmt, ...)
+     __attribute__ ((format(printf, 2, 3)));
+-#else /* DEBUG */
+-# define b43dbg(wl, fmt...) do { /* nothing */ } while (0)
+-#endif /* DEBUG */
++
+ 
+ /* A WARN_ON variant that vanishes when b43 debugging is disabled.
+  * This _also_ evaluates the arg with debugging disabled. */
+ #if B43_DEBUG
+ # define B43_WARN_ON(x)	WARN_ON(x)
+ #else
+Index: wireless-testing/drivers/net/wireless/b43/debugfs.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/debugfs.c	2009-01-25 15:29:55.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/debugfs.c	2009-01-25 15:31:41.000000000 +0100
+@@ -694,15 +694,24 @@ B43_DEBUGFS_FOPS(mmio32write, NULL, mmio
+ B43_DEBUGFS_FOPS(tsf, tsf_read_file, tsf_write_file, 1);
+ B43_DEBUGFS_FOPS(txstat, txstat_read_file, NULL, 0);
+ B43_DEBUGFS_FOPS(restart, NULL, restart_write_file, 1);
+ B43_DEBUGFS_FOPS(loctls, loctls_read_file, NULL, 0);
+ 
+ 
+-int b43_debug(struct b43_wldev *dev, enum b43_dyndbg feature)
++bool b43_debug(struct b43_wldev *dev, enum b43_dyndbg feature)
+ {
+-	return !!(dev-&gt;dfsentry &amp;&amp; dev-&gt;dfsentry-&gt;dyn_debug[feature]);
++	bool enabled;
++
++	enabled = (dev-&gt;dfsentry &amp;&amp; dev-&gt;dfsentry-&gt;dyn_debug[feature]);
++	if (unlikely(enabled)) {
++		/* Force full debugging messages, if the user enabled
++		 * some dynamic debugging feature. */
++		b43_modparam_verbose = B43_VERBOSITY_MAX;
++	}
++
++	return enabled;
+ }
+ 
+ static void b43_remove_dynamic_debug(struct b43_wldev *dev)
+ {
+ 	struct b43_dfsentry *e = dev-&gt;dfsentry;
+ 	int i;
+Index: wireless-testing/drivers/net/wireless/b43/debugfs.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/debugfs.h	2009-01-25 15:29:55.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/debugfs.h	2009-01-25 15:31:41.000000000 +0100
+@@ -69,24 +69,24 @@ struct b43_dfsentry {
+ 	/* Enabled/Disabled list for the dynamic debugging features. */
+ 	u32 dyn_debug[__B43_NR_DYNDBG];
+ 	/* Dentries for the dynamic debugging entries. */
+ 	struct dentry *dyn_debug_dentries[__B43_NR_DYNDBG];
+ };
+ 
+-int b43_debug(struct b43_wldev *dev, enum b43_dyndbg feature);
++bool b43_debug(struct b43_wldev *dev, enum b43_dyndbg feature);
+ 
+ void b43_debugfs_init(void);
+ void b43_debugfs_exit(void);
+ void b43_debugfs_add_device(struct b43_wldev *dev);
+ void b43_debugfs_remove_device(struct b43_wldev *dev);
+ void b43_debugfs_log_txstat(struct b43_wldev *dev,
+ 			    const struct b43_txstatus *status);
+ 
+ #else /* CONFIG_B43_DEBUG */
+ 
+-static inline int b43_debug(struct b43_wldev *dev, enum b43_dyndbg feature)
++static inline bool b43_debug(struct b43_wldev *dev, enum b43_dyndbg feature)
+ {
+ 	return 0;
+ }
+ 
+ static inline void b43_debugfs_init(void)
+ {
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2009-01-25 15:29:55.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/main.c	2009-01-25 15:31:41.000000000 +0100
+@@ -1,13 +1,13 @@
+ /*
+ 
+   Broadcom B43 wireless driver
+ 
+   Copyright (c) 2005 Martin Langer &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">martin-langer at gmx.de</A>&gt;
+   Copyright (c) 2005 Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+-  Copyright (c) 2005, 2006 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
++  Copyright (c) 2005-2009 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+   Copyright (c) 2005 Danny van Dyk &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">kugelfang at gentoo.org</A>&gt;
+   Copyright (c) 2005 Andreas Jaggi &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">andreas.jaggi at waterwave.ch</A>&gt;
+ 
+   Some parts of the code in this file are derived from the ipw2200
+   driver  Copyright(c) 2003 - 2004 Intel Corporation.
+ 
+@@ -85,12 +85,16 @@ module_param_named(qos, b43_modparam_qos
+ MODULE_PARM_DESC(qos, &quot;Enable QOS support (default on)&quot;);
+ 
+ static int modparam_btcoex = 1;
+ module_param_named(btcoex, modparam_btcoex, int, 0444);
+ MODULE_PARM_DESC(btcoex, &quot;Enable Bluetooth coexistance (default on)&quot;);
+ 
++int b43_modparam_verbose = B43_VERBOSITY_DEFAULT;
++module_param_named(verbose, b43_modparam_verbose, int, 0644);
++MODULE_PARM_DESC(verbose, &quot;Log message verbosity: 0=error, 1=warn, 2=info(default), 3=debug&quot;);
++
+ 
+ static const struct ssb_device_id b43_ssb_tbl[] = {
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 5),
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 6),
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 7),
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 9),
+@@ -297,12 +301,14 @@ static int b43_ratelimit(struct b43_wl *
+ }
+ 
+ void b43info(struct b43_wl *wl, const char *fmt, ...)
+ {
+ 	va_list args;
+ 
++	if (b43_modparam_verbose &lt; B43_VERBOSITY_INFO)
++		return;
+ 	if (!b43_ratelimit(wl))
+ 		return;
+ 	va_start(args, fmt);
+ 	printk(KERN_INFO &quot;b43-%s: &quot;,
+ 	       (wl &amp;&amp; wl-&gt;hw) ? wiphy_name(wl-&gt;hw-&gt;wiphy) : &quot;wlan&quot;);
+ 	vprintk(fmt, args);
+@@ -310,12 +316,14 @@ void b43info(struct b43_wl *wl, const ch
+ }
+ 
+ void b43err(struct b43_wl *wl, const char *fmt, ...)
+ {
+ 	va_list args;
+ 
++	if (b43_modparam_verbose &lt; B43_VERBOSITY_ERROR)
++		return;
+ 	if (!b43_ratelimit(wl))
+ 		return;
+ 	va_start(args, fmt);
+ 	printk(KERN_ERR &quot;b43-%s ERROR: &quot;,
+ 	       (wl &amp;&amp; wl-&gt;hw) ? wiphy_name(wl-&gt;hw-&gt;wiphy) : &quot;wlan&quot;);
+ 	vprintk(fmt, args);
+@@ -323,33 +331,35 @@ void b43err(struct b43_wl *wl, const cha
+ }
+ 
+ void b43warn(struct b43_wl *wl, const char *fmt, ...)
+ {
+ 	va_list args;
+ 
++	if (b43_modparam_verbose &lt; B43_VERBOSITY_WARN)
++		return;
+ 	if (!b43_ratelimit(wl))
+ 		return;
+ 	va_start(args, fmt);
+ 	printk(KERN_WARNING &quot;b43-%s warning: &quot;,
+ 	       (wl &amp;&amp; wl-&gt;hw) ? wiphy_name(wl-&gt;hw-&gt;wiphy) : &quot;wlan&quot;);
+ 	vprintk(fmt, args);
+ 	va_end(args);
+ }
+ 
+-#if B43_DEBUG
+ void b43dbg(struct b43_wl *wl, const char *fmt, ...)
+ {
+ 	va_list args;
+ 
++	if (b43_modparam_verbose &lt; B43_VERBOSITY_DEBUG)
++		return;
+ 	va_start(args, fmt);
+ 	printk(KERN_DEBUG &quot;b43-%s debug: &quot;,
+ 	       (wl &amp;&amp; wl-&gt;hw) ? wiphy_name(wl-&gt;hw-&gt;wiphy) : &quot;wlan&quot;);
+ 	vprintk(fmt, args);
+ 	va_end(args);
+ }
+-#endif /* DEBUG */
+ 
+ static void b43_ram_write(struct b43_wldev *dev, u16 offset, u32 val)
+ {
+ 	u32 macctl;
+ 
+ 	B43_WARN_ON(offset % 4 != 0);
+@@ -3549,15 +3559,13 @@ static int b43_op_set_key(struct ieee802
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev;
+ 	u8 algorithm;
+ 	u8 index;
+ 	int err;
+-#if B43_DEBUG
+-	static const u8 bcast_addr[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+-#endif
++	static const u8 bcast_addr[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+ 
+ 	if (modparam_nohwcrypt)
+ 		return -ENOSPC; /* User disabled HW-crypto */
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 	spin_lock_irq(&amp;wl-&gt;irq_lock);
+@@ -4702,15 +4710,16 @@ static int b43_wireless_init(struct ssb_
+ 	mutex_init(&amp;wl-&gt;mutex);
+ 	INIT_LIST_HEAD(&amp;wl-&gt;devlist);
+ 	INIT_WORK(&amp;wl-&gt;beacon_update_trigger, b43_beacon_update_trigger_work);
+ 	INIT_WORK(&amp;wl-&gt;txpower_adjust_work, b43_phy_txpower_adjust_work);
+ 
+ 	ssb_set_devtypedata(dev, wl);
+-	b43info(wl, &quot;Broadcom %04X WLAN found\n&quot;, dev-&gt;bus-&gt;chip_id);
++	b43info(wl, &quot;Broadcom %04X WLAN found (core revision %u)\n&quot;,
++		dev-&gt;bus-&gt;chip_id, dev-&gt;id.revision);
+ 	err = 0;
+-      out:
++out:
+ 	return err;
+ }
+ 
+ static int b43_probe(struct ssb_device *dev, const struct ssb_device_id *id)
+ {
+ 	struct b43_wl *wl;
+Index: wireless-testing/drivers/net/wireless/b43/main.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.h	2009-01-25 15:29:55.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/main.h	2009-01-25 15:31:41.000000000 +0100
+@@ -37,12 +37,30 @@
+ #define P4D_BYTES(line, nr_bytes)	P4D_BYT3S(line, nr_bytes)
+ /* Magic helper macro to pad structures. Ignore those above. It's magic. */
+ #define PAD_BYTES(nr_bytes)		P4D_BYTES( __LINE__ , (nr_bytes))
+ 
+ 
+ extern int b43_modparam_qos;
++extern int b43_modparam_verbose;
++
++/* Logmessage verbosity levels. Update the b43_modparam_verbose helptext, if
++ * you add or remove levels. */
++enum b43_verbosity {
++	B43_VERBOSITY_ERROR,
++	B43_VERBOSITY_WARN,
++	B43_VERBOSITY_INFO,
++	B43_VERBOSITY_DEBUG,
++	__B43_VERBOSITY_AFTERLAST, /* keep last */
++
++	B43_VERBOSITY_MAX = __B43_VERBOSITY_AFTERLAST - 1,
++#if B43_DEBUG
++	B43_VERBOSITY_DEFAULT = B43_VERBOSITY_DEBUG,
++#else
++	B43_VERBOSITY_DEFAULT = B43_VERBOSITY_INFO,
++#endif
++};
+ 
+ 
+ /* Lightweight function to convert a frequency (in Mhz) to a channel number. */
+ static inline u8 b43_freq_to_channel_5ghz(int freq)
+ {
+ 	return ((freq - 5000) / 5);
+Index: wireless-testing/drivers/net/wireless/b43/Kconfig
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/Kconfig	2009-01-25 15:29:55.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/Kconfig	2009-01-25 15:31:41.000000000 +0100
+@@ -107,16 +107,24 @@ config B43_RFKILL
+ 	default y
+ 
+ config B43_DEBUG
+ 	bool &quot;Broadcom 43xx debugging&quot;
+ 	depends on B43
+ 	---help---
+-	  Broadcom 43xx debugging messages.
++	  Broadcom 43xx debugging.
+ 
+-	  Say Y, if you want to find out why the driver does not
+-	  work for you.
++	  This adds additional runtime sanity checks and statistics to the driver.
++	  These checks and statistics might me expensive and hurt runtime performance
++	  of your system.
++	  This also adds the b43 debugfs interface.
++
++	  Do not enable this, unless you are debugging the driver.
++
++	  Say N, if you are a distributor or user building a release kernel
++	  for production use.
++	  Only say Y, if you are debugging a problem in the b43 driver sourcecode.
+ 
+ config B43_FORCE_PIO
+ 	bool &quot;Force usage of PIO instead of DMA&quot;
+ 	depends on B43 &amp;&amp; B43_DEBUG
+ 	---help---
+ 	  This will disable DMA and always enable PIO instead.
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005095.html">[PATCH] b43: Fix phy_g.c compiler warning
+</A></li>
+	<LI>Next message: <A HREF="005102.html">LP-PHY reverse engineering progress
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5099">[ date ]</a>
+              <a href="thread.html#5099">[ thread ]</a>
+              <a href="subject.html#5099">[ subject ]</a>
+              <a href="author.html#5099">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

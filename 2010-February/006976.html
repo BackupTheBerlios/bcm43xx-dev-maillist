@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 08/11] b43: implement writing to MMIO shared memory
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%2008/11%5D%20b43%3A%20implement%20writing%20to%20MMIO%20shared%20memory&In-Reply-To=%3C201002092359.24301.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006971.html">
+   <LINK REL="Next"  HREF="007022.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 08/11] b43: implement writing to MMIO shared memory</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%2008/11%5D%20b43%3A%20implement%20writing%20to%20MMIO%20shared%20memory&In-Reply-To=%3C201002092359.24301.mb%40bu3sch.de%3E"
+       TITLE="[PATCH 08/11] b43: implement writing to MMIO shared memory">mb at bu3sch.de
+       </A><BR>
+    <I>Tue Feb  9 23:59:23 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006971.html">[PATCH 08/11] b43: implement writing to MMIO shared memory
+</A></li>
+        <LI>Next message: <A HREF="007022.html">[PATCH 08/11] b43: implement writing to MMIO shared memory
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6976">[ date ]</a>
+              <a href="thread.html#6976">[ thread ]</a>
+              <a href="subject.html#6976">[ subject ]</a>
+              <a href="author.html#6976">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Tuesday 09 February 2010 21:04:40 Rafa&#322; Mi&#322;ecki wrote:
+&gt;<i> Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i>  drivers/net/wireless/b43/phy_common.c |   11 +++++++++++
+</I>&gt;<i>  drivers/net/wireless/b43/phy_common.h |    2 ++
+</I>&gt;<i>  2 files changed, 13 insertions(+), 0 deletions(-)
+</I>&gt;<i> 
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/phy_common.c b/drivers/net/wireless/b43/phy_common.c
+</I>&gt;<i> index 8f7d7ef..0b0f9df 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/phy_common.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/phy_common.c
+</I>&gt;<i> @@ -466,3 +466,14 @@ struct b43_c32 b43_cordic(int theta)
+</I>&gt;<i>  
+</I>&gt;<i>  	return ret;
+</I>&gt;<i>  }
+</I>&gt;<i> +
+</I>&gt;<i> +/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/BmacWriteShm">http://bcm-v4.sipsolutions.net/802.11/PHY/BmacWriteShm</A> */
+</I>&gt;<i> +void b43_bmac_write_shm(struct b43_wldev *dev, u32 offset, u16 value)
+</I>&gt;<i> +{
+</I>&gt;<i> +	b43_write32(dev, B43_MMIO_SHM_CONTROL, 0x00010000 | (offset &gt;&gt; 2));
+</I>&gt;<i> +	b43_read32(dev, B43_MMIO_SHM_CONTROL);
+</I>&gt;<i> +	if (offset &amp; 2)
+</I>&gt;<i> +		b43_write16(dev, 0x165, value);
+</I>&gt;<i> +	else
+</I>&gt;<i> +		b43_write16(dev, B43_MMIO_SHM_DATA, value);
+</I>&gt;<i> +}
+</I>
+I'd like to put a biiiig questionmark on this.
+We already have SHM access. Your function does exactly the same, except that it
+accesses the bullshit register h165.
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006971.html">[PATCH 08/11] b43: implement writing to MMIO shared memory
+</A></li>
+	<LI>Next message: <A HREF="007022.html">[PATCH 08/11] b43: implement writing to MMIO shared memory
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6976">[ date ]</a>
+              <a href="thread.html#6976">[ thread ]</a>
+              <a href="subject.html#6976">[ subject ]</a>
+              <a href="author.html#6976">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

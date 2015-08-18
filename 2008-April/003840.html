@@ -1,0 +1,152 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> New Device
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20New%20Device&In-Reply-To=%3C48078D4D.9070002%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003852.html">
+   <LINK REL="Next"  HREF="003841.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>New Device</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20New%20Device&In-Reply-To=%3C48078D4D.9070002%40lwfinger.net%3E"
+       TITLE="New Device">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Thu Apr 17 19:47:57 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003852.html">Problems with PCI (not Cardbus) BCM43xx
+</A></li>
+        <LI>Next message: <A HREF="003841.html">New Device
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3840">[ date ]</a>
+              <a href="thread.html#3840">[ thread ]</a>
+              <a href="subject.html#3840">[ subject ]</a>
+              <a href="author.html#3840">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I wrote earlier about my laptop losing access to my wifi card. I sent
+it in for a warranty repair through Best Buy. Yesterday, I got a phone
+call from Best Buy stating that HP had authorized giving my a
+replacement machine! Somehow, replacing a machine because a backplane
+needed to be repaired doesn't make sense. I suspect someone dropped my
+computer off the bench, or some other kind of human error.
+
+In any case, I now have an HP dv2815nr, which increases the speed of
+my dual-core AMD processors from 1.6 to 2.0 GHz, my RAM goes from 1 to 
+3 GB, and my disk goes from 120 to 250 GB. Not too shabby for a total
+outlay of $124 on my part. That was the cost of a new 3-year service
+plan less the difference in cost of the two machines. I'm happy.
+
+Of course, there is a brand-new Broadcom wifi card in this computer, 
+which is the subject of this E-mail. The details are as follows:
+
+lspci -v output:
+
+04:00.0 Network controller: Broadcom Corporation BCM4310 USB
+Controller (rev 01)
+            Subsystem: Hewlett-Packard Company Unknown device 137c
+            Flags: bus master, fast devsel, latency 0, IRQ 22
+            Memory at fc000000 (64-bit, non-prefetchable) [size=16K]
+            Capabilities: [40] Power Management version 3
+            Capabilities: [58] Vendor Specific Information
+            Capabilities: [e8] Message Signalled Interrupts: Mask- 64bit+
+Queue=0/0 Enable-
+            Capabilities: [d0] Express Endpoint IRQ 0
+            Capabilities: [100] Advanced Error Reporting
+            Capabilities: [13c] Virtual Channel
+            Capabilities: [160] Device Serial Number
+1a-00-fe-ff-ff-73-64-ad
+            Capabilities: [16c] Power Budgeting
+
+lspci -n output:
+
+04:00.0 Class 0280: 14e4:4315 (rev 01)
+
+Relevant output from dmesg (some code modifications were needed):
+
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x16, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x0F, vendor 0x4243)
+ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x0A, vendor 0x4243)
+ssb: Core 3 found: PCI-E (cc 0x820, rev 0x09, vendor 0x4243)
+ssb: SPROM revision 8 detected.
+ssb: Sonics Silicon Backplane found on PCI device 0000:04:00.0
+b43-phy0: Broadcom 4312 WLAN found
+b43-phy0 ERROR: FOUND UNSUPPORTED PHY (Analog 6, Type 5, Revision 1)
+
+AFAIK, this is the first rev 8 SPROM that has been found. What 
+happened to revs 5-7??? As can be seen in the dump below, this is a 
+440-byte SPROM, just like rev 4; however, everything has been moved. 
+I'm still trying to find out where stuff is - the MAC address starts 
+at be16 offset 0x008C.
+
+0000 012800007C133C107800BE6D0000C42B
+0010 642A6429642CE73CFF467F47000C4078
+0020 A000FFFF0000FFFFFFFFFFFFFFFFFFFF
+0030 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+0040 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+0050 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+0060 15430080020000000010001800000000
+0070 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+0080 72531112010A0600000000001A00FE73
+0090 64AD53550100FF83FFFFFFFF030002FF
+00A0 FFFFFFFF0F00FFFF6C00FFFFFAFFFFFF
+00B0 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+00C0 4A3E571A8AF991FEFFFFFFFFFFFFFFFF
+00D0 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+00E0 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+00F0 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+0100 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+0110 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+0120 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+0130 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+0140 FFFF0800FFFFFFFFFFFFFFFFFFFFFFFF
+0150 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+0160 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+0170 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+0180 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+0190 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+01A0 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+01B0 FFFFFFFFFFFF085C
+
+Do any of the RE's know anything about this rev of the SPROM? Is there 
+any documentation available?
+
+Larry
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003852.html">Problems with PCI (not Cardbus) BCM43xx
+</A></li>
+	<LI>Next message: <A HREF="003841.html">New Device
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3840">[ date ]</a>
+              <a href="thread.html#3840">[ thread ]</a>
+              <a href="subject.html#3840">[ subject ]</a>
+              <a href="author.html#3840">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

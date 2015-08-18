@@ -1,0 +1,116 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Assertion failed in ieee80211softmac_wx_get_rate
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-March/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Assertion%20failed%20in%20ieee80211softmac_wx_get_rate&In-Reply-To=%3C20070302135734.GB6676%40tuxdriver.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000657.html">
+   <LINK REL="Next"  HREF="000659.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Assertion failed in ieee80211softmac_wx_get_rate</H1>
+    <B>John W. Linville</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Assertion%20failed%20in%20ieee80211softmac_wx_get_rate&In-Reply-To=%3C20070302135734.GB6676%40tuxdriver.com%3E"
+       TITLE="Assertion failed in ieee80211softmac_wx_get_rate">linville at tuxdriver.com
+       </A><BR>
+    <I>Fri Mar  2 14:57:34 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000657.html">Assertion failed in ieee80211softmac_wx_get_rate
+</A></li>
+        <LI>Next message: <A HREF="000659.html">Assertion failed in ieee80211softmac_wx_get_rate
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#658">[ date ]</a>
+              <a href="thread.html#658">[ thread ]</a>
+              <a href="subject.html#658">[ subject ]</a>
+              <a href="author.html#658">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Fri, Mar 02, 2007 at 01:26:59AM -0500, Pavel Roskin wrote:
+&gt;<i> Hello!
+</I>&gt;<i> 
+</I>&gt;<i> If I load bcm43xx and run iwconfig without bringing the interface up,
+</I>&gt;<i> I'm getting this in the kernel log:
+</I>&gt;<i> 
+</I>&gt;<i> SoftMAC: ASSERTION FAILED (0)
+</I>&gt;<i> at: /home/proski/src/linux-2.6/net/ieee80211/softmac/ieee80211softmac_wx.c:306:ieee80211softmac_wx_get_rate()
+</I>&gt;<i> 
+</I>&gt;<i> It's an x86 system with the 2.6.20 kernel (actually, it's the master
+</I>&gt;<i> branch from the mb repository, which is wireless-dev before the 2.6.21
+</I>&gt;<i> switchover plus broadcom fixes).
+</I>&gt;<i> 
+</I>&gt;<i> The assert assures that the interface has a valid tx rate.  But since
+</I>&gt;<i> the interface has never been up, the rate has not been assigned.
+</I>&gt;<i> 
+</I>&gt;<i> Either softmac should tolerate rate 0, at least when the interface is
+</I>&gt;<i> down, or it should initialize the rate much earlier, perhaps in
+</I>&gt;<i> alloc_ieee80211softmac().
+</I>&gt;<i> 
+</I>&gt;<i> I can test another tree, e.g. wireless-2.6, if there are chances that
+</I>&gt;<i> the problem has been fixed.
+</I>
+Does the tree you are using have this commit?
+
+commit 6bbdce5ac755e3b3cdcf9bb9fdbcc2af78ad34d0
+Author: John W. Linville &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>&gt;
+Date:   Tue Jan 2 21:22:05 2007 -0500
+
+    [PATCH] softmac: avoid assert in ieee80211softmac_wx_get_rate
+
+    Unconfigured bcm43xx device can hit an assert() during wx_get_rate
+    queries.  This is because bcm43xx calls ieee80211softmac_start late
+    (i.e. during open instead of probe).
+
+       bcm43xx_net_open -&gt;
+          bcm43xx_init_board -&gt;
+             bcm43xx_select_wireless_core -&gt;
+                ieee80211softmac_start
+
+    Fix is to check that device is running before completing
+    ieee80211softmac_wx_get_rate.
+
+    Signed-off-by: John W. Linville &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>&gt;
+
+It is in linux-2.6, wireless-2.6, and wireless-dev.  If you don't
+want to use those trees, you should be able to apply the patch to
+the tree you are using.
+
+Hth!
+
+John
+-- 
+John W. Linville
+<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000657.html">Assertion failed in ieee80211softmac_wx_get_rate
+</A></li>
+	<LI>Next message: <A HREF="000659.html">Assertion failed in ieee80211softmac_wx_get_rate
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#658">[ date ]</a>
+              <a href="thread.html#658">[ thread ]</a>
+              <a href="subject.html#658">[ subject ]</a>
+              <a href="author.html#658">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

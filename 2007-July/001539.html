@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Multicast RX and TX both broken
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Multicast%20RX%20and%20TX%20both%20broken&In-Reply-To=%3C1184282128.3136.12.camel%40shinybook.infradead.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001565.html">
+   <LINK REL="Next"  HREF="001541.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Multicast RX and TX both broken</H1>
+    <B>David Woodhouse</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Multicast%20RX%20and%20TX%20both%20broken&In-Reply-To=%3C1184282128.3136.12.camel%40shinybook.infradead.org%3E"
+       TITLE="Multicast RX and TX both broken">dwmw2 at infradead.org
+       </A><BR>
+    <I>Fri Jul 13 01:15:28 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001565.html">bcm4301: A mac80211 driver using V3 firmware
+</A></li>
+        <LI>Next message: <A HREF="001541.html">Multicast RX and TX both broken
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1539">[ date ]</a>
+              <a href="thread.html#1539">[ thread ]</a>
+              <a href="subject.html#1539">[ subject ]</a>
+              <a href="author.html#1539">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Multicast receive is not working in bcm43xx-mac80211 (BCM4306 on
+PowerBook G4); Fedora rawhide's 2.6.22-rc7-git3 kernel.
+
+When I bring up the interface, tcpdump shows me these packets...
+
+00:00:42.937394 00:0a:95:f3:99:92 &gt; 33:33:ff:f3:99:92, ethertype IPv6 (0x86dd), length 78: :: &gt; ff02::1:fff3:9992: ICMP6, neighbor solicitation, who has fe80::20a:95ff:fef3:9992, length 24
+00:00:43.091015 00:0a:95:f3:99:92 &gt; 33:33:ff:f3:99:92, ethertype IPv6 (0x86dd), length 78: :: &gt; ff02::1:fff3:9992: ICMP6, neighbor solicitation, who has fe80::20a:95ff:fef3:9992, length 24
+00:00:44.951285 00:40:f4:28:95:9d &gt; 33:33:00:00:00:01, ethertype IPv6 (0x86dd), length 118: fe80::240:f4ff:fe28:959d &gt; ff02::1: ICMP6, router advertisement, length 64
+00:00:44.989337 00:0a:95:f3:99:92 &gt; 33:33:ff:f3:99:92, ethertype IPv6 (0x86dd), length 78: :: &gt; ff02::1:fff3:9992: ICMP6, neighbor solicitation, who has 2001:8b0:10b:1:20a:95ff:fef3:9992, length 24
+
+If I run 'tcpdump -p' to refrain from putting it in promiscuous mode, I
+don't see the RA packet to 33:33:00:00:00:01. And IPv6 autoconfiguration
+doesn't work.
+
+It _does_, however, see its own outgoing neighbour solicitation packet
+as if it came from another host on the network, leading to messages
+saying 'eth1: duplicate address detected!' and the IPv6 link-local
+address being marked as 'tentative' and never actually working (until I
+remove it and add it again manually, after which the reception of RA
+packets _still_ doesn't work).
+
+You can test this by just building with IPv6 support, and observing the
+output of 'ip -6 addr list'. When it's seeing its own packets, it looks
+like this:
+
+5: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qlen 1000
+    inet6 fe80::20a:95ff:fef3:9992/64 scope link tentative 
+
+When it's working properly, that 'tentative' isn't there.
+
+You can test multicast RX by running radvd on the network -- you don't
+need proper IPv6 connectivity; you can do it with site-local addresses
+with a configuration like the following (run this on _another_ machine
+on the network; either on the wireless or bridged to it):
+
+interface eth1
+{
+        AdvSendAdvert on;
+        MinRtrAdvInterval 30;
+        MaxRtrAdvInterval 100;
+        prefix fec0::/64
+        {
+                AdvOnLink on;
+                AdvAutonomous on;
+                AdvRouterAddr off;
+        };
+
+};
+
+I'm going back to the softmac driver for now. Although I might follow up
+with a report of the crash which happens when I the remove
+bcm43xx-mac80211 module.
+
+-- 
+dwmw2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001565.html">bcm4301: A mac80211 driver using V3 firmware
+</A></li>
+	<LI>Next message: <A HREF="001541.html">Multicast RX and TX both broken
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1539">[ date ]</a>
+              <a href="thread.html#1539">[ thread ]</a>
+              <a href="subject.html#1539">[ subject ]</a>
+              <a href="author.html#1539">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

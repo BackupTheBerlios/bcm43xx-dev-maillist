@@ -1,0 +1,151 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 won't connect to access point: deauthentication reason=7 ??
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20won%27t%20connect%20to%20access%20point%3A%20deauthentication%20reason%3D7%20%3F%3F&In-Reply-To=%3Cc195ebf70801031717r7875fba3y9fb058d5dba5e007%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003160.html">
+   <LINK REL="Next"  HREF="003163.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 won't connect to access point: deauthentication reason=7 ??</H1>
+    <B>sean darcy</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20won%27t%20connect%20to%20access%20point%3A%20deauthentication%20reason%3D7%20%3F%3F&In-Reply-To=%3Cc195ebf70801031717r7875fba3y9fb058d5dba5e007%40mail.gmail.com%3E"
+       TITLE="b43 won't connect to access point: deauthentication reason=7 ??">seandarcy2 at gmail.com
+       </A><BR>
+    <I>Fri Jan  4 02:17:37 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003160.html">[PATCH] b43-ssb-bridge: Add PCI ID for BCM43XG
+</A></li>
+        <LI>Next message: <A HREF="003163.html">[PATCH] b43: Add NPHY kconfig option
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3161">[ date ]</a>
+              <a href="thread.html#3161">[ thread ]</a>
+              <a href="subject.html#3161">[ subject ]</a>
+              <a href="author.html#3161">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Fedora 8 I'm having trouble getting my 4311 to connect to the access point:
+
+uname -r
+2.6.23.9-85.fc8
+
+lspci -n
+04:00.0 Network controller [0280]: Broadcom Corporation BCM94311MCG
+wlan mini-PCI [14e4:4311] (rev 01)
+
+cat /etc/sysconfig/network-scripts/ifcfg-wlan0
+DEVICE=wlan0
+BOOTPROTO=dhcp
+ONBOOT=yes
+TYPE=Wireless
+ESSID=belkin
+
+All the right kmods seem to be loaded:
+
+lsmod | grep b43
+b43                   133221  0
+rfkill                  9297  2 b43
+mac80211              115789  1 b43
+input_polldev           7369  1 b43
+ssb                    30149  1 b43
+
+and the iw tools work OK:
+
+iwconfig wlan0
+wlan0     IEEE 802.11g  ESSID:&quot;belkin&quot;
+          Mode:Managed  Frequency:2.412 GHz  Access Point: 00:11:50:22:95:52
+          Bit Rate=1 Mb/s   Tx-Power=27 dBm
+          Retry min limit:7   RTS thr:off   Fragment thr=2352 B
+          Encryption key:off
+          Link Quality=65/100  Signal level=-70 dBm  Noise level=-73 dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+iwlist wlan0 scan
+wlan0     Scan completed :
+          Cell 01 - Address: 00:11:50:22:95:52
+                    ESSID:&quot;belkin&quot;
+                    Mode:Master
+                    Channel:1
+                    Frequency:2.412 GHz (Channel 1)
+                    Quality=81/100  Signal level=-45 dBm  Noise level=-73 dBm
+                    Encryption key:off
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 6 Mb/s
+                              9 Mb/s; 12 Mb/s; 18 Mb/s; 24 Mb/s; 36 Mb/s
+                              48 Mb/s; 54 Mb/s
+                    Extra:tsf=0000008d74d0946c
+          Cell 02 - Address: 00:16:B6:2E:BA:B7
+                    ESSID:&quot;paulc&quot;
+                    Mode:Master
+                    Channel:6
+                    Frequency:2.437 GHz (Channel 6)
+                    Quality=56/100  Signal level=-83 dBm  Noise level=-73 dBm
+                    Encryption key:off
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 18 Mb/s
+                              24 Mb/s; 36 Mb/s; 54 Mb/s; 6 Mb/s; 9 Mb/s
+                              12 Mb/s; 48 Mb/s
+                    Extra:tsf=00000089fb5f7939
+
+but ifup wlan0 fails:
+
+dmesg | grep wlan0
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:11:50:22:95:52
+wlan0: RX authentication from 00:11:50:22:95:52 (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:11:50:22:95:52
+wlan0: RX AssocResp from 00:11:50:22:95:52 (capab=0x601 status=0 aid=2)
+wlan0: associated
+wlan0: switched to short barker preamble (BSSID=00:11:50:22:95:52)
+wlan0: WMM queue=2 aci=0 acm=0 aifs=2 cWmin=15 cWmax=1023 burst=32
+wlan0: WMM queue=3 aci=1 acm=0 aifs=7 cWmin=15 cWmax=1023 burst=0
+wlan0: WMM queue=1 aci=2 acm=0 aifs=2 cWmin=7 cWmax=15 burst=64
+wlan0: WMM queue=0 aci=3 acm=0 aifs=2 cWmin=3 cWmax=7 burst=32
+ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+wlan0: RX too short data frame payload
+wlan0: RX too short data frame payload
+wlan0: RX too short data frame payload
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+wlan0: switched to short barker preamble (BSSID=00:11:50:22:95:52)
+wlan0: RX deauthentication from 00:11:50:22:95:52 (reason=7)
+wlan0: deauthenticated
+
+Thanks for any help
+
+sean
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003160.html">[PATCH] b43-ssb-bridge: Add PCI ID for BCM43XG
+</A></li>
+	<LI>Next message: <A HREF="003163.html">[PATCH] b43: Add NPHY kconfig option
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3161">[ date ]</a>
+              <a href="thread.html#3161">[ thread ]</a>
+              <a href="subject.html#3161">[ subject ]</a>
+              <a href="author.html#3161">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] bcm43xx-mac80211: Provide information to allow transmission	rate decreases
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20bcm43xx-mac80211%3A%20Provide%20information%20to%20allow%20transmission%0A%09rate%20decreases&In-Reply-To=%3C46b0e53e.ouY931%2BcZsSSSmLK%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001668.html">
+   <LINK REL="Next"  HREF="001666.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] bcm43xx-mac80211: Provide information to allow transmission	rate decreases</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20bcm43xx-mac80211%3A%20Provide%20information%20to%20allow%20transmission%0A%09rate%20decreases&In-Reply-To=%3C46b0e53e.ouY931%2BcZsSSSmLK%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[RFC] bcm43xx-mac80211: Provide information to allow transmission	rate decreases">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Wed Aug  1 21:55:42 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001668.html">Report on BCM4318 under Fedora 7
+</A></li>
+        <LI>Next message: <A HREF="001666.html">[RFC] bcm43xx-mac80211: Provide information to allow transmission	rate decreases
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1665">[ date ]</a>
+              <a href="thread.html#1665">[ thread ]</a>
+              <a href="subject.html#1665">[ subject ]</a>
+              <a href="author.html#1665">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael,
+
+This version saves the long- and short-retry limits in the phy struct
+and only sets excessive retries when one or the other is reached.
+
+Larry
+---
+
+In bcm43xx-mac80211, the mechanism for decreasing the transmit rate cannot
+be triggered. This may be shown by walking away from the AP with a laptop.
+At some distance, communications will be lost and never recovered because
+the rate decreasing mechanism of rc80211_simple needs to see excessive_retries
+set in the ieee80211_tx_status struct. With this patch, the transmit rate
+will decrease until communications restart.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_dma.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_dma.c
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_dma.c
+@@ -1284,6 +1284,7 @@ void bcm43xx_dma_handle_txstatus(struct 
+ 	struct bcm43xx_dmaring *ring;
+ 	struct bcm43xx_dmadesc_generic *desc;
+ 	struct bcm43xx_dmadesc_meta *meta;
++	struct bcm43xx_phy *phy = &amp;dev-&gt;phy;
+ 	int slot;
+ 
+ 	ring = parse_cookie(dev, status-&gt;cookie, &amp;slot);
+@@ -1311,6 +1312,10 @@ void bcm43xx_dma_handle_txstatus(struct 
+ 			 */
+ 			if (status-&gt;acked)
+ 				meta-&gt;txstat.flags |= IEEE80211_TX_STATUS_ACK;
++			else
++				if ((status-&gt;frame_count &gt;= phy-&gt;lrlimit) ||
++				    (status-&gt;frame_count &gt;= phy-&gt;srlimit))
++					meta-&gt;txstat.excessive_retries = 1;
+ 			meta-&gt;txstat.retry_count = status-&gt;frame_count - 1;
+ 			ieee80211_tx_status_irqsafe(dev-&gt;wl-&gt;hw, meta-&gt;skb, &amp;(meta-&gt;txstat));
+ 			/* skb is freed by ieee80211_tx_status_irqsafe() */
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx.h
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx.h
+@@ -562,6 +562,8 @@ struct bcm43xx_phy {
+ 	u16 lofcal;
+ 
+ 	u16 initval;//FIXME rename?
++	u8 srlimit;
++	u8 lrlimit;
+ };
+ 
+ /* Data structures for DMA transmission, per 80211 core. */
+Index: wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
++++ wireless-dev/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+@@ -3333,10 +3333,12 @@ static int bcm43xx_wireless_core_init(st
+ 	tmp = limit_value(modparam_short_retry, 0, 0xF);
+ 	bcm43xx_shm_write16(dev, BCM43xx_SHM_SCRATCH,
+ 			    BCM43xx_SHM_SC_SRLIMIT, tmp);
++	phy-&gt;srlimit = tmp;
+ 	tmp = limit_value(modparam_long_retry, 0, 0xF);
+ 	bcm43xx_shm_write16(dev, BCM43xx_SHM_SCRATCH,
+ 			    BCM43xx_SHM_SC_LRLIMIT, tmp);
+ 
++	phy-&gt;lrlimit = tmp;
+ 	bcm43xx_shm_write16(dev, BCM43xx_SHM_SHARED,
+ 			    BCM43xx_SHM_SH_SFFBLIM, 3);
+ 	bcm43xx_shm_write16(dev, BCM43xx_SHM_SHARED,
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001668.html">Report on BCM4318 under Fedora 7
+</A></li>
+	<LI>Next message: <A HREF="001666.html">[RFC] bcm43xx-mac80211: Provide information to allow transmission	rate decreases
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1665">[ date ]</a>
+              <a href="thread.html#1665">[ thread ]</a>
+              <a href="subject.html#1665">[ subject ]</a>
+              <a href="author.html#1665">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

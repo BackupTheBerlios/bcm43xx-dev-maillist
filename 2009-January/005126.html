@@ -1,0 +1,346 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> opensource firmware now accept version 410 frames
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20opensource%20firmware%20now%20accept%20version%20410%20frames&In-Reply-To=%3C200901291620.51482.s.L-H%40gmx.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005124.html">
+   <LINK REL="Next"  HREF="005128.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>opensource firmware now accept version 410 frames</H1>
+    <B>Stefan Lippers-Hollmann</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20opensource%20firmware%20now%20accept%20version%20410%20frames&In-Reply-To=%3C200901291620.51482.s.L-H%40gmx.de%3E"
+       TITLE="opensource firmware now accept version 410 frames">s.L-H at gmx.de
+       </A><BR>
+    <I>Thu Jan 29 16:20:49 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005124.html">opensource firmware now accept version 410 frames
+</A></li>
+        <LI>Next message: <A HREF="005128.html">opensource firmware now accept version 410 frames
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5126">[ date ]</a>
+              <a href="thread.html#5126">[ thread ]</a>
+              <a href="subject.html#5126">[ subject ]</a>
+              <a href="author.html#5126">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi
+
+On Donnerstag, 29. Januar 2009, Francesco Gringoli wrote:
+&gt;<i> Hello,
+</I>&gt;<i> 
+</I>&gt;<i> we made a few modifications to the opensource firmware code and now it  
+</I>&gt;<i> accepts frame encoded as version 410 layout.
+</I>
+Thank you a lot for your efforts, but so far I haven't been successful in
+getting my two 32 bit cardbus BCM4306 (rev. 5) based cards to work. 
+
+b43-asm[1] and openfwwf 5.1[3] seem to build fine, but tests with kernel 
+2.6.28.2, patched with &quot;b43: Automatically probe for opensource 
+firmware&quot;[5] and &quot;b43: Dynamically control log verbosity&quot;[6] from Michael 
+Buesch, seem to result in lots of firmware restarts
+	b43-phy0 ERROR: Firmware watchdog: The firmware died
+	b43-phy0 ERROR: MAC suspend failed
+while scanning for wireless networks works half the time, associating with 
+a WPA2PSK (CCMP) access point (Linksys WRT-54GL 1.1/ BCM4320, OpenWRT 
+8.09_RC2, brcm-2.4[7] (proprietary wl 4.150.10.5 on kernel 2.4.35.4 - and 
+Asus WL-500gP v1/ BCM4318, OpenWRT 8.09_RC2, brcm47xx[8] (opensource b43 
+(compat-wireless[9]) with proprietary firmware 410.2160 on kernel 
+2.6.25.17) hasn't succeeded yet. 
+This behaviour is identical with openfwwf 5.0 and 5.1 for me.
+
+While I'll try a current wireless-testing snapshot with more debugging 
+options set tonight, I don't see any relevant changes (except [5], [6], 
+which are applied to my 2.6.28.2 kernel) staging, do I miss anything 
+obvious? Are there eventually ways to debug this further?
+
+Next to the preliminary Debian package sources at [1], [3], I also 
+unpacked the resulting binary packages below [10] (b43-asm for i386).
+
+By the way, the install target of the current openfwwf 5.1 tarball installs
+ucode5.fw as /lib/firmware/b43-open/open_ucode5.fw, while current b43 [13]
+looks for /lib/firmware/b43-open/ucode5.fw; furthermore b0g0initvals5.fw 
+and b0g0bsinitvals5.fw aren't installed to ${PREFIX}/ at all. Also b43 
+seems to probe for pcm5.fw, which doesn't get built by openfwwf 5.0/ 5.1?
+
+Thanks a lot
+	Stefan Lippers-Hollmann
+
+
+=== dmesg excerpt, full dmesg at [11] ===
+b43-pci-bridge 0000:03:00.0: enabling device (0000 -&gt; 0002)
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0x100-0x3af: excluding 0x230-0x237
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0x3e0-0x4ff: clean.
+b43-pci-bridge 0000:03:00.0: PCI INT A -&gt; Link[LNKC] -&gt; GSI 10 (level, low) -&gt; IRQ 10
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0x820-0x8ff: clean.
+b43-pci-bridge 0000:03:00.0: setting latency timer to 64
+ssb: Sonics Silicon Backplane found on PCI device 0000:03:00.0
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0xc00-0xcf7: clean.
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0xa00-0xaff: clean.
+b43-phy0: Broadcom 4306 WLAN found (core revision 5)
+phy0: Selected rate control algorithm 'minstrel'
+Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID: FW13 ]
+input: b43-phy0 as /devices/virtual/input/input8
+b43 ssb0:0: firmware: requesting b43/ucode5.fw
+b43 ssb0:0: firmware: requesting b43-open/ucode5.fw
+b43 ssb0:0: firmware: requesting b43-open/pcm5.fw
+b43 ssb0:0: firmware: requesting b43-open/b0g0initvals5.fw
+b43 ssb0:0: firmware: requesting b43-open/b0g0bsinitvals5.fw
+b43-phy0: Loading OpenSource firmware version 410.31754 (Hardware crypto not supported)
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0: Radio turned on by software
+b43-phy0 ERROR: Firmware watchdog: The firmware died!
+b43-phy0: Controller RESET (Firmware watchdog) ...
+b43-phy0 ERROR: MAC suspend failed
+b43 ssb0:0: firmware: requesting b43/ucode5.fw
+b43 ssb0:0: firmware: requesting b43-open/ucode5.fw
+b43 ssb0:0: firmware: requesting b43-open/pcm5.fw
+b43 ssb0:0: firmware: requesting b43-open/b0g0initvals5.fw
+b43 ssb0:0: firmware: requesting b43-open/b0g0bsinitvals5.fw
+b43-phy0: Loading OpenSource firmware version 410.31754 (Hardware crypto not supported)
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0: Controller restarted
+wlan1: direct probe to AP 00:18:39:6b:da:23 try 1
+wlan1: direct probe to AP 00:18:39:6b:da:23 try 2
+wlan1: direct probe to AP 00:18:39:6b:da:23 try 3
+wlan1: direct probe to AP 00:18:39:6b:da:23 timed out
+wlan1: direct probe to AP 00:18:39:6b:da:23 try 1
+[...]
+
+
+=== lspci -nnvvv ===
+03:00.0 Network controller [0280]: Broadcom Corporation BCM4306 802.11b/g Wireless LAN Controller [14e4:4320] (rev 03)
+        Subsystem: Belkin Belkin F5D7010 54g Wireless Network card [1799:7010]
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR- INTx-
+        Latency: 64
+        Interrupt: pin A routed to IRQ 10
+        Region 0: Memory at d4000000 (32-bit, non-prefetchable) [size=8K]
+        Kernel driver in use: b43-pci-bridge
+        Kernel modules: ssb
+
+
+=== b43-asm build [2] ===
+/usr/bin/make -C assembler CFLAGS=&quot;-g -O2 -fomit-frame-pointer -std=c99 -Wall -D_BSD_SOURCE -D_GNU_SOURCE -DYYSTYPE='void *' -DYYERROR_VERBOSE -DYYDEBUG -Wno-unused&quot;
+make[1]: Entering directory `/tmp/buildd/b43-asm-0~20080619/assembler'
+bison --defines -o parser.c parser.y
+gcc -g -O2 -fomit-frame-pointer -std=c99 -Wall -D_BSD_SOURCE -D_GNU_SOURCE -DYYSTYPE='void *' -DYYERROR_VERBOSE -DYYDEBUG -Wno-unused -c -o parser.o parser.c
+flex -o scanner.c --header-file=scanner.h scanner.l
+gcc -g -O2 -fomit-frame-pointer -std=c99 -Wall -D_BSD_SOURCE -D_GNU_SOURCE -DYYSTYPE='void *' -DYYERROR_VERBOSE -DYYDEBUG -Wno-unused -c -o scanner.o scanner.c
+gcc -g -O2 -fomit-frame-pointer -std=c99 -Wall -D_BSD_SOURCE -D_GNU_SOURCE -DYYSTYPE='void *' -DYYERROR_VERBOSE -DYYDEBUG -Wno-unused   -c -o main.o main.c
+gcc -g -O2 -fomit-frame-pointer -std=c99 -Wall -D_BSD_SOURCE -D_GNU_SOURCE -DYYSTYPE='void *' -DYYERROR_VERBOSE -DYYDEBUG -Wno-unused   -c -o initvals.o initvals.c
+gcc -g -O2 -fomit-frame-pointer -std=c99 -Wall -D_BSD_SOURCE -D_GNU_SOURCE -DYYSTYPE='void *' -DYYERROR_VERBOSE -DYYDEBUG -Wno-unused   -c -o util.o util.c
+gcc -g -O2 -fomit-frame-pointer -std=c99 -Wall -D_BSD_SOURCE -D_GNU_SOURCE -DYYSTYPE='void *' -DYYERROR_VERBOSE -DYYDEBUG -Wno-unused   -c -o args.o args.c
+gcc -g -O2 -fomit-frame-pointer -std=c99 -Wall -D_BSD_SOURCE -D_GNU_SOURCE -DYYSTYPE='void *' -DYYERROR_VERBOSE -DYYDEBUG -Wno-unused -o b43-asm.bin parser.o scanner.o main.o initvals.o util.o args.o  -lfl
+[...]
+PATH=/tmp/buildd/b43-asm-0~20080619/assembler:/usr/sbin:/usr/bin:/sbin:/bin b43-asm assembler/test.asm test.fw --cpp-args -DDEBUG=1 -- --ivalext .fw --psize
+test.fw:  text = 88 instructions (704 bytes)
+foobar.fw:  14 values (68 bytes)
+PATH=/tmp/buildd/b43-asm-0~20080619/assembler:/tmp/buildd/b43-asm-0~20080619/disassembler:/usr/sbin:/usr/bin:/sbin:/bin /tmp/buildd/b43-asm-0~20080619/assembler/selftest.sh test.fw
+Assembler info:
+  Using start address 0
+Input file checksum:    8909b9f091cde12630be6bd028f5c9ad09d01b28
+Re-assembled checksum:  8909b9f091cde12630be6bd028f5c9ad09d01b28
+
+Checksums match
+
+
+=== openfwwf 5.1 build [4] ===
+b43-asm ucode5.asm ucode5.fw --cpp-args -DDEBUG=1 -- --ivalext .fw --psize
+Assembler info:
+  Using start address 0
+ucode5.fw:  text = 1187 instructions (9496 bytes)
+b0g0initvals5.fw:  177 values (968 bytes)
+b0g0bsinitvals5.fw:  31 values (150 bytes)
+
+
+=== configuration for wpasupplicant 0.6.7 (Debian, pkg-wpa svn) ===
+network={
+        priority=15
+        ssid=&quot;mercury&quot;
+        id_str=&quot;linksys_aes&quot;
+        proto=WPA2
+        psk=&lt;hex-key&gt;
+}
+
+
+=== dmesg excerpt, working Broadcom firmware ===
+b43-pci-bridge 0000:03:00.0: enabling device (0000 -&gt; 0002)
+b43-pci-bridge 0000:03:00.0: PCI INT A -&gt; Link[LNKC] -&gt; GSI 10 (level, low) -&gt; IRQ 10
+b43-pci-bridge 0000:03:00.0: setting latency timer to 64
+ssb: Sonics Silicon Backplane found on PCI device 0000:03:00.0
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0x100-0x3af: excluding 0x230-0x237
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0x3e0-0x4ff: clean.
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0x820-0x8ff: clean.
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0xc00-0xcf7: clean.
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0xa00-0xaff: clean.
+b43-phy0: Broadcom 4306 WLAN found (core revision 5)
+phy0: Selected rate control algorithm 'minstrel'
+Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID: FW13 ]
+input: b43-phy0 as /devices/virtual/input/input8
+b43 ssb0:0: firmware: requesting b43/ucode5.fw
+b43 ssb0:0: firmware: requesting b43/pcm5.fw
+b43 ssb0:0: firmware: requesting b43/b0g0initvals5.fw
+b43 ssb0:0: firmware: requesting b43/b0g0bsinitvals5.fw
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0: Radio turned on by software
+wlan1: authenticate with AP 00:18:39:6b:da:23
+wlan1: authenticated
+wlan1: associate with AP 00:18:39:6b:da:23
+wlan1: RX AssocResp from 00:18:39:6b:da:23 (capab=0x411 status=0 aid=1)
+wlan1: associated
+ADDRCONF(NETDEV_CHANGE): wlan1: link becomes ready
+
+
+=== wpa_cli status (0.6.7, Broadcom firmware) ===
+bssid=00:18:39:6b:da:23
+ssid=mercury
+id=0
+id_str=linksys_aes
+pairwise_cipher=CCMP
+group_cipher=CCMP
+key_mgmt=WPA2-PSK
+wpa_state=COMPLETED
+ip_address=192.168.0.75
+
+
+=== alternative system, lspci -nnvvv ===
+02:00.0 Network controller [0280]: Broadcom Corporation BCM4306 802.11b/g Wireless LAN Controller [14e4:4320] (rev 03)
+        Subsystem: Linksys WPC54G [1737:4320]
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR- INTx-
+        Latency: 64
+        Interrupt: pin A routed to IRQ 10
+        Region 0: Memory at 14000000 (32-bit, non-prefetchable) [size=8K]
+        Capabilities: [40] Power Management version 2
+                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+                Status: D0 PME-Enable- DSel=0 DScale=2 PME-
+        Kernel driver in use: b43-pci-bridge
+        Kernel modules: ssb
+
+
+=== alternative system, dmesg excerpt; full dmesg at [12] ===
+yenta_cardbus 0000:00:04.0: CardBus bridge found [14c0:0012]
+yenta_cardbus 0000:00:04.0: O2: res at 0x94/0xD4: ca/00
+yenta_cardbus 0000:00:04.0: O2: enabling read prefetch/write burst
+yenta_cardbus 0000:00:04.0: ISA IRQ mask 0x0018, PCI irq 10
+yenta_cardbus 0000:00:04.0: Socket status: 30000820
+yenta_cardbus 0000:00:04.1: CardBus bridge found [14c0:0012]
+yenta_cardbus 0000:00:04.1: ISA IRQ mask 0x0018, PCI irq 11
+yenta_cardbus 0000:00:04.1: Socket status: 30000820
+pcmcia_socket pcmcia_socket0: pccard: CardBus card inserted into slot 0
+pci 0000:02:00.0: reg 10 32bit mmio: [0x000000-0x001fff]
+pci 0000:02:00.0: supports D1 D2
+pci 0000:02:00.0: PME# supported from D0 D1 D2 D3hot D3cold
+pci 0000:02:00.0: PME# disabled
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0x100-0x3af: clean.
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0x3e0-0x4ff: clean.
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0x820-0x8ff: clean.
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0xc00-0xcf7: clean.
+pcmcia_socket pcmcia_socket0: cs: IO port probe 0xa00-0xaff: clean.
+b43-pci-bridge 0000:02:00.0: enabling device (0000 -&gt; 0002)
+b43-pci-bridge 0000:02:00.0: PCI INT A -&gt; Link[LNKA] -&gt; GSI 10 (level, low) -&gt; IRQ 10
+b43-pci-bridge 0000:02:00.0: setting latency timer to 64
+ssb: Sonics Silicon Backplane found on PCI device 0000:02:00.0
+b43-phy0: Broadcom 4306 WLAN found (core revision 5)
+phy0: Selected rate control algorithm 'minstrel'
+Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID: FW13 ]
+input: b43-phy0 as /devices/virtual/input/input8
+b43 ssb0:0: firmware: requesting b43/ucode5.fw
+b43 ssb0:0: firmware: requesting b43-open/ucode5.fw
+b43 ssb0:0: firmware: requesting b43-open/pcm5.fw
+b43 ssb0:0: firmware: requesting b43-open/b0g0initvals5.fw
+b43 ssb0:0: firmware: requesting b43-open/b0g0bsinitvals5.fw
+b43-phy0: Loading OpenSource firmware version 410.31754 (Hardware crypto not supported)
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0: Radio turned on by software
+b43-phy0 ERROR: MAC suspend failed
+b43-phy0 ERROR: MAC suspend failed
+b43-phy0 ERROR: MAC suspend failed
+b43-phy0 ERROR: MAC suspend failed
+wlan1: direct probe to AP 00:17:31:bb:07:df try 1
+wlan1: direct probe to AP 00:17:31:bb:07:df try 2
+wlan1: direct probe to AP 00:17:31:bb:07:df try 3
+wlan1: direct probe to AP 00:17:31:bb:07:df timed out
+b43-phy0 ERROR: Firmware watchdog: The firmware died!
+b43-phy0: Controller RESET (Firmware watchdog) ...
+b43-phy0 ERROR: MAC suspend failed
+b43 ssb0:0: firmware: requesting b43/ucode5.fw
+b43 ssb0:0: firmware: requesting b43-open/ucode5.fw
+b43 ssb0:0: firmware: requesting b43-open/pcm5.fw
+b43 ssb0:0: firmware: requesting b43-open/b0g0initvals5.fw
+b43 ssb0:0: firmware: requesting b43-open/b0g0bsinitvals5.fw
+b43-phy0: Loading OpenSource firmware version 410.31754 (Hardware crypto not supported)
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+b43-phy0: Controller restarted
+wlan1: direct probe to AP 00:18:39:6b:da:23 try 1
+wlan1: direct probe to AP 00:18:39:6b:da:23 try 2
+wlan1: direct probe to AP 00:18:39:6b:da:23 try 3
+wlan1: direct probe to AP 00:18:39:6b:da:23 timed out
+[...]
+
+
+
+[1]	preliminary Debian packaging for b43-asm, proof of concept state
+	<A HREF="http://sidux.com/slh/b43-asm/">http://sidux.com/slh/b43-asm/</A>
+[2]	full build log for b43-asm
+	<A HREF="http://sidux.com/slh/b43-asm/b43-asm_0~20080619-0+c0.sidux.3_amd64.build">http://sidux.com/slh/b43-asm/b43-asm_0~20080619-0+c0.sidux.3_amd64.build</A>
+[3]	preliminary Debian packaging for openfwwf, proof of concept state
+	<A HREF="http://sidux.com/slh/openfwwf/">http://sidux.com/slh/openfwwf/</A>
+[4]	full build log for openfwwf
+	<A HREF="http://sidux.com/slh/openfwwf/openfwwf_5.1-0+c0.sidux.1_amd64.build">http://sidux.com/slh/openfwwf/openfwwf_5.1-0+c0.sidux.1_amd64.build</A>
+[5]	<A HREF="http://svn.berlios.de/svnroot/repos/fullstory/linux-sidux-2.6/trunk/debian/patches/features/b43_automatically-probe-for-opensource-firmware.diff">http://svn.berlios.de/svnroot/repos/fullstory/linux-sidux-2.6/trunk/debian/patches/features/b43_automatically-probe-for-opensource-firmware.diff</A>
+[6]	<A HREF="http://svn.berlios.de/svnroot/repos/fullstory/linux-sidux-2.6/trunk/debian/patches/features/b43_dynamically-control-log.verbosity.diff">http://svn.berlios.de/svnroot/repos/fullstory/linux-sidux-2.6/trunk/debian/patches/features/b43_dynamically-control-log.verbosity.diff</A>
+[7]	<A HREF="http://downloads.openwrt.org/kamikaze/8.09_RC2/brcm-2.4/openwrt-brcm-2.4-squashfs.trx">http://downloads.openwrt.org/kamikaze/8.09_RC2/brcm-2.4/openwrt-brcm-2.4-squashfs.trx</A>
+[8]	<A HREF="http://downloads.openwrt.org/kamikaze/8.09_RC2/brcm47xx/openwrt-brcm47xx-squashfs.trx">http://downloads.openwrt.org/kamikaze/8.09_RC2/brcm47xx/openwrt-brcm47xx-squashfs.trx</A>
+[9]	<A HREF="http://www.orbit-lab.org/kernel/compat-wireless-2.6/2008/08/compat-wireless-2008-08-06.tar.bz2">http://www.orbit-lab.org/kernel/compat-wireless-2.6/2008/08/compat-wireless-2008-08-06.tar.bz2</A>
+[10]	<A HREF="http://sidux.com/slh/binary-i386/">http://sidux.com/slh/binary-i386/</A>
+[11]	<A HREF="http://sidux.com/slh/openfwwf-dmesg.log">http://sidux.com/slh/openfwwf-dmesg.log</A>
+[12]	<A HREF="http://sidux.com/slh/openfwwf-dmesg-alternative.log">http://sidux.com/slh/openfwwf-dmesg-alternative.log</A>
+[13]	<A HREF="http://git.kernel.org/?p=linux/kernel/git/linville/wireless-testing.git;a=commitdiff;h=0faa1094b4f6bae7705d845fee87a1b4a3501178">http://git.kernel.org/?p=linux/kernel/git/linville/wireless-testing.git;a=commitdiff;h=0faa1094b4f6bae7705d845fee87a1b4a3501178</A>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005124.html">opensource firmware now accept version 410 frames
+</A></li>
+	<LI>Next message: <A HREF="005128.html">opensource firmware now accept version 410 frames
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5126">[ date ]</a>
+              <a href="thread.html#5126">[ thread ]</a>
+              <a href="subject.html#5126">[ subject ]</a>
+              <a href="author.html#5126">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

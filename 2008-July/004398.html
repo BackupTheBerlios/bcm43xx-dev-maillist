@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43 locks the machine when resuming after suspend to disk
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20locks%20the%20machine%20when%20resuming%20after%20suspend%20to%20disk&In-Reply-To=%3C1215038256.13270.16.camel%40johannes.berg%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004397.html">
+   <LINK REL="Next"  HREF="004399.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43 locks the machine when resuming after suspend to disk</H1>
+    <B>Johannes Berg</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43%20locks%20the%20machine%20when%20resuming%20after%20suspend%20to%20disk&In-Reply-To=%3C1215038256.13270.16.camel%40johannes.berg%3E"
+       TITLE="b43 locks the machine when resuming after suspend to disk">johannes at sipsolutions.net
+       </A><BR>
+    <I>Thu Jul  3 00:37:36 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004397.html">b43 locks the machine when resuming after suspend to disk
+</A></li>
+        <LI>Next message: <A HREF="004399.html">b43 locks the machine when resuming after suspend to disk
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4398">[ date ]</a>
+              <a href="thread.html#4398">[ thread ]</a>
+              <a href="subject.html#4398">[ subject ]</a>
+              <a href="author.html#4398">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Wed, 2008-07-02 at 17:32 -0500, Larry Finger wrote:
+&gt;<i> Johannes Berg wrote:
+</I>&gt;<i> &gt;&gt;&gt; I think you need the appended patch, but it only applies to linux-next.
+</I>&gt;<i> &gt;&gt; A different version has been merged into what will become 2.6.26. I'll
+</I>&gt;<i> &gt;&gt; see what we can do about stable.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; <A HREF="http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=ef3a62d272f033989e83eb1f26505f93f93e3e69;hp=6d1a3fb567a728d31474636e167c324702a0c38b">http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=ef3a62d272f033989e83eb1f26505f93f93e3e69;hp=6d1a3fb567a728d31474636e167c324702a0c38b</A>
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Anybody have a stable tree around to see if that applies? I think it
+</I>&gt;<i> &gt; should.
+</I>&gt;<i> 
+</I>&gt;<i> It didn't, but this version will. It has been compile tested only.
+</I>
+Ah, the TXRX result thing, thanks a bunch. Adding stable to CC, can you
+pick this up?
+
+
+Subject: mac80211: detect driver tx bugs
+
+When a driver rejects a frame in it's -&gt;tx() callback, it must also
+stop queues, otherwise mac80211 can go into a loop here. Detect this
+situation and abort the loop after five retries, warning about the
+driver bug.
+
+Thanks to Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt; for doing the -stable
+port.
+
+
+--- linux-2.6.orig/net/mac80211/tx.c
++++ linux-2.6/net/mac80211/tx.c
+@@ -1090,7 +1090,7 @@ static int ieee80211_tx(struct net_devic
+ 	ieee80211_tx_handler *handler;
+ 	struct ieee80211_txrx_data tx;
+ 	ieee80211_txrx_result res = TXRX_DROP, res_prepare;
+-	int ret, i;
++	int ret, i, retries = 0;
+ 
+ 	WARN_ON(__ieee80211_queue_pending(local, control-&gt;queue));
+ 
+@@ -1181,6 +1181,13 @@ retry:
+ 		if (!__ieee80211_queue_stopped(local, control-&gt;queue)) {
+ 			clear_bit(IEEE80211_LINK_STATE_PENDING,
+ 				  &amp;local-&gt;state[control-&gt;queue]);
++			retries++;
++			/*
++			 * Driver bug, it's rejecting packets but
++			 * not stopping queues.
++			 */
++			if (WARN_ON_ONCE(retries &gt; 5))
++				goto drop;
+ 			goto retry;
+ 		}
+ 		memcpy(&amp;store-&gt;control, control,
+
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004397.html">b43 locks the machine when resuming after suspend to disk
+</A></li>
+	<LI>Next message: <A HREF="004399.html">b43 locks the machine when resuming after suspend to disk
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4398">[ date ]</a>
+              <a href="thread.html#4398">[ thread ]</a>
+              <a href="subject.html#4398">[ subject ]</a>
+              <a href="author.html#4398">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

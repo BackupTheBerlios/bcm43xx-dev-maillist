@@ -1,0 +1,167 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> mostly reverse engineered r4 microcode
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mostly%20reverse%20engineered%20r4%20microcode&In-Reply-To=%3C1188909519.9942.9.camel%40johannes.berg%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002296.html">
+   <LINK REL="Next"  HREF="002297.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>mostly reverse engineered r4 microcode</H1>
+    <B>Johannes Berg</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20mostly%20reverse%20engineered%20r4%20microcode&In-Reply-To=%3C1188909519.9942.9.camel%40johannes.berg%3E"
+       TITLE="mostly reverse engineered r4 microcode">johannes at sipsolutions.net
+       </A><BR>
+    <I>Tue Sep  4 14:38:39 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002296.html">driver dis-associates on laptop lid close
+</A></li>
+        <LI>Next message: <A HREF="002297.html">mostly reverse engineered r4 microcode
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2295">[ date ]</a>
+              <a href="thread.html#2295">[ thread ]</a>
+              <a href="subject.html#2295">[ subject ]</a>
+              <a href="author.html#2295">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hey,
+
+I wanted to know some things about the those pesky external conditions
+and thought I could look at the old ucode because that, as you may
+remember, uses four RCM matchers for finding crypto keys and I thought
+it may be easy to identify that. Since I don't have any rev4 or lower
+hardware, I simply matched the instructions in rev5 with those in rev4
+and found all instructions that show up in the rev2 and rev4 microcodes
+I have.
+
+I'll be publishing my findings in the specs soon, the instruction format
+is somewhat more spaced out, you have for example the lowest 6 bits
+unused unless it's an external condition jump etc.
+
+The revision 2 microcode I have is just over 2k instructions while the
+revision 5 microcode with QoS and hardware crypto is about 2.8k, maybe
+the difference helps :)
+
+Larry, are you interested in crypto offload fpr rev4 cores? Revision 2
+cores don't support crypto at all, but rev4 do and now that I'm able to
+peek into the microcode I should be able to describe how it works.
+
+Below is the instruction set reference I'll upload to the specs.
+
+johannes
+-- 
+Instruction set reference for the revision 4 and lower Microcode.
+
+[hex numbers have no placeholders but zeroes instead]
+
+ hex  | binary                 | meaning
+
+ 00000  000000 0000 010c cccccc  jump on condition c false
+ 00000  000000 0000 001c cccccc  jump on condition c true
+                                 newer microcode seems to have 8 bit conditions?
+                                 the new microcode might have different
+                                 condition numbers as well
+
+ 00400  000000 0001 0000 000000  nap
+ 00800  000000 0010 0000 000000  call
+ 00c00  000000 0011 0000 000000  ret
+
+ 20200  001000 0000 1000 000000  add
+ 20240  001000 0000 1001 000000  add + carry 
+ 20280  001000 0000 1010 000000  add [set carry]
+ 202c0  001000 0000 1011 000000  add + carry [set carry]
+
+ 20000  001000 0000 0000 000000  and
+ 20040  001000 0000 0001 000000  and ~
+ 20080  001000 0000 0010 000000  or
+ 200c0  001000 0000 0011 000000  xor
+
+ 20300  001000 0001 1000 000000  sub
+ 20340  001000 0001 1001 000000  sub + carry 
+ 20380  001000 0001 1010 000000  sub [set carry]
+ 203c0  001000 0001 1011 000000  sub + carry [set carry]
+
+ 20400  001000 0001 0000 000000  left shift
+ 20440  001000 0001 0001 000000  ? (unused)
+ 20480  001000 0001 0010 000000  right shift (unsigned)
+ 204c0  001000 0001 0011 000000  ? (unused)
+
+ 20500  001000 0001 0100 000000  left rotate
+ 20540  001000 0001 0101 000000  ? (unused)
+ 20580  001000 0001 0110 000000  right rotate
+ 205c0  001000 0001 0111 000000  ? (unused)
+
+ 28000  001010 mmmm ssss 000000  shift right over two registers
+                                 (cf. &quot;2MS&quot; instruction in new ucode)
+ 2c000  001011 mmmm ssss 000000  or with shift and select
+                                 (cf. &quot;3MS&quot; instruction in new ucode)
+
+ 30000  001100 0000 0000 000000  jump if (x &amp; y)
+ 30001  001100 0000 0000 000001  jump if not (x &amp; y)
+
+ 30040  001100 0000 0001 000000  jump if ((x &amp; y) == 0)
+ 30041  001100 0000 0001 000001  jump if ((x &amp; y) != 0)
+
+ 30300  001100 0000 1100 000000  jump equal
+ 30301  001100 0000 1100 000001  jump not equal
+ 30302  001100 0000 1100 000010  jump less (unsigned)
+ 30303  001100 0000 1100 000011  jump not less (unsigned)
+ 30304  001100 0000 1100 000100  jump more (unsigned)
+ 30305  001100 0000 1100 000101  jump not more (unsigned)
+ 30306  001100 0000 1100 000110  ? (unused)
+ 30307  001100 0000 1100 000111  ? (unused)
+ 30308  001100 0000 1100 001000  ? (unused)
+ 30309  001100 0000 1100 001001  ? (unused)
+ 3030a  001100 0000 1100 001010  jump less (signed)
+ 3030b  001100 0000 1100 001011  jump not less (signed)
+ 3030c  001100 0000 1100 001100  jump more (signed)
+ 3030d  001100 0000 1100 001101  jump not more (signed)
+ 3030e  001100 0000 1100 001110  ? (unused)
+ 3030f  001100 0000 1100 001111  ? (unused)
+
+ 38000  001110 mmmm ssss 000000  jump if zero after shift and mask
+                                 jump if ((((yyy &lt;&lt; 16 | xxx) &gt;&gt; s) &amp; (1&lt;&lt;(m+1)-1)) == 0)
+ 38001  001110 mmmm ssss 000001  jump if nonzero after shift and mask
+                                 jump if ((((yyy &lt;&lt; 16 | xxx) &gt;&gt; s) &amp; (1&lt;&lt;(m+1)-1)) != 0)
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 190 bytes
+Desc: This is a digitally signed message part
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070904/26bc4f07/attachment.pgp">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20070904/26bc4f07/attachment.pgp</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002296.html">driver dis-associates on laptop lid close
+</A></li>
+	<LI>Next message: <A HREF="002297.html">mostly reverse engineered r4 microcode
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2295">[ date ]</a>
+              <a href="thread.html#2295">[ thread ]</a>
+              <a href="subject.html#2295">[ subject ]</a>
+              <a href="author.html#2295">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

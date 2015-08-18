@@ -1,0 +1,116 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Fix setting TX power control mode during RC 	calibration
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Fix%20setting%20TX%20power%20control%20mode%20during%20RC%20%0A%09calibration&In-Reply-To=%3C69e28c910908171302s3aed3181w38ba402ca7dfa13d%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005857.html">
+   <LINK REL="Next"  HREF="005861.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Fix setting TX power control mode during RC 	calibration</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Fix%20setting%20TX%20power%20control%20mode%20during%20RC%20%0A%09calibration&In-Reply-To=%3C69e28c910908171302s3aed3181w38ba402ca7dfa13d%40mail.gmail.com%3E"
+       TITLE="[PATCH] b43: LP-PHY: Fix setting TX power control mode during RC 	calibration">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Mon Aug 17 22:02:14 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005857.html">[PATCH] b43: LP-PHY: Fix setting TX power control mode during	RC calibration
+</A></li>
+        <LI>Next message: <A HREF="005861.html">[PATCH] b43: LP-PHY: Fix setting TX power control mode during	RC 	calibration
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5859">[ date ]</a>
+              <a href="thread.html#5859">[ thread ]</a>
+              <a href="subject.html#5859">[ subject ]</a>
+              <a href="author.html#5859">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>2009/8/17 John W. Linville &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A>&gt;:
+&gt;<i> On Mon, Aug 17, 2009 at 09:32:42PM +0200, G&#225;bor Stefanik wrote:
+</I>&gt;&gt;<i> 2009/8/14 G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;:
+</I>&gt;&gt;<i> &gt; Call set_tx_power_control with a LPPHY_TXPCTL rather than an
+</I>&gt;&gt;<i> &gt; LPPHY_TX_PWR_CTL_CMD_MODE.
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i> &gt; Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+</I>&gt;&gt;<i> &gt; ---
+</I>&gt;&gt;<i> &gt; This should fix the WARN_ON testers were seeing during init.
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i> &gt; drivers/net/wireless/b43/phy_lp.c | &#160; &#160;2 +-
+</I>&gt;&gt;<i> &gt; 1 files changed, 1 insertions(+), 1 deletions(-)
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i> &gt; diff --git a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> &gt; b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> &gt; index adfa7bf..558224b 100644
+</I>&gt;&gt;<i> &gt; --- a/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> &gt; +++ b/drivers/net/wireless/b43/phy_lp.c
+</I>&gt;&gt;<i> &gt; @@ -1080,7 +1080,7 @@ static void lpphy_rev0_1_rc_calib(struct b43_wldev
+</I>&gt;&gt;<i> &gt; *dev)
+</I>&gt;&gt;<i> &gt; &#160; &#160; &#160; &#160;old_txpctl = b43_phy_read(dev, B43_LPPHY_TX_PWR_CTL_CMD) &amp;
+</I>&gt;&gt;<i> &gt; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;B43_LPPHY_TX_PWR_CTL_CMD_MODE;
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i> &gt; - &#160; &#160; &#160; lpphy_set_tx_power_control(dev, B43_LPPHY_TX_PWR_CTL_CMD_MODE_OFF);
+</I>&gt;&gt;<i> &gt; + &#160; &#160; &#160; lpphy_set_tx_power_control(dev, B43_LPPHY_TXPCTL_OFF);
+</I>&gt;&gt;<i> &gt; &#160; &#160; &#160; &#160;lpphy_disable_crs(dev);
+</I>&gt;&gt;<i> &gt; &#160; &#160; &#160; &#160;loopback = lpphy_loopback(dev);
+</I>&gt;&gt;<i> &gt; &#160; &#160; &#160; &#160;if (loopback == -1)
+</I>&gt;&gt;<i> &gt; --
+</I>&gt;&gt;<i> &gt; 1.6.2.4
+</I>&gt;&gt;<i> &gt;
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> John, any news on this one? I can't see it in wireless testing.
+</I>&gt;<i>
+</I>&gt;<i> Larry said:
+</I>&gt;<i>
+</I>&gt;<i> With this one, I still get WARNING: at
+</I>&gt;<i> drivers/net/wireless/b43/phy_lp.c:1006
+</I>&gt;<i> lpphy_set_tx_power_control+0xbf/0xdd [b43]().
+</I>&gt;<i>
+</I>
+Previously, he was getting 2 warnings. This fixes one of them, the
+other one is handled by commit
+1181d724fc2897f11f95bf6ebc86ae111390929c (&quot;Fix another TX power
+control abuse&quot;).
+
+&gt;<i> --
+</I>&gt;<i> John W. Linville &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;Someday the world will need a hero, and you
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">linville at tuxdriver.com</A> &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160; &#160;might be all we have. &#160;Be ready.
+</I>&gt;<i>
+</I>
+
+
+-- 
+Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005857.html">[PATCH] b43: LP-PHY: Fix setting TX power control mode during	RC calibration
+</A></li>
+	<LI>Next message: <A HREF="005861.html">[PATCH] b43: LP-PHY: Fix setting TX power control mode during	RC 	calibration
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5859">[ date ]</a>
+              <a href="thread.html#5859">[ thread ]</a>
+              <a href="subject.html#5859">[ subject ]</a>
+              <a href="author.html#5859">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

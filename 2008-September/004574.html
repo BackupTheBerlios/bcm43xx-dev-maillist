@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Speed enhancement for BCM4306/2
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Speed%20enhancement%20for%20BCM4306/2&In-Reply-To=%3C48C2A1F5.6020607%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004572.html">
+   <LINK REL="Next"  HREF="004576.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Speed enhancement for BCM4306/2</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Speed%20enhancement%20for%20BCM4306/2&In-Reply-To=%3C48C2A1F5.6020607%40lwfinger.net%3E"
+       TITLE="Speed enhancement for BCM4306/2">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Sep  6 17:29:57 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004572.html">Speed enhancement for BCM4306/2
+</A></li>
+        <LI>Next message: <A HREF="004576.html">Speed enhancement for BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4574">[ date ]</a>
+              <a href="thread.html#4574">[ thread ]</a>
+              <a href="subject.html#4574">[ subject ]</a>
+              <a href="author.html#4574">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE><A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">gavron at wetwork.net</A> wrote:
+&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> Ok, here's try #2.
+</I>&gt;<i> E
+</I>&gt;<i> /home/2.6.27/rc4-wl/drivers/net/wireless/b43legacy# diff -uN /tmp/phy.c 
+</I>&gt;<i> phy.c
+</I>&gt;<i> --- /tmp/phy.c    2008-09-05 21:56:20.000000000 -0700
+</I>&gt;<i> +++ phy.c    2008-09-05 22:03:28.000000000 -0700
+</I>
+For kernel patches, you need to be working in the base directory of 
+the kernel sources. For your tree, that would be in 
+/home/2.6.27/rc4-wl. That way the patches will apply with the 
+effective command of 'patch -p1 &lt; patch_file'. For kernel patches, I 
+use quilt so that patches are easy to apply and remove.
+
+&gt;<i> @@ -1010,7 +1010,7 @@
+</I>&gt;<i>         b43legacy_phy_initb5(dev);
+</I>&gt;<i>     else
+</I>&gt;<i>         b43legacy_phy_initb6(dev);
+</I>&gt;<i> -    if (phy-&gt;rev &gt;= 2 || phy-&gt;gmode)
+</I>&gt;<i> +    if (phy-&gt;rev &gt;= 2 &amp;&amp; phy-&gt;gmode)
+</I>&gt;<i>         b43legacy_phy_inita(dev);
+</I>&gt;<i> 
+</I>&gt;<i>     if (phy-&gt;rev &gt;= 2) {
+</I>
+The above hunk is correct.
+
+&gt;<i> @@ -1027,15 +1027,17 @@
+</I>&gt;<i>     }
+</I>&gt;<i>     if (phy-&gt;rev &gt;= 2 || phy-&gt;gmode) {
+</I>
+This does not match step 7 of the specs. It was not changed recently, 
+but the code did not match what was on the web site. No, I don't know why.
+
+&gt;<i>         tmp = b43legacy_phy_read(dev, 0x0400) &amp; 0xFF;
+</I>&gt;<i> -        if (tmp == 3 || tmp == 5) {
+</I>&gt;<i> +        if (tmp == 4 || tmp == 5) {
+</I>&gt;<i>             b43legacy_phy_write(dev, 0x04C2, 0x1816);
+</I>&gt;<i> -            b43legacy_phy_write(dev, 0x04C3, 0x8006);
+</I>&gt;<i> +            b43legacy_phy_write(dev, 0x04C3, 0x8606);
+</I>&gt;<i>             if (tmp == 5)
+</I>&gt;<i>                 b43legacy_phy_write(dev, 0x04CC,
+</I>&gt;<i>                             (b43legacy_phy_read(dev,
+</I>&gt;<i>                              0x04CC) &amp; 0x00FF) |
+</I>&gt;<i>                              0x1F00);
+</I>&gt;<i>         }
+</I>&gt;<i> +    }
+</I>&gt;<i> +    if (phy-&gt;rev &gt;= 2)
+</I>&gt;<i>         b43legacy_phy_write(dev, 0x047E, 0x0078);
+</I>&gt;<i>     }
+</I>&gt;<i>     if (phy-&gt;radio_rev == 8) {
+</I>
+This hunk does not match the specs. In addition, I think there are too 
+many right-hand curly braces for it to compile.
+
+Larry
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004572.html">Speed enhancement for BCM4306/2
+</A></li>
+	<LI>Next message: <A HREF="004576.html">Speed enhancement for BCM4306/2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4574">[ date ]</a>
+              <a href="thread.html#4574">[ thread ]</a>
+              <a href="subject.html#4574">[ subject ]</a>
+              <a href="author.html#4574">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

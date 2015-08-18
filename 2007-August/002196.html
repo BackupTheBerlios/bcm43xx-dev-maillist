@@ -1,0 +1,152 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> minor grips with b43
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20minor%20grips%20with%20b43&In-Reply-To=%3C200708241742.39388.hs4233%40mail.mn-solutions.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002197.html">
+   <LINK REL="Next"  HREF="002199.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>minor grips with b43</H1>
+    <B>Holger Schurig</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20minor%20grips%20with%20b43&In-Reply-To=%3C200708241742.39388.hs4233%40mail.mn-solutions.de%3E"
+       TITLE="minor grips with b43">hs4233 at mail.mn-solutions.de
+       </A><BR>
+    <I>Fri Aug 24 17:42:39 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002197.html">minor grips with b43
+</A></li>
+        <LI>Next message: <A HREF="002199.html">minor grips with b43
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2196">[ date ]</a>
+              <a href="thread.html#2196">[ thread ]</a>
+              <a href="subject.html#2196">[ subject ]</a>
+              <a href="author.html#2196">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>&gt;<i> &gt; When I power-up my device, I only see that ssb has been
+</I>&gt;<i> &gt; loaded. Not &quot;b43.ko&quot; as well. Is this expected?
+</I>&gt;<i>
+</I>&gt;<i> Where were you looking?
+</I>
+If &quot;b43.ko&quot; has been loaded?  With lsmod:
+
+# lsmod
+Module                  Size  Used by
+mousedev                5800  0
+ssb                    19204  0
+usbtouchscreen          3332  0
+
+&gt;<i> In dmesg, you should see something 
+</I>&gt;<i> like:
+</I>&gt;<i>
+</I>&gt;<i> ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x11, vendor 0x4243)
+</I>&gt;<i> ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x0A, vendor 0x4243)
+</I>&gt;<i> ssb: Core 2 found: USB 1.1 Host (cc 0x817, rev 0x03, vendor 0x4243)
+</I>&gt;<i> ssb: Core 3 found: PCI-E (cc 0x820, rev 0x01, vendor 0x4243)
+</I>&gt;<i> ssb: Sonics Silicon Backplane found on PCI device 0000:01:00.0
+</I>&gt;<i> b43-phy0: Broadcom 4311 WLAN found 
+</I>
+My output here is:
+
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x04, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x05, vendor 0x4243)
+ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x02, vendor 0x4243)
+ssb: Core 3 found: V90 (cc 0x807, rev 0x02, vendor 0x4243)
+ssb: Core 4 found: PCI (cc 0x804, rev 0x09, vendor 0x4243)
+ssb: Sonics Silicon Backplane found on PCI device 0000:03:00.0
+
+And, because b43.ko doesn't get auto-loaded, I don't have a
+&quot;b43-phy0&quot;-line.
+
+
+
+
+I'm not sure if the following is relevant, but here is the
+output of &quot;lspci -n&quot;:
+
+03:00.0 0280: 14e4:4320 (rev 03)
+
+And if I manually &quot;modprobe b43&quot;, I get this:
+
+b43-phy0: Broadcom 4306 WLAN found
+b43-phy0 debug: Found PHY: Analog 2, Type 2, Revision 2
+b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+b43-phy0 debug: Radio turned off
+wmaster0: Selected rate control algorithm 'simple'
+
+After &quot;iwconfig eth1 essid XXXXX&quot;, &quot;iwconfig eth1 key s:XXXXX&quot;
+and &quot;ifconfig eth1 up&quot;, I get this:
+
+b43-phy0 debug: Adding Interface type 2
+b43-phy0 debug: Loading firmware version 351.126 (2006-07-29 05:54:02)
+b43-phy0 debug: Radio turned on
+b43-phy0 debug: Radio enabled by hardware
+b43-phy0 ERROR: bbatt(11) &gt;= size of LO array
+b43-phy0 debug: Chip initialized
+b43-phy0 debug: 30-bit DMA initialized
+b43-phy0 debug: Wireless interface started
+HW CONFIG: channel=1 freq=2412 phymode=3
+b43-phy0 debug: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+
+But I'm pretty sure this is unrelated to auto-loading b43 :-)
+
+
+
+&gt;<i> I assume that you meant b43 when you typed b32
+</I>
+Yes. That's why I did &quot;dmesg &gt;a&quot; and &quot;scp&quot; for the texts above :-)
+
+
+
+&gt;<i> you may also see errors like
+</I>&gt;<i> b43-phy0 debug: Invalid LO control pair (I: 111, Q: 111)
+</I>&gt;<i> and
+</I>&gt;<i> b43-phy0 ERROR: Adjusting Local Oscillator to an uncalibrated control pair: rfatt=3,no-padmix bbatt=2
+</I>
+Fortunately not in my case.
+
+
+
+&gt;<i> the bit rate for my BCM4311 was toggling between 18 and 24M.
+</I>&gt;<i> With the same setup, b43 usually is at either 48 or 54M.
+</I>&gt;<i> Take that Broadcom!!!!!!! 
+</I>
+I don't care that much for bitrate, I'd rather have a very
+long range, even when it's only 1 MB/s. My main application
+is SSH :-)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002197.html">minor grips with b43
+</A></li>
+	<LI>Next message: <A HREF="002199.html">minor grips with b43
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2196">[ date ]</a>
+              <a href="thread.html#2196">[ thread ]</a>
+              <a href="subject.html#2196">[ subject ]</a>
+              <a href="author.html#2196">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

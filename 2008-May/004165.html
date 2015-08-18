@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Wireless-testing%27s%20b43%20panics%20in%20b43_generate_txhdr%20on%20packet%0A%09transmit&In-Reply-To=%3C1212252522.2766.8.camel%40rd%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004174.html">
+   <LINK REL="Next"  HREF="004167.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit</H1>
+    <B>Pavel Roskin</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Wireless-testing%27s%20b43%20panics%20in%20b43_generate_txhdr%20on%20packet%0A%09transmit&In-Reply-To=%3C1212252522.2766.8.camel%40rd%3E"
+       TITLE="Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit">proski at gnu.org
+       </A><BR>
+    <I>Sat May 31 18:48:42 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004174.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+        <LI>Next message: <A HREF="004167.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4165">[ date ]</a>
+              <a href="thread.html#4165">[ thread ]</a>
+              <a href="subject.html#4165">[ subject ]</a>
+              <a href="author.html#4165">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello!
+
+You beat me at reporting it.  I was about to report the same thing.
+Basically, my laptop with bcm4311 started crashing when using WEP in the
+last weeks.  Its runs the current wireless-testing.
+
+On Sat, 2008-05-31 at 16:23 +0200, Stefanik G&#225;bor wrote:
+&gt;<i>  #4 [c04619c8] b43_generate_txhdr at f8dd3a99
+</I>
+Yes, that's where it happens.  This patch prevents the panic, but it's
+almost certainly not the right fix.
+
+diff --git a/drivers/net/wireless/b43/xmit.c
+b/drivers/net/wireless/b43/xmit.c
+index f9e1cff..5ec8d86 100644
+--- a/drivers/net/wireless/b43/xmit.c
++++ b/drivers/net/wireless/b43/xmit.c
+@@ -234,11 +234,14 @@ int b43_generate_txhdr(struct b43_wldev *dev,
+ 
+ 	plcp_fragment_len = fragment_len + FCS_LEN;
+ 	if (use_encryption) {
+-		u8 key_idx = info-&gt;control.hw_key-&gt;hw_key_idx;
++		u8 key_idx;
+ 		struct b43_key *key;
+ 		int wlhdr_len;
+ 		size_t iv_len;
+ 
++		if (!info-&gt;control.hw_key)
++			return -ENOKEY;
++		key_idx = info-&gt;control.hw_key-&gt;hw_key_idx;
+ 		B43_WARN_ON(key_idx &gt;= dev-&gt;max_nr_keys);
+ 		key = &amp;(dev-&gt;key[key_idx]);
+ 
+Another workaround is to use nohwcrypt=1 in the module options.
+
+It's strange that other drivers (b43legacy, ath5k) use
+info-&gt;control.hw_key-&gt;hw_key_idx under the same conditions (see how
+use_encryption is calculated), but don't have any problems on the same
+network (but I need to recheck).
+
+I'm using 40-bit WEP with wpa_supplicant (because it's configured to
+recognize many networks, some of which are with WPA).  I don't know if
+it's relevant.  It's Fedora 9 for x86_64, but NetworkManager is
+disabled.
+
+-- 
+Regards,
+Pavel Roskin
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004174.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+	<LI>Next message: <A HREF="004167.html">Wireless-testing's b43 panics in b43_generate_txhdr on packet	transmit
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4165">[ date ]</a>
+              <a href="thread.html#4165">[ thread ]</a>
+              <a href="subject.html#4165">[ subject ]</a>
+              <a href="author.html#4165">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC 4/7] B43N: Add TX power control and gain get function
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%204/7%5D%20B43N%3A%20Add%20TX%20power%20control%20and%20gain%20get%20function&In-Reply-To=%3C1231929184.3730.14.camel%40johannes%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005026.html">
+   <LINK REL="Next"  HREF="005045.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC 4/7] B43N: Add TX power control and gain get function</H1>
+    <B>Johannes Berg</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%204/7%5D%20B43N%3A%20Add%20TX%20power%20control%20and%20gain%20get%20function&In-Reply-To=%3C1231929184.3730.14.camel%40johannes%3E"
+       TITLE="[RFC 4/7] B43N: Add TX power control and gain get function">johannes at sipsolutions.net
+       </A><BR>
+    <I>Wed Jan 14 11:33:04 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005026.html">[RFC 4/7] B43N: Add TX power control and gain get function
+</A></li>
+        <LI>Next message: <A HREF="005045.html">[RFC 4/7] B43N: Add TX power control and gain get function
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5031">[ date ]</a>
+              <a href="thread.html#5031">[ thread ]</a>
+              <a href="subject.html#5031">[ subject ]</a>
+              <a href="author.html#5031">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Wed, 2009-01-14 at 15:58 +0800, YanBo wrote:
+&gt;<i> Three functions about tx power control
+</I>&gt;<i>  b43_nphy_tx_power_fix() b43_nphy_tx_power_coeff_set()
+</I>&gt;<i> b43_nphy_tx_power_type_set()
+</I>&gt;<i> but remain lots of TODO cause not very clearly understand the SPECS
+</I>&gt;<i> 
+</I>&gt;<i> Signed-off-by: Li YanBo &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">dreamfly281 at gmail.com</A>&gt;
+</I>&gt;<i> ---
+</I>&gt;<i>  drivers/net/wireless/b43/phy_n.c |  195 +++++++++++++++++++++++++++++++++++++-
+</I>&gt;<i>  1 files changed, 194 insertions(+), 1 deletions(-)
+</I>&gt;<i> 
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+</I>&gt;<i> index 586e774..1330309 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/phy_n.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/phy_n.c
+</I>&gt;<i> @@ -82,9 +82,183 @@ static void b43_chantab_phy_upload(struct b43_wldev *dev,
+</I>&gt;<i>  	b43_phy_write(dev, B43_NPHY_BW6, e-&gt;phy_bw6);
+</I>&gt;<i>  }
+</I>&gt;<i> 
+</I>&gt;<i> +enum b43_nphy_txpid {
+</I>&gt;<i> +	B43_N_5G_MEDIUM_FREQ = 0,
+</I>&gt;<i> +	B43_N_5G_LOW_FREQ,
+</I>&gt;<i> +	B43_N_5G_HIGH_FREQ,
+</I>&gt;<i> +	B43_N_2G_FREQ,
+</I>&gt;<i> +	/* Attent: currently we just using 2 txpid */
+</I>&gt;<i> +	B43_N_TXPID_MAX = 2,
+</I>&gt;<i> +};
+</I>
+&gt;<i> +	u32 txpid[B43_N_TXPID_MAX];
+</I>&gt;<i> +	int i;
+</I>&gt;<i> +
+</I>&gt;<i> +	if (nphy-&gt;havoid)
+</I>&gt;<i> +		b43_nphy_stay_carrier_search_enable(dev);
+</I>&gt;<i> +
+</I>&gt;<i> +	if (sprom-&gt;revision &lt; 4)
+</I>&gt;<i> +		txpid[0] = txpid[1] = txpid[2] = txpid[3] = 0x48;
+</I>
+2, 3? This is a little odd. As I say on the wiki, &quot;The txpid values are
+two values, one for each radio core.&quot;
+
+So you should do that B43_N_MAX_CORES == 2.
+
+&gt;<i> +	else {
+</I>&gt;<i> +		/* TODO */
+</I>&gt;<i> +/* 		if  (medium freq range, 5100..5499 mhz) */
+</I>&gt;<i> +/* 			txpid[B43_N_5G_MEDIUM_FREQ] = ; */
+</I>&gt;<i> +/* 			Use the txpid5ga values from the SPROM in the loop below; */
+</I>&gt;<i> +/* 		if  (low freq range, 4900..5099 mhz) */
+</I>&gt;<i> +/* 			txpid[B43_N_5G_LOW_FREQ] = ; */
+</I>&gt;<i> +/* 			Use the txpid5gal values from the SPROM in the loop below; */
+</I>&gt;<i> +/* 		if (high freq range, 5500.. mhz) */
+</I>&gt;<i> +/* 			txpid[B43_N_5G_HIGH_FREQ] = ; */
+</I>&gt;<i> +/* 			Use the txpid5gah values from the SPROM in the loop below; */
+</I>&gt;<i> +/* 		if  (2.4 GHz) */
+</I>&gt;<i> +/* 			txpid[B43_N_2G_FREQ] = ; */
+</I>&gt;<i> +/* 			Use the txpid2g values from the SPROM in the loop below; */
+</I>&gt;<i> +	}
+</I>&gt;<i> +	if (phy-&gt;rev &gt;= 3)
+</I>&gt;<i> +		txpid[0] = txpid[1] = txpid[2] = txpid[3] = 0x28;
+</I>&gt;<i> +
+</I>&gt;<i> +	for (i = 0; i &lt; B43_N_TXPID_MAX; i++) {
+</I>
+So, this loop just sets up the tx power for each radio core.
+
+johannes
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 836 bytes
+Desc: This is a digitally signed message part
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090114/6c9002f1/attachment.pgp">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20090114/6c9002f1/attachment.pgp</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005026.html">[RFC 4/7] B43N: Add TX power control and gain get function
+</A></li>
+	<LI>Next message: <A HREF="005045.html">[RFC 4/7] B43N: Add TX power control and gain get function
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5031">[ date ]</a>
+              <a href="thread.html#5031">[ thread ]</a>
+              <a href="subject.html#5031">[ subject ]</a>
+              <a href="author.html#5031">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

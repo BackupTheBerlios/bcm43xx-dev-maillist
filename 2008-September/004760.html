@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC/T] b43: to few loop tries in do_dummy_tx
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/T%5D%20b43%3A%20to%20few%20loop%20tries%20in%20do_dummy_tx&In-Reply-To=%3C200809292038.37939.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004759.html">
+   <LINK REL="Next"  HREF="004765.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC/T] b43: to few loop tries in do_dummy_tx</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC/T%5D%20b43%3A%20to%20few%20loop%20tries%20in%20do_dummy_tx&In-Reply-To=%3C200809292038.37939.mb%40bu3sch.de%3E"
+       TITLE="[RFC/T] b43: to few loop tries in do_dummy_tx">mb at bu3sch.de
+       </A><BR>
+    <I>Mon Sep 29 20:38:37 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004759.html">[RFC/T] b43: to few loop tries in do_dummy_tx
+</A></li>
+        <LI>Next message: <A HREF="004765.html">[RFC/T] b43: to few loop tries in do_dummy_tx
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4760">[ date ]</a>
+              <a href="thread.html#4760">[ thread ]</a>
+              <a href="subject.html#4760">[ subject ]</a>
+              <a href="author.html#4760">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Monday 29 September 2008 20:31:58 Larry Finger wrote:
+&gt;<i> Michael,
+</I>&gt;<i> 
+</I>&gt;<i> I have started modifying my copy of b43 to see if I can locate any
+</I>&gt;<i> coding problems that might be causing the PHY transmission errors. To
+</I>&gt;<i> start with, I am checking all the sections that use udelay. The main
+</I>&gt;<i> reason is that when a bug in the CPU timer cut all delays in half, I
+</I>&gt;<i> got these errors in b43legacy. I also noted the report this morning
+</I>&gt;<i> that compiler and toolchain versions seem to be important.
+</I>&gt;<i> 
+</I>&gt;<i> One of the first places I looked was in do_dummy_tx. When I checked
+</I>&gt;<i> the spin-on-condition loops in this routine, I found that the 3rd
+</I>&gt;<i> always used the maximum number of loops and exited before the
+</I>&gt;<i> condition was met. I increased the number of possible loops from 10 to
+</I>&gt;<i> 20 and found that it always takes 17 or 18 passes for the condition to
+</I>&gt;<i> be met on my machine.
+</I>&gt;<i> 
+</I>&gt;<i> The existing code matches specs - I even checked the code in
+</I>&gt;<i> 4.150.10.5. It is too early to tell if this has anything to do with
+</I>&gt;<i> the errors, but I suggest the following change:
+</I>&gt;<i> 
+</I>&gt;<i> diff --git a/drivers/net/wireless/b43/main.c
+</I>&gt;<i> b/drivers/net/wireless/b43/main.c
+</I>&gt;<i> index 7205a93..af60122 100644
+</I>&gt;<i> --- a/drivers/net/wireless/b43/main.c
+</I>&gt;<i> +++ b/drivers/net/wireless/b43/main.c
+</I>&gt;<i> @@ -814,7 +814,7 @@ void b43_dummy_transmission(struct b43_wldev *dev)
+</I>&gt;<i>  			break;
+</I>&gt;<i>  		udelay(10);
+</I>&gt;<i>  	}
+</I>&gt;<i> -	for (i = 0x00; i &lt; 0x0A; i++) {
+</I>&gt;<i> +	for (i = 0x00; i &lt; 0x19; i++) {
+</I>&gt;<i>  		value = b43_read16(dev, 0x0690);
+</I>&gt;<i>  		if (!(value &amp; 0x0100))
+</I>&gt;<i>  			break;
+</I>&gt;<i> 
+</I>&gt;<i> Using 25 passes gives a little margin for CPUs that are much faster
+</I>&gt;<i> than mine. Perhaps the margin should even be bigger.
+</I>
+
+Yeah, feel free to submit this to John.
+Dummy-tx _can_ for sure trigger PHY TX errors. I already saw that
+in my experiments, too. It also makes sense, as dummy-tx is poking
+with the lowlevel TX hardware.
+So if a loop exists early it may leave TX hardware in an inconsistent state.
+
+Actually, I do know since the very first days of bcm43xx that the
+loop counts are not big enough in some of these loops. But I didn't
+change it, as it was said the current counts match the specs.
+However, I think it's perfectly valid to raise the values.
+Please do so, thanks a lot.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004759.html">[RFC/T] b43: to few loop tries in do_dummy_tx
+</A></li>
+	<LI>Next message: <A HREF="004765.html">[RFC/T] b43: to few loop tries in do_dummy_tx
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4760">[ date ]</a>
+              <a href="thread.html#4760">[ thread ]</a>
+              <a href="subject.html#4760">[ subject ]</a>
+              <a href="author.html#4760">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

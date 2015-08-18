@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm43xx-mac80211: a fix for the shared interrupt problem
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm43xx-mac80211%3A%20a%20fix%20for%20the%20shared%20interrupt%20problem&In-Reply-To=%3C200707291054.12853.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001616.html">
+   <LINK REL="Next"  HREF="001611.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm43xx-mac80211: a fix for the shared interrupt problem</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm43xx-mac80211%3A%20a%20fix%20for%20the%20shared%20interrupt%20problem&In-Reply-To=%3C200707291054.12853.mb%40bu3sch.de%3E"
+       TITLE="bcm43xx-mac80211: a fix for the shared interrupt problem">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Jul 29 10:54:12 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001616.html">bcm43xx-mac80211: a fix for the shared interrupt problem
+</A></li>
+        <LI>Next message: <A HREF="001611.html">Patch for bcm4301 driver (PHY and radio from bcm43xx, uses mac80211	as MAC layer)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1618">[ date ]</a>
+              <a href="thread.html#1618">[ thread ]</a>
+              <a href="subject.html#1618">[ subject ]</a>
+              <a href="author.html#1618">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday 29 July 2007 01:58, Larry Finger wrote:
+&gt;<i> Michael Buesch wrote:
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Ok, seems like we are missing some dummy reads to drain
+</I>&gt;<i> &gt; this IRQ. I'll look at this tomorrow.
+</I>&gt;<i> &gt; Thanks for tracking this down.
+</I>&gt;<i> 
+</I>&gt;<i> As we shouldn't get any interrupts until STAT_STARTED is reached, I wondered why interrupts were 
+</I>&gt;<i> enabled so early. As far as I can tell, none of the steps from where interrupts are enabled to where 
+</I>&gt;<i> STAT_STARTED is set depend on having them enabled; therefore, I tried a patch that delayed the 
+</I>&gt;<i> enabling of interrupts until after we had reached STAT_STARTED. It works for all my systems.
+</I>&gt;<i> 
+</I>&gt;<i> I'm beginning to think that the shared interrupts have nothing to do with the problem, but it is 
+</I>&gt;<i> more likely caused by peculiarities in the PCMCIA bridge in my ancient laptop.
+</I>&gt;<i> 
+</I>&gt;<i> Larry
+</I>&gt;<i> 
+</I>&gt;<i> Index: wireless-mb/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-mb.orig/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+</I>&gt;<i> +++ wireless-mb/drivers/net/wireless/bcm43xx-mac80211/bcm43xx_main.c
+</I>&gt;<i> @@ -3014,13 +3014,13 @@ static int bcm43xx_wireless_core_start(s
+</I>&gt;<i>   		       dev-&gt;dev-&gt;irq);
+</I>&gt;<i>   		goto out;
+</I>&gt;<i>   	}
+</I>&gt;<i> -	bcm43xx_interrupt_enable(dev, dev-&gt;irq_savedstate);
+</I>&gt;<i>   	bcm43xx_mac_enable(dev);
+</I>&gt;<i> 
+</I>&gt;<i>   	bcm43xx_periodic_tasks_setup(dev);
+</I>&gt;<i> 
+</I>&gt;<i>   	ieee80211_start_queues(dev-&gt;wl-&gt;hw);
+</I>&gt;<i>   	bcm43xx_set_status(dev, BCM43xx_STAT_STARTED);
+</I>&gt;<i> +	bcm43xx_interrupt_enable(dev, dev-&gt;irq_savedstate);
+</I>&gt;<i>   	bcmdbg(dev-&gt;wl, &quot;Wireless interface started\n&quot;);
+</I>&gt;<i>   out:
+</I>&gt;<i>   	return err;
+</I>&gt;<i> 
+</I>
+Yes, that seems to be the correct fix.
+Thanks.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001616.html">bcm43xx-mac80211: a fix for the shared interrupt problem
+</A></li>
+	<LI>Next message: <A HREF="001611.html">Patch for bcm4301 driver (PHY and radio from bcm43xx, uses mac80211	as MAC layer)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1618">[ date ]</a>
+              <a href="thread.html#1618">[ thread ]</a>
+              <a href="subject.html#1618">[ subject ]</a>
+              <a href="author.html#1618">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

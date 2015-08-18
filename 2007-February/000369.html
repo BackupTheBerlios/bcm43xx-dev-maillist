@@ -1,0 +1,126 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Patch to fix set_channelfreq
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Patch%20to%20fix%20set_channelfreq&In-Reply-To=%3Cslrnesjfi4.73r.joerg%40alea.gnuu.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000398.html">
+   <LINK REL="Next"  HREF="000377.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Patch to fix set_channelfreq</H1>
+    <B>J&#246;rg Sommer</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Patch%20to%20fix%20set_channelfreq&In-Reply-To=%3Cslrnesjfi4.73r.joerg%40alea.gnuu.de%3E"
+       TITLE="Patch to fix set_channelfreq">joerg at alea.gnuu.de
+       </A><BR>
+    <I>Wed Feb  7 12:55:49 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000398.html">Speed measurement and stability issues
+</A></li>
+        <LI>Next message: <A HREF="000377.html">Patch to fix set_channelfreq
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#369">[ date ]</a>
+              <a href="thread.html#369">[ thread ]</a>
+              <a href="subject.html#369">[ subject ]</a>
+              <a href="author.html#369">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi,
+
+the code in bcm43xx_wc.c:bcm43xx_wx_set_channelfreq() passes the value
+unchanged to bcm43xx_freq_to_channel() which leads to mistakes, because
+bcm43xx_freq_to_channel() expects the frequency in MHz, but the value
+given to bcm43xx_wx_set_channelfreq() might be scaled somehow different.
+
+Also passing the internal frequency value in bcm43xx_wx_get_rangeparams()
+to userland is not correct. The frequency is in MHz, but the factor
+passed to userland is freq*10^1.
+
+#v+
+--- /home/joerg/bcm43xx_wx.c	2007-02-07 11:25:19.000000000 +0100
++++ bcm43xx_wx.c	2007-02-07 11:09:46.000000000 +0100
+@@ -108,16 +108,21 @@
+ 	u8 channel;
+ 	int freq;
+ 	int err = -EINVAL;
++	s16 ex;
+ 
+ 	mutex_lock(&amp;bcm-&gt;mutex);
+ 	spin_lock_irqsave(&amp;bcm-&gt;irq_lock, flags);
+ 
+-	if ((data-&gt;freq.m &gt;= 0) &amp;&amp; (data-&gt;freq.m &lt;= 1000)) {
++	if ((data-&gt;freq.e == 0) &amp;&amp;
++            (data-&gt;freq.m &gt;= 0) &amp;&amp; (data-&gt;freq.m &lt;= 1000)) {
+ 		channel = data-&gt;freq.m;
+ 		freq = bcm43xx_channel_to_freq(bcm, channel);
+ 	} else {
+-		channel = bcm43xx_freq_to_channel(bcm, data-&gt;freq.m);
+ 		freq = data-&gt;freq.m;
++		ex = 6 - data-&gt;freq.e;
++		while (--ex &gt;= 0)    /* scale down the frequency to MHz */
++			freq /= 10;
++		channel = bcm43xx_freq_to_channel(bcm, freq);
+ 	}
+ 	if (!ieee80211_is_valid_channel(bcm-&gt;ieee, channel))
+ 		goto out_unlock;
+@@ -295,7 +300,7 @@
+ 			break;
+ 		range-&gt;freq[j].i = j + 1;
+ 		range-&gt;freq[j].m = geo-&gt;bg[i].freq;//FIXME?
+-		range-&gt;freq[j].e = 1;
++		range-&gt;freq[j].e = 6;
+ 		j++;
+ 	}
+ 	range-&gt;num_frequency = j;
+@@ -439,7 +444,7 @@
+ 	u16 maxpower;
+ 
+ 	if ((data-&gt;txpower.flags &amp; IW_TXPOW_TYPE) != IW_TXPOW_DBM) {
+-		printk(PFX KERN_ERR &quot;TX power not in dBm.\n&quot;);
++		printk(KERN_ERR PFX &quot;TX power not in dBm.\n&quot;);
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+#v-
+
+linux: 2.6.20
+
+Bye, J&#246;rg.
+-- 
+Die Erde ist das einzigste Irrenhaus, das von seinen eigenen Insassen
+verwaltet wird.
+                                                (U. Schmidt)
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000398.html">Speed measurement and stability issues
+</A></li>
+	<LI>Next message: <A HREF="000377.html">Patch to fix set_channelfreq
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#369">[ date ]</a>
+              <a href="thread.html#369">[ thread ]</a>
+              <a href="subject.html#369">[ subject ]</a>
+              <a href="author.html#369">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

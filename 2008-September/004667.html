@@ -1,0 +1,223 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Regression%20in%202.6.27-rcX%20caused%20by%20commit%0A%09bc19d6e0b74ef03a3baf035412c95192b54dfc6f&In-Reply-To=%3C20080916210920.GC16470%40srcf.ucam.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004664.html">
+   <LINK REL="Next"  HREF="004680.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f</H1>
+    <B>Matthew Garrett</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20Regression%20in%202.6.27-rcX%20caused%20by%20commit%0A%09bc19d6e0b74ef03a3baf035412c95192b54dfc6f&In-Reply-To=%3C20080916210920.GC16470%40srcf.ucam.org%3E"
+       TITLE="Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f">mjg59 at srcf.ucam.org
+       </A><BR>
+    <I>Tue Sep 16 23:09:20 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004664.html">Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+        <LI>Next message: <A HREF="004680.html">Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4667">[ date ]</a>
+              <a href="thread.html#4667">[ thread ]</a>
+              <a href="subject.html#4667">[ subject ]</a>
+              <a href="author.html#4667">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Oh, hey, I suck. This one might stand a better chance of not falling 
+over.
+
+diff --git a/drivers/net/wireless/b43/rfkill.c b/drivers/net/wireless/b43/rfkill.c
+index fec5645..991e318 100644
+--- a/drivers/net/wireless/b43/rfkill.c
++++ b/drivers/net/wireless/b43/rfkill.c
+@@ -49,21 +49,18 @@ static void b43_rfkill_update_state(struct b43_wldev *dev)
+ 	struct b43_rfkill *rfk = &amp;(dev-&gt;wl-&gt;rfkill);
+ 
+ 	if (!dev-&gt;radio_hw_enable) {
+-		rfk-&gt;rfkill-&gt;state = RFKILL_STATE_HARD_BLOCKED;
++		rfkill_force_state(rfk-&gt;rfkill, RFKILL_STATE_HARD_BLOCKED);
+ 		return;
+ 	}
+ 
+ 	if (!dev-&gt;phy.radio_on)
+-		rfk-&gt;rfkill-&gt;state = RFKILL_STATE_SOFT_BLOCKED;
++		rfkill_force_state(rfk-&gt;rfkill, RFKILL_STATE_SOFT_BLOCKED);
+ 	else
+-		rfk-&gt;rfkill-&gt;state = RFKILL_STATE_UNBLOCKED;
+-
++		rfkill_force_state(rfk-&gt;rfkill, RFKILL_STATE_UNBLOCKED);
+ }
+ 
+-/* The poll callback for the hardware button. */
+-static void b43_rfkill_poll(struct input_polled_dev *poll_dev)
++static void b43_rfkill_update(struct b43_wldev *dev)
+ {
+-	struct b43_wldev *dev = poll_dev-&gt;private;
+ 	struct b43_wl *wl = dev-&gt;wl;
+ 	bool enabled;
+ 	bool report_change = 0;
+@@ -82,13 +79,25 @@ static void b43_rfkill_poll(struct input_polled_dev *poll_dev)
+ 			enabled ? &quot;ENABLED&quot; : &quot;DISABLED&quot;);
+ 	}
+ 	mutex_unlock(&amp;wl-&gt;mutex);
++}
+ 
+-	/* send the radio switch event to the system - note both a key press
+-	 * and a release are required */
+-	if (unlikely(report_change)) {
+-		input_report_key(poll_dev-&gt;input, KEY_WLAN, 1);
+-		input_report_key(poll_dev-&gt;input, KEY_WLAN, 0);
+-	}
++static void b43_rfkill_poll(unsigned long data)
++{
++	struct b43_rfkill *rfkill = (struct b43_rfkill *)data;
++	schedule_work(&amp;rfkill-&gt;poll_queue);
++}
++
++static void b43_rfkill_work(struct work_struct *work)
++{
++	struct b43_rfkill *rfk = container_of(work, struct b43_rfkill, 
++					      poll_queue);
++	struct b43_wl *wl = container_of(rfk, struct b43_wl, rfkill);
++	struct b43_wldev *dev = wl-&gt;current_dev;
++
++	b43_rfkill_update(dev);
++	rfk-&gt;poll_timer.function = b43_rfkill_poll;
++	rfk-&gt;poll_timer.expires = round_jiffies(jiffies + HZ);
++	add_timer(&amp;rfk-&gt;poll_timer);
+ }
+ 
+ /* Called when the RFKILL toggled in software. */
+@@ -158,48 +167,23 @@ void b43_rfkill_init(struct b43_wldev *dev)
+ 	rfk-&gt;rfkill-&gt;toggle_radio = b43_rfkill_soft_toggle;
+ 	rfk-&gt;rfkill-&gt;user_claim_unsupported = 1;
+ 
+-	rfk-&gt;poll_dev = input_allocate_polled_device();
+-	if (!rfk-&gt;poll_dev) {
+-		rfkill_free(rfk-&gt;rfkill);
+-		goto err_freed_rfk;
+-	}
+-
+-	rfk-&gt;poll_dev-&gt;private = dev;
+-	rfk-&gt;poll_dev-&gt;poll = b43_rfkill_poll;
+-	rfk-&gt;poll_dev-&gt;poll_interval = 1000; /* msecs */
+-
+-	rfk-&gt;poll_dev-&gt;input-&gt;name = rfk-&gt;name;
+-	rfk-&gt;poll_dev-&gt;input-&gt;id.bustype = BUS_HOST;
+-	rfk-&gt;poll_dev-&gt;input-&gt;id.vendor = dev-&gt;dev-&gt;bus-&gt;boardinfo.vendor;
+-	rfk-&gt;poll_dev-&gt;input-&gt;evbit[0] = BIT(EV_KEY);
+-	set_bit(KEY_WLAN, rfk-&gt;poll_dev-&gt;input-&gt;keybit);
+-
+ 	err = rfkill_register(rfk-&gt;rfkill);
+ 	if (err)
+-		goto err_free_polldev;
++		goto err_free_rfk;
+ 
+-#ifdef CONFIG_RFKILL_INPUT_MODULE
+-	/* B43 RF-kill isn't useful without the rfkill-input subsystem.
+-	 * Try to load the module. */
+-	err = request_module(&quot;rfkill-input&quot;);
+-	if (err)
+-		b43warn(wl, &quot;Failed to load the rfkill-input module. &quot;
+-			&quot;The built-in radio LED will not work.\n&quot;);
+-#endif /* CONFIG_RFKILL_INPUT */
++	rfk-&gt;registered = 1;
+ 
+-	err = input_register_polled_device(rfk-&gt;poll_dev);
+-	if (err)
+-		goto err_unreg_rfk;
++	INIT_WORK(&amp;rfk-&gt;poll_queue, b43_rfkill_work);
+ 
+-	rfk-&gt;registered = 1;
++	init_timer(&amp;rfk-&gt;poll_timer);
++	rfk-&gt;poll_timer.function = b43_rfkill_poll;
++	rfk-&gt;poll_timer.expires = round_jiffies(jiffies + HZ);
++	rfk-&gt;poll_timer.data = (unsigned long)rfk;
++	add_timer(&amp;rfk-&gt;poll_timer);
+ 
+ 	return;
+-err_unreg_rfk:
+-	rfkill_unregister(rfk-&gt;rfkill);
+-err_free_polldev:
+-	input_free_polled_device(rfk-&gt;poll_dev);
+-	rfk-&gt;poll_dev = NULL;
+-err_freed_rfk:
++err_free_rfk:
++	rfkill_free(rfk-&gt;rfkill);
+ 	rfk-&gt;rfkill = NULL;
+ out_error:
+ 	rfk-&gt;registered = 0;
+@@ -214,9 +198,8 @@ void b43_rfkill_exit(struct b43_wldev *dev)
+ 		return;
+ 	rfk-&gt;registered = 0;
+ 
+-	input_unregister_polled_device(rfk-&gt;poll_dev);
++	del_timer(&amp;rfk-&gt;poll_timer);
++
+ 	rfkill_unregister(rfk-&gt;rfkill);
+-	input_free_polled_device(rfk-&gt;poll_dev);
+-	rfk-&gt;poll_dev = NULL;
+ 	rfk-&gt;rfkill = NULL;
+ }
+diff --git a/drivers/net/wireless/b43/rfkill.h b/drivers/net/wireless/b43/rfkill.h
+index adacf93..1a4a719 100644
+--- a/drivers/net/wireless/b43/rfkill.h
++++ b/drivers/net/wireless/b43/rfkill.h
+@@ -7,14 +7,14 @@ struct b43_wldev;
+ #ifdef CONFIG_B43_RFKILL
+ 
+ #include &lt;linux/rfkill.h&gt;
+-#include &lt;linux/input-polldev.h&gt;
+-
+ 
+ struct b43_rfkill {
+ 	/* The RFKILL subsystem data structure */
+ 	struct rfkill *rfkill;
+-	/* The poll device for the RFKILL input button */
+-	struct input_polled_dev *poll_dev;
++	/* The timer list for the RFKILL polling */
++	struct timer_list poll_timer;
++	/* Workqueue for the RFKILL polling */
++	struct work_struct poll_queue;
+ 	/* Did initialization succeed? Used for freeing. */
+ 	bool registered;
+ 	/* The unique name of this rfkill switch */
+
+-- 
+Matthew Garrett | <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mjg59 at srcf.ucam.org</A>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004664.html">Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+	<LI>Next message: <A HREF="004680.html">Regression in 2.6.27-rcX caused by commit	bc19d6e0b74ef03a3baf035412c95192b54dfc6f
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4667">[ date ]</a>
+              <a href="thread.html#4667">[ thread ]</a>
+              <a href="subject.html#4667">[ subject ]</a>
+              <a href="author.html#4667">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

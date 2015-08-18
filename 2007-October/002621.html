@@ -1,0 +1,248 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: consistent naming for ieee80211_ops
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20consistent%20naming%20for%20ieee80211_ops&In-Reply-To=%3C200710281629.32319.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002620.html">
+   <LINK REL="Next"  HREF="002622.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: consistent naming for ieee80211_ops</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20consistent%20naming%20for%20ieee80211_ops&In-Reply-To=%3C200710281629.32319.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: consistent naming for ieee80211_ops">mb at bu3sch.de
+       </A><BR>
+    <I>Sun Oct 28 16:29:32 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002620.html">[PATCH] b43: Use the retry limit parameters from mac80211
+</A></li>
+        <LI>Next message: <A HREF="002622.html">[PATCH] b43: Fix rfkill callback deadlock
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2621">[ date ]</a>
+              <a href="thread.html#2621">[ thread ]</a>
+              <a href="subject.html#2621">[ subject ]</a>
+              <a href="author.html#2621">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Use a consistent naming scheme for the ops.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+Cc: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+
+Index: wireless-2.6/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/b43/main.c	2007-10-28 16:20:03.000000000 +0100
++++ wireless-2.6/drivers/net/wireless/b43/main.c	2007-10-28 16:24:51.000000000 +0100
+@@ -2486,8 +2486,9 @@ static int b43_rng_init(struct b43_wl *w
+ 	return err;
+ }
+ 
+-static int b43_tx(struct ieee80211_hw *hw,
+-		  struct sk_buff *skb, struct ieee80211_tx_control *ctl)
++static int b43_op_tx(struct ieee80211_hw *hw,
++		     struct sk_buff *skb,
++		     struct ieee80211_tx_control *ctl)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev = wl-&gt;current_dev;
+@@ -2505,21 +2506,21 @@ static int b43_tx(struct ieee80211_hw *h
+ 		spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 	} else
+ 		err = b43_dma_tx(dev, skb, ctl);
+-      out:
++out:
+ 	if (unlikely(err))
+ 		return NETDEV_TX_BUSY;
+ 	return NETDEV_TX_OK;
+ }
+ 
+-static int b43_conf_tx(struct ieee80211_hw *hw,
+-		       int queue,
+-		       const struct ieee80211_tx_queue_params *params)
++static int b43_op_conf_tx(struct ieee80211_hw *hw,
++			  int queue,
++			  const struct ieee80211_tx_queue_params *params)
+ {
+ 	return 0;
+ }
+ 
+-static int b43_get_tx_stats(struct ieee80211_hw *hw,
+-			    struct ieee80211_tx_queue_stats *stats)
++static int b43_op_get_tx_stats(struct ieee80211_hw *hw,
++			       struct ieee80211_tx_queue_stats *stats)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev = wl-&gt;current_dev;
+@@ -2537,12 +2538,12 @@ static int b43_get_tx_stats(struct ieee8
+ 		err = 0;
+ 	}
+ 	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+-      out:
++out:
+ 	return err;
+ }
+ 
+-static int b43_get_stats(struct ieee80211_hw *hw,
+-			 struct ieee80211_low_level_stats *stats)
++static int b43_op_get_stats(struct ieee80211_hw *hw,
++			    struct ieee80211_low_level_stats *stats)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	unsigned long flags;
+@@ -2695,7 +2696,7 @@ static int b43_antenna_from_ieee80211(u8
+ 	}
+ }
+ 
+-static int b43_dev_config(struct ieee80211_hw *hw, struct ieee80211_conf *conf)
++static int b43_op_config(struct ieee80211_hw *hw, struct ieee80211_conf *conf)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev;
+@@ -2800,7 +2801,7 @@ static int b43_dev_config(struct ieee802
+ 	return err;
+ }
+ 
+-static int b43_dev_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
++static int b43_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+ 			   const u8 *local_addr, const u8 *addr,
+ 			   struct ieee80211_key_conf *key)
+ {
+@@ -2893,7 +2894,6 @@ BUG_ON(!key);
+ out_unlock:
+ 	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+-out:
+ 	if (!err) {
+ 		b43dbg(wl, &quot;%s hardware based encryption for keyidx: %d, &quot;
+ 		       &quot;mac: %s\n&quot;,
+@@ -2903,9 +2903,9 @@ out:
+ 	return err;
+ }
+ 
+-static void b43_configure_filter(struct ieee80211_hw *hw,
+-				 unsigned int changed, unsigned int *fflags,
+-				 int mc_count, struct dev_addr_list *mc_list)
++static void b43_op_configure_filter(struct ieee80211_hw *hw,
++				    unsigned int changed, unsigned int *fflags,
++				    int mc_count, struct dev_addr_list *mc_list)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev = wl-&gt;current_dev;
+@@ -2940,8 +2940,9 @@ static void b43_configure_filter(struct 
+ 	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ }
+ 
+-static int b43_config_interface(struct ieee80211_hw *hw,
+-				int if_id, struct ieee80211_if_conf *conf)
++static int b43_op_config_interface(struct ieee80211_hw *hw,
++				   int if_id,
++				   struct ieee80211_if_conf *conf)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev = wl-&gt;current_dev;
+@@ -3427,8 +3428,8 @@ static int b43_wireless_core_init(struct
+ 	return err;
+ }
+ 
+-static int b43_add_interface(struct ieee80211_hw *hw,
+-			     struct ieee80211_if_init_conf *conf)
++static int b43_op_add_interface(struct ieee80211_hw *hw,
++				struct ieee80211_if_init_conf *conf)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev;
+@@ -3467,8 +3468,8 @@ static int b43_add_interface(struct ieee
+ 	return err;
+ }
+ 
+-static void b43_remove_interface(struct ieee80211_hw *hw,
+-				 struct ieee80211_if_init_conf *conf)
++static void b43_op_remove_interface(struct ieee80211_hw *hw,
++				    struct ieee80211_if_init_conf *conf)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev = wl-&gt;current_dev;
+@@ -3492,7 +3493,7 @@ static void b43_remove_interface(struct 
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ }
+ 
+-static int b43_start(struct ieee80211_hw *hw)
++static int b43_op_start(struct ieee80211_hw *hw)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev = wl-&gt;current_dev;
+@@ -3523,7 +3524,7 @@ static int b43_start(struct ieee80211_hw
+ 	return err;
+ }
+ 
+-static void b43_stop(struct ieee80211_hw *hw)
++static void b43_op_stop(struct ieee80211_hw *hw)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev = wl-&gt;current_dev;
+@@ -3556,18 +3557,18 @@ out_unlock:
+ }
+ 
+ static const struct ieee80211_ops b43_hw_ops = {
+-	.tx			= b43_tx,
+-	.conf_tx		= b43_conf_tx,
+-	.add_interface		= b43_add_interface,
+-	.remove_interface	= b43_remove_interface,
+-	.config			= b43_dev_config,
+-	.config_interface	= b43_config_interface,
+-	.configure_filter	= b43_configure_filter,
+-	.set_key		= b43_dev_set_key,
+-	.get_stats		= b43_get_stats,
+-	.get_tx_stats		= b43_get_tx_stats,
+-	.start			= b43_start,
+-	.stop			= b43_stop,
++	.tx			= b43_op_tx,
++	.conf_tx		= b43_op_conf_tx,
++	.add_interface		= b43_op_add_interface,
++	.remove_interface	= b43_op_remove_interface,
++	.config			= b43_op_config,
++	.config_interface	= b43_op_config_interface,
++	.configure_filter	= b43_op_configure_filter,
++	.set_key		= b43_op_set_key,
++	.get_stats		= b43_op_get_stats,
++	.get_tx_stats		= b43_op_get_tx_stats,
++	.start			= b43_op_start,
++	.stop			= b43_op_stop,
+ 	.set_retry_limit	= b43_op_set_retry_limit,
+ };
+ 
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002620.html">[PATCH] b43: Use the retry limit parameters from mac80211
+</A></li>
+	<LI>Next message: <A HREF="002622.html">[PATCH] b43: Fix rfkill callback deadlock
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2621">[ date ]</a>
+              <a href="thread.html#2621">[ thread ]</a>
+              <a href="subject.html#2621">[ subject ]</a>
+              <a href="author.html#2621">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

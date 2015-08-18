@@ -1,0 +1,128 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.23-rc1-wireless-dev%20bcm43xx_mac80211%20associates%2C%0A%09but%20Ethernet%20appears%20broken&In-Reply-To=%3C200708101159.10112.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001935.html">
+   <LINK REL="Next"  HREF="001939.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.23-rc1-wireless-dev%20bcm43xx_mac80211%20associates%2C%0A%09but%20Ethernet%20appears%20broken&In-Reply-To=%3C200708101159.10112.mb%40bu3sch.de%3E"
+       TITLE="2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates,	but Ethernet appears broken">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Aug 10 11:59:09 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001935.html">firmware versions?
+</A></li>
+        <LI>Next message: <A HREF="001939.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1938">[ date ]</a>
+              <a href="thread.html#1938">[ thread ]</a>
+              <a href="subject.html#1938">[ subject ]</a>
+              <a href="author.html#1938">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Friday 10 August 2007 04:27:33 Ehud Gavron wrote:
+&gt;<i> I have spent eight hours on this today and I can't find a way to do a 
+</I>&gt;<i> subset of the patches. I haven't quite given up, but I'm reaching a 
+</I>&gt;<i> point where I could use some insight.  I didn't copy the list... but 
+</I>&gt;<i> feel free to if you think it of public value.
+</I>&gt;<i> 
+</I>&gt;<i> The only things that don't make obvious sense (TO ME) are
+</I>&gt;<i> 1. all the changes to bcm43xx_interrupt_handler   &lt;---- I don't 
+</I>&gt;<i> understand what it NEEDS to be or why it WAS one way and IS another
+</I>&gt;<i> 2. @@ -2314,7 +2310,6 @@ static void bcm43xx_periodic_tasks_setup
+</I>&gt;<i>  {
+</I>&gt;<i>      struct delayed_work *work = &amp;dev-&gt;periodic_work;
+</I>&gt;<i>  
+</I>&gt;<i> -    assert(bcm43xx_status(dev) == 
+</I>&gt;<i> BCM43xx_STAT_INITIALIZED);                &lt;------------ this is a 
+</I>&gt;<i> removal with no insertion to replace it
+</I>
+It's an assertion. That doesn't generate code.
+
+&gt;<i> 3. -    if (likely(bcm43xx_status(dev) == BCM43xx_STAT_INITIALIZED)) {
+</I>&gt;<i> +    if (likely(bcm43xx_status(dev) &gt;= BCM43xx_STAT_STARTED)) 
+</I>&gt;<i> {              &lt;---------------------- shouldn't this be &lt; 
+</I>&gt;<i> BCM43xx_STAT_STARTED ???
+</I>
+(That's in bcm43xx_get_tx_stats() right?)
+No, we are checking for &quot;Are we at least started here?&quot;.
+So we need &gt;=STARTED. ==STARTED would do it, too, but that's
+the same with the current code. &lt;STARTED would clearly be wrong.
+
+&gt;<i> I have other questions, but the code is blurring in front of my eyes.
+</I>
+Yeah, well. I think it does for everybody. ;)
+
+I'm pretty sure that it's a bug in the toolchain (gcc or binutils
+or maybe something else) that's triggered by this patch.
+So the toolchain generating bad code and corrupting the data.
+The weird thing, however, is that you said you were able to associate,
+but not able to send that packet (it was a ping, or something like that?).
+From the driver point of view it doesn't matter if we TX/RX an
+association packet or some other packet. The codepaths are _exactly_
+the same.
+
+That is all _very_ strange. I never had such a weird bug
+in my whole life.
+
+&gt;<i> Michael, I know you are busy. Could you please re-look at your patch, 
+</I>&gt;<i> and note the cases where you change
+</I>&gt;<i> bcm43xx_status(dev) == BCM43xx_STAT_INITIALIZED
+</I>&gt;<i> I think in the other cases you change them to
+</I>&gt;<i> bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED
+</I>&gt;<i> which makes sense to me... so I can't understand #3 above.
+</I>
+The patch looks absolutely correct to me, except the tiny tiny
+part in the core-starting, where I already sent a patch to
+you (you said it wouldn't help).
+
+&gt;<i> Any input would be appreciated. 
+</I>
+&gt;<i> PS No, I don't know this code.  No I've never written a Linux driver.  
+</I>&gt;<i> I'm a newbie.  I just happen to have a laptop that doesn't like the new 
+</I>&gt;<i> code and likes the old code for bcm43xx-mac80211.  I'm not the only 
+</I>&gt;<i> one.
+</I>
+Huh? Someone else able to reproduce it??
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001935.html">firmware versions?
+</A></li>
+	<LI>Next message: <A HREF="001939.html">2.6.23-rc1-wireless-dev bcm43xx_mac80211 associates, but Ethernet	appears broken
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1938">[ date ]</a>
+              <a href="thread.html#1938">[ thread ]</a>
+              <a href="subject.html#1938">[ subject ]</a>
+              <a href="author.html#1938">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,108 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] b43: A patch for control of the radio LED using rfkill
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43%3A%20A%20patch%20for%20control%20of%20the%20radio%20LED%20using%20rfkill&In-Reply-To=%3C200809181937.38257.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004696.html">
+   <LINK REL="Next"  HREF="004701.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] b43: A patch for control of the radio LED using rfkill</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43%3A%20A%20patch%20for%20control%20of%20the%20radio%20LED%20using%20rfkill&In-Reply-To=%3C200809181937.38257.mb%40bu3sch.de%3E"
+       TITLE="[RFC] b43: A patch for control of the radio LED using rfkill">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Sep 18 19:37:38 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004696.html">[RFC V2] b43: A patch for control of the radio LED using rfkill
+</A></li>
+        <LI>Next message: <A HREF="004701.html">[RFC] b43: A patch for control of the radio LED using rfkill
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4700">[ date ]</a>
+              <a href="thread.html#4700">[ thread ]</a>
+              <a href="subject.html#4700">[ subject ]</a>
+              <a href="author.html#4700">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Thursday 18 September 2008 15:53:28 Ivo van Doorn wrote:
+&gt;<i> On Thursday 18 September 2008, Larry Finger wrote:
+</I>&gt;<i> &gt; Ivo van Doorn wrote:
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; &gt; Is dev-&gt;phy.radio_on set when mac80211 has send an instruction
+</I>&gt;<i> &gt; &gt; to the driver to enable the radio (start() or config() callback)
+</I>&gt;<i> &gt; &gt; or does it represent the key state in the hardware?
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; If it is something coming from mac80211, then you do not want
+</I>&gt;<i> &gt; &gt; to send a SOFT_BLOCKED event since that will cause all other radios
+</I>&gt;<i> &gt; &gt; to be switched off simply because the b43 interface has not been
+</I>&gt;<i> &gt; &gt; enabled.
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; Off course when it represents the key state in the hardware then the
+</I>&gt;<i> &gt; &gt; code would be fine...
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; The state comes from mac80211 and is set in the config() callback.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; What state should be sent at the point when the hardware block is
+</I>&gt;<i> &gt; removed? It seems to me that forcing an UNBLOCKED state gives the
+</I>&gt;<i> &gt; wrong result. Perhaps RFKILL does need to have 4 states so that an
+</I>&gt;<i> &gt; RFKILL_STATE_HW_UNBLOCKED state can be transmitted.
+</I>&gt;<i> 
+</I>&gt;<i> When the key is pressed to unblock the device, then simply send state
+</I>&gt;<i> RFKILL_STATE_UNBLOCKED to rfkill. That will generate a trigger to the
+</I>&gt;<i> driver to enable the radio,
+</I>
+The radio is enabled in _hardware_. There doesn't need to be any trigger.
+It's already on. In fact, such a trigger (done through rfkill-&gt;toggle callback)
+would deadlock wl-&gt;mutex with the current patch.
+
+&gt;<i> and at that time you can check if mac80211 
+</I>&gt;<i> wants the radio on or not (aka you check dev-&gt;phy.radio_on or the mac80211
+</I>&gt;<i> config structure).
+</I>
+No!
+Software and hardware rfkill states are completely different and _independent_
+states on the b43 hardware. You set the software state from the mac80211 callback
+no matter what hardware state the device is in. You just have to announce the
+state correctly to the rfkill subsystem if mac80211 changed the software
+state.
+
+Do not change any software state from within the hardware state change handler.
+This will blow up.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004696.html">[RFC V2] b43: A patch for control of the radio LED using rfkill
+</A></li>
+	<LI>Next message: <A HREF="004701.html">[RFC] b43: A patch for control of the radio LED using rfkill
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4700">[ date ]</a>
+              <a href="thread.html#4700">[ thread ]</a>
+              <a href="subject.html#4700">[ subject ]</a>
+              <a href="author.html#4700">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

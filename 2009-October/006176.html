@@ -1,0 +1,173 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix Bugzilla #14181 without introducing a new problem
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20Bugzilla%20%2314181%20without%20introducing%20a%20new%20problem&In-Reply-To=%3C4AD5E86F.1080702%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006175.html">
+   <LINK REL="Next"  HREF="006177.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix Bugzilla #14181 without introducing a new problem</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20Bugzilla%20%2314181%20without%20introducing%20a%20new%20problem&In-Reply-To=%3C4AD5E86F.1080702%40lwfinger.net%3E"
+       TITLE="[PATCH] b43: Fix Bugzilla #14181 without introducing a new problem">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Wed Oct 14 17:04:15 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006175.html">[PATCH] b43: Fix Bugzilla #14181 without introducing a new problem
+</A></li>
+        <LI>Next message: <A HREF="006177.html">[PATCH] b43: Fix Bugzilla #14181 without introducing a new problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6176">[ date ]</a>
+              <a href="thread.html#6176">[ thread ]</a>
+              <a href="subject.html#6176">[ subject ]</a>
+              <a href="author.html#6176">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On 10/14/2009 03:06 AM, Michael Buesch wrote:
+&gt;<i> On Wednesday 14 October 2009 03:25:30 Larry Finger wrote:
+</I>&gt;&gt;<i> Commit 93bad2b757586fb153ef73b028953a8dcaccde77 entitled &quot;b43: Fix PPC crash
+</I>&gt;&gt;<i> in rfkill polling on unload&quot; fixed the bug reported in Bugzilla No. 14181;
+</I>&gt;&gt;<i> however, it introduced a new bug. Whenever the radio switch was turned off,
+</I>&gt;&gt;<i> it was necessary to unload and reload the driver for it to recognize the
+</I>&gt;&gt;<i> switch again.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> I believe this patch fixes the original problem without introducing any new
+</I>&gt;&gt;<i> problems.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+</I>&gt;&gt;<i> ---
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> John,
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> This is 2.6.32 material to fix the mess I made earlier.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Larry
+</I>&gt;&gt;<i> ---
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/main.c
+</I>&gt;&gt;<i> ===================================================================
+</I>&gt;&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/main.c
+</I>&gt;&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/main.c
+</I>&gt;&gt;<i> @@ -4501,7 +4501,6 @@ static void b43_op_stop(struct ieee80211
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i>  	cancel_work_sync(&amp;(wl-&gt;beacon_update_trigger));
+</I>&gt;&gt;<i>  
+</I>&gt;&gt;<i> -	wiphy_rfkill_stop_polling(hw-&gt;wiphy);
+</I>&gt;&gt;<i>  	mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;&gt;<i>  	if (b43_status(dev) &gt;= B43_STAT_STARTED) {
+</I>&gt;&gt;<i>  		dev = b43_wireless_core_stop(dev);
+</I>&gt;&gt;<i> Index: wireless-testing/drivers/net/wireless/b43/rfkill.c
+</I>&gt;&gt;<i> ===================================================================
+</I>&gt;&gt;<i> --- wireless-testing.orig/drivers/net/wireless/b43/rfkill.c
+</I>&gt;&gt;<i> +++ wireless-testing/drivers/net/wireless/b43/rfkill.c
+</I>&gt;&gt;<i> @@ -33,7 +33,8 @@ bool b43_is_hw_radio_enabled(struct b43_
+</I>&gt;&gt;<i>  		      &amp; B43_MMIO_RADIO_HWENABLED_HI_MASK))
+</I>&gt;&gt;<i>  			return 1;
+</I>&gt;&gt;<i>  	} else {
+</I>&gt;&gt;<i> -		if (b43_read16(dev, B43_MMIO_RADIO_HWENABLED_LO)
+</I>&gt;&gt;<i> +		if (b43_status(dev) &gt;= B43_STAT_STARTED &amp;&amp;
+</I>&gt;&gt;<i> +		    b43_read16(dev, B43_MMIO_RADIO_HWENABLED_LO)
+</I>&gt;&gt;<i>  		    &amp; B43_MMIO_RADIO_HWENABLED_LO_MASK)
+</I>&gt;&gt;<i>  			return 1;
+</I>&gt;&gt;<i>  	}
+</I>&gt;<i> 
+</I>&gt;<i> I'm still wondering, however, why you only need that check in the else branch.
+</I>&gt;<i> I guess the newer devices which use the other branch just fail silently.
+</I>
+No, the logic in b43_rfkill_poll gets the device into a state that it
+works for newer hardware. There is something about the PPC G4 (at
+least) that is not in a state where the B43_MMIO_RADIO_HWENABLED_LO
+register can be read and the processor faults. I do not have access to
+PPC hardware, thus I proposed the above fix as one that would avoid
+the fault on PPC, yet not hurt my hardware.
+
+&gt;<i> I don't think this fix is correct at all.
+</I>&gt;<i> The only way we can have status&lt;STARTED here is through the rfkill_poll
+</I>&gt;<i> function being called before the device is initialized. So it will enable
+</I>&gt;<i> the ssb device and try to fetch the rfkill register. _However_, with this check
+</I>&gt;<i> added it will _always_ return False. So why do we do the polling anyway, if it's
+</I>&gt;<i> always guaranteed to be false? I think that's buggy.
+</I>&gt;<i> To get the same effect, we could just do that:
+</I>&gt;<i> 
+</I>&gt;<i>  44 void b43_rfkill_poll(struct ieee80211_hw *hw)
+</I>&gt;<i>  45 {
+</I>&gt;<i>  46         struct b43_wl *wl = hw_to_b43_wl(hw);
+</I>&gt;<i>  47         struct b43_wldev *dev = wl-&gt;current_dev;
+</I>&gt;<i>  48         struct ssb_bus *bus = dev-&gt;dev-&gt;bus;
+</I>&gt;<i>  49         bool enabled;
+</I>&gt;<i>  50         bool brought_up = false;
+</I>&gt;<i>  51 
+</I>&gt;<i>  52         mutex_lock(&amp;wl-&gt;mutex);
+</I>&gt;<i>  53         if (unlikely(b43_status(dev) &lt; B43_STAT_INITIALIZED)) {
+</I>&gt;<i> 
+</I>&gt;<i> wiphy_rfkill_set_hw_state(false);
+</I>&gt;<i> unlock;
+</I>&gt;<i> return;
+</I>&gt;<i> // Remove the powerup logic...
+</I>&gt;<i> 
+</I>&gt;<i>  54                 if (ssb_bus_powerup(bus, 0)) {
+</I>&gt;<i>  55                         mutex_unlock(&amp;wl-&gt;mutex);
+</I>&gt;<i>  56                         return;
+</I>&gt;<i>  57                 }
+</I>&gt;<i>  58                 ssb_device_enable(dev-&gt;dev, 0);
+</I>&gt;<i>  59                 brought_up = true;
+</I>&gt;<i>  60         }
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> And no, it's not correct to force device state to STARTED or something else here, because
+</I>&gt;<i> that won't fix the issue and introduce other bugs.
+</I>
+This code would probably fix the PPC fault, but it would fail for
+everything else. Once b43 reports that the RF switch is off, then
+mac80211 calls to b43_op_stop, which in turn calls b43_wireless_stop,
+and it sets the state to B43_STAT_INITIALIZED. Your proposed code
+would have the same failure as my previous patch to stop polling in
+b43_op_stop - there would be no way to detect that the switch was back on.
+
+If there is a way to detect that an MMIO read will fail on PPC
+architecture, then that is what we need. I do not have a clue on what
+that might be.
+
+I'm not sure that any devices that use b43 and have a PHY revision &lt; 3
+actually have a radio kill switch. The case in bug 14181 does not.
+Would you prefer a patch that assumes that none do, and doesn't start
+polling unless phy.rev &gt;= 3? Then we could kill the test in
+b43_is_hw_radio_enabled. The routine could even be inlined.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006175.html">[PATCH] b43: Fix Bugzilla #14181 without introducing a new problem
+</A></li>
+	<LI>Next message: <A HREF="006177.html">[PATCH] b43: Fix Bugzilla #14181 without introducing a new problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6176">[ date ]</a>
+              <a href="thread.html#6176">[ thread ]</a>
+              <a href="subject.html#6176">[ subject ]</a>
+              <a href="author.html#6176">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

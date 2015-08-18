@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm4318 (asus WL-138g v2) frequent deauths
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-June/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4318%20%28asus%20WL-138g%20v2%29%20frequent%20deauths&In-Reply-To=%3C3495f40d0906151430w569bfa52sce29838428f7e3cd%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005537.html">
+   <LINK REL="Next"  HREF="005538.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm4318 (asus WL-138g v2) frequent deauths</H1>
+    <B>Alexander Monakov</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4318%20%28asus%20WL-138g%20v2%29%20frequent%20deauths&In-Reply-To=%3C3495f40d0906151430w569bfa52sce29838428f7e3cd%40mail.gmail.com%3E"
+       TITLE="bcm4318 (asus WL-138g v2) frequent deauths">amonakov at gmail.com
+       </A><BR>
+    <I>Mon Jun 15 23:30:19 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005537.html">bcm4318 (asus WL-138g v2) frequent deauths
+</A></li>
+        <LI>Next message: <A HREF="005538.html">success with Dell Wireless 1470 (802.11a/b/g) Dual-Band WLAN miniPCI 	Card (pciid: 14e4:4319)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5539">[ date ]</a>
+              <a href="thread.html#5539">[ thread ]</a>
+              <a href="subject.html#5539">[ subject ]</a>
+              <a href="author.html#5539">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Mon, Jun 15, 2009 at 6:34 PM, Stefan Lippers-Hollmann&lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">s.L-H at gmx.de</A>&gt; wrote:
+&gt;<i> Hi
+</I>&gt;<i>
+</I>&gt;<i> On Monday 15 June 2009, Alexander Monakov wrote:
+</I>&gt;<i> [...]
+</I>&gt;&gt;<i> I'm using Asus wl-138g v2 card (4318 chipset) in managed mode with a
+</I>&gt;&gt;<i> Cisco wireless AP. &#160;I am able to use both ndiswrapper and b43 driver
+</I>&gt;&gt;<i> with open source firmware. &#160;The ndiswrapper solution has worked fine
+</I>&gt;&gt;<i> for me for months; b43/openfwwf &#8212; not quite so: it tends to
+</I>&gt;&gt;<i> deauthenticate seconds after associating.
+</I>&gt;<i> [...]
+</I>&gt;<i>
+</I>&gt;<i> Are you sure that your &quot;Asus wl-138g v2&quot; really is a &quot;core revision 5&quot;
+</I>&gt;<i> chipset, which is all OpenFWWF claims to support yet?
+</I>&gt;<i>
+</I>&gt;<i> At least my own Asus wl-138g v2 indentifies itself as
+</I>&gt;<i> &#160; &#160; &#160; &#160;b43-phy0: Broadcom 4318 WLAN found (core revision 9)
+</I>&gt;<i> in dmesg and as such isn't even supposed to be covered by OpenFWWF at all,
+</I>&gt;<i> yet (yes, it does work with OpenFWWF nevertheless, but with worse
+</I>&gt;<i> performance and link reliability, but that's to be expected as long as
+</I>&gt;<i> OpenFWWF doesn't have dedicated support for core revision 9).
+</I>
+Oops. My apologies. I have completely missed this fact, and my card is
+indeed rev.9 (how was I supposed to know that, anyway? I fail to find
+it on openfwwf site). I'll be happy to test openfwwf again when it's
+ready for rev.9.
+
+I have tested b43 from 2.6.30 with 4.150 firmware today, and it seems
+to be fine (it was not this good with older kernels, I swear!): there
+have not been any apparent problems when testing with iperf, but there
+still are occasional disassociations with reason 2 when downloading
+via ftp for a long time. In wireshark on bcm4318 I see that driver
+sends one probe after 2-seconds silence (no rx _and_ tx), and then
+sends deauthentication packet with reason 2 in params after two more
+seconds. The kernel log reads:
+
+... multiple PHY error messages ...
+[87262.212293] b43-phy6 ERROR: PHY transmission error
+[87265.146802] b43-phy6 debug: Wireless interface stopped
+[87265.146851] b43-phy6 debug: DMA-32 rx_ring: Used slots 2/64, Failed
+frames 0/0 = 0.0%, Average tries 0.00
+[87265.146897] b43-phy6 debug: DMA-32 tx_ring_AC_BK: Used slots 0/256,
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[87265.151290] b43-phy6 debug: DMA-32 tx_ring_AC_BE: Used slots
+172/256, Failed frames 54/109944 = 0.0%, Average tries 1.55
+[87265.157956] b43-phy6 debug: DMA-32 tx_ring_AC_VI: Used slots 0/256,
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[87265.164634] b43-phy6 debug: DMA-32 tx_ring_AC_VO: Used slots 2/256,
+Failed frames 2/18 = 11.1%, Average tries 2.16
+[87265.171290] b43-phy6 debug: DMA-32 tx_ring_mcast: Used slots 0/256,
+Failed frames 0/0 = 0.0%, Average tries 0.00
+[87265.327966] b43-phy6: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+[87265.348001] b43-phy6 debug: Chip initialized
+[87265.348093] b43-phy6 debug: 32-bit DMA initialized
+[87265.365044] b43-phy6 debug: Wireless interface started
+[87269.142140] wlan0: no probe response from AP 00:18:74:d1:1a:c0 -
+disassociating
+
+Strangely, iw event does not register deauth packet.
+
+If I re-assign ESSID (without changing it, just iwconfig wlan0 essid
+XXX), the card reassociates, and ftp transfer continues. Why does
+automatic reassociation not work in this case? Why there was only one
+probe? What might be the reason for 'b43-phy6 debug: Wireless
+interface stopped'?
+
+And to answer Michael's question about iperf on openfwwf:
+
+&gt;<i> What does iperf in UDP mode show? Does it also show these bursts?
+</I>No, the throughput is quite stable (unstable for tcp). With 4.150
+firmware, throughput is also stable for both udp and tcp.
+
+Thanks.
+
+-- 
+Alexander Monakov
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005537.html">bcm4318 (asus WL-138g v2) frequent deauths
+</A></li>
+	<LI>Next message: <A HREF="005538.html">success with Dell Wireless 1470 (802.11a/b/g) Dual-Band WLAN miniPCI 	Card (pciid: 14e4:4319)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5539">[ date ]</a>
+              <a href="thread.html#5539">[ thread ]</a>
+              <a href="subject.html#5539">[ subject ]</a>
+              <a href="author.html#5539">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

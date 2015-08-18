@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH -mm 4/5] Leds: Add possibility to remove leds classdevs during	suspend/resume
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20-mm%204/5%5D%20Leds%3A%20Add%20possibility%20to%20remove%20leds%20classdevs%20during%0A%09suspend/resume&In-Reply-To=%3C200801250136.30292.rjw%40sisk.pl%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003281.html">
+   <LINK REL="Next"  HREF="003280.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH -mm 4/5] Leds: Add possibility to remove leds classdevs during	suspend/resume</H1>
+    <B>Rafael J. Wysocki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%20-mm%204/5%5D%20Leds%3A%20Add%20possibility%20to%20remove%20leds%20classdevs%20during%0A%09suspend/resume&In-Reply-To=%3C200801250136.30292.rjw%40sisk.pl%3E"
+       TITLE="[PATCH -mm 4/5] Leds: Add possibility to remove leds classdevs during	suspend/resume">rjw at sisk.pl
+       </A><BR>
+    <I>Fri Jan 25 01:36:29 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003281.html">[PATCH -mm 3/5] HWRNG: Add possibility to remove hwrng devices during	suspend/resume
+</A></li>
+        <LI>Next message: <A HREF="003280.html">[PATCH -mm 5/5] b43: Avoid unregistering device objects during suspend
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3282">[ date ]</a>
+              <a href="thread.html#3282">[ thread ]</a>
+              <a href="subject.html#3282">[ subject ]</a>
+              <a href="author.html#3282">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>From: Rafael J. Wysocki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">rjw at sisk.pl</A>&gt;
+
+Make it possible to unregister a led classdev object in a safe way
+during a suspend/resume cycle.
+
+Signed-off-by: Rafael J. Wysocki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">rjw at sisk.pl</A>&gt;
+---
+ drivers/leds/led-class.c |   13 +++++++++----
+ include/linux/leds.h     |   10 +++++++++-
+ 2 files changed, 18 insertions(+), 5 deletions(-)
+
+Index: linux-2.6.24-rc8-mm1/drivers/leds/led-class.c
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/drivers/leds/led-class.c
++++ linux-2.6.24-rc8-mm1/drivers/leds/led-class.c
+@@ -137,12 +137,14 @@ err_out:
+ EXPORT_SYMBOL_GPL(led_classdev_register);
+ 
+ /**
+- * led_classdev_unregister - unregisters a object of led_properties class.
++ * __led_classdev_unregister - unregisters a object of led_properties class.
+  * @led_cdev: the led device to unregister
++ * @suspended: indicates whether system-wide suspend or resume is in progress
+  *
+  * Unregisters a previously registered via led_classdev_register object.
+  */
+-void led_classdev_unregister(struct led_classdev *led_cdev)
++void __led_classdev_unregister(struct led_classdev *led_cdev,
++				      bool suspended)
+ {
+ 	device_remove_file(led_cdev-&gt;dev, &amp;dev_attr_brightness);
+ #ifdef CONFIG_LEDS_TRIGGERS
+@@ -153,13 +155,16 @@ void led_classdev_unregister(struct led_
+ 	up_write(&amp;led_cdev-&gt;trigger_lock);
+ #endif
+ 
+-	device_unregister(led_cdev-&gt;dev);
++	if (suspended)
++		device_pm_schedule_removal(led_cdev-&gt;dev);
++	else
++		device_unregister(led_cdev-&gt;dev);
+ 
+ 	down_write(&amp;leds_list_lock);
+ 	list_del(&amp;led_cdev-&gt;node);
+ 	up_write(&amp;leds_list_lock);
+ }
+-EXPORT_SYMBOL_GPL(led_classdev_unregister);
++EXPORT_SYMBOL_GPL(__led_classdev_unregister);
+ 
+ static int __init leds_init(void)
+ {
+Index: linux-2.6.24-rc8-mm1/include/linux/leds.h
+===================================================================
+--- linux-2.6.24-rc8-mm1.orig/include/linux/leds.h
++++ linux-2.6.24-rc8-mm1/include/linux/leds.h
+@@ -59,7 +59,15 @@ struct led_classdev {
+ 
+ extern int led_classdev_register(struct device *parent,
+ 				 struct led_classdev *led_cdev);
+-extern void led_classdev_unregister(struct led_classdev *led_cdev);
++extern void __led_classdev_unregister(struct led_classdev *led_cdev, bool sus);
++static inline void led_classdev_unregister(struct led_classdev *lcd)
++{
++	__led_classdev_unregister(lcd, false);
++}
++static inline void led_classdev_unregister_suspended(struct led_classdev *lcd)
++{
++	__led_classdev_unregister(lcd, true);
++}
+ extern void led_classdev_suspend(struct led_classdev *led_cdev);
+ extern void led_classdev_resume(struct led_classdev *led_cdev);
+ 
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003281.html">[PATCH -mm 3/5] HWRNG: Add possibility to remove hwrng devices during	suspend/resume
+</A></li>
+	<LI>Next message: <A HREF="003280.html">[PATCH -mm 5/5] b43: Avoid unregistering device objects during suspend
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3282">[ date ]</a>
+              <a href="thread.html#3282">[ thread ]</a>
+              <a href="subject.html#3282">[ subject ]</a>
+              <a href="author.html#3282">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

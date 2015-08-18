@@ -1,0 +1,171 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> b43_suspend problem
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43_suspend%20problem&In-Reply-To=%3C200801201926.56363.rjw%40sisk.pl%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003258.html">
+   <LINK REL="Next"  HREF="003260.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>b43_suspend problem</H1>
+    <B>Rafael J. Wysocki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20b43_suspend%20problem&In-Reply-To=%3C200801201926.56363.rjw%40sisk.pl%3E"
+       TITLE="b43_suspend problem">rjw at sisk.pl
+       </A><BR>
+    <I>Sun Jan 20 19:26:55 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003258.html">b43_suspend problem
+</A></li>
+        <LI>Next message: <A HREF="003260.html">b43_suspend problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3259">[ date ]</a>
+              <a href="thread.html#3259">[ thread ]</a>
+              <a href="subject.html#3259">[ subject ]</a>
+              <a href="author.html#3259">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sunday, 20 of January 2008, Michael Buesch wrote:
+&gt;<i> On Sunday 20 January 2008, Rafael J. Wysocki wrote:
+</I>&gt;<i> &gt; On Sunday, 13 of January 2008, Alan Stern wrote:
+</I>&gt;<i> &gt; &gt; On Sun, 13 Jan 2008, Michael Buesch wrote:
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; &gt; &gt; Besides, if you're going to register the device right back again during 
+</I>&gt;<i> &gt; &gt; &gt; &gt; the subsequent resume, then why go to the trouble of unregistering it 
+</I>&gt;<i> &gt; &gt; &gt; &gt; during suspend?  Why not just leave it registered the whole time and 
+</I>&gt;<i> &gt; &gt; &gt; &gt; avoid all the complication (and excess meaningless uevents)?
+</I>&gt;<i> &gt; &gt; &gt; 
+</I>&gt;<i> &gt; &gt; &gt; Well, because not doing it complicates code :)
+</I>&gt;<i> &gt; &gt; &gt; Currently suspend/resume calls the same code as init/exit.
+</I>&gt;<i> &gt; &gt; &gt; The b43 init/exit code is really complicated, compared to other
+</I>&gt;<i> &gt; &gt; &gt; drivers, due to dozens of hardware versions. So I just avoided
+</I>&gt;<i> &gt; &gt; &gt; having yet other codepaths for suspend/resume. But I will add
+</I>&gt;<i> &gt; &gt; &gt; a flag to the device structure that's used to avoid unregistering stuff.
+</I>&gt;<i> &gt; &gt; 
+</I>&gt;<i> &gt; &gt; Instead of adding an extra flag you should refactor the code.  Have a
+</I>&gt;<i> &gt; &gt; common &quot;enable&quot; subroutine that can be called for both init and resume,
+</I>&gt;<i> &gt; &gt; and a common &quot;disable&quot; subroutine that can be called for both exit and
+</I>&gt;<i> &gt; &gt; suspend.  Then the method routines themselves will contain only the
+</I>&gt;<i> &gt; &gt; portions unique to their particular functions, making them shorter and
+</I>&gt;<i> &gt; &gt; simpler.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Well, it doesn't seem to be that easy.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; I tried to fix the issue myself and finally obtained the appended, apparently
+</I>&gt;<i> &gt; working, patch (against 2.6.24-rc8-mm1).  Well, it should have been a series
+</I>&gt;<i> &gt; of patches against multiple subsystems, but I thought it would be instructive
+</I>&gt;<i> &gt; to put everything needed into one bigger patch for starters.
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Greetings,
+</I>&gt;<i> &gt; Rafael
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; ---
+</I>&gt;<i> &gt;  drivers/base/power/main.c       |    1 
+</I>&gt;<i> &gt;  drivers/base/power/power.h      |    1 
+</I>&gt;<i> &gt;  drivers/char/hw_random/core.c   |   10 ++++-----
+</I>&gt;<i> &gt;  drivers/char/misc.c             |   13 ++++++++----
+</I>&gt;<i> &gt;  drivers/leds/led-class.c        |   13 ++++++++----
+</I>&gt;<i> &gt;  drivers/net/wireless/b43/leds.c |   17 +++++++++------
+</I>&gt;<i> &gt;  drivers/net/wireless/b43/leds.h |   14 +++++++++++--
+</I>&gt;<i> &gt;  drivers/net/wireless/b43/main.c |   43 +++++++++++++++++++++++++++++-----------
+</I>&gt;<i> &gt;  include/linux/device.h          |    6 +++++
+</I>&gt;<i> &gt;  include/linux/hw_random.h       |   10 ++++++++-
+</I>&gt;<i> &gt;  include/linux/leds.h            |   10 ++++++++-
+</I>&gt;<i> &gt;  include/linux/miscdevice.h      |   10 ++++++++-
+</I>&gt;<i> &gt;  12 files changed, 111 insertions(+), 37 deletions(-)
+</I>&gt;<i> &gt; 
+</I>&gt;<i> &gt; Index: linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/main.c
+</I>&gt;<i> &gt; ===================================================================
+</I>&gt;<i> &gt; --- linux-2.6.24-rc8-mm1.orig/drivers/net/wireless/b43/main.c
+</I>&gt;<i> &gt; +++ linux-2.6.24-rc8-mm1/drivers/net/wireless/b43/main.c
+</I>&gt;<i> &gt; @@ -2470,10 +2470,15 @@ static int b43_rng_read(struct hwrng *rn
+</I>&gt;<i> &gt;  	return (sizeof(u16));
+</I>&gt;<i> &gt;  }
+</I>&gt;<i> &gt;  
+</I>&gt;<i> &gt; -static void b43_rng_exit(struct b43_wl *wl)
+</I>&gt;<i> &gt; +static void __b43_rng_exit(struct b43_wl *wl, bool suspended)
+</I>&gt;<i> &gt;  {
+</I>&gt;<i> &gt;  	if (wl-&gt;rng_initialized)
+</I>&gt;<i> &gt; -		hwrng_unregister(&amp;wl-&gt;rng);
+</I>&gt;<i> &gt; +		__hwrng_unregister(&amp;wl-&gt;rng, suspended);
+</I>&gt;<i> &gt; +}
+</I>&gt;<i> &gt; +
+</I>&gt;<i> &gt; +static void b43_rng_exit(struct b43_wl *wl)
+</I>&gt;<i> &gt; +{
+</I>&gt;<i> &gt; +	__b43_rng_exit(wl, false);
+</I>&gt;<i> &gt;  }
+</I>&gt;<i> &gt;  
+</I>&gt;<i> &gt;  static int b43_rng_init(struct b43_wl *wl)
+</I>&gt;<i> &gt; @@ -3289,7 +3294,7 @@ static void b43_set_retry_limits(struct 
+</I>&gt;<i> &gt;  
+</I>&gt;<i> &gt;  /* Shutdown a wireless core */
+</I>&gt;<i> &gt;  /* Locking: wl-&gt;mutex */
+</I>&gt;<i> &gt; -static void b43_wireless_core_exit(struct b43_wldev *dev)
+</I>&gt;<i> &gt; +static void __b43_wireless_core_exit(struct b43_wldev *dev, bool no_suspend)
+</I>&gt;<i> &gt;  {
+</I>&gt;<i> &gt;  	struct b43_phy *phy = &amp;dev-&gt;phy;
+</I>&gt;<i> &gt;  
+</I>&gt;<i> &gt; @@ -3298,8 +3303,10 @@ static void b43_wireless_core_exit(struc
+</I>&gt;<i> &gt;  		return;
+</I>&gt;<i> &gt;  	b43_set_status(dev, B43_STAT_UNINIT);
+</I>&gt;<i> &gt;  
+</I>&gt;<i> &gt; -	b43_leds_exit(dev);
+</I>&gt;<i> &gt; -	b43_rng_exit(dev-&gt;wl);
+</I>&gt;<i> &gt; +	if (no_suspend) {
+</I>&gt;<i> &gt; +		b43_leds_exit(dev);
+</I>&gt;<i> &gt; +		b43_rng_exit(dev-&gt;wl);
+</I>&gt;<i> &gt; +	}
+</I>&gt;<i> &gt;  	b43_pio_free(dev);
+</I>&gt;<i> &gt;  	b43_dma_free(dev);
+</I>&gt;<i> &gt;  	b43_chip_exit(dev);
+</I>&gt;<i> &gt; @@ -3313,8 +3320,13 @@ static void b43_wireless_core_exit(struc
+</I>&gt;<i> &gt;  	ssb_bus_may_powerdown(dev-&gt;dev-&gt;bus);
+</I>&gt;<i> &gt;  }
+</I>&gt;<i> &gt;  
+</I>&gt;<i> &gt; +static void b43_wireless_core_exit(struct b43_wldev *dev)
+</I>&gt;<i> &gt; +{
+</I>&gt;<i> &gt; +	__b43_wireless_core_exit(dev, true);
+</I>&gt;<i> &gt; +}
+</I>&gt;<i> 
+</I>&gt;<i> Nah, please don't obfuscate the code.
+</I>&gt;<i> Better add a flag to struct b43_wldev and check that in the few places
+</I>&gt;<i> that need different behaviour.
+</I>
+I can do that, if you prefer, but that will look worse, IMHO.
+
+Thanks,
+Rafael
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003258.html">b43_suspend problem
+</A></li>
+	<LI>Next message: <A HREF="003260.html">b43_suspend problem
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3259">[ date ]</a>
+              <a href="thread.html#3259">[ thread ]</a>
+              <a href="subject.html#3259">[ subject ]</a>
+              <a href="author.html#3259">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

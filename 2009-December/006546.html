@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> PCI config register 0x40
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20PCI%20config%20register%200x40&In-Reply-To=%3C4B2C7202.3070108%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006545.html">
+   <LINK REL="Next"  HREF="006547.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>PCI config register 0x40</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20PCI%20config%20register%200x40&In-Reply-To=%3C4B2C7202.3070108%40lwfinger.net%3E"
+       TITLE="PCI config register 0x40">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Sat Dec 19 07:26:10 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006545.html">ssb: ERROR: PLL init unknown for device 4322
+</A></li>
+        <LI>Next message: <A HREF="006547.html">PCI config register 0x40
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6546">[ date ]</a>
+              <a href="thread.html#6546">[ thread ]</a>
+              <a href="subject.html#6546">[ subject ]</a>
+              <a href="author.html#6546">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael,
+
+As you may recall, I dumped writes to the PCI config space for both
+b43 and the wl driver. I found that wl wrote to address 0x40. In
+looking around other drivers, I found the following fragment in ipw2100:
+
+        /* We disable the RETRY_TIMEOUT register (0x41) to keep
+         * PCI Tx retries from interfering with C3 CPU state */
+        pci_read_config_dword(pci_dev, 0x40, &amp;val);
+        if ((val &amp; 0x0000ff00) != 0)
+                pci_write_config_dword(pci_dev, 0x40, val &amp;
+				       0xffff00ff);
+
+There is a similar fragment in the resume routine.
+
+This change is probably not responsible for the DMA errors in the
+4315, but there still could be some affect. Do you want to prepare a
+patch for ssb, or should I do it?
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006545.html">ssb: ERROR: PLL init unknown for device 4322
+</A></li>
+	<LI>Next message: <A HREF="006547.html">PCI config register 0x40
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6546">[ date ]</a>
+              <a href="thread.html#6546">[ thread ]</a>
+              <a href="subject.html#6546">[ subject ]</a>
+              <a href="author.html#6546">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

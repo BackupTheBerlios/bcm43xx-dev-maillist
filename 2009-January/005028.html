@@ -1,0 +1,151 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC 6/7] B43N: Add the stay carrier search enable and disable	functions.
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%206/7%5D%20B43N%3A%20Add%20the%20stay%20carrier%20search%20enable%20and%20disable%0A%09functions.&In-Reply-To=%3C1197ff4c0901132359gc16720cg55b101acf58dfdfa%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005027.html">
+   <LINK REL="Next"  HREF="005029.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC 6/7] B43N: Add the stay carrier search enable and disable	functions.</H1>
+    <B>YanBo</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%206/7%5D%20B43N%3A%20Add%20the%20stay%20carrier%20search%20enable%20and%20disable%0A%09functions.&In-Reply-To=%3C1197ff4c0901132359gc16720cg55b101acf58dfdfa%40mail.gmail.com%3E"
+       TITLE="[RFC 6/7] B43N: Add the stay carrier search enable and disable	functions.">dreamfly281 at gmail.com
+       </A><BR>
+    <I>Wed Jan 14 08:59:08 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005027.html">[RFC 5/7] B43N: update the phyn workarounds
+</A></li>
+        <LI>Next message: <A HREF="005029.html">[RFC 7/7] B43N: Add the tx gain table of different version.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5028">[ date ]</a>
+              <a href="thread.html#5028">[ thread ]</a>
+              <a href="subject.html#5028">[ subject ]</a>
+              <a href="author.html#5028">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Implementation the functions  enable and disable stay carrier search
+
+Signed-off-by: Li YanBo &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">dreamfly281 at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_n.c |   63 +++++++++++++++++++++++++++++--------
+ 1 files changed, 49 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index c1d9a5c..6dfa5c0 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -82,6 +82,55 @@ static void b43_chantab_phy_upload(struct b43_wldev *dev,
+ 	b43_phy_write(dev, B43_NPHY_BW6, e-&gt;phy_bw6);
+ }
+
++static void b43_nphy_reset_cca(struct b43_wldev *dev)
++{
++	u16 bbcfg;
++
++	ssb_write32(dev-&gt;dev, SSB_TMSLOW,
++		    ssb_read32(dev-&gt;dev, SSB_TMSLOW) | SSB_TMSLOW_FGC);
++	bbcfg = b43_phy_read(dev, B43_NPHY_BBCFG);
++	b43_phy_set(dev, B43_NPHY_BBCFG, B43_NPHY_BBCFG_RSTCCA);
++	b43_phy_write(dev, B43_NPHY_BBCFG,
++		      bbcfg &amp; ~B43_NPHY_BBCFG_RSTCCA);
++	ssb_write32(dev-&gt;dev, SSB_TMSLOW,
++		    ssb_read32(dev-&gt;dev, SSB_TMSLOW) &amp; ~SSB_TMSLOW_FGC);
++}
++
++static void b43_nphy_stay_carrier_search_enable(struct b43_wldev *dev)
++{
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
++	
++	B43_WARN_ON(nphy-&gt;deaf_cnt &lt; 0);
++
++	if (nphy-&gt;deaf_cnt == 0) {
++		if (dev-&gt;dev-&gt;id.revision == 16)
++			b43_mac_suspend(dev);
++		nphy-&gt;cctl = b43_phy_read(dev, B43_NPHY_RFCTL_INTC1);
++		b43_phy_mask(dev, B43_NPHY_CLASSCTL, ~0x7);
++		if (dev-&gt;dev-&gt;id.revision == 16)
++			b43_mac_enable(dev);
++		nphy-&gt;clip1_dtc = b43_phy_read(dev, B43_NPHY_CLIP1GAIN_SLEN);
++		nphy-&gt;clip2_dtc = b43_phy_read(dev, B43_NPHY_CLIP2GAIN_SLEN);
++		b43_phy_write(dev, B43_NPHY_CLIP1GAIN_SLEN, 0xffff);
++		b43_phy_write(dev, B43_NPHY_CLIP2GAIN_SLEN, 0xffff);
++	}
++	nphy-&gt;deaf_cnt++;
++	b43_nphy_reset_cca(dev);
++}
++
++static void b43_nphy_stay_carrier_search_disable(struct b43_wldev *dev)
++{
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
++	
++	nphy-&gt;deaf_cnt--;
++	B43_WARN_ON(nphy-&gt;deaf_cnt &lt; 0);
++	if (nphy-&gt;deaf_cnt == 0) {
++		b43_phy_write(dev, B43_NPHY_RFCTL_INTC1, nphy-&gt;cctl);
++		b43_phy_write(dev, B43_NPHY_CLIP1GAIN_SLEN, nphy-&gt;clip1_dtc);
++		b43_phy_write(dev, B43_NPHY_CLIP2GAIN_SLEN, nphy-&gt;clip1_dtc);
++	}
++}
++
+ enum b43_nphy_txpid {
+ 	B43_N_5G_MEDIUM_FREQ = 0,
+ 	B43_N_5G_LOW_FREQ,
+@@ -548,20 +597,6 @@ static void b43_nphy_workarounds(struct b43_wldev *dev)
+                 b43_nphy_stay_carrier_search_disable(dev);
+ }
+
+-static void b43_nphy_reset_cca(struct b43_wldev *dev)
+-{
+-	u16 bbcfg;
+-
+-	ssb_write32(dev-&gt;dev, SSB_TMSLOW,
+-		    ssb_read32(dev-&gt;dev, SSB_TMSLOW) | SSB_TMSLOW_FGC);
+-	bbcfg = b43_phy_read(dev, B43_NPHY_BBCFG);
+-	b43_phy_set(dev, B43_NPHY_BBCFG, B43_NPHY_BBCFG_RSTCCA);
+-	b43_phy_write(dev, B43_NPHY_BBCFG,
+-		      bbcfg &amp; ~B43_NPHY_BBCFG_RSTCCA);
+-	ssb_write32(dev-&gt;dev, SSB_TMSLOW,
+-		    ssb_read32(dev-&gt;dev, SSB_TMSLOW) &amp; ~SSB_TMSLOW_FGC);
+-}
+-
+ enum b43_nphy_rf_sequence {
+ 	B43_RFSEQ_RX2TX,
+ 	B43_RFSEQ_TX2RX,
+-- 
+1.5.6.3
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005027.html">[RFC 5/7] B43N: update the phyn workarounds
+</A></li>
+	<LI>Next message: <A HREF="005029.html">[RFC 7/7] B43N: Add the tx gain table of different version.
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5028">[ date ]</a>
+              <a href="thread.html#5028">[ thread ]</a>
+              <a href="subject.html#5028">[ subject ]</a>
+              <a href="author.html#5028">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

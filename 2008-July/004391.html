@@ -1,0 +1,172 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] b43legacy: Change DMA setup to be similar to b43
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43legacy%3A%20Change%20DMA%20setup%20to%20be%20similar%20to%20b43&In-Reply-To=%3C486bbf63.q7D3OltS6Sq2clv/%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="004393.html">
+   <LINK REL="Next"  HREF="004392.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] b43legacy: Change DMA setup to be similar to b43</H1>
+    <B>Larry.Finger at lwfinger.net</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20b43legacy%3A%20Change%20DMA%20setup%20to%20be%20similar%20to%20b43&In-Reply-To=%3C486bbf63.q7D3OltS6Sq2clv/%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[RFC] b43legacy: Change DMA setup to be similar to b43">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Wed Jul  2 19:48:19 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="004393.html">+	drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init.patch	added to -mm tree
+</A></li>
+        <LI>Next message: <A HREF="004392.html">+	drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init.patch	added to -mm tree
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4391">[ date ]</a>
+              <a href="thread.html#4391">[ thread ]</a>
+              <a href="subject.html#4391">[ subject ]</a>
+              <a href="author.html#4391">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The gcc 3.4 fork used to compile the MN10300 port emits unwanted
+__ucmpdi2() calls for switch statements that use a 64bit value.
+This patch removes such a switch from b43legacy, and makes the code
+more like that used in b43.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Michael,
+
+Is it worth including this patch to make b43legacy DMA setup more like
+the b43 version, and to fix the gcc problem in MN10300?
+
+This has been tested with my BCM4306/2 card.
+
+Larry
+
+
+Index: wireless-testing/drivers/net/wireless/b43legacy/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43legacy/dma.c
++++ wireless-testing/drivers/net/wireless/b43legacy/dma.c
+@@ -859,6 +859,18 @@ static u64 supported_dma_mask(struct b43
+ 	return DMA_30BIT_MASK;
+ }
+ 
++static enum b43legacy_dmatype dma_mask_to_engine_type(u64 dmamask)
++{
++	if (dmamask == DMA_30BIT_MASK)
++		return B43legacy_DMA_30BIT;
++	if (dmamask == DMA_32BIT_MASK)
++		return B43legacy_DMA_32BIT;
++	if (dmamask == DMA_64BIT_MASK)
++		return B43legacy_DMA_64BIT;
++	B43legacy_WARN_ON(1);
++	return B43legacy_DMA_30BIT;
++}
++
+ /* Main initialization function. */
+ static
+ struct b43legacy_dmaring *b43legacy_setup_dmaring(struct b43legacy_wldev *dev,
+@@ -1018,6 +1030,43 @@ void b43legacy_dma_free(struct b43legacy
+ 	dma-&gt;tx_ring0 = NULL;
+ }
+ 
++static int b43legacy_dma_set_mask(struct b43legacy_wldev *dev, u64 mask)
++{
++	u64 orig_mask = mask;
++	bool fallback = 0;
++	int err;
++
++	/* Try to set the DMA mask. If it fails, try falling back to a
++	 * lower mask, as we can always also support a lower one. */
++	while (1) {
++		err = ssb_dma_set_mask(dev-&gt;dev, mask);
++		if (!err)
++			break;
++		if (mask == DMA_64BIT_MASK) {
++			mask = DMA_32BIT_MASK;
++			fallback = 1;
++			continue;
++		}
++		if (mask == DMA_32BIT_MASK) {
++			mask = DMA_30BIT_MASK;
++			fallback = 1;
++			continue;
++		}
++		b43legacyerr(dev-&gt;wl, &quot;The machine/kernel does not support &quot;
++		       &quot;the required %u-bit DMA mask\n&quot;,
++		       (unsigned int)dma_mask_to_engine_type(orig_mask));
++		return -EOPNOTSUPP;
++	}
++	if (fallback) {
++		b43legacyinfo(dev-&gt;wl, &quot;DMA mask fallback from %u-bit to %u-&quot;
++			&quot;bit\n&quot;,
++			(unsigned int)dma_mask_to_engine_type(orig_mask),
++			(unsigned int)dma_mask_to_engine_type(mask));
++	}
++
++	return 0;
++}
++
+ int b43legacy_dma_init(struct b43legacy_wldev *dev)
+ {
+ 	struct b43legacy_dma *dma = &amp;dev-&gt;dma;
+@@ -1027,21 +1076,8 @@ int b43legacy_dma_init(struct b43legacy_
+ 	enum b43legacy_dmatype type;
+ 
+ 	dmamask = supported_dma_mask(dev);
+-	switch (dmamask) {
+-	default:
+-		B43legacy_WARN_ON(1);
+-	case DMA_30BIT_MASK:
+-		type = B43legacy_DMA_30BIT;
+-		break;
+-	case DMA_32BIT_MASK:
+-		type = B43legacy_DMA_32BIT;
+-		break;
+-	case DMA_64BIT_MASK:
+-		type = B43legacy_DMA_64BIT;
+-		break;
+-	}
+-
+-	err = ssb_dma_set_mask(dev-&gt;dev, dmamask);
++	type = dma_mask_to_engine_type(dmamask);
++	err = b43legacy_dma_set_mask(dev, dmamask);
+ 	if (err) {
+ #ifdef CONFIG_B43LEGACY_PIO
+ 		b43legacywarn(dev-&gt;wl, &quot;DMA for this device not supported. &quot;
+
+---
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="004393.html">+	drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init.patch	added to -mm tree
+</A></li>
+	<LI>Next message: <A HREF="004392.html">+	drivers-net-wireless-b43legacy-dmac-remove-the-switch-in-b43legacy_dma_init.patch	added to -mm tree
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#4391">[ date ]</a>
+              <a href="thread.html#4391">[ thread ]</a>
+              <a href="subject.html#4391">[ subject ]</a>
+              <a href="author.html#4391">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

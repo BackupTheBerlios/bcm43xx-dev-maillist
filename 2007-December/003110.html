@@ -1,0 +1,130 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.24-rc5 the LED does not come on after a switch-off switch-on
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.24-rc5%20the%20LED%20does%20not%20come%20on%20after%20a%20switch-off%20switch-on&In-Reply-To=%3C476809B5.5040100%40wetwork.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003108.html">
+   <LINK REL="Next"  HREF="003083.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.24-rc5 the LED does not come on after a switch-off switch-on</H1>
+    <B>Ehud Gavron</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.24-rc5%20the%20LED%20does%20not%20come%20on%20after%20a%20switch-off%20switch-on&In-Reply-To=%3C476809B5.5040100%40wetwork.net%3E"
+       TITLE="2.6.24-rc5 the LED does not come on after a switch-off switch-on">gavron at wetwork.net
+       </A><BR>
+    <I>Tue Dec 18 18:56:05 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003108.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+        <LI>Next message: <A HREF="003083.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3110">[ date ]</a>
+              <a href="thread.html#3110">[ thread ]</a>
+              <a href="subject.html#3110">[ subject ]</a>
+              <a href="author.html#3110">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>
+
+Larry Finger wrote:
+&gt;<i> Ehud Gavron wrote:
+</I>&gt;<i>   
+</I>&gt;&gt;<i> I've trimmed some of this.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Michael Buesch wrote:
+</I>&gt;&gt;<i>     
+</I>&gt;&gt;&gt;&gt;&gt;<i> I have no idea. But I don't understand why waiting a random time up
+</I>&gt;&gt;&gt;&gt;&gt;<i> to 1000ms fails
+</I>&gt;&gt;&gt;&gt;&gt;<i> and a random time up to 1000ms + 1ms succeeds.
+</I>&gt;&gt;&gt;&gt;&gt;<i>   
+</I>&gt;&gt;&gt;&gt;&gt;<i>           
+</I>&gt;&gt;<i> The patch I submitted had a newbie-error.  Right before making the patch
+</I>&gt;&gt;<i> I removed the debug messages.  As it turns out it's not the msleep that
+</I>&gt;&gt;<i> makes the difference.  It's having TWO debug messages AND the msleep.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> Yes, I know that sounds stupid.  Here are the kernels I built to test
+</I>&gt;&gt;<i> this stupid theory:
+</I>&gt;&gt;<i> /boot/vmlinuz-2.6.24-rc5-1dm
+</I>&gt;&gt;<i> /boot/vmlinuz-2.6.24-rc5-m1.dm
+</I>&gt;&gt;<i> /boot/vmlinuz-2.6.24-rc5-dm.dm
+</I>&gt;&gt;<i> /boot/vmlinuz-2.6.24-rc5-dm.m1
+</I>&gt;&gt;<i> /boot/vmlinuz-2.6.24-rc5-duh
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> DM=display message
+</I>&gt;&gt;<i> M1=msleep(1)
+</I>&gt;&gt;<i> DUH=go back to square one, display message; msleep(1) ; display message.
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> This DOES WORK and DOES TURN ON THE LED.  However...
+</I>&gt;&gt;<i> Here's the really funny thing.  Here are the messages:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> b43-phy0: Radio hardware status changed to ENABLED
+</I>&gt;&gt;<i> b43-phy0: EHUD: LED coming on
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> And here's the code:
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i>        if (unlikely(report_change)) {
+</I>&gt;&gt;<i>                b43info(wl,&quot;EHUD: sleeping\n&quot;);
+</I>&gt;&gt;<i>                msleep(1);
+</I>&gt;&gt;<i>                b43info(wl,&quot;EHUD: LED coming on\n);
+</I>&gt;&gt;<i>                input_report_key(poll_dev-&gt;input, KEY_WLAN, 1);
+</I>&gt;&gt;<i>                input_report_key(poll_dev-&gt;input, KEY_WLAN, 0);
+</I>&gt;&gt;<i>        }
+</I>&gt;&gt;<i>
+</I>&gt;&gt;<i> So my question (other than why do I need two messages and one msleep to
+</I>&gt;&gt;<i> get my LED lit) is... what happened to the &quot;EHUD: sleeping&quot; debug
+</I>&gt;&gt;<i> message?  It never showed up on the console.  I did this several times. 
+</I>&gt;&gt;<i> The full dmesg is attached.
+</I>&gt;&gt;<i>     
+</I>&gt;<i>
+</I>&gt;<i> I do not understand the disappearance of the &quot;sleeping&quot; message.
+</I>&gt;<i>
+</I>&gt;<i> I have some questions. In the following excerpt from your dmesg, why do you get the USB disconnect
+</I>&gt;<i> and reconnect? Is that part of the Bluetooth hardware?
+</I>Yes.
+&gt;<i>  If you remove the debug messages and increase
+</I>&gt;<i> the msleep delay to 10, does it work?
+</I>&gt;<i>   
+</I>I will try that once I get back home from work, as well as Michael's 
+suggestion for a different compiler.
+
+Thanks,
+
+Ehud
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003108.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+	<LI>Next message: <A HREF="003083.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3110">[ date ]</a>
+              <a href="thread.html#3110">[ thread ]</a>
+              <a href="subject.html#3110">[ subject ]</a>
+              <a href="author.html#3110">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

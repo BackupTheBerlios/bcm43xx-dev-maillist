@@ -1,0 +1,151 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 4/5] b43: N-PHY: save calibration for further restore
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%204/5%5D%20b43%3A%20N-PHY%3A%20save%20calibration%20for%20further%20restore&In-Reply-To=%3C1265282592-25491-4-git-send-email-zajec5%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006893.html">
+   <LINK REL="Next"  HREF="006891.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 4/5] b43: N-PHY: save calibration for further restore</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%204/5%5D%20b43%3A%20N-PHY%3A%20save%20calibration%20for%20further%20restore&In-Reply-To=%3C1265282592-25491-4-git-send-email-zajec5%40gmail.com%3E"
+       TITLE="[PATCH 4/5] b43: N-PHY: save calibration for further restore">zajec5 at gmail.com
+       </A><BR>
+    <I>Thu Feb  4 12:23:11 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006893.html">[PATCH 3/5] b43: N-PHY: prepare code for reapplying TX cal coeffs
+</A></li>
+        <LI>Next message: <A HREF="006891.html">[PATCH 5/5] b43: N-PHY: partly implement SPUR workaround
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6890">[ date ]</a>
+              <a href="thread.html#6890">[ thread ]</a>
+              <a href="subject.html#6890">[ subject ]</a>
+              <a href="author.html#6890">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_n.c |   51 +++++++++++++++++++++++++++++++++++++-
+ drivers/net/wireless/b43/phy_n.h |    1 +
+ 2 files changed, 51 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index e8266ed..f632494 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -2319,6 +2319,55 @@ static void b43_nphy_tx_cal_phy_setup(struct b43_wldev *dev)
+ 	}
+ }
+ 
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/SaveCal">http://bcm-v4.sipsolutions.net/802.11/PHY/N/SaveCal</A> */
++static void b43_nphy_save_cal(struct b43_wldev *dev)
++{
++	struct b43_phy_n *nphy = dev-&gt;phy.n;
++
++	struct b43_phy_n_iq_comp *rxcal_coeffs = NULL;
++	u16 *txcal_radio_regs = NULL;
++	u8 *iqcal_chanspec;
++	u16 *table = NULL;
++
++	if (nphy-&gt;hang_avoid)
++		b43_nphy_stay_in_carrier_search(dev, 1);
++
++	if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_2GHZ) {
++		rxcal_coeffs = &amp;nphy-&gt;cal_cache.rxcal_coeffs_2G;
++		txcal_radio_regs = nphy-&gt;cal_cache.txcal_radio_regs_2G;
++		iqcal_chanspec = &amp;nphy-&gt;iqcal_chanspec_2G;
++		table = nphy-&gt;cal_cache.txcal_coeffs_2G;
++	} else {
++		rxcal_coeffs = &amp;nphy-&gt;cal_cache.rxcal_coeffs_5G;
++		txcal_radio_regs = nphy-&gt;cal_cache.txcal_radio_regs_5G;
++		iqcal_chanspec = &amp;nphy-&gt;iqcal_chanspec_5G;
++		table = nphy-&gt;cal_cache.txcal_coeffs_5G;
++	}
++
++	b43_nphy_rx_iq_coeffs(dev, false, rxcal_coeffs);
++	/* TODO use some definitions */
++	if (dev-&gt;phy.rev &gt;= 3) {
++		txcal_radio_regs[0] = b43_radio_read(dev, 0x2021);
++		txcal_radio_regs[1] = b43_radio_read(dev, 0x2022);
++		txcal_radio_regs[2] = b43_radio_read(dev, 0x3021);
++		txcal_radio_regs[3] = b43_radio_read(dev, 0x3022);
++		txcal_radio_regs[4] = b43_radio_read(dev, 0x2023);
++		txcal_radio_regs[5] = b43_radio_read(dev, 0x2024);
++		txcal_radio_regs[6] = b43_radio_read(dev, 0x3023);
++		txcal_radio_regs[7] = b43_radio_read(dev, 0x3024);
++	} else {
++		txcal_radio_regs[0] = b43_radio_read(dev, 0x8B);
++		txcal_radio_regs[1] = b43_radio_read(dev, 0xBA);
++		txcal_radio_regs[2] = b43_radio_read(dev, 0x8D);
++		txcal_radio_regs[3] = b43_radio_read(dev, 0xBC);
++	}
++	*iqcal_chanspec = nphy-&gt;radio_chanspec;
++	b43_ntab_write_bulk(dev, B43_NTAB16(15, 80), 8, table);
++
++	if (nphy-&gt;hang_avoid)
++		b43_nphy_stay_in_carrier_search(dev, 0);
++}
++
+ /* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/RestoreCal">http://bcm-v4.sipsolutions.net/802.11/PHY/N/RestoreCal</A> */
+ static void b43_nphy_restore_cal(struct b43_wldev *dev)
+ {
+@@ -3016,7 +3065,7 @@ int b43_phy_initn(struct b43_wldev *dev)
+ 
+ 	if (!b43_nphy_cal_tx_iq_lo(dev, target, true, false)) {
+ 		if (b43_nphy_cal_rx_iq(dev, target, 2, 0) == 0)
+-			;/* Call N PHY Save Cal */
++			b43_nphy_save_cal(dev);
+ 		else if (nphy-&gt;mphase_cal_phase_id == 0)
+ 			;/* N PHY Periodic Calibration with argument 3 */
+ 	} else {
+diff --git a/drivers/net/wireless/b43/phy_n.h b/drivers/net/wireless/b43/phy_n.h
+index ae82f0f..0400a2c 100644
+--- a/drivers/net/wireless/b43/phy_n.h
++++ b/drivers/net/wireless/b43/phy_n.h
+@@ -975,6 +975,7 @@ struct b43_phy_n {
+ 	u16 papd_epsilon_offset[2];
+ 	s32 preamble_override;
+ 	u32 bb_mult_save;
++	u16 radio_chanspec;
+ 
+ 	bool gain_boost;
+ 	bool elna_gain_config;
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006893.html">[PATCH 3/5] b43: N-PHY: prepare code for reapplying TX cal coeffs
+</A></li>
+	<LI>Next message: <A HREF="006891.html">[PATCH 5/5] b43: N-PHY: partly implement SPUR workaround
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6890">[ date ]</a>
+              <a href="thread.html#6890">[ thread ]</a>
+              <a href="subject.html#6890">[ subject ]</a>
+              <a href="author.html#6890">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

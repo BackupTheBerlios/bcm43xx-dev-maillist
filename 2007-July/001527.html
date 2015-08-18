@@ -1,0 +1,128 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm4318 on again, off again (Larry Finger)
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-July/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4318%20on%20again%2C%20off%20again%20%28Larry%20Finger%29&In-Reply-To=%3Cb2d05de20707071907u3d8aafdag36010d7c0fed8f8d%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001526.html">
+   <LINK REL="Next"  HREF="001528.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm4318 on again, off again (Larry Finger)</H1>
+    <B>Brennan Ashton</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4318%20on%20again%2C%20off%20again%20%28Larry%20Finger%29&In-Reply-To=%3Cb2d05de20707071907u3d8aafdag36010d7c0fed8f8d%40mail.gmail.com%3E"
+       TITLE="bcm4318 on again, off again (Larry Finger)">comphappy at gmail.com
+       </A><BR>
+    <I>Sun Jul  8 04:07:33 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001526.html">bcm4318 on again, off again (Larry Finger)
+</A></li>
+        <LI>Next message: <A HREF="001528.html">bcm4318 on again, off again (Larry Finger)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1527">[ date ]</a>
+              <a href="thread.html#1527">[ thread ]</a>
+              <a href="subject.html#1527">[ subject ]</a>
+              <a href="author.html#1527">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>&gt;&gt;<i>SNIP&lt;&lt;
+</I>&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at localhost</A> ~]# uname -a
+</I>&gt;<i> Linux localhost.localdomain 2.6.21-1.3228.fc7 #1 SMP Thu Jun 28 16:42:25
+</I>&gt;<i> CDT 2007 i686 i686 i386 GNU/Linux
+</I>&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at localhost</A> ~]# lspci | grep Broadcom
+</I>&gt;<i> 0a:03.0 Network controller: Broadcom Corporation BCM4318 [AirForce One
+</I>&gt;<i> 54g] 802.11g Wireless LAN Controller (rev 02)
+</I>&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at localhost</A> ~]# dmesg | grep bcm43xx
+</I>&gt;<i> [<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">root at localhost</A> ~]#
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Bcm43xx-dev mailing list
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Bcm43xx-dev at lists.berlios.de</A>
+</I>&gt;<i> <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">https://lists.berlios.de/mailman/listinfo/bcm43xx-dev</A>
+</I>&gt;<i>
+</I>The fact that dmesg had nothing to say means you are not using the
+bcm4xx driver.
+you are not using a kernel from kernel.org or wireless-dev you need to
+get one of them,
+Linux localhost.localdomain 2.6.21-1.3228.fc7
+that - with a number after it is a dead give away.  You want uname -r
+to give 2.6.22-rc7
+try this:
+su -
+yum install bcm43xx-fwcutter
+wget <A HREF="http://downloads.openwrt.org/sources/broadcom-wl-4.80.9.2.tar.bz2">http://downloads.openwrt.org/sources/broadcom-wl-4.80.9.2.tar.bz2</A>
+tar -xjvf broadcom-wl-4.80.9.2.tar.bz2
+bcm43xx-fwcutter -w /lib/firmware/ broadcom-wl-4.80.9.2/kmod/wl_apsta.o
+when you set up ndiswrapper you may have blacklisted bcm43xx
+if so you need to remove it (edit /etc/modprobe.d/blacklist)
+
+cd /usr/src
+yum install git
+git-clone <A HREF="git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-dev.git">git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-dev.git</A>
+cd wireless-dev
+cp /boot/config-`uname -r` ./.config
+make mrproper
+make menuconfig
+select load alternative config file, it should sugest .config select yes
+then navigate to:
+device-drivers--&gt;Network-device-support--&gt;Wireless-LAN--&gt;press space
+when broadcom BCM43xx is selected (an M should appear next to it, if
+not hit space a few more times) do the same for broadcom BCM43xx
+mac80211 stack.  you may want to enable some debugging in the same
+location.
+press esc a few times, it will say do you want to save, select yes
+then on the command line again (this part will take a while):
+make all
+make modules_install
+make install
+now reboot
+select the new kernel at boot when grub comes up
+command line again:
+su -
+modprobe bcm43xx
+
+That should get u up and running, or at least to a state in which we
+can help. I don't know what other damage ndiswrapper may have done
+that you need to remove maybe someone else can way in on that.  If it
+works, you can change /boot/grub/menu.lst so that the new kernel is
+default.
+-- 
+Brennan Ashton
+Bellingham, Washington
+
+&quot;The box said, 'Requires Windows 98 or better'. So I installed Linux&quot;
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001526.html">bcm4318 on again, off again (Larry Finger)
+</A></li>
+	<LI>Next message: <A HREF="001528.html">bcm4318 on again, off again (Larry Finger)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1527">[ date ]</a>
+              <a href="thread.html#1527">[ thread ]</a>
+              <a href="subject.html#1527">[ subject ]</a>
+              <a href="author.html#1527">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

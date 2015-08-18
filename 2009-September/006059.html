@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> bcm4306 crashes on IPX4XX and works on x86 ?!?
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4306%20crashes%20on%20IPX4XX%20and%20works%20on%20x86%20%3F%21%3F&In-Reply-To=%3C4AAE75A8.2060505%40schmitt-united.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006058.html">
+   <LINK REL="Next"  HREF="006060.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>bcm4306 crashes on IPX4XX and works on x86 ?!?</H1>
+    <B>Daniel Schmitt</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20bcm4306%20crashes%20on%20IPX4XX%20and%20works%20on%20x86%20%3F%21%3F&In-Reply-To=%3C4AAE75A8.2060505%40schmitt-united.de%3E"
+       TITLE="bcm4306 crashes on IPX4XX and works on x86 ?!?">daniel at schmitt-united.de
+       </A><BR>
+    <I>Mon Sep 14 18:56:08 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006058.html">bcm4306 crashes on IPX4XX and works on x86 ?!?
+</A></li>
+        <LI>Next message: <A HREF="006060.html">bcm4306 crashes on IPX4XX and works on x86 ?!?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6059">[ date ]</a>
+              <a href="thread.html#6059">[ thread ]</a>
+              <a href="subject.html#6059">[ subject ]</a>
+              <a href="author.html#6059">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>well, same issue:
+ssb: Sonics Silicon Backplane found on PCI device 0000:00:02.0
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x02, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x04, vendor 0x4243)
+ssb: Core 2 found: PCMCIA (cc 0x80D, rev 0x01, vendor 0x4243)
+ssb: Core 3 found: V90 (cc 0x807, rev 0x01, vendor 0x4243)
+ssb: Core 4 found: PCI (cc 0x804, rev 0x07, vendor 0x4243)
+ssb: Core 5 found: IEEE 802.11 (cc 0x812, rev 0x04, vendor 0x4243)
+ssb: Ignoring additional 802.11 core
+ssb: Using different timing for ioread 16. udelay(10)
+ssb: Using different timing for ioread 16. udelay(10)
+ssb: WARNING: Invalid SPROM CRC (corrupt SPROM)
+ssb: SPROM revision 91 detected.
+ssb: Unsupported SPROM revision 91 detected. Will extract v1
+ssb: Sonics Silicon Backplane found on PCI device 0000:00:04.0
+
+I tried udelay(5) and udelay(10).
+
+Something strange happens there that ssb isn't able to access SPROM ...
+
+Larry Finger wrote:
+&gt;<i> Daniel Schmitt wrote:
+</I>&gt;&gt;<i> Larry, I don't think that sprom_do_read is able to read _ANY_ valid data
+</I>&gt;&gt;<i> because if I do it today it results it
+</I>&gt;<i> 
+</I>&gt;<i> Is there any reason to suspect a timing issue? I'm not familiar with
+</I>&gt;<i> your platform. If that is the issue, perhaps might try (my mailer will
+</I>&gt;<i> mangle this, but you get the idea):
+</I>&gt;<i> 
+</I>&gt;<i> Index: wireless-testing/drivers/ssb/pci.c
+</I>&gt;<i> ===================================================================
+</I>&gt;<i> --- wireless-testing.orig/drivers/ssb/pci.c
+</I>&gt;<i> +++ wireless-testing/drivers/ssb/pci.c
+</I>&gt;<i> @@ -246,8 +246,10 @@ static int sprom_do_read(struct ssb_bus
+</I>&gt;<i>  {
+</I>&gt;<i>         int i;
+</I>&gt;<i> 
+</I>&gt;<i> -       for (i = 0; i &lt; bus-&gt;sprom_size; i++)
+</I>&gt;<i> +       for (i = 0; i &lt; bus-&gt;sprom_size; i++) {
+</I>&gt;<i>                 sprom[i] = ioread16(bus-&gt;mmio + SSB_SPROM_BASE + (i * 2));
+</I>&gt;<i> +               udelay(5);
+</I>&gt;<i> +       }
+</I>&gt;<i> 
+</I>&gt;<i>         return 0;
+</I>&gt;<i>  }
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006058.html">bcm4306 crashes on IPX4XX and works on x86 ?!?
+</A></li>
+	<LI>Next message: <A HREF="006060.html">bcm4306 crashes on IPX4XX and works on x86 ?!?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6059">[ date ]</a>
+              <a href="thread.html#6059">[ thread ]</a>
+              <a href="subject.html#6059">[ subject ]</a>
+              <a href="author.html#6059">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

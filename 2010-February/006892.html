@@ -1,0 +1,225 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/5] b43: N-PHY: implement overriding RF control intc
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/5%5D%20b43%3A%20N-PHY%3A%20implement%20overriding%20RF%20control%20intc&In-Reply-To=%3C1265282592-25491-1-git-send-email-zajec5%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006960.html">
+   <LINK REL="Next"  HREF="006894.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/5] b43: N-PHY: implement overriding RF control intc</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/5%5D%20b43%3A%20N-PHY%3A%20implement%20overriding%20RF%20control%20intc&In-Reply-To=%3C1265282592-25491-1-git-send-email-zajec5%40gmail.com%3E"
+       TITLE="[PATCH 1/5] b43: N-PHY: implement overriding RF control intc">zajec5 at gmail.com
+       </A><BR>
+    <I>Thu Feb  4 12:23:08 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006960.html">addition to list of supported devices: 14e4:4315
+</A></li>
+        <LI>Next message: <A HREF="006894.html">[PATCH 2/5] b43: N-PHY: load generated samples
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6892">[ date ]</a>
+              <a href="thread.html#6892">[ thread ]</a>
+              <a href="subject.html#6892">[ subject ]</a>
+              <a href="author.html#6892">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_n.c |  117 +++++++++++++++++++++++++++++++++++---
+ 1 files changed, 109 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 6392da2..8992457 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -68,6 +68,10 @@ static void b43_nphy_set_rf_sequence(struct b43_wldev *dev, u8 cmd,
+ 					u8 *events, u8 *delays, u8 length);
+ static void b43_nphy_force_rf_sequence(struct b43_wldev *dev,
+ 				       enum b43_nphy_rf_sequence seq);
++static void b43_nphy_rf_control_override(struct b43_wldev *dev, u16 field,
++						u16 value, u8 core, bool off);
++static void b43_nphy_rf_control_intc_override(struct b43_wldev *dev, u8 field,
++						u16 value, u8 core);
+ 
+ void b43_nphy_set_rxantenna(struct b43_wldev *dev, int antenna)
+ {//TODO
+@@ -498,8 +502,8 @@ static void b43_nphy_rx_cal_phy_setup(struct b43_wldev *dev, u8 core)
+ 		b43_phy_set(dev, B43_NPHY_AFECTL_OVER, 0x0007);
+ 	}
+ 
+-	/* TODO: Call N PHY RF Ctrl Intc Override with 2, 0, 3 as arguments */
+-	/* TODO: Call N PHY RF Intc Override with 8, 0, 3, 0 as arguments */
++	b43_nphy_rf_control_intc_override(dev, 2, 0, 3);
++	b43_nphy_rf_control_override(dev, 8, 0, 3, false);
+ 	b43_nphy_force_rf_sequence(dev, B43_RFSEQ_RX2TX);
+ 
+ 	if (core == 0) {
+@@ -509,9 +513,8 @@ static void b43_nphy_rx_cal_phy_setup(struct b43_wldev *dev, u8 core)
+ 		rxval = 4;
+ 		txval = 2;
+ 	}
+-
+-	/* TODO: Call N PHY RF Ctrl Intc Override with 1, rxval, (core + 1) */
+-	/* TODO: Call N PHY RF Ctrl Intc Override with 1, txval, (2 - core) */
++	b43_nphy_rf_control_intc_override(dev, 1, rxval, (core + 1));
++	b43_nphy_rf_control_intc_override(dev, 1, txval, (2 - core));
+ }
+ 
+ /* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/CalcRxIqComp">http://bcm-v4.sipsolutions.net/802.11/PHY/N/CalcRxIqComp</A> */
+@@ -1264,6 +1267,104 @@ static void b43_nphy_rf_control_override(struct b43_wldev *dev, u16 field,
+ 	}
+ }
+ 
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/RFCtrlIntcOverride">http://bcm-v4.sipsolutions.net/802.11/PHY/N/RFCtrlIntcOverride</A> */
++static void b43_nphy_rf_control_intc_override(struct b43_wldev *dev, u8 field,
++						u16 value, u8 core)
++{
++	u8 i, j;
++	u16 reg, tmp, val;
++
++	B43_WARN_ON(dev-&gt;phy.rev &lt; 3);
++	B43_WARN_ON(field &gt; 4);
++
++	for (i = 0; i &lt; 2; i++) {
++		if ((core == 1 &amp;&amp; i == 1) || (core == 2 &amp;&amp; !i))
++			continue;
++
++		reg = (i == 0) ?
++			B43_NPHY_RFCTL_INTC1 : B43_NPHY_RFCTL_INTC2;
++		b43_phy_mask(dev, reg, 0xFBFF);
++
++		switch (field) {
++		case 0:
++			b43_phy_write(dev, reg, 0);
++			b43_nphy_force_rf_sequence(dev, B43_RFSEQ_RESET2RX);
++			break;
++		case 1:
++			if (!i) {
++				b43_phy_maskset(dev, B43_NPHY_RFCTL_INTC1,
++						0xFC3F, (value &lt;&lt; 6));
++				b43_phy_maskset(dev, B43_NPHY_TXF_40CO_B1S1,
++						0xFFFE, 1);
++				b43_phy_set(dev, B43_NPHY_RFCTL_CMD,
++						B43_NPHY_RFCTL_CMD_START);
++				for (j = 0; j &lt; 100; j++) {
++					if (b43_phy_read(dev, B43_NPHY_RFCTL_CMD) &amp; B43_NPHY_RFCTL_CMD_START) {
++						j = 0;
++						break;
++					}
++					udelay(10);
++				}
++				if (j)
++					b43err(dev-&gt;wl,
++						&quot;intc override timeout\n&quot;);
++				b43_phy_mask(dev, B43_NPHY_TXF_40CO_B1S1,
++						0xFFFE);
++			} else {
++				b43_phy_maskset(dev, B43_NPHY_RFCTL_INTC2,
++						0xFC3F, (value &lt;&lt; 6));
++				b43_phy_maskset(dev, B43_NPHY_RFCTL_OVER,
++						0xFFFE, 1);
++				b43_phy_set(dev, B43_NPHY_RFCTL_CMD,
++						B43_NPHY_RFCTL_CMD_RXTX);
++				for (j = 0; j &lt; 100; j++) {
++					if (b43_phy_read(dev, B43_NPHY_RFCTL_CMD) &amp; B43_NPHY_RFCTL_CMD_RXTX) {
++						j = 0;
++						break;
++					}
++					udelay(10);
++				}
++				if (j)
++					b43err(dev-&gt;wl,
++						&quot;intc override timeout\n&quot;);
++				b43_phy_mask(dev, B43_NPHY_RFCTL_OVER,
++						0xFFFE);
++			}
++			break;
++		case 2:
++			if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ) {
++				tmp = 0x0020;
++				val = value &lt;&lt; 5;
++			} else {
++				tmp = 0x0010;
++				val = value &lt;&lt; 4;
++			}
++			b43_phy_maskset(dev, reg, ~tmp, val);
++			break;
++		case 3:
++			if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ) {
++				tmp = 0x0001;
++				val = value;
++			} else {
++				tmp = 0x0004;
++				val = value &lt;&lt; 2;
++			}
++			b43_phy_maskset(dev, reg, ~tmp, val);
++			break;
++		case 4:
++			if (b43_current_band(dev-&gt;wl) == IEEE80211_BAND_5GHZ) {
++				tmp = 0x0002;
++				val = value &lt;&lt; 1;
++			} else {
++				tmp = 0x0008;
++				val = value &lt;&lt; 3;
++			}
++			b43_phy_maskset(dev, reg, ~tmp, val);
++			break;
++		}
++	}
++}
++
+ static void b43_nphy_bphy_init(struct b43_wldev *dev)
+ {
+ 	unsigned int i;
+@@ -2161,9 +2262,9 @@ static void b43_nphy_tx_cal_phy_setup(struct b43_wldev *dev)
+ 		regs[7] = b43_phy_read(dev, B43_NPHY_RFCTL_INTC1);
+ 		regs[8] = b43_phy_read(dev, B43_NPHY_RFCTL_INTC2);
+ 
+-		/* TODO: Call N PHY RF Ctrl Intc Override with 2, 1, 3 */
+-		/* TODO: Call N PHY RF Ctrl Intc Override with 1, 2, 1 */
+-		/* TODO: Call N PHY RF Ctrl Intc Override with 1, 8, 2 */
++		b43_nphy_rf_control_intc_override(dev, 2, 1, 3);
++		b43_nphy_rf_control_intc_override(dev, 1, 2, 1);
++		b43_nphy_rf_control_intc_override(dev, 1, 8, 2);
+ 
+ 		regs[9] = b43_phy_read(dev, B43_NPHY_PAPD_EN0);
+ 		regs[10] = b43_phy_read(dev, B43_NPHY_PAPD_EN1);
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006960.html">addition to list of supported devices: 14e4:4315
+</A></li>
+	<LI>Next message: <A HREF="006894.html">[PATCH 2/5] b43: N-PHY: load generated samples
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6892">[ date ]</a>
+              <a href="thread.html#6892">[ thread ]</a>
+              <a href="subject.html#6892">[ subject ]</a>
+              <a href="author.html#6892">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

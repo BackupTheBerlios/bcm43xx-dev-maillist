@@ -1,0 +1,222 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Add more N-PHY stuff
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20more%20N-PHY%20stuff&In-Reply-To=%3C200804031801.12711.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003719.html">
+   <LINK REL="Next"  HREF="003716.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Add more N-PHY stuff</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Add%20more%20N-PHY%20stuff&In-Reply-To=%3C200804031801.12711.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Add more N-PHY stuff">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Apr  3 18:01:12 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003719.html">[PATCH] b43legacy: Partial Fix for Range issue
+</A></li>
+        <LI>Next message: <A HREF="003716.html">[PATCH] b43: Fix TBTT and PU timings
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3715">[ date ]</a>
+              <a href="thread.html#3715">[ thread ]</a>
+              <a href="subject.html#3715">[ subject ]</a>
+              <a href="author.html#3715">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This adds some minor stuff for N-PHY support. Nothing special.
+Adds Analog switching and some TODOs for RSSI processing.
+Just a patch I had floating around for quite some time now.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+Index: wireless-testing/drivers/net/wireless/b43/xmit.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/xmit.c	2008-04-02 19:26:27.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/xmit.c	2008-04-03 17:46:06.000000000 +0200
+@@ -510,21 +510,19 @@ void b43_rx(struct b43_wldev *dev, struc
+ 	const struct b43_rxhdr_fw4 *rxhdr = _rxhdr;
+ 	u16 fctl;
+ 	u16 phystat0, phystat3, chanstat, mactime;
+ 	u32 macstat;
+ 	u16 chanid;
+ 	u16 phytype;
+-	u8 jssi;
+ 	int padding;
+ 
+ 	memset(&amp;status, 0, sizeof(status));
+ 
+ 	/* Get metadata about the frame from the header. */
+ 	phystat0 = le16_to_cpu(rxhdr-&gt;phy_status0);
+ 	phystat3 = le16_to_cpu(rxhdr-&gt;phy_status3);
+-	jssi = rxhdr-&gt;jssi;
+ 	macstat = le32_to_cpu(rxhdr-&gt;mac_status);
+ 	mactime = le16_to_cpu(rxhdr-&gt;mac_time);
+ 	chanstat = le16_to_cpu(rxhdr-&gt;channel);
+ 	phytype = chanstat &amp; B43_RX_CHAN_PHYTYPE;
+ 
+ 	if (macstat &amp; B43_RX_MAC_FCSERR)
+@@ -572,19 +570,28 @@ void b43_rx(struct b43_wldev *dev, struc
+ 				goto drop;
+ 			}
+ 			status.flag |= RX_FLAG_DECRYPTED;
+ 		}
+ 	}
+ 
+-	status.ssi = b43_rssi_postprocess(dev, jssi,
+-					  (phystat0 &amp; B43_RX_PHYST0_OFDM),
+-					  (phystat0 &amp; B43_RX_PHYST0_GAINCTL),
+-					  (phystat3 &amp; B43_RX_PHYST3_TRSTATE));
++	/* Link quality statistics */
+ 	status.noise = dev-&gt;stats.link_noise;
+-	/* the next line looks wrong, but is what mac80211 wants */
+-	status.signal = (jssi * 100) / B43_RX_MAX_SSI;
++	if ((chanstat &amp; B43_RX_CHAN_PHYTYPE) == B43_PHYTYPE_N) {
++//		s8 rssi = max(rxhdr-&gt;power0, rxhdr-&gt;power1);
++		//TODO: Find out what the rssi value is (dBm or percentage?)
++		//      and also find out what the maximum possible value is.
++		//      Fill status.ssi and status.signal fields.
++	} else {
++		status.ssi = b43_rssi_postprocess(dev, rxhdr-&gt;jssi,
++						  (phystat0 &amp; B43_RX_PHYST0_OFDM),
++						  (phystat0 &amp; B43_RX_PHYST0_GAINCTL),
++						  (phystat3 &amp; B43_RX_PHYST3_TRSTATE));
++		/* the next line looks wrong, but is what mac80211 wants */
++		status.signal = (rxhdr-&gt;jssi * 100) / B43_RX_MAX_SSI;
++	}
++
+ 	if (phystat0 &amp; B43_RX_PHYST0_OFDM)
+ 		status.rate_idx = b43_plcp_get_bitrate_idx_ofdm(plcp,
+ 						phytype == B43_PHYTYPE_A);
+ 	else
+ 		status.rate_idx = b43_plcp_get_bitrate_idx_cck(plcp);
+ 	status.antenna = !!(phystat0 &amp; B43_RX_PHYST0_ANT);
+Index: wireless-testing/drivers/net/wireless/b43/xmit.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/xmit.h	2008-04-02 19:26:27.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/xmit.h	2008-04-03 17:46:06.000000000 +0200
+@@ -209,14 +209,25 @@ enum {
+ 
+ /* Receive header for v4 firmware. */
+ struct b43_rxhdr_fw4 {
+ 	__le16 frame_len;	/* Frame length */
+ 	 PAD_BYTES(2);
+ 	__le16 phy_status0;	/* PHY RX Status 0 */
+-	__u8 jssi;		/* PHY RX Status 1: JSSI */
+-	__u8 sig_qual;		/* PHY RX Status 1: Signal Quality */
++	union {
++		/* RSSI for A/B/G-PHYs */
++		struct {
++			__u8 jssi;	/* PHY RX Status 1: JSSI */
++			__u8 sig_qual;	/* PHY RX Status 1: Signal Quality */
++		} __attribute__ ((__packed__));
++
++		/* RSSI for N-PHYs */
++		struct {
++			__s8 power0;	/* PHY RX Status 1: Power 0 */
++			__s8 power1;	/* PHY RX Status 1: Power 1 */
++		} __attribute__ ((__packed__));
++	} __attribute__ ((__packed__));
+ 	__le16 phy_status2;	/* PHY RX Status 2 */
+ 	__le16 phy_status3;	/* PHY RX Status 3 */
+ 	__le32 mac_status;	/* MAC RX status */
+ 	__le16 mac_time;
+ 	__le16 channel;
+ } __attribute__ ((__packed__));
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2008-04-03 17:45:38.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2008-04-03 17:47:01.000000000 +0200
+@@ -43,12 +43,13 @@
+ #include &lt;asm/unaligned.h&gt;
+ 
+ #include &quot;b43.h&quot;
+ #include &quot;main.h&quot;
+ #include &quot;debugfs.h&quot;
+ #include &quot;phy.h&quot;
++#include &quot;nphy.h&quot;
+ #include &quot;dma.h&quot;
+ #include &quot;pio.h&quot;
+ #include &quot;sysfs.h&quot;
+ #include &quot;xmit.h&quot;
+ #include &quot;lo.h&quot;
+ #include &quot;pcmcia.h&quot;
+@@ -1016,13 +1017,24 @@ void b43_power_saving_ctl_bits(struct b4
+ 	}
+ }
+ 
+ /* Turn the Analog ON/OFF */
+ static void b43_switch_analog(struct b43_wldev *dev, int on)
+ {
+-	b43_write16(dev, B43_MMIO_PHY0, on ? 0 : 0xF4);
++	switch (dev-&gt;phy.type) {
++	case B43_PHYTYPE_A:
++	case B43_PHYTYPE_G:
++		b43_write16(dev, B43_MMIO_PHY0, on ? 0 : 0xF4);
++		break;
++	case B43_PHYTYPE_N:
++		b43_phy_write(dev, B43_NPHY_AFECTL_OVER,
++			      on ? 0 : 0x7FFF);
++		break;
++	default:
++		B43_WARN_ON(1);
++	}
+ }
+ 
+ void b43_wireless_core_reset(struct b43_wldev *dev, u32 flags)
+ {
+ 	u32 tmslow;
+ 	u32 macctl;
+Index: wireless-testing/drivers/net/wireless/b43/nphy.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/nphy.c	2008-03-23 12:33:07.000000000 +0100
++++ wireless-testing/drivers/net/wireless/b43/nphy.c	2008-04-03 17:46:06.000000000 +0200
+@@ -237,13 +237,12 @@ static void b43_nphy_workarounds(struct 
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+ 	unsigned int i;
+ 
+ 	b43_phy_set(dev, B43_NPHY_IQFLIP,
+ 		    B43_NPHY_IQFLIP_ADC1 | B43_NPHY_IQFLIP_ADC2);
+-	//FIXME the following condition is different in the specs.
+ 	if (1 /* FIXME band is 2.4GHz */) {
+ 		b43_phy_set(dev, B43_NPHY_CLASSCTL,
+ 			    B43_NPHY_CLASSCTL_CCKEN);
+ 	} else {
+ 		b43_phy_mask(dev, B43_NPHY_CLASSCTL,
+ 			     ~B43_NPHY_CLASSCTL_CCKEN);
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003719.html">[PATCH] b43legacy: Partial Fix for Range issue
+</A></li>
+	<LI>Next message: <A HREF="003716.html">[PATCH] b43: Fix TBTT and PU timings
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3715">[ date ]</a>
+              <a href="thread.html#3715">[ thread ]</a>
+              <a href="subject.html#3715">[ subject ]</a>
+              <a href="author.html#3715">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

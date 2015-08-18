@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: LP-PHY: Fix and simplify Qdiv roundup
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Fix%20and%20simplify%20Qdiv%20roundup&In-Reply-To=%3C1251211217-7816-1-git-send-email-netrolller.3d%40gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005910.html">
+   <LINK REL="Next"  HREF="005909.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: LP-PHY: Fix and simplify Qdiv roundup</H1>
+    <B>G&#225;bor Stefanik</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20LP-PHY%3A%20Fix%20and%20simplify%20Qdiv%20roundup&In-Reply-To=%3C1251211217-7816-1-git-send-email-netrolller.3d%40gmail.com%3E"
+       TITLE="[PATCH] b43: LP-PHY: Fix and simplify Qdiv roundup">netrolller.3d at gmail.com
+       </A><BR>
+    <I>Tue Aug 25 16:40:17 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005910.html">[PATCH] b43: LP-PHY: Fix a few typos in the RC calibration code
+</A></li>
+        <LI>Next message: <A HREF="005909.html">[PATCH] b43: LP-PHY: Fix and simplify Qdiv roundup
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5908">[ date ]</a>
+              <a href="thread.html#5908">[ thread ]</a>
+              <a href="subject.html#5908">[ subject ]</a>
+              <a href="author.html#5908">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>The Qdiv roundup routine is essentially a fixed-point
+division algorithm, using only integer math.
+However, the version in the specs had a major error
+that has been recently fixed (a missing quotient++).
+
+Replace Qdiv roundup with a rewritten, simplified version.
+
+Signed-off-by: G&#225;bor Stefanik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">netrolller.3d at gmail.com</A>&gt;
+---
+ drivers/net/wireless/b43/phy_lp.c |   14 ++++----------
+ 1 files changed, 4 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_lp.c b/drivers/net/wireless/b43/phy_lp.c
+index 7e70c07..d0280d5 100644
+--- a/drivers/net/wireless/b43/phy_lp.c
++++ b/drivers/net/wireless/b43/phy_lp.c
+@@ -1034,7 +1034,7 @@ static int lpphy_loopback(struct b43_wldev *dev)
+ 
+ static u32 lpphy_qdiv_roundup(u32 dividend, u32 divisor, u8 precision)
+ {
+-	u32 quotient, remainder, rbit, roundup, tmp;
++	u32 quotient, remainder;
+ 
+ 	if (divisor == 0)
+ 		return 0;
+@@ -1042,20 +1042,14 @@ static u32 lpphy_qdiv_roundup(u32 dividend, u32 divisor, u8 precision)
+ 	quotient = dividend / divisor;
+ 	remainder = dividend % divisor;
+ 
+-	rbit = divisor &amp; 0x1;
+-	roundup = (divisor &gt;&gt; 1) + rbit;
+-
+ 	while (precision != 0) {
+-		tmp = remainder - roundup;
+ 		quotient &lt;&lt;= 1;
+-		if (remainder &gt;= roundup)
+-			remainder = (tmp &lt;&lt; 1) + rbit;
+-		else
+-			remainder &lt;&lt;= 1;
++		quotient |= (remainder &lt;&lt; 1) / divisor;
++		remainder = (remainder &lt;&lt; 1) % divisor;
+ 		precision--;
+ 	}
+ 
+-	if (remainder &gt;= roundup)
++	if (remainder &lt;&lt; 1 &gt;= divisor)
+ 		quotient++;
+ 
+ 	return quotient;
+-- 
+1.5.6
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005910.html">[PATCH] b43: LP-PHY: Fix a few typos in the RC calibration code
+</A></li>
+	<LI>Next message: <A HREF="005909.html">[PATCH] b43: LP-PHY: Fix and simplify Qdiv roundup
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5908">[ date ]</a>
+              <a href="thread.html#5908">[ thread ]</a>
+              <a href="subject.html#5908">[ subject ]</a>
+              <a href="author.html#5908">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

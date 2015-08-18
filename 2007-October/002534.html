@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 4311: trouble with Fedora 8 Test 3
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-October/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%204311%3A%20trouble%20with%20Fedora%208%20Test%203&In-Reply-To=%3Cc195ebf70710100908i5973f0b9ueb7084ecb13e1287%40mail.gmail.com%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002533.html">
+   <LINK REL="Next"  HREF="002535.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>4311: trouble with Fedora 8 Test 3</H1>
+    <B>sean darcy</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%204311%3A%20trouble%20with%20Fedora%208%20Test%203&In-Reply-To=%3Cc195ebf70710100908i5973f0b9ueb7084ecb13e1287%40mail.gmail.com%3E"
+       TITLE="4311: trouble with Fedora 8 Test 3">seandarcy2 at gmail.com
+       </A><BR>
+    <I>Wed Oct 10 18:08:08 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002533.html">[PATCH] b43: Use input-polldev for the rfkill switch
+</A></li>
+        <LI>Next message: <A HREF="002535.html">4311: trouble with Fedora 8 Test 3
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2534">[ date ]</a>
+              <a href="thread.html#2534">[ thread ]</a>
+              <a href="subject.html#2534">[ subject ]</a>
+              <a href="author.html#2534">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Compaq Presario C714NR, Intel GM965
+
+uname -r
+2.6.23-0.224.rc9.git6.fc8
+
+lspci
+01:00.0 Network controller: Broadcom Corporation BCM94311MCG wlan
+mini-PCI (rev 02)
+
+Installed b43-fwcutter and followed the instructions at
+<A HREF="http://linuxwireless.org/en/users/Drivers/b43#devicefirmware">http://linuxwireless.org/en/users/Drivers/b43#devicefirmware</A>
+
+Got <A HREF="http://downloads.openwrt.org/sources/broadcom-wl-4.80.53.0.tar.bz2">http://downloads.openwrt.org/sources/broadcom-wl-4.80.53.0.tar.bz2</A>
+
+untarred that file and ran
+b43-fwcutter -w /lib/firmare broadcom-wl-4.80.53.0/kmod/wl_apsta.o
+
+that seemed to work, and populated /lib/firmware/b43/ with a bunch of
+*.fw files.
+
+Then rmmod b43; modprobe -vv b43. No errors. Nothing in syslog.
+
+modprobe also loaded cfg80211 and mac80211.
+
+Shouldn't I have seen the firmware being loaded in dmesg, or syslog?
+
+Nothing at all about the 4311 card in dmesg.
+
+Made sure NetworkManager was working. Restarted it. I can see the icon.
+No connection. If I connect the wire it starts up the wired connection.
+
+dmesg does show this error:
+
+ssb: rev 60000000
+WARNING: at drivers/ssb/main.c:889 ssb_tmslow_reject_bitmask() (Not tainted)
+
+Call Trace:
+ [&lt;ffffffff88118878&gt;] :ssb:ssb_tmslow_reject_bitmask+0x76/0x7f
+ [&lt;ffffffff88119062&gt;] :ssb:ssb_device_is_enabled+0xf/0x39
+ [&lt;ffffffff8811b232&gt;] :ssb:ssb_pcicore_init+0x19/0x4a
+ [&lt;ffffffff881185e2&gt;] :ssb:ssb_attach_queued_buses+0x83/0x25e
+ [&lt;ffffffff88119ce8&gt;] :ssb:ssb_pci_get_invariants+0x0/0x2ba
+ [&lt;ffffffff88118be8&gt;] :ssb:ssb_bus_register+0x144/0x196
+ [&lt;ffffffff88118cea&gt;] :ssb:ssb_bus_pcibus_register+0x2a/0x4b
+ [&lt;ffffffff8811a5a9&gt;] :ssb:ssb_pcihost_probe+0x6f/0x9e
+ [&lt;ffffffff81137d8d&gt;] pci_device_probe+0xd0/0x137
+ [&lt;ffffffff811a1033&gt;] driver_probe_device+0xff/0x17c
+ [&lt;ffffffff811a11f8&gt;] __driver_attach+0x90/0xcc
+ [&lt;ffffffff811a1168&gt;] __driver_attach+0x0/0xcc
+ [&lt;ffffffff811a1168&gt;] __driver_attach+0x0/0xcc
+ [&lt;ffffffff811a03ca&gt;] bus_for_each_dev+0x43/0x6e
+ [&lt;ffffffff811a0742&gt;] bus_add_driver+0x7b/0x19d
+ [&lt;ffffffff81137f6f&gt;] __pci_register_driver+0x68/0x9a
+ [&lt;ffffffff880e9045&gt;] :ssb:ssb_modinit+0x45/0x5d
+ [&lt;ffffffff8105d8b3&gt;] sys_init_module+0x15d5/0x173a
+ [&lt;ffffffff8100bbfe&gt;] system_call+0x7e/0x83
+
+ssb: Sonics Silicon Backplane found on PCI device 0000:01:00.0
+
+I also rmmod b43, and modprobe'd b43legacy. No help.
+
+Any help appreciated.
+
+sean
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002533.html">[PATCH] b43: Use input-polldev for the rfkill switch
+</A></li>
+	<LI>Next message: <A HREF="002535.html">4311: trouble with Fedora 8 Test 3
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2534">[ date ]</a>
+              <a href="thread.html#2534">[ thread ]</a>
+              <a href="subject.html#2534">[ subject ]</a>
+              <a href="author.html#2534">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

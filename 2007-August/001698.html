@@ -1,0 +1,980 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC 2/10] Port of bcm43xx from softmac to mac80211
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%202/10%5D%20Port%20of%20bcm43xx%20from%20softmac%20to%20mac80211&In-Reply-To=%3C46b1fded.0g4ZHvU7XwSzeJVs%25Larry.Finger%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="001754.html">
+   <LINK REL="Next"  HREF="001749.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC 2/10] Port of bcm43xx from softmac to mac80211</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%202/10%5D%20Port%20of%20bcm43xx%20from%20softmac%20to%20mac80211&In-Reply-To=%3C46b1fded.0g4ZHvU7XwSzeJVs%25Larry.Finger%40lwfinger.net%3E"
+       TITLE="[RFC 2/10] Port of bcm43xx from softmac to mac80211">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Thu Aug  2 17:53:17 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="001754.html">[RFC 1/10] Port of bcm43xx from softmac to mac80211
+</A></li>
+        <LI>Next message: <A HREF="001749.html">[RFC 2/10] Port of bcm43xx from softmac to mac80211
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1698">[ date ]</a>
+              <a href="thread.html#1698">[ thread ]</a>
+              <a href="subject.html#1698">[ subject ]</a>
+              <a href="author.html#1698">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This if file 2 of 10 of the port of the bcm43xx driver from softmac
+to mac80211.
+
+Signed-off-by: Larry Finger &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">Larry.Finger at lwfinger.net</A>&gt;
+---
+
+Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c
++++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c
+@@ -4,7 +4,7 @@
+ 
+   debugfs driver debugging code
+ 
+-  Copyright (c) 2005 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mbuesch at freenet.de</A>&gt;
++  Copyright (c) 2005 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+ 
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+@@ -30,7 +30,7 @@
+ #include &lt;linux/slab.h&gt;
+ #include &lt;linux/netdevice.h&gt;
+ #include &lt;linux/pci.h&gt;
+-#include &lt;asm/io.h&gt;
++#include &lt;linux/mutex.h&gt;
+ 
+ #include &quot;bcm43xx.h&quot;
+ #include &quot;bcm43xx_main.h&quot;
+@@ -42,8 +42,8 @@
+ #define REALLY_BIG_BUFFER_SIZE	(1024*256)
+ 
+ static struct bcm43xx_debugfs fs;
+-static char really_big_buffer[REALLY_BIG_BUFFER_SIZE];
+-static DECLARE_MUTEX(big_buffer_sem);
++static char big_buffer[1024*256];
++static DEFINE_MUTEX(big_buffer_mutex);
+ 
+ 
+ static ssize_t write_file_dummy(struct file *file, const char __user *buf,
+@@ -60,440 +60,368 @@ static int open_file_generic(struct inod
+ 
+ #define fappend(fmt, x...)	pos += snprintf(buf + pos, len - pos, fmt , ##x)
+ 
+-static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
+-				 size_t count, loff_t *ppos)
+-{
+-	const size_t len = REALLY_BIG_BUFFER_SIZE;
+-
+-	struct bcm43xx_private *bcm = file-&gt;private_data;
+-	char *buf = really_big_buffer;
+-	size_t pos = 0;
+-	ssize_t res;
+-	struct net_device *net_dev;
+-	struct pci_dev *pci_dev;
+-	unsigned long flags;
+-	u16 tmp16;
+-	int i;
+-
+-	down(&amp;big_buffer_sem);
+-
+-	mutex_lock(&amp;bcm-&gt;mutex);
+-	spin_lock_irqsave(&amp;bcm-&gt;irq_lock, flags);
+-	if (bcm43xx_status(bcm) != BCM43xx_STAT_INITIALIZED) {
+-		fappend(&quot;Board not initialized.\n&quot;);
+-		goto out;
+-	}
+-	net_dev = bcm-&gt;net_dev;
+-	pci_dev = bcm-&gt;pci_dev;
+-
+-	/* This is where the information is written to the &quot;devinfo&quot; file */
+-	fappend(&quot;*** %s devinfo ***\n&quot;, net_dev-&gt;name);
+-	fappend(&quot;vendor:           0x%04x   device:           0x%04x\n&quot;,
+-		pci_dev-&gt;vendor, pci_dev-&gt;device);
+-	fappend(&quot;subsystem_vendor: 0x%04x   subsystem_device: 0x%04x\n&quot;,
+-		pci_dev-&gt;subsystem_vendor, pci_dev-&gt;subsystem_device);
+-	fappend(&quot;IRQ: %d\n&quot;, bcm-&gt;irq);
+-	fappend(&quot;mmio_addr: 0x%p\n&quot;, bcm-&gt;mmio_addr);
+-	fappend(&quot;chip_id: 0x%04x   chip_rev: 0x%02x\n&quot;, bcm-&gt;chip_id, bcm-&gt;chip_rev);
+-	if ((bcm-&gt;core_80211[0].rev &gt;= 3) &amp;&amp; (bcm43xx_read32(bcm, 0x0158) &amp; (1 &lt;&lt; 16)))
+-		fappend(&quot;Radio disabled by hardware!\n&quot;);
+-	if ((bcm-&gt;core_80211[0].rev &lt; 3) &amp;&amp; !(bcm43xx_read16(bcm, 0x049A) &amp; (1 &lt;&lt; 4)))
+-		fappend(&quot;Radio disabled by hardware!\n&quot;);
+-	fappend(&quot;board_vendor: 0x%04x   board_type: 0x%04x\n&quot;, bcm-&gt;board_vendor,
+-	        bcm-&gt;board_type);
+-
+-	fappend(&quot;\nCores:\n&quot;);
+-#define fappend_core(name, info) fappend(&quot;core \&quot;&quot; name &quot;\&quot; %s, %s, id: 0x%04x, &quot;	\
+-					 &quot;rev: 0x%02x, index: 0x%02x\n&quot;,		\
+-					 (info).available				\
+-						? &quot;available&quot; : &quot;nonavailable&quot;,		\
+-					 (info).enabled					\
+-						? &quot;enabled&quot; : &quot;disabled&quot;,		\
+-					 (info).id, (info).rev, (info).index)
+-	fappend_core(&quot;CHIPCOMMON&quot;, bcm-&gt;core_chipcommon);
+-	fappend_core(&quot;PCI&quot;, bcm-&gt;core_pci);
+-	fappend_core(&quot;first 80211&quot;, bcm-&gt;core_80211[0]);
+-	fappend_core(&quot;second 80211&quot;, bcm-&gt;core_80211[1]);
+-#undef fappend_core
+-	tmp16 = bcm43xx_read16(bcm, BCM43xx_MMIO_GPIO_CONTROL);
+-	fappend(&quot;LEDs: &quot;);
+-	for (i = 0; i &lt; BCM43xx_NR_LEDS; i++)
+-		fappend(&quot;%d &quot;, !!(tmp16 &amp; (1 &lt;&lt; i)));
+-	fappend(&quot;\n&quot;);
+-
+-out:
+-	spin_unlock_irqrestore(&amp;bcm-&gt;irq_lock, flags);
+-	mutex_unlock(&amp;bcm-&gt;mutex);
+-	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+-	up(&amp;big_buffer_sem);
+-	return res;
+-}
+-
+ static ssize_t drvinfo_read_file(struct file *file, char __user *userbuf,
+ 				 size_t count, loff_t *ppos)
+ {
+-	const size_t len = REALLY_BIG_BUFFER_SIZE;
+-
+-	char *buf = really_big_buffer;
++	const size_t len = ARRAY_SIZE(big_buffer);
++	char *buf = big_buffer;
+ 	size_t pos = 0;
+ 	ssize_t res;
+ 
+-	down(&amp;big_buffer_sem);
+-
++	mutex_lock(&amp;big_buffer_mutex);
+ 	/* This is where the information is written to the &quot;driver&quot; file */
+ 	fappend(KBUILD_MODNAME &quot; driver\n&quot;);
+ 	fappend(&quot;Compiled at: %s %s\n&quot;, __DATE__, __TIME__);
+-
+ 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+-	up(&amp;big_buffer_sem);
+-	return res;
+-}
+-
+-static ssize_t spromdump_read_file(struct file *file, char __user *userbuf,
+-				 size_t count, loff_t *ppos)
+-{
+-	const size_t len = REALLY_BIG_BUFFER_SIZE;
+-
+-	struct bcm43xx_private *bcm = file-&gt;private_data;
+-	char *buf = really_big_buffer;
+-	size_t pos = 0;
+-	ssize_t res;
+-	unsigned long flags;
+-
+-	down(&amp;big_buffer_sem);
+-	mutex_lock(&amp;bcm-&gt;mutex);
+-	spin_lock_irqsave(&amp;bcm-&gt;irq_lock, flags);
+-	if (bcm43xx_status(bcm) != BCM43xx_STAT_INITIALIZED) {
+-		fappend(&quot;Board not initialized.\n&quot;);
+-		goto out;
+-	}
++	mutex_unlock(&amp;big_buffer_mutex);
+ 
+-	/* This is where the information is written to the &quot;sprom_dump&quot; file */
+-	fappend(&quot;boardflags: 0x%04x\n&quot;, bcm-&gt;sprom.boardflags);
+-
+-out:
+-	spin_unlock_irqrestore(&amp;bcm-&gt;irq_lock, flags);
+-	mutex_unlock(&amp;bcm-&gt;mutex);
+-	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+-	up(&amp;big_buffer_sem);
+ 	return res;
+ }
+ 
+ static ssize_t tsf_read_file(struct file *file, char __user *userbuf,
+ 			     size_t count, loff_t *ppos)
+ {
+-	const size_t len = REALLY_BIG_BUFFER_SIZE;
+-
+-	struct bcm43xx_private *bcm = file-&gt;private_data;
+-	char *buf = really_big_buffer;
++	struct bcm43xx_wldev *dev = file-&gt;private_data;
++	const size_t len = ARRAY_SIZE(big_buffer);
++	char *buf = big_buffer;
+ 	size_t pos = 0;
+ 	ssize_t res;
+ 	unsigned long flags;
+ 	u64 tsf;
+ 
+-	down(&amp;big_buffer_sem);
+-	mutex_lock(&amp;bcm-&gt;mutex);
+-	spin_lock_irqsave(&amp;bcm-&gt;irq_lock, flags);
+-	if (bcm43xx_status(bcm) != BCM43xx_STAT_INITIALIZED) {
++	mutex_lock(&amp;big_buffer_mutex);
++	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
++	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED) {
+ 		fappend(&quot;Board not initialized.\n&quot;);
+ 		goto out;
+ 	}
+-	bcm43xx_tsf_read(bcm, &amp;tsf);
++	bcm43xx_tsf_read(dev, &amp;tsf);
+ 	fappend(&quot;0x%08x%08x\n&quot;,
+ 		(unsigned int)((tsf &amp; 0xFFFFFFFF00000000ULL) &gt;&gt; 32),
+ 		(unsigned int)(tsf &amp; 0xFFFFFFFFULL));
+ 
+ out:
+-	spin_unlock_irqrestore(&amp;bcm-&gt;irq_lock, flags);
+-	mutex_unlock(&amp;bcm-&gt;mutex);
++	spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
++	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
+ 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+-	up(&amp;big_buffer_sem);
++	mutex_unlock(&amp;big_buffer_mutex);
++
+ 	return res;
+ }
+ 
+ static ssize_t tsf_write_file(struct file *file, const char __user *user_buf,
+ 			      size_t count, loff_t *ppos)
+ {
+-	struct bcm43xx_private *bcm = file-&gt;private_data;
+-	char *buf = really_big_buffer;
++	struct bcm43xx_wldev *dev = file-&gt;private_data;
++	char *buf = big_buffer;
+ 	ssize_t buf_size;
+ 	ssize_t res;
+ 	unsigned long flags;
+ 	u64 tsf;
+ 
+-	buf_size = min(count, sizeof (really_big_buffer) - 1);
+-	down(&amp;big_buffer_sem);
++	mutex_lock(&amp;big_buffer_mutex);
++	buf_size = min(count, ARRAY_SIZE(big_buffer) - 1);
+ 	if (copy_from_user(buf, user_buf, buf_size)) {
+ 	        res = -EFAULT;
+-		goto out_up;
++		goto out_unlock_bb;
+ 	}
+-	mutex_lock(&amp;bcm-&gt;mutex);
+-	spin_lock_irqsave(&amp;bcm-&gt;irq_lock, flags);
+-	if (bcm43xx_status(bcm) != BCM43xx_STAT_INITIALIZED) {
+-		printk(KERN_INFO PFX &quot;debugfs: Board not initialized.\n&quot;);
++	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
++	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_STARTED) {
++		bcmerr(dev-&gt;wl, &quot;debugfs: Board not initialized.\n&quot;);
+ 		res = -EFAULT;
+ 		goto out_unlock;
+ 	}
+-	if (sscanf(buf, &quot;%lli&quot;, &amp;tsf) != 1) {
+-		printk(KERN_INFO PFX &quot;debugfs: invalid values for \&quot;tsf\&quot;\n&quot;);
++	if (sscanf(buf, &quot;%llu&quot;, (unsigned long long *)(&amp;tsf)) != 1) {
++		bcmerr(dev-&gt;wl, &quot;debugfs: invalid values for \&quot;tsf\&quot;\n&quot;);
+ 		res = -EINVAL;
+ 		goto out_unlock;
+ 	}
+-	bcm43xx_tsf_write(bcm, tsf);
++	bcm43xx_tsf_write(dev, tsf);
+ 	mmiowb();
+ 	res = buf_size;
+-	
++
+ out_unlock:
+-	spin_unlock_irqrestore(&amp;bcm-&gt;irq_lock, flags);
+-	mutex_unlock(&amp;bcm-&gt;mutex);
+-out_up:
+-	up(&amp;big_buffer_sem);
++	spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
++	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
++out_unlock_bb:
++	mutex_unlock(&amp;big_buffer_mutex);
++
+ 	return res;
+ }
+ 
+ static ssize_t txstat_read_file(struct file *file, char __user *userbuf,
+ 				size_t count, loff_t *ppos)
+ {
+-	const size_t len = REALLY_BIG_BUFFER_SIZE;
+-
+-	struct bcm43xx_private *bcm = file-&gt;private_data;
+-	char *buf = really_big_buffer;
++	struct bcm43xx_wldev *dev = file-&gt;private_data;
++	struct bcm43xx_dfsentry *e = dev-&gt;dfsentry;
++	struct bcm43xx_txstatus_log *log = &amp;e-&gt;txstatlog;
++	unsigned long flags;
++	char *buf = log-&gt;printbuf;
++	const size_t len = ARRAY_SIZE(log-&gt;printbuf);
+ 	size_t pos = 0;
+ 	ssize_t res;
+-	unsigned long flags;
+-	struct bcm43xx_dfsentry *e;
+-	struct bcm43xx_xmitstatus *status;
+-	int i, cnt, j = 0;
++	int i;
++	int idx;
++	struct bcm43xx_txstatus *stat;
+ 
+-	down(&amp;big_buffer_sem);
+-	mutex_lock(&amp;bcm-&gt;mutex);
+-	spin_lock_irqsave(&amp;bcm-&gt;irq_lock, flags);
+-
+-	fappend(&quot;Last %d logged xmitstatus blobs (Latest first):\n\n&quot;,
+-		BCM43xx_NR_LOGGED_XMITSTATUS);
+-	e = bcm-&gt;dfsentry;
+-	if (e-&gt;xmitstatus_printing == 0) {
+-		/* At the beginning, make a copy of all data to avoid
+-		 * concurrency, as this function is called multiple
+-		 * times for big logs. Without copying, the data might
+-		 * change between reads. This would result in total trash.
+-		 */
+-		e-&gt;xmitstatus_printing = 1;
+-		e-&gt;saved_xmitstatus_ptr = e-&gt;xmitstatus_ptr;
+-		e-&gt;saved_xmitstatus_cnt = e-&gt;xmitstatus_cnt;
+-		memcpy(e-&gt;xmitstatus_print_buffer, e-&gt;xmitstatus_buffer,
+-		       BCM43xx_NR_LOGGED_XMITSTATUS * sizeof(*(e-&gt;xmitstatus_buffer)));
+-	}
+-	i = e-&gt;saved_xmitstatus_ptr - 1;
+-	if (i &lt; 0)
+-		i = BCM43xx_NR_LOGGED_XMITSTATUS - 1;
+-	cnt = e-&gt;saved_xmitstatus_cnt;
+-	while (cnt) {
+-		status = e-&gt;xmitstatus_print_buffer + i;
+-		fappend(&quot;0x%02x:   cookie: 0x%04x,  flags: 0x%02x,  &quot;
+-			&quot;cnt1: 0x%02x,  cnt2: 0x%02x,  seq: 0x%04x,  &quot;
+-			&quot;unk: 0x%04x\n&quot;, j,
+-			status-&gt;cookie, status-&gt;flags,
+-			status-&gt;cnt1, status-&gt;cnt2, status-&gt;seq,
+-			status-&gt;unknown);
+-		j++;
+-		cnt--;
+-		i--;
+-		if (i &lt; 0)
+-			i = BCM43xx_NR_LOGGED_XMITSTATUS - 1;
++	mutex_lock(&amp;big_buffer_mutex);
++	spin_lock_irqsave(&amp;log-&gt;lock, flags);
++	if (!log-&gt;printing) {
++		log-&gt;printing = 1;
++		fappend(&quot;bcm43xx TX status reports:\n\n&quot;
++			&quot;index | cookie | seq | phy_stat | frame_count | &quot;
++			&quot;rts_count | supp_reason | pm_indicated | &quot;
++			&quot;intermediate | for_ampdu | acked\n&quot;
++			&quot;---\n&quot;);
++		i = log-&gt;end + 1;
++		idx = 0;
++		while (1) {
++			if (i == BCM43xx_NR_LOGGED_TXSTATUS)
++				i = 0;
++			stat = &amp;(log-&gt;log[i]);
++			if (stat-&gt;cookie) {
++				fappend(&quot;%03d | &quot;
++					&quot;0x%04X | 0x%04X | 0x%02X | &quot;
++					&quot;0x%X | 0x%X | &quot;
++					&quot;%u | %u | &quot;
++					&quot;%u | %u | %u\n&quot;,
++					idx,
++					stat-&gt;cookie, stat-&gt;seq, stat-&gt;phy_stat,
++					stat-&gt;frame_count, stat-&gt;rts_count,
++					stat-&gt;supp_reason, stat-&gt;pm_indicated,
++					stat-&gt;intermediate, stat-&gt;for_ampdu,
++					stat-&gt;acked);
++				idx++;
++			}
++			if (i == log-&gt;end)
++				break;
++			i++;
++		}
++		log-&gt;buf_avail = pos;
+ 	}
++	memcpy(big_buffer, buf,
++	       min(log-&gt;buf_avail, ARRAY_SIZE(big_buffer)));
++	spin_unlock_irqrestore(&amp;log-&gt;lock, flags);
++
++	res = simple_read_from_buffer(userbuf, count, ppos,
++				      big_buffer,
++				      log-&gt;buf_avail);
++	if (*ppos == log-&gt;buf_avail) {
++		spin_lock_irqsave(&amp;log-&gt;lock, flags);
++		log-&gt;printing = 0;
++		spin_unlock_irqrestore(&amp;log-&gt;lock, flags);
++	}
++	mutex_unlock(&amp;big_buffer_mutex);
+ 
+-	spin_unlock_irqrestore(&amp;bcm-&gt;irq_lock, flags);
+-	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+-	spin_lock_irqsave(&amp;bcm-&gt;irq_lock, flags);
+-	if (*ppos == pos) {
+-		/* Done. Drop the copied data. */
+-		e-&gt;xmitstatus_printing = 0;
+-	}
+-	spin_unlock_irqrestore(&amp;bcm-&gt;irq_lock, flags);
+-	mutex_unlock(&amp;bcm-&gt;mutex);
+-	up(&amp;big_buffer_sem);
+ 	return res;
+ }
+ 
+ static ssize_t restart_write_file(struct file *file, const char __user *user_buf,
+ 				  size_t count, loff_t *ppos)
+ {
+-	struct bcm43xx_private *bcm = file-&gt;private_data;
+-	char *buf = really_big_buffer;
++	struct bcm43xx_wldev *dev = file-&gt;private_data;
++	char *buf = big_buffer;
+ 	ssize_t buf_size;
+ 	ssize_t res;
+ 	unsigned long flags;
+ 
+-	buf_size = min(count, sizeof (really_big_buffer) - 1);
+-	down(&amp;big_buffer_sem);
++	mutex_lock(&amp;big_buffer_mutex);
++	buf_size = min(count, ARRAY_SIZE(big_buffer) - 1);
+ 	if (copy_from_user(buf, user_buf, buf_size)) {
+ 	        res = -EFAULT;
+-		goto out_up;
++		goto out_unlock_bb;
+ 	}
+-	mutex_lock(&amp;(bcm)-&gt;mutex);
+-	spin_lock_irqsave(&amp;(bcm)-&gt;irq_lock, flags);
+-	if (bcm43xx_status(bcm) != BCM43xx_STAT_INITIALIZED) {
+-		printk(KERN_INFO PFX &quot;debugfs: Board not initialized.\n&quot;);
++	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
++	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
++	if (bcm43xx_status(dev) &lt; BCM43xx_STAT_INITIALIZED) {
++		bcmerr(dev-&gt;wl, &quot;debugfs: Board not initialized.\n&quot;);
+ 		res = -EFAULT;
+ 		goto out_unlock;
+ 	}
+ 	if (count &gt; 0 &amp;&amp; buf[0] == '1') {
+-		bcm43xx_controller_restart(bcm, &quot;manually restarted&quot;);
++		bcm43xx_controller_restart(dev, &quot;manually restarted&quot;);
+ 		res = count;
+-	} else
++	} else {
+ 		res = -EINVAL;
++	}
+ 
+ out_unlock:
+-	spin_unlock_irqrestore(&amp;(bcm)-&gt;irq_lock, flags);
+-	mutex_unlock(&amp;(bcm)-&gt;mutex);
+-out_up:
+-	up(&amp;big_buffer_sem);
++	spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
++	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
++out_unlock_bb:
++	mutex_unlock(&amp;big_buffer_mutex);
++
+ 	return res;
+ }
+ 
+ #undef fappend
+ 
+ 
+-static const struct file_operations devinfo_fops = {
+-	.read = devinfo_read_file,
+-	.write = write_file_dummy,
+-	.open = open_file_generic,
+-};
+-
+-static const struct file_operations spromdump_fops = {
+-	.read = spromdump_read_file,
+-	.write = write_file_dummy,
+-	.open = open_file_generic,
+-};
+-
+-static const struct file_operations drvinfo_fops = {
++static struct file_operations drvinfo_fops = {
+ 	.read = drvinfo_read_file,
+ 	.write = write_file_dummy,
+ 	.open = open_file_generic,
+ };
+ 
+-static const struct file_operations tsf_fops = {
++static struct file_operations tsf_fops = {
+ 	.read = tsf_read_file,
+ 	.write = tsf_write_file,
+ 	.open = open_file_generic,
+ };
+ 
+-static const struct file_operations txstat_fops = {
++static struct file_operations txstat_fops = {
+ 	.read = txstat_read_file,
+ 	.write = write_file_dummy,
+ 	.open = open_file_generic,
+ };
+ 
+-static const struct file_operations restart_fops = {
++static struct file_operations restart_fops = {
+ 	.write = restart_write_file,
+ 	.open = open_file_generic,
+ };
+ 
+ 
+-void bcm43xx_debugfs_add_device(struct bcm43xx_private *bcm)
++int bcm43xx_debug(struct bcm43xx_wldev *dev, enum bcm43xx_dyndbg feature)
++{
++	return !!(dev-&gt;dfsentry-&gt;dyn_debug[feature]);
++}
++
++static void bcm43xx_remove_dynamic_debug(struct bcm43xx_wldev *dev)
++{
++	struct bcm43xx_dfsentry *e = dev-&gt;dfsentry;
++	int i;
++
++	for (i = 0; i &lt; __BCM43xx_NR_DYNDBG; i++)
++		debugfs_remove(e-&gt;dyn_debug_dentries[i]);
++}
++
++static void bcm43xx_add_dynamic_debug(struct bcm43xx_wldev *dev)
++{
++	struct bcm43xx_dfsentry *e = dev-&gt;dfsentry;
++	struct dentry *d;
++
++#define add_dyn_dbg(name, id, initstate) do {		\
++	e-&gt;dyn_debug[id] = (initstate);			\
++	d = debugfs_create_bool(name, 0600, e-&gt;subdir,	\
++				&amp;(e-&gt;dyn_debug[id]));	\
++	if (!IS_ERR(d))					\
++		e-&gt;dyn_debug_dentries[id] = d;		\
++				} while (0)
++
++	add_dyn_dbg(&quot;debug_xmitpower&quot;, BCM43xx_DBG_XMITPOWER, 0);
++	add_dyn_dbg(&quot;debug_dmaoverflow&quot;, BCM43xx_DBG_DMAOVERFLOW, 0);
++	add_dyn_dbg(&quot;debug_dmaverbose&quot;, BCM43xx_DBG_DMAVERBOSE, 0);
++	add_dyn_dbg(&quot;debug_pwork_fast&quot;, BCM43xx_DBG_PWORK_FAST, 0);
++	add_dyn_dbg(&quot;debug_pwork_stop&quot;, BCM43xx_DBG_PWORK_STOP, 0);
++
++#undef add_dyn_dbg
++}
++
++void bcm43xx_debugfs_add_device(struct bcm43xx_wldev *dev)
+ {
+ 	struct bcm43xx_dfsentry *e;
+-	char devdir[IFNAMSIZ];
++	struct bcm43xx_txstatus_log *log;
++	char devdir[16];
+ 
+-	assert(bcm);
++	BCM43xx_BUG_ON(!dev);
+ 	e = kzalloc(sizeof(*e), GFP_KERNEL);
+ 	if (!e) {
+-		printk(KERN_ERR PFX &quot;out of memory\n&quot;);
++		bcmerr(dev-&gt;wl, &quot;debugfs: add device OOM\n&quot;);
+ 		return;
+ 	}
+-	e-&gt;bcm = bcm;
+-	e-&gt;xmitstatus_buffer = kzalloc(BCM43xx_NR_LOGGED_XMITSTATUS
+-				       * sizeof(*(e-&gt;xmitstatus_buffer)),
+-				       GFP_KERNEL);
+-	if (!e-&gt;xmitstatus_buffer) {
+-		printk(KERN_ERR PFX &quot;out of memory\n&quot;);
++	e-&gt;dev = dev;
++	log = &amp;e-&gt;txstatlog;
++	log-&gt;log = kcalloc(BCM43xx_NR_LOGGED_TXSTATUS,
++			   sizeof(struct bcm43xx_txstatus),
++			   GFP_KERNEL);
++	if (!log-&gt;log) {
++		bcmerr(dev-&gt;wl, &quot;debugfs: add device txstatus OOM\n&quot;);
+ 		kfree(e);
+ 		return;
+ 	}
+-	e-&gt;xmitstatus_print_buffer = kzalloc(BCM43xx_NR_LOGGED_XMITSTATUS
+-					     * sizeof(*(e-&gt;xmitstatus_buffer)),
+-					     GFP_KERNEL);
+-	if (!e-&gt;xmitstatus_print_buffer) {
+-		printk(KERN_ERR PFX &quot;out of memory\n&quot;);
++	log-&gt;end = -1;
++	spin_lock_init(&amp;log-&gt;lock);
++
++	dev-&gt;dfsentry = e;
++
++	snprintf(devdir, sizeof(devdir), &quot;%s&quot;, wiphy_name(dev-&gt;wl-&gt;hw-&gt;wiphy));
++	e-&gt;subdir = debugfs_create_dir(devdir, fs.root);
++	if (!e-&gt;subdir || IS_ERR(e-&gt;subdir)) {
++		e-&gt;subdir = NULL;
++		kfree(log-&gt;log);
+ 		kfree(e);
+ 		return;
+ 	}
+ 
++	e-&gt;dentry_tsf = debugfs_create_file(&quot;tsf&quot;, 0600, e-&gt;subdir,
++					     dev, &amp;tsf_fops);
++	if (IS_ERR(e-&gt;dentry_tsf))
++		e-&gt;dentry_tsf = NULL;
++	e-&gt;dentry_txstat = debugfs_create_file(&quot;tx_status&quot;, 0400, e-&gt;subdir,
++						dev, &amp;txstat_fops);
++	if (IS_ERR(e-&gt;dentry_txstat))
++		e-&gt;dentry_txstat = NULL;
++	e-&gt;dentry_restart = debugfs_create_file(&quot;restart&quot;, 0200, e-&gt;subdir,
++						dev, &amp;restart_fops);
++	if (IS_ERR(e-&gt;dentry_restart))
++		e-&gt;dentry_restart = NULL;
+ 
+-	bcm-&gt;dfsentry = e;
+-
+-	strncpy(devdir, bcm-&gt;net_dev-&gt;name, ARRAY_SIZE(devdir));
+-	e-&gt;subdir = debugfs_create_dir(devdir, fs.root);
+-	e-&gt;dentry_devinfo = debugfs_create_file(&quot;devinfo&quot;, 0444, e-&gt;subdir,
+-						bcm, &amp;devinfo_fops);
+-	if (!e-&gt;dentry_devinfo)
+-		printk(KERN_ERR PFX &quot;debugfs: creating \&quot;devinfo\&quot; for \&quot;%s\&quot; failed!\n&quot;, devdir);
+-	e-&gt;dentry_spromdump = debugfs_create_file(&quot;sprom_dump&quot;, 0444, e-&gt;subdir,
+-						  bcm, &amp;spromdump_fops);
+-	if (!e-&gt;dentry_spromdump)
+-		printk(KERN_ERR PFX &quot;debugfs: creating \&quot;sprom_dump\&quot; for \&quot;%s\&quot; failed!\n&quot;, devdir);
+-	e-&gt;dentry_tsf = debugfs_create_file(&quot;tsf&quot;, 0666, e-&gt;subdir,
+-	                                    bcm, &amp;tsf_fops);
+-	if (!e-&gt;dentry_tsf)
+-		printk(KERN_ERR PFX &quot;debugfs: creating \&quot;tsf\&quot; for \&quot;%s\&quot; failed!\n&quot;, devdir);
+-	e-&gt;dentry_txstat = debugfs_create_file(&quot;tx_status&quot;, 0444, e-&gt;subdir,
+-						bcm, &amp;txstat_fops);
+-	if (!e-&gt;dentry_txstat)
+-		printk(KERN_ERR PFX &quot;debugfs: creating \&quot;tx_status\&quot; for \&quot;%s\&quot; failed!\n&quot;, devdir);
+-	e-&gt;dentry_restart = debugfs_create_file(&quot;restart&quot;, 0222, e-&gt;subdir,
+-						bcm, &amp;restart_fops);
+-	if (!e-&gt;dentry_restart)
+-		printk(KERN_ERR PFX &quot;debugfs: creating \&quot;restart\&quot; for \&quot;%s\&quot; failed!\n&quot;, devdir);
++	bcm43xx_add_dynamic_debug(dev);
+ }
+ 
+-void bcm43xx_debugfs_remove_device(struct bcm43xx_private *bcm)
++void bcm43xx_debugfs_remove_device(struct bcm43xx_wldev *dev)
+ {
+ 	struct bcm43xx_dfsentry *e;
+ 
+-	if (!bcm)
++	if (!dev)
+ 		return;
+ 
+-	e = bcm-&gt;dfsentry;
+-	assert(e);
+-	debugfs_remove(e-&gt;dentry_spromdump);
+-	debugfs_remove(e-&gt;dentry_devinfo);
++	e = dev-&gt;dfsentry;
++	if (!e)
++		return;
++	bcm43xx_remove_dynamic_debug(dev);
+ 	debugfs_remove(e-&gt;dentry_tsf);
+ 	debugfs_remove(e-&gt;dentry_txstat);
+ 	debugfs_remove(e-&gt;dentry_restart);
+ 	debugfs_remove(e-&gt;subdir);
+-	kfree(e-&gt;xmitstatus_buffer);
+-	kfree(e-&gt;xmitstatus_print_buffer);
++	kfree(e-&gt;txstatlog.log);
+ 	kfree(e);
+ }
+ 
+-void bcm43xx_debugfs_log_txstat(struct bcm43xx_private *bcm,
+-				struct bcm43xx_xmitstatus *status)
++void bcm43xx_debugfs_log_txstat(struct bcm43xx_wldev *dev,
++				const struct bcm43xx_txstatus *status)
+ {
+-	struct bcm43xx_dfsentry *e;
+-	struct bcm43xx_xmitstatus *savedstatus;
++	struct bcm43xx_dfsentry *e = dev-&gt;dfsentry;
++	struct bcm43xx_txstatus_log *log;
++	struct bcm43xx_txstatus *cur;
++	int i;
+ 
+-	/* This is protected by bcm-&gt;_lock */
+-	e = bcm-&gt;dfsentry;
+-	assert(e);
+-	savedstatus = e-&gt;xmitstatus_buffer + e-&gt;xmitstatus_ptr;
+-	memcpy(savedstatus, status, sizeof(*status));
+-	e-&gt;xmitstatus_ptr++;
+-	if (e-&gt;xmitstatus_ptr &gt;= BCM43xx_NR_LOGGED_XMITSTATUS)
+-		e-&gt;xmitstatus_ptr = 0;
+-	if (e-&gt;xmitstatus_cnt &lt; BCM43xx_NR_LOGGED_XMITSTATUS)
+-		e-&gt;xmitstatus_cnt++;
++	log = &amp;e-&gt;txstatlog;
++	BCM43xx_WARN_ON(!irqs_disabled());
++	spin_lock(&amp;log-&gt;lock);
++	i = log-&gt;end + 1;
++	if (i == BCM43xx_NR_LOGGED_TXSTATUS)
++		i = 0;
++	log-&gt;end = i;
++	cur = &amp;(log-&gt;log[i]);
++	memcpy(cur, status, sizeof(*cur));
++	spin_unlock(&amp;log-&gt;lock);
+ }
+ 
+ void bcm43xx_debugfs_init(void)
+ {
+ 	memset(&amp;fs, 0, sizeof(fs));
+ 	fs.root = debugfs_create_dir(KBUILD_MODNAME, NULL);
+-	if (!fs.root)
+-		printk(KERN_ERR PFX &quot;debugfs: creating \&quot;&quot; KBUILD_MODNAME &quot;\&quot; subdir failed!\n&quot;);
+-	fs.dentry_driverinfo = debugfs_create_file(&quot;driver&quot;, 0444, fs.root, NULL, &amp;drvinfo_fops);
+-	if (!fs.dentry_driverinfo)
+-		printk(KERN_ERR PFX &quot;debugfs: creating \&quot;&quot; KBUILD_MODNAME &quot;/driver\&quot; failed!\n&quot;);
++	if (!fs.root || IS_ERR(fs.root)) {
++		fs.root = NULL;
++		return;
++	}
++	fs.dentry_driverinfo = debugfs_create_file(&quot;driver&quot;, 0444, fs.root,
++						   NULL, &amp;drvinfo_fops);
++	if (IS_ERR(fs.dentry_driverinfo))
++		fs.dentry_driverinfo = NULL;
+ }
+ 
+ void bcm43xx_debugfs_exit(void)
+@@ -501,56 +429,3 @@ void bcm43xx_debugfs_exit(void)
+ 	debugfs_remove(fs.dentry_driverinfo);
+ 	debugfs_remove(fs.root);
+ }
+-
+-void bcm43xx_printk_dump(const char *data,
+-			 size_t size,
+-			 const char *description)
+-{
+-	size_t i;
+-	char c;
+-
+-	printk(KERN_INFO PFX &quot;Data dump (%s, %zd bytes):&quot;,
+-	       description, size);
+-	for (i = 0; i &lt; size; i++) {
+-		c = data[i];
+-		if (i % 8 == 0)
+-			printk(&quot;\n&quot; KERN_INFO PFX &quot;0x%08zx:  0x%02x, &quot;, i, c &amp; 0xff);
+-		else
+-			printk(&quot;0x%02x, &quot;, c &amp; 0xff);
+-	}
+-	printk(&quot;\n&quot;);
+-}
+-
+-void bcm43xx_printk_bitdump(const unsigned char *data,
+-			    size_t bytes, int msb_to_lsb,
+-			    const char *description)
+-{
+-	size_t i;
+-	int j;
+-	const unsigned char *d;
+-
+-	printk(KERN_INFO PFX &quot;*** Bitdump (%s, %zd bytes, %s) ***&quot;,
+-	       description, bytes, msb_to_lsb ? &quot;MSB to LSB&quot; : &quot;LSB to MSB&quot;);
+-	for (i = 0; i &lt; bytes; i++) {
+-		d = data + i;
+-		if (i % 8 == 0)
+-			printk(&quot;\n&quot; KERN_INFO PFX &quot;0x%08zx:  &quot;, i);
+-		if (msb_to_lsb) {
+-			for (j = 7; j &gt;= 0; j--) {
+-				if (*d &amp; (1 &lt;&lt; j))
+-					printk(&quot;1&quot;);
+-				else
+-					printk(&quot;0&quot;);
+-			}
+-		} else {
+-			for (j = 0; j &lt; 8; j++) {
+-				if (*d &amp; (1 &lt;&lt; j))
+-					printk(&quot;1&quot;);
+-				else
+-					printk(&quot;0&quot;);
+-			}
+-		}
+-		printk(&quot; &quot;);
+-	}
+-	printk(&quot;\n&quot;);
+-}
+Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.h
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.h
++++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.h
+@@ -1,41 +1,48 @@
+ #ifndef BCM43xx_DEBUGFS_H_
+ #define BCM43xx_DEBUGFS_H_
+ 
+-struct bcm43xx_private;
+-struct bcm43xx_xmitstatus;
++struct bcm43xx_wldev;
++struct bcm43xx_txstatus;
+ 
+-#ifdef CONFIG_BCM43XX_DEBUG
++enum bcm43xx_dyndbg { /* Dynamic debugging features */
++	BCM43xx_DBG_XMITPOWER,
++	BCM43xx_DBG_DMAOVERFLOW,
++	BCM43xx_DBG_DMAVERBOSE,
++	BCM43xx_DBG_PWORK_FAST,
++	BCM43xx_DBG_PWORK_STOP,
++	__BCM43xx_NR_DYNDBG,
++};
+ 
+-#include &lt;linux/list.h&gt;
+-#include &lt;asm/semaphore.h&gt;
++
++#ifdef CONFIG_BCM43XX_DEBUG
+ 
+ struct dentry;
+ 
+-/* limited by the size of the &quot;really_big_buffer&quot; */
+-#define BCM43xx_NR_LOGGED_XMITSTATUS	100
++#define BCM43xx_NR_LOGGED_TXSTATUS	100
++
++struct bcm43xx_txstatus_log {
++	struct bcm43xx_txstatus *log;
++	int end;
++	int printing;
++	char printbuf[(BCM43xx_NR_LOGGED_TXSTATUS * 70) + 200];
++	size_t buf_avail;
++	spinlock_t lock;	/* lock for debugging */
++};
+ 
+ struct bcm43xx_dfsentry {
+ 	struct dentry *subdir;
+-	struct dentry *dentry_devinfo;
+-	struct dentry *dentry_spromdump;
+ 	struct dentry *dentry_tsf;
+ 	struct dentry *dentry_txstat;
+ 	struct dentry *dentry_restart;
+ 
+-	struct bcm43xx_private *bcm;
++	struct bcm43xx_wldev *dev;
++
++	struct bcm43xx_txstatus_log txstatlog;
+ 
+-	/* saved xmitstatus. */
+-	struct bcm43xx_xmitstatus *xmitstatus_buffer;
+-	int xmitstatus_ptr;
+-	int xmitstatus_cnt;
+-	/* We need a seperate buffer while printing to avoid
+-	 * concurrency issues. (New xmitstatus can arrive
+-	 * while we are printing).
+-	 */
+-	struct bcm43xx_xmitstatus *xmitstatus_print_buffer;
+-	int saved_xmitstatus_ptr;
+-	int saved_xmitstatus_cnt;
+-	int xmitstatus_printing;
++	/* Enabled/Disabled list for the dynamic debugging features. */
++	u32 dyn_debug[__BCM43xx_NR_DYNDBG];
++	/* Dentries for the dynamic debugging entries. */
++	struct dentry *dyn_debug_dentries[__BCM43xx_NR_DYNDBG];
+ };
+ 
+ struct bcm43xx_debugfs {
+@@ -43,76 +50,35 @@ struct bcm43xx_debugfs {
+ 	struct dentry *dentry_driverinfo;
+ };
+ 
++int bcm43xx_debug(struct bcm43xx_wldev *dev, enum bcm43xx_dyndbg feature);
++
+ void bcm43xx_debugfs_init(void);
+ void bcm43xx_debugfs_exit(void);
+-void bcm43xx_debugfs_add_device(struct bcm43xx_private *bcm);
+-void bcm43xx_debugfs_remove_device(struct bcm43xx_private *bcm);
+-void bcm43xx_debugfs_log_txstat(struct bcm43xx_private *bcm,
+-				struct bcm43xx_xmitstatus *status);
+-
+-/* Debug helper: Dump binary data through printk. */
+-void bcm43xx_printk_dump(const char *data,
+-			 size_t size,
+-			 const char *description);
+-/* Debug helper: Dump bitwise binary data through printk. */
+-void bcm43xx_printk_bitdump(const unsigned char *data,
+-			    size_t bytes, int msb_to_lsb,
+-			    const char *description);
+-#define bcm43xx_printk_bitdumpt(pointer, msb_to_lsb, description) \
+-	do {									\
+-		bcm43xx_printk_bitdump((const unsigned char *)(pointer),	\
+-				       sizeof(*(pointer)),			\
+-				       (msb_to_lsb),				\
+-				       (description));				\
+-	} while (0)
++void bcm43xx_debugfs_add_device(struct bcm43xx_wldev *dev);
++void bcm43xx_debugfs_remove_device(struct bcm43xx_wldev *dev);
++void bcm43xx_debugfs_log_txstat(struct bcm43xx_wldev *dev,
++				const struct bcm43xx_txstatus *status);
+ 
+ #else /* CONFIG_BCM43XX_DEBUG*/
+ 
+ static inline
++int bcm43xx_debug(struct bcm43xx_wldev *dev, enum bcm43xx_dyndbg feature)
++{
++	return 0;
++}
++
++static inline
+ void bcm43xx_debugfs_init(void) { }
+ static inline
+ void bcm43xx_debugfs_exit(void) { }
+ static inline
+-void bcm43xx_debugfs_add_device(struct bcm43xx_private *bcm) { }
+-static inline
+-void bcm43xx_debugfs_remove_device(struct bcm43xx_private *bcm) { }
+-static inline
+-void bcm43xx_debugfs_log_txstat(struct bcm43xx_private *bcm,
+-				struct bcm43xx_xmitstatus *status) { }
+-
++void bcm43xx_debugfs_add_device(struct bcm43xx_wldev *dev) { }
+ static inline
+-void bcm43xx_printk_dump(const char *data,
+-			 size_t size,
+-			 const char *description)
+-{
+-}
++void bcm43xx_debugfs_remove_device(struct bcm43xx_wldev *dev) { }
+ static inline
+-void bcm43xx_printk_bitdump(const unsigned char *data,
+-			    size_t bytes, int msb_to_lsb,
+-			    const char *description)
+-{
+-}
+-#define bcm43xx_printk_bitdumpt(pointer, msb_to_lsb, description)  do { /* nothing */ } while (0)
++void bcm43xx_debugfs_log_txstat(struct bcm43xx_wldev *dev,
++				const struct bcm43xx_txstatus *status) { }
+ 
+ #endif /* CONFIG_BCM43XX_DEBUG*/
+ 
+-/* Ugly helper macros to make incomplete code more verbose on runtime */
+-#ifdef TODO
+-# undef TODO
+-#endif
+-#define TODO()  \
+-	do {										\
+-		printk(KERN_INFO PFX &quot;TODO: Incomplete code in %s() at %s:%d\n&quot;,	\
+-		       __FUNCTION__, __FILE__, __LINE__);				\
+-	} while (0)
+-
+-#ifdef FIXME
+-# undef FIXME
+-#endif
+-#define FIXME()  \
+-	do {										\
+-		printk(KERN_INFO PFX &quot;FIXME: Possibly broken code in %s() at %s:%d\n&quot;,	\
+-		       __FUNCTION__, __FILE__, __LINE__);				\
+-	} while (0)
+-
+ #endif /* BCM43xx_DEBUGFS_H_ */
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="001754.html">[RFC 1/10] Port of bcm43xx from softmac to mac80211
+</A></li>
+	<LI>Next message: <A HREF="001749.html">[RFC 2/10] Port of bcm43xx from softmac to mac80211
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1698">[ date ]</a>
+              <a href="thread.html#1698">[ thread ]</a>
+              <a href="subject.html#1698">[ subject ]</a>
+              <a href="author.html#1698">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

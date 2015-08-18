@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43: Fix MAC control and microcode init
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20MAC%20control%20and%20microcode%20init&In-Reply-To=%3C200801242303.36694.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003276.html">
+   <LINK REL="Next"  HREF="003267.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43: Fix MAC control and microcode init</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43%3A%20Fix%20MAC%20control%20and%20microcode%20init&In-Reply-To=%3C200801242303.36694.mb%40bu3sch.de%3E"
+       TITLE="[PATCH] b43: Fix MAC control and microcode init">mb at bu3sch.de
+       </A><BR>
+    <I>Thu Jan 24 23:03:36 CET 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003276.html">[PATCH] b43: Fix MAC control and microcode init
+</A></li>
+        <LI>Next message: <A HREF="003267.html">resuming from suspend to disk not working with b43
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3277">[ date ]</a>
+              <a href="thread.html#3277">[ thread ]</a>
+              <a href="subject.html#3277">[ subject ]</a>
+              <a href="author.html#3277">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Thursday 24 January 2008 10:13:01 Johannes Berg wrote:
+&gt;<i> 
+</I>&gt;<i> &gt; This also adds a longer delay for waiting for the microcode
+</I>&gt;<i> &gt; to initialize itself. It seems that the current timeout is sufficient
+</I>&gt;<i> &gt; on all available devices, but there's no real reason why we shouldn't
+</I>&gt;<i> &gt; wait for up to one second. Slow embedded devices might exist.
+</I>&gt;<i> 
+</I>&gt;<i> Your decision, but I very much doubt you can make the MAC any slower
+</I>&gt;<i> than on the old devices, in fact, on new chips it runs considerably
+</I>&gt;<i> faster I think.
+</I>
+Ok, well. But the host machine does get faster. In theory we only
+gave the microcode 500 microseconds of time to initialize. I think
+that is is a pretty tiny timeframe. In practice the time was higher,
+because we had a loop that checked MMIO and delayed for 10usec.
+Of course this all has overhead. But as machines get faster and faster
+I think we can't assume to have more than 500 microseconds of time.
+
+So, increasing the delay to one second doesn't hurt anyone. In
+all common cases it will continue after a few milliseconds. That's fine.
+Even if there is something going wrong (wrong firmware) you can
+interrupt the one second delay by hitting ^C.
+
+I think the specs originally sayed to use a much longer delay than
+we were using. But we did use a shorter delay, because in some old
+bcm43xx code this ran unter spinlock as far as I remember. So we didn't
+want to spin several milliseconds and lockup the system, if something
+goes wrong in firmware. These times are gone and now we can sleep
+in this part of the code.
+
+-- 
+Greetings Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003276.html">[PATCH] b43: Fix MAC control and microcode init
+</A></li>
+	<LI>Next message: <A HREF="003267.html">resuming from suspend to disk not working with b43
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3277">[ date ]</a>
+              <a href="thread.html#3277">[ thread ]</a>
+              <a href="subject.html#3277">[ subject ]</a>
+              <a href="author.html#3277">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

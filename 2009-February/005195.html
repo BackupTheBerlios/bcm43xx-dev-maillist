@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> opensource firmware now accept version 410 frames
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20opensource%20firmware%20now%20accept%20version%20410%20frames&In-Reply-To=%3C4991EABA.3040403%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005191.html">
+   <LINK REL="Next"  HREF="005196.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>opensource firmware now accept version 410 frames</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20opensource%20firmware%20now%20accept%20version%20410%20frames&In-Reply-To=%3C4991EABA.3040403%40lwfinger.net%3E"
+       TITLE="opensource firmware now accept version 410 frames">Larry.Finger at lwfinger.net
+       </A><BR>
+    <I>Tue Feb 10 21:59:38 CET 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005191.html">opensource firmware now accept version 410 frames
+</A></li>
+        <LI>Next message: <A HREF="005196.html">opensource firmware now accept version 410 frames
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5195">[ date ]</a>
+              <a href="thread.html#5195">[ thread ]</a>
+              <a href="subject.html#5195">[ subject ]</a>
+              <a href="author.html#5195">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Francesco and Lorenzo,
+
+I now know a little more about my firmware crash. This time I captured the
+tx_status from each call just before the callback into mac80211. When the
+routine was called with the deleted/poisoned skb, I dumped the current status
+and the saved one. The results were:
+
+b43_dma_handle_txstatus called for deleted cookie 0x2004
+
+Parameter  saved_status  status
+cookie      0x2022       0x2004
+seq         0x151        0x142
+phy_stat    0x0          0x0
+frame_count 0x1          0x1
+rts_count   0x0          0x0
+supp_reason 0x0          0x0
+pm_indicat  0x0          0x0
+for_ampdu   0x0          0x0
+acked       0x1          0x1
+
+Clearly quite a few transaction took place between the time that the skb with
+cookie 0x2004 was deleted and the erroring callback. The cookie count increased
+by 30 and the sequence by 15. I'm pretty sure that this means 15 total packets
+were handled in the interim.
+
+Unless this report results in an immediate &quot;light bulb&quot; moment, I plan to buffer
+at least 32 status values so that we can see the details of all transactions
+between the first and second calls with the cookie associated with the deleted
+skb. Are there any other parameters I should also buffer?
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005191.html">opensource firmware now accept version 410 frames
+</A></li>
+	<LI>Next message: <A HREF="005196.html">opensource firmware now accept version 410 frames
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5195">[ date ]</a>
+              <a href="thread.html#5195">[ thread ]</a>
+              <a href="subject.html#5195">[ subject ]</a>
+              <a href="author.html#5195">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

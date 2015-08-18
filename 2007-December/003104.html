@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> 2.6.24-rc5 the LED does not come on after a switch-off switch-on
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-December/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.24-rc5%20the%20LED%20does%20not%20come%20on%20after%20a%20switch-off%20switch-on&In-Reply-To=%3C4767F1FE.3050003%40wetwork.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003103.html">
+   <LINK REL="Next"  HREF="003105.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>2.6.24-rc5 the LED does not come on after a switch-off switch-on</H1>
+    <B>Ehud Gavron</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%202.6.24-rc5%20the%20LED%20does%20not%20come%20on%20after%20a%20switch-off%20switch-on&In-Reply-To=%3C4767F1FE.3050003%40wetwork.net%3E"
+       TITLE="2.6.24-rc5 the LED does not come on after a switch-off switch-on">gavron at wetwork.net
+       </A><BR>
+    <I>Tue Dec 18 17:14:54 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003103.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+        <LI>Next message: <A HREF="003105.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3104">[ date ]</a>
+              <a href="thread.html#3104">[ thread ]</a>
+              <a href="subject.html#3104">[ subject ]</a>
+              <a href="author.html#3104">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>I've trimmed some of this.
+
+Michael Buesch wrote:
+&gt;&gt;&gt;<i> I have no idea. But I don't understand why waiting a random time up to 1000ms fails
+</I>&gt;&gt;&gt;<i> and a random time up to 1000ms + 1ms succeeds.
+</I>&gt;&gt;&gt;<i>   
+</I>The patch I submitted had a newbie-error.  Right before making the patch 
+I removed the debug messages.  As it turns out it's not the msleep that 
+makes the difference.  It's having TWO debug messages AND the msleep.
+
+
+Yes, I know that sounds stupid.  Here are the kernels I built to test 
+this stupid theory:
+/boot/vmlinuz-2.6.24-rc5-1dm
+/boot/vmlinuz-2.6.24-rc5-m1.dm
+/boot/vmlinuz-2.6.24-rc5-dm.dm
+/boot/vmlinuz-2.6.24-rc5-dm.m1
+/boot/vmlinuz-2.6.24-rc5-duh
+
+
+DM=display message
+M1=msleep(1)
+DUH=go back to square one, display message; msleep(1) ; display message.
+
+
+This DOES WORK and DOES TURN ON THE LED.  However...
+Here's the really funny thing.  Here are the messages:
+
+b43-phy0: Radio hardware status changed to ENABLED
+b43-phy0: EHUD: LED coming on
+
+And here's the code:
+
+        if (unlikely(report_change)) {
+                b43info(wl,&quot;EHUD: sleeping\n&quot;);
+                msleep(1);
+                b43info(wl,&quot;EHUD: LED coming on\n);
+                input_report_key(poll_dev-&gt;input, KEY_WLAN, 1);
+                input_report_key(poll_dev-&gt;input, KEY_WLAN, 0);
+        }
+
+So my question (other than why do I need two messages and one msleep to 
+get my LED lit) is... what happened to the &quot;EHUD: sleeping&quot; debug 
+message?  It never showed up on the console.  I did this several times.  
+The full dmesg is attached.
+
+Ehud
+
+-------------- next part --------------
+An embedded and charset-unspecified text was scrubbed...
+Name: dmesg.txt
+URL: &lt;<A HREF="https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20071218/174af401/attachment.txt">https://lists.berlios.de/pipermail/bcm43xx-dev/attachments/20071218/174af401/attachment.txt</A>&gt;
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003103.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+	<LI>Next message: <A HREF="003105.html">2.6.24-rc5 the LED does not come on after a switch-off switch-on
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3104">[ date ]</a>
+              <a href="thread.html#3104">[ thread ]</a>
+              <a href="subject.html#3104">[ subject ]</a>
+              <a href="author.html#3104">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

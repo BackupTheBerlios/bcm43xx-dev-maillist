@@ -1,0 +1,180 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [RFC] ssb: Add code for SPROM Rev 4
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-November/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20ssb%3A%20Add%20code%20for%20SPROM%20Rev%204&In-Reply-To=%3C472F3EE3.5040201%40lwfinger.net%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="002655.html">
+   <LINK REL="Next"  HREF="002658.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[RFC] ssb: Add code for SPROM Rev 4</H1>
+    <B>Larry Finger</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BRFC%5D%20ssb%3A%20Add%20code%20for%20SPROM%20Rev%204&In-Reply-To=%3C472F3EE3.5040201%40lwfinger.net%3E"
+       TITLE="[RFC] ssb: Add code for SPROM Rev 4">larry.finger at lwfinger.net
+       </A><BR>
+    <I>Mon Nov  5 17:03:47 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="002655.html">[RFC] ssb: Add code for SPROM Rev 4
+</A></li>
+        <LI>Next message: <A HREF="002658.html">[RFC] ssb: Add code for SPROM Rev 4
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2656">[ date ]</a>
+              <a href="thread.html#2656">[ thread ]</a>
+              <a href="subject.html#2656">[ subject ]</a>
+              <a href="author.html#2656">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Michael Buesch wrote:
+&gt;<i> Larry, I did not forget your patch.
+</I>&gt;<i> But I need to think a little bit more about this.
+</I>
+I knew that this one would take some time.
+
+&gt;<i> The union above is not really what I'd like to have here. In fact,
+</I>&gt;<i> I think to get the v4 sprom implemented the sprom struct has to be
+</I>&gt;<i> redesigned.
+</I>
+The way I implemented it was as a &quot;straw man&quot; designed to get shot down. :-) The only benefit it had
+was that this format has allowed my tester to get started enough to get b43 loaded. He is rapidly
+implementing that part of the specs that are needed to get the BCM4328 with an N PHY working in G mode.
+
+&gt;<i> I think we must leave the path of partitioning the sprom struct into
+</I>&gt;<i> versions, because that obviously doesn't work anymore.
+</I>&gt;<i> Instead, I think we must develop _one_ common struct that is capable
+</I>&gt;<i> of holding the information from any sprom. (Note that the struct layout
+</I>&gt;<i> does not need to reflect the real hardware layout).
+</I>&gt;<i> 
+</I>&gt;<i> And I think we should also remove the fields that are not needed at all,
+</I>&gt;<i> like the PCI ID stuff.
+</I>
+I agree.
+
+&gt;<i> something like this:
+</I>&gt;<i> 
+</I>&gt;<i> 
+</I>&gt;<i> struct ssb_sprom_pathvar {
+</I>&gt;<i> 	bool this_pathvar_is_available;
+</I>&gt;<i> 
+</I>&gt;<i> 	...foobar data
+</I>&gt;<i> };
+</I>&gt;<i> 
+</I>&gt;<i> struct ssb_sprom {
+</I>&gt;<i> 	u8 wl_mac_addr[ETH_ALEN];
+</I>&gt;<i> 	u8 eth0_mac_addr[ETH_ALEN];
+</I>&gt;<i> 	u8 eth1_mac_addr[ETH_ALEN];
+</I>&gt;<i> 
+</I>&gt;<i> 	...
+</I>&gt;<i> 
+</I>&gt;<i> 	u8 gpio0;
+</I>&gt;<i> 	u8 gpio1;
+</I>&gt;<i> 	...
+</I>&gt;<i> 
+</I>&gt;<i> 	antennagain...
+</I>&gt;<i> 
+</I>&gt;<i> 	struct ssb_sprom_pathvar pv0;
+</I>&gt;<i> 	struct ssb_sprom_pathvar pv1;
+</I>
+I think this section can be
+
+	u8 path_data0[SPROM_PATH_DATA_SIZE];
+	u8 path_data1 ...
+
+where SPROM_PATH_DATA_SIZE = 0x26. Once we see how the data are used, it may make more sense to have
+these data be u16, or even a union so that we can have it both ways.
+
+&gt;<i> 	...
+</I>&gt;<i> };
+</I>&gt;<i> 
+</I>&gt;<i> Note that I did _not_ look closely at the pathvar stuff, so this
+</I>&gt;<i> might be a bad idea to design it this way.
+</I>&gt;<i> But the point I was going to make with that was; we probably need
+</I>&gt;<i> some &quot;this data is valid&quot; bits for different parts of the sprom
+</I>&gt;<i> struct, as for example v1-3 don't have these pathvars (So the drivers
+</I>&gt;<i> must be told it's invalid data).
+</I>&gt;<i> The reason for all this &quot;valid-bit&quot; stuff is that I think we should
+</I>&gt;<i> remove any sprom-versioning knowledge from the drivers. That
+</I>&gt;<i> should be abstracted.
+</I>
+I agree.
+
+&gt;<i> Any idea on how to improve that?
+</I>
+I'm not sure we need a separate &quot;valid bit&quot; for path data. In the sprom that we are working with,
+only paths 1 &amp; 2 are implemented - the paths 3 &amp; 4 region contains all 1's just like any
+unimplemented sprom data. It should be OK to initialize the first word of each path to 0xFFFF to
+indicate it is unused.
+
+To let you know how the specs translate into a device, here is the dump of the BCM4328 sprom:
+
+ssb: SPROM r4 dump
+ssb: 0x0000: 0x2801 0x0000 0x0009 0x1028 0x0000 0x0DBE 0xFF00 0x2BC4
+ssb: 0x0010: 0x2A64 0x2964 0x2C64 0x3CE7 0xFFFF 0xFFFF 0xFFFF 0xFFFF
+ssb: 0x0020: 0x4328 0x8000 0x0002 0x0000 0x1001 0x1800 0x0000 0x0000
+ssb: 0x0030: 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF
+ssb: 0x0040: 0x5372 0x004C 0x4A01 0x0000 0x0004 0x0000 0x0019 0x7DA5
+ssb: 0x0050: 0x1912 0x0000 0x0001 0x83FF 0xFFFF 0xFFFF 0x0303 0x0202
+ssb: 0x0060: 0xFFFF 0x3437 0x5B5B 0x1420 0x5B5B 0x0D0C 0x5B5B 0x1A1E
+ssb: 0x0070: 0x5B5B 0x3844 0x3838 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF
+ssb: 0x0080: 0x3E4E 0xFEC6 0x15D3 0xFB3D 0x0000 0x3E3C 0x3C3C 0xFE6C
+ssb: 0x0090: 0x1664 0xFA7B 0x0000 0xFE37 0x1401 0xFAE7 0x0000 0xFE5A
+ssb: 0x00A0: 0x147E 0xFAC7 0x0000 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0x3E4E
+ssb: 0x00B0: 0xFEC1 0x15BC 0xFB2F 0x0000 0x3E3C 0x3C3C 0xFE69 0x1608
+ssb: 0x00C0: 0xFA81 0x0000 0xFE2A 0x1321 0xFB0B 0x0000 0xFE66 0x1595
+ssb: 0x00D0: 0xFA88 0x0000 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF
+ssb: 0x00E0: 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF
+ssb: 0x00F0: 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF
+ssb: 0x0100: 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF
+ssb: 0x0110: 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF
+ssb: 0x0120: 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF
+ssb: 0x0130: 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0x0000 0x0000 0x0000 0x0000
+ssb: 0x0140: 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000
+ssb: 0x0150: 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000
+ssb: 0x0160: 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000
+ssb: 0x0170: 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000
+ssb: 0x0180: 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000
+ssb: 0x0190: 0x0000 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF
+ssb: 0x01A0: 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF 0xFFFF
+ssb: 0x01B0: 0xFFFF 0xFFFF 0xFFFF 0x9404
+
+As I said earlier, my current patch is working OK for present needs. Once we come to an agreement
+regarding the sprom data structures, I will begin implementing them. As I see it, conversion will be
+a 3-step process. We will need a patch to add the new structure, a second to populate that
+structure, patches to convert b44, b43, and b43legacy to use the new data, and a final patch to
+remove the old structure. In this manner, bisection will be supported.
+
+Larry
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="002655.html">[RFC] ssb: Add code for SPROM Rev 4
+</A></li>
+	<LI>Next message: <A HREF="002658.html">[RFC] ssb: Add code for SPROM Rev 4
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2656">[ date ]</a>
+              <a href="thread.html#2656">[ thread ]</a>
+              <a href="subject.html#2656">[ subject ]</a>
+              <a href="author.html#2656">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

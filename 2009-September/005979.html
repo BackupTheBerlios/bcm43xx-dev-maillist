@@ -1,0 +1,1140 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/5] b43: Use a threaded IRQ handler
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2009-September/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/5%5D%20b43%3A%20Use%20a%20threaded%20IRQ%20handler&In-Reply-To=%3C200909042251.29868.mb%40bu3sch.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="005984.html">
+   <LINK REL="Next"  HREF="005980.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/5] b43: Use a threaded IRQ handler</H1>
+    <B>Michael Buesch</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/5%5D%20b43%3A%20Use%20a%20threaded%20IRQ%20handler&In-Reply-To=%3C200909042251.29868.mb%40bu3sch.de%3E"
+       TITLE="[PATCH 1/5] b43: Use a threaded IRQ handler">mb at bu3sch.de
+       </A><BR>
+    <I>Fri Sep  4 22:51:29 CEST 2009</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="005984.html">[PATCH 0/5] b43: Prepare driver for sleeping busses
+</A></li>
+        <LI>Next message: <A HREF="005980.html">[PATCH 2/5] b43: Remove TX spinlock
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5979">[ date ]</a>
+              <a href="thread.html#5979">[ thread ]</a>
+              <a href="subject.html#5979">[ subject ]</a>
+              <a href="author.html#5979">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Use a threaded IRQ handler to allow locking the mutex and
+sleeping while executing an interrupt.
+This removes usage of the irq_lock spinlock, but introduces
+a new hardirq_lock, which is _only_ used for the PCI/SSB lowlevel
+hard-irq handler. Sleeping busses (SDIO) will use mutex instead.
+
+Signed-off-by: Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mb at bu3sch.de</A>&gt;
+
+Index: wireless-testing/drivers/net/wireless/b43/b43.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/b43.h	2009-09-04 22:15:30.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/b43.h	2009-09-04 22:15:32.000000000 +0200
+@@ -616,6 +616,12 @@ struct b43_wl {
+ 	/* Pointer to the ieee80211 hardware data structure */
+ 	struct ieee80211_hw *hw;
+ 
++	/* Global driver mutex. Every operation must run with this mutex locked. */
++	struct mutex mutex;
++	/* Hard-IRQ spinlock. This lock protects things used in the hard-IRQ
++	 * handler, only. This basically is just the IRQ mask register. */
++	spinlock_t hardirq_lock;
++
+ 	/* The number of queues that were registered with the mac80211 subsystem
+ 	 * initially. This is a backup copy of hw-&gt;queues in case hw-&gt;queues has
+ 	 * to be dynamically lowered at runtime (Firmware does not support QoS).
+@@ -623,8 +629,6 @@ struct b43_wl {
+ 	 * from the mac80211 subsystem. */
+ 	u16 mac80211_initially_registered_queues;
+ 
+-	struct mutex mutex;
+-	spinlock_t irq_lock;
+ 	/* R/W lock for data transmission.
+ 	 * Transmissions on 2+ queues can run concurrently, but somebody else
+ 	 * might sync with TX by write_lock_irqsave()'ing. */
+@@ -665,8 +669,7 @@ struct b43_wl {
+ 	bool radiotap_enabled;
+ 	bool radio_enabled;
+ 
+-	/* The beacon we are currently using (AP or IBSS mode).
+-	 * This beacon stuff is protected by the irq_lock. */
++	/* The beacon we are currently using (AP or IBSS mode). */
+ 	struct sk_buff *current_beacon;
+ 	bool beacon0_uploaded;
+ 	bool beacon1_uploaded;
+@@ -754,14 +757,6 @@ enum {
+ 		smp_wmb();					\
+ 					} while (0)
+ 
+-/* XXX---   HOW LOCKING WORKS IN B43   ---XXX
+- *
+- * You should always acquire both, wl-&gt;mutex and wl-&gt;irq_lock unless:
+- * - You don't need to acquire wl-&gt;irq_lock, if the interface is stopped.
+- * - You don't need to acquire wl-&gt;mutex in the IRQ handler, IRQ tasklet
+- *   and packet TX path (and _ONLY_ there.)
+- */
+-
+ /* Data structure for one wireless device (802.11 core) */
+ struct b43_wldev {
+ 	struct ssb_device *dev;
+@@ -807,14 +802,12 @@ struct b43_wldev {
+ 	u32 dma_reason[6];
+ 	/* The currently active generic-interrupt mask. */
+ 	u32 irq_mask;
++
+ 	/* Link Quality calculation context. */
+ 	struct b43_noise_calculation noisecalc;
+ 	/* if &gt; 0 MAC is suspended. if == 0 MAC is enabled. */
+ 	int mac_suspended;
+ 
+-	/* Interrupt Service Routine tasklet (bottom-half) */
+-	struct tasklet_struct isr_tasklet;
+-
+ 	/* Periodic tasks */
+ 	struct delayed_work periodic_work;
+ 	unsigned int periodic_state;
+Index: wireless-testing/drivers/net/wireless/b43/debugfs.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/debugfs.c	2009-09-04 22:15:30.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/debugfs.c	2009-09-04 22:15:32.000000000 +0200
+@@ -46,8 +46,6 @@ struct b43_debugfs_fops {
+ 	struct file_operations fops;
+ 	/* Offset of struct b43_dfs_file in struct b43_dfsentry */
+ 	size_t file_struct_offset;
+-	/* Take wl-&gt;irq_lock before calling read/write? */
+-	bool take_irqlock;
+ };
+ 
+ static inline
+@@ -372,14 +370,12 @@ static ssize_t txstat_read_file(struct b
+ {
+ 	struct b43_txstatus_log *log = &amp;dev-&gt;dfsentry-&gt;txstatlog;
+ 	ssize_t count = 0;
+-	unsigned long flags;
+ 	int i, idx;
+ 	struct b43_txstatus *stat;
+ 
+-	spin_lock_irqsave(&amp;log-&gt;lock, flags);
+ 	if (log-&gt;end &lt; 0) {
+ 		fappend(&quot;Nothing transmitted, yet\n&quot;);
+-		goto out_unlock;
++		goto out;
+ 	}
+ 	fappend(&quot;b43 TX status reports:\n\n&quot;
+ 		&quot;index | cookie | seq | phy_stat | frame_count | &quot;
+@@ -409,13 +405,11 @@ static ssize_t txstat_read_file(struct b
+ 			break;
+ 		i++;
+ 	}
+-out_unlock:
+-	spin_unlock_irqrestore(&amp;log-&gt;lock, flags);
++out:
+ 
+ 	return count;
+ }
+ 
+-/* wl-&gt;irq_lock is locked */
+ static int restart_write_file(struct b43_wldev *dev,
+ 			      const char *buf, size_t count)
+ {
+@@ -556,12 +550,7 @@ static ssize_t b43_debugfs_read(struct f
+ 			goto out_unlock;
+ 		}
+ 		memset(buf, 0, bufsize);
+-		if (dfops-&gt;take_irqlock) {
+-			spin_lock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+-			ret = dfops-&gt;read(dev, buf, bufsize);
+-			spin_unlock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+-		} else
+-			ret = dfops-&gt;read(dev, buf, bufsize);
++		ret = dfops-&gt;read(dev, buf, bufsize);
+ 		if (ret &lt;= 0) {
+ 			free_pages((unsigned long)buf, buforder);
+ 			err = ret;
+@@ -623,12 +612,7 @@ static ssize_t b43_debugfs_write(struct 
+ 		err = -EFAULT;
+ 		goto out_freepage;
+ 	}
+-	if (dfops-&gt;take_irqlock) {
+-		spin_lock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+-		err = dfops-&gt;write(dev, buf, count);
+-		spin_unlock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+-	} else
+-		err = dfops-&gt;write(dev, buf, count);
++	err = dfops-&gt;write(dev, buf, count);
+ 	if (err)
+ 		goto out_freepage;
+ 
+@@ -641,7 +625,7 @@ out_unlock:
+ }
+ 
+ 
+-#define B43_DEBUGFS_FOPS(name, _read, _write, _take_irqlock)	\
++#define B43_DEBUGFS_FOPS(name, _read, _write)			\
+ 	static struct b43_debugfs_fops fops_##name = {		\
+ 		.read	= _read,				\
+ 		.write	= _write,				\
+@@ -652,20 +636,19 @@ out_unlock:
+ 		},						\
+ 		.file_struct_offset = offsetof(struct b43_dfsentry, \
+ 					       file_##name),	\
+-		.take_irqlock	= _take_irqlock,		\
+ 	}
+ 
+-B43_DEBUGFS_FOPS(shm16read, shm16read__read_file, shm16read__write_file, 1);
+-B43_DEBUGFS_FOPS(shm16write, NULL, shm16write__write_file, 1);
+-B43_DEBUGFS_FOPS(shm32read, shm32read__read_file, shm32read__write_file, 1);
+-B43_DEBUGFS_FOPS(shm32write, NULL, shm32write__write_file, 1);
+-B43_DEBUGFS_FOPS(mmio16read, mmio16read__read_file, mmio16read__write_file, 1);
+-B43_DEBUGFS_FOPS(mmio16write, NULL, mmio16write__write_file, 1);
+-B43_DEBUGFS_FOPS(mmio32read, mmio32read__read_file, mmio32read__write_file, 1);
+-B43_DEBUGFS_FOPS(mmio32write, NULL, mmio32write__write_file, 1);
+-B43_DEBUGFS_FOPS(txstat, txstat_read_file, NULL, 0);
+-B43_DEBUGFS_FOPS(restart, NULL, restart_write_file, 1);
+-B43_DEBUGFS_FOPS(loctls, loctls_read_file, NULL, 0);
++B43_DEBUGFS_FOPS(shm16read, shm16read__read_file, shm16read__write_file);
++B43_DEBUGFS_FOPS(shm16write, NULL, shm16write__write_file);
++B43_DEBUGFS_FOPS(shm32read, shm32read__read_file, shm32read__write_file);
++B43_DEBUGFS_FOPS(shm32write, NULL, shm32write__write_file);
++B43_DEBUGFS_FOPS(mmio16read, mmio16read__read_file, mmio16read__write_file);
++B43_DEBUGFS_FOPS(mmio16write, NULL, mmio16write__write_file);
++B43_DEBUGFS_FOPS(mmio32read, mmio32read__read_file, mmio32read__write_file);
++B43_DEBUGFS_FOPS(mmio32write, NULL, mmio32write__write_file);
++B43_DEBUGFS_FOPS(txstat, txstat_read_file, NULL);
++B43_DEBUGFS_FOPS(restart, NULL, restart_write_file);
++B43_DEBUGFS_FOPS(loctls, loctls_read_file, NULL);
+ 
+ 
+ bool b43_debug(struct b43_wldev *dev, enum b43_dyndbg feature)
+@@ -738,7 +721,6 @@ void b43_debugfs_add_device(struct b43_w
+ 		return;
+ 	}
+ 	log-&gt;end = -1;
+-	spin_lock_init(&amp;log-&gt;lock);
+ 
+ 	dev-&gt;dfsentry = e;
+ 
+@@ -822,7 +804,6 @@ void b43_debugfs_remove_device(struct b4
+ 	kfree(e);
+ }
+ 
+-/* Called with IRQs disabled. */
+ void b43_debugfs_log_txstat(struct b43_wldev *dev,
+ 			    const struct b43_txstatus *status)
+ {
+@@ -834,14 +815,12 @@ void b43_debugfs_log_txstat(struct b43_w
+ 	if (!e)
+ 		return;
+ 	log = &amp;e-&gt;txstatlog;
+-	spin_lock(&amp;log-&gt;lock); /* IRQs are already disabled. */
+ 	i = log-&gt;end + 1;
+ 	if (i == B43_NR_LOGGED_TXSTATUS)
+ 		i = 0;
+ 	log-&gt;end = i;
+ 	cur = &amp;(log-&gt;log[i]);
+ 	memcpy(cur, status, sizeof(*cur));
+-	spin_unlock(&amp;log-&gt;lock);
+ }
+ 
+ void b43_debugfs_init(void)
+Index: wireless-testing/drivers/net/wireless/b43/main.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/main.c	2009-09-04 22:15:30.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/main.c	2009-09-04 22:17:06.000000000 +0200
+@@ -291,7 +291,7 @@ static struct ieee80211_supported_band b
+ 
+ static void b43_wireless_core_exit(struct b43_wldev *dev);
+ static int b43_wireless_core_init(struct b43_wldev *dev);
+-static void b43_wireless_core_stop(struct b43_wldev *dev);
++static struct b43_wldev * b43_wireless_core_stop(struct b43_wldev *dev);
+ static int b43_wireless_core_start(struct b43_wldev *dev);
+ 
+ static int b43_ratelimit(struct b43_wl *wl)
+@@ -685,16 +685,6 @@ static void b43_short_slot_timing_disabl
+ 	b43_set_slot_time(dev, 20);
+ }
+ 
+-/* Synchronize IRQ top- and bottom-half.
+- * IRQs must be masked before calling this.
+- * This must not be called with the irq_lock held.
+- */
+-static void b43_synchronize_irq(struct b43_wldev *dev)
+-{
+-	synchronize_irq(dev-&gt;dev-&gt;irq);
+-	tasklet_kill(&amp;dev-&gt;isr_tasklet);
+-}
+-
+ /* DummyTransmission function, as documented on
+  * <A HREF="http://bcm-v4.sipsolutions.net/802.11/DummyTransmission">http://bcm-v4.sipsolutions.net/802.11/DummyTransmission</A>
+  */
+@@ -720,8 +710,7 @@ void b43_dummy_transmission(struct b43_w
+ 		buffer[0] = 0x000B846E;
+ 	}
+ 
+-	spin_lock_irq(&amp;wl-&gt;irq_lock);
+-	write_lock(&amp;wl-&gt;tx_lock);
++	write_lock_irq(&amp;wl-&gt;tx_lock);
+ 
+ 	for (i = 0; i &lt; 5; i++)
+ 		b43_ram_write(dev, i * 4, buffer[i]);
+@@ -779,8 +768,7 @@ void b43_dummy_transmission(struct b43_w
+ 	if (phy-&gt;radio_ver == 0x2050 &amp;&amp; phy-&gt;radio_rev &lt;= 0x5)
+ 		b43_radio_write16(dev, 0x0051, 0x0037);
+ 
+-	write_unlock(&amp;wl-&gt;tx_lock);
+-	spin_unlock_irq(&amp;wl-&gt;irq_lock);
++	write_unlock_irq(&amp;wl-&gt;tx_lock);
+ }
+ 
+ static void key_write(struct b43_wldev *dev,
+@@ -1620,6 +1608,27 @@ static void handle_irq_beacon(struct b43
+ 	}
+ }
+ 
++static void b43_do_beacon_update_trigger_work(struct b43_wldev *dev)
++{
++	u32 old_irq_mask = dev-&gt;irq_mask;
++
++	/* update beacon right away or defer to irq */
++	handle_irq_beacon(dev);
++	if (old_irq_mask != dev-&gt;irq_mask) {
++		/* The handler updated the IRQ mask. */
++		B43_WARN_ON(!dev-&gt;irq_mask);
++		if (b43_read32(dev, B43_MMIO_GEN_IRQ_MASK)) {
++			b43_write32(dev, B43_MMIO_GEN_IRQ_MASK, dev-&gt;irq_mask);
++		} else {
++			/* Device interrupts are currently disabled. That means
++			 * we just ran the hardirq handler and scheduled the
++			 * IRQ thread. The thread will write the IRQ mask when
++			 * it finished, so there's nothing to do here. Writing
++			 * the mask _here_ would incorrectly re-enable IRQs. */
++		}
++	}
++}
++
+ static void b43_beacon_update_trigger_work(struct work_struct *work)
+ {
+ 	struct b43_wl *wl = container_of(work, struct b43_wl,
+@@ -1629,19 +1638,22 @@ static void b43_beacon_update_trigger_wo
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 	dev = wl-&gt;current_dev;
+ 	if (likely(dev &amp;&amp; (b43_status(dev) &gt;= B43_STAT_INITIALIZED))) {
+-		spin_lock_irq(&amp;wl-&gt;irq_lock);
+-		/* update beacon right away or defer to irq */
+-		handle_irq_beacon(dev);
+-		/* The handler might have updated the IRQ mask. */
+-		b43_write32(dev, B43_MMIO_GEN_IRQ_MASK, dev-&gt;irq_mask);
+-		mmiowb();
+-		spin_unlock_irq(&amp;wl-&gt;irq_lock);
++		if (0 /*FIXME dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO*/) {
++			/* wl-&gt;mutex is enough. */
++			b43_do_beacon_update_trigger_work(dev);
++			mmiowb();
++		} else {
++			spin_lock_irq(&amp;wl-&gt;hardirq_lock);
++			b43_do_beacon_update_trigger_work(dev);
++			mmiowb();
++			spin_unlock_irq(&amp;wl-&gt;hardirq_lock);
++		}
+ 	}
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ }
+ 
+ /* Asynchronously update the packet templates in template RAM.
+- * Locking: Requires wl-&gt;irq_lock to be locked. */
++ * Locking: Requires wl-&gt;mutex to be locked. */
+ static void b43_update_templates(struct b43_wl *wl)
+ {
+ 	struct sk_buff *beacon;
+@@ -1778,18 +1790,15 @@ out:
+ 			B43_DEBUGIRQ_REASON_REG, B43_DEBUGIRQ_ACK);
+ }
+ 
+-/* Interrupt handler bottom-half */
+-static void b43_interrupt_tasklet(struct b43_wldev *dev)
++static void b43_do_interrupt_thread(struct b43_wldev *dev)
+ {
+ 	u32 reason;
+ 	u32 dma_reason[ARRAY_SIZE(dev-&gt;dma_reason)];
+ 	u32 merged_dma_reason = 0;
+ 	int i;
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+ 
+-	B43_WARN_ON(b43_status(dev) != B43_STAT_STARTED);
++	if (unlikely(b43_status(dev) != B43_STAT_STARTED))
++		return;
+ 
+ 	reason = dev-&gt;irq_reason;
+ 	for (i = 0; i &lt; ARRAY_SIZE(dma_reason); i++) {
+@@ -1822,8 +1831,6 @@ static void b43_interrupt_tasklet(struct
+ 			       dma_reason[2], dma_reason[3],
+ 			       dma_reason[4], dma_reason[5]);
+ 			b43_controller_restart(dev, &quot;DMA error&quot;);
+-			mmiowb();
+-			spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+ 			return;
+ 		}
+ 		if (merged_dma_reason &amp; B43_DMAIRQ_NONFATALMASK) {
+@@ -1867,47 +1874,36 @@ static void b43_interrupt_tasklet(struct
+ 	if (reason &amp; B43_IRQ_TX_OK)
+ 		handle_irq_transmit_status(dev);
+ 
++	/* Re-enable interrupts on the device by restoring the current interrupt mask. */
+ 	b43_write32(dev, B43_MMIO_GEN_IRQ_MASK, dev-&gt;irq_mask);
+-	mmiowb();
+-	spin_unlock_irqrestore(&amp;dev-&gt;wl-&gt;irq_lock, flags);
+ }
+ 
+-static void b43_interrupt_ack(struct b43_wldev *dev, u32 reason)
++/* Interrupt thread handler. Handles device interrupts in thread context. */
++static irqreturn_t b43_interrupt_thread_handler(int irq, void *dev_id)
+ {
+-	b43_write32(dev, B43_MMIO_GEN_IRQ_REASON, reason);
++	struct b43_wldev *dev = dev_id;
+ 
+-	b43_write32(dev, B43_MMIO_DMA0_REASON, dev-&gt;dma_reason[0]);
+-	b43_write32(dev, B43_MMIO_DMA1_REASON, dev-&gt;dma_reason[1]);
+-	b43_write32(dev, B43_MMIO_DMA2_REASON, dev-&gt;dma_reason[2]);
+-	b43_write32(dev, B43_MMIO_DMA3_REASON, dev-&gt;dma_reason[3]);
+-	b43_write32(dev, B43_MMIO_DMA4_REASON, dev-&gt;dma_reason[4]);
+-/* Unused ring
+-	b43_write32(dev, B43_MMIO_DMA5_REASON, dev-&gt;dma_reason[5]);
+-*/
++	mutex_lock(&amp;dev-&gt;wl-&gt;mutex);
++	b43_do_interrupt_thread(dev);
++	mmiowb();
++	mutex_unlock(&amp;dev-&gt;wl-&gt;mutex);
++
++	return IRQ_HANDLED;
+ }
+ 
+-/* Interrupt handler top-half */
+-static irqreturn_t b43_interrupt_handler(int irq, void *dev_id)
++static irqreturn_t b43_do_interrupt(struct b43_wldev *dev)
+ {
+-	irqreturn_t ret = IRQ_NONE;
+-	struct b43_wldev *dev = dev_id;
+ 	u32 reason;
+ 
+-	B43_WARN_ON(!dev);
++	/* This code runs under wl-&gt;hardirq_lock, but _only_ on non-SDIO busses.
++	 * On SDIO, this runs under wl-&gt;mutex. */
+ 
+-	spin_lock(&amp;dev-&gt;wl-&gt;irq_lock);
+-
+-	if (unlikely(b43_status(dev) &lt; B43_STAT_STARTED)) {
+-		/* This can only happen on shared IRQ lines. */
+-		goto out;
+-	}
+ 	reason = b43_read32(dev, B43_MMIO_GEN_IRQ_REASON);
+ 	if (reason == 0xffffffff)	/* shared IRQ */
+-		goto out;
+-	ret = IRQ_HANDLED;
++		return IRQ_NONE;
+ 	reason &amp;= dev-&gt;irq_mask;
+ 	if (!reason)
+-		goto out;
++		return IRQ_HANDLED;
+ 
+ 	dev-&gt;dma_reason[0] = b43_read32(dev, B43_MMIO_DMA0_REASON)
+ 	    &amp; 0x0001DC00;
+@@ -1924,15 +1920,38 @@ static irqreturn_t b43_interrupt_handler
+ 	    &amp; 0x0000DC00;
+ */
+ 
+-	b43_interrupt_ack(dev, reason);
+-	/* disable all IRQs. They are enabled again in the bottom half. */
++	/* ACK the interrupt. */
++	b43_write32(dev, B43_MMIO_GEN_IRQ_REASON, reason);
++	b43_write32(dev, B43_MMIO_DMA0_REASON, dev-&gt;dma_reason[0]);
++	b43_write32(dev, B43_MMIO_DMA1_REASON, dev-&gt;dma_reason[1]);
++	b43_write32(dev, B43_MMIO_DMA2_REASON, dev-&gt;dma_reason[2]);
++	b43_write32(dev, B43_MMIO_DMA3_REASON, dev-&gt;dma_reason[3]);
++	b43_write32(dev, B43_MMIO_DMA4_REASON, dev-&gt;dma_reason[4]);
++/* Unused ring
++	b43_write32(dev, B43_MMIO_DMA5_REASON, dev-&gt;dma_reason[5]);
++*/
++
++	/* Disable IRQs on the device. The IRQ thread handler will re-enable them. */
+ 	b43_write32(dev, B43_MMIO_GEN_IRQ_MASK, 0);
+-	/* save the reason code and call our bottom half. */
++	/* Save the reason bitmasks for the IRQ thread handler. */
+ 	dev-&gt;irq_reason = reason;
+-	tasklet_schedule(&amp;dev-&gt;isr_tasklet);
+-out:
++
++	return IRQ_WAKE_THREAD;
++}
++
++/* Interrupt handler top-half. This runs with interrupts disabled. */
++static irqreturn_t b43_interrupt_handler(int irq, void *dev_id)
++{
++	struct b43_wldev *dev = dev_id;
++	irqreturn_t ret;
++
++	if (unlikely(b43_status(dev) &lt; B43_STAT_STARTED))
++		return IRQ_NONE;
++
++	spin_lock(&amp;dev-&gt;wl-&gt;hardirq_lock);
++	ret = b43_do_interrupt(dev);
+ 	mmiowb();
+-	spin_unlock(&amp;dev-&gt;wl-&gt;irq_lock);
++	spin_unlock(&amp;dev-&gt;wl-&gt;hardirq_lock);
+ 
+ 	return ret;
+ }
+@@ -3038,15 +3057,12 @@ static void b43_security_init(struct b43
+ static int b43_rng_read(struct hwrng *rng, u32 *data)
+ {
+ 	struct b43_wl *wl = (struct b43_wl *)rng-&gt;priv;
+-	unsigned long flags;
+ 
+-	/* Don't take wl-&gt;mutex here, as it could deadlock with
+-	 * hwrng internal locking. It's not needed to take
+-	 * wl-&gt;mutex here, anyway. */
++	/* FIXME: We need to take wl-&gt;mutex here to make sure the device
++	 * is not going away from under our ass. However it could deadlock
++	 * with hwrng internal locking. */
+ 
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+ 	*data = b43_read16(wl-&gt;current_dev, B43_MMIO_RNG);
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 
+ 	return (sizeof(u16));
+ }
+@@ -3283,22 +3299,20 @@ static int b43_op_get_tx_stats(struct ie
+ 			       struct ieee80211_tx_queue_stats *stats)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+-	struct b43_wldev *dev = wl-&gt;current_dev;
+-	unsigned long flags;
++	struct b43_wldev *dev;
+ 	int err = -ENODEV;
+ 
+-	if (!dev)
+-		goto out;
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-	if (likely(b43_status(dev) &gt;= B43_STAT_STARTED)) {
++	mutex_lock(&amp;wl-&gt;mutex);
++	dev = wl-&gt;current_dev;
++	if (dev &amp;&amp; b43_status(dev) &gt;= B43_STAT_STARTED) {
+ 		if (b43_using_pio_transfers(dev))
+ 			b43_pio_get_tx_stats(dev, stats);
+ 		else
+ 			b43_dma_get_tx_stats(dev, stats);
+ 		err = 0;
+ 	}
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+-out:
++	mutex_unlock(&amp;wl-&gt;mutex);
++
+ 	return err;
+ }
+ 
+@@ -3306,11 +3320,10 @@ static int b43_op_get_stats(struct ieee8
+ 			    struct ieee80211_low_level_stats *stats)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+-	unsigned long flags;
+ 
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
++	mutex_lock(&amp;wl-&gt;mutex);
+ 	memcpy(stats, &amp;wl-&gt;ieee_stats, sizeof(*stats));
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
++	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+ 	return 0;
+ }
+@@ -3322,7 +3335,6 @@ static u64 b43_op_get_tsf(struct ieee802
+ 	u64 tsf;
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+-	spin_lock_irq(&amp;wl-&gt;irq_lock);
+ 	dev = wl-&gt;current_dev;
+ 
+ 	if (dev &amp;&amp; (b43_status(dev) &gt;= B43_STAT_INITIALIZED))
+@@ -3330,7 +3342,6 @@ static u64 b43_op_get_tsf(struct ieee802
+ 	else
+ 		tsf = 0;
+ 
+-	spin_unlock_irq(&amp;wl-&gt;irq_lock);
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+ 	return tsf;
+@@ -3342,13 +3353,11 @@ static void b43_op_set_tsf(struct ieee80
+ 	struct b43_wldev *dev;
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+-	spin_lock_irq(&amp;wl-&gt;irq_lock);
+ 	dev = wl-&gt;current_dev;
+ 
+ 	if (dev &amp;&amp; (b43_status(dev) &gt;= B43_STAT_INITIALIZED))
+ 		b43_tsf_write(dev, tsf);
+ 
+-	spin_unlock_irq(&amp;wl-&gt;irq_lock);
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ }
+ 
+@@ -3434,7 +3443,7 @@ static int b43_switch_band(struct b43_wl
+ 	prev_status = b43_status(down_dev);
+ 	/* Shutdown the currently running core. */
+ 	if (prev_status &gt;= B43_STAT_STARTED)
+-		b43_wireless_core_stop(down_dev);
++		down_dev = b43_wireless_core_stop(down_dev);
+ 	if (prev_status &gt;= B43_STAT_INITIALIZED)
+ 		b43_wireless_core_exit(down_dev);
+ 
+@@ -3498,7 +3507,6 @@ static int b43_op_config(struct ieee8021
+ 	struct b43_wldev *dev;
+ 	struct b43_phy *phy;
+ 	struct ieee80211_conf *conf = &amp;hw-&gt;conf;
+-	unsigned long flags;
+ 	int antenna;
+ 	int err = 0;
+ 
+@@ -3529,13 +3537,11 @@ static int b43_op_config(struct ieee8021
+ 
+ 	/* Adjust the desired TX power level. */
+ 	if (conf-&gt;power_level != 0) {
+-		spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+ 		if (conf-&gt;power_level != phy-&gt;desired_txpower) {
+ 			phy-&gt;desired_txpower = conf-&gt;power_level;
+ 			b43_phy_txpower_check(dev, B43_TXPWR_IGNORE_TIME |
+ 						   B43_TXPWR_IGNORE_TSSI);
+ 		}
+-		spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 	}
+ 
+ 	/* Antennas for RX and management frame TX. */
+@@ -3620,7 +3626,6 @@ static void b43_op_bss_info_changed(stru
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev;
+-	unsigned long flags;
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+ 
+@@ -3630,7 +3635,6 @@ static void b43_op_bss_info_changed(stru
+ 
+ 	B43_WARN_ON(wl-&gt;vif != vif);
+ 
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+ 	if (changed &amp; BSS_CHANGED_BSSID) {
+ 		if (conf-&gt;bssid)
+ 			memcpy(wl-&gt;bssid, conf-&gt;bssid, ETH_ALEN);
+@@ -3648,7 +3652,6 @@ static void b43_op_bss_info_changed(stru
+ 		if (changed &amp; BSS_CHANGED_BSSID)
+ 			b43_write_mac_bssid_templates(dev);
+ 	}
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 
+ 	b43_mac_suspend(dev);
+ 
+@@ -3683,18 +3686,15 @@ static int b43_op_set_key(struct ieee802
+ 	u8 algorithm;
+ 	u8 index;
+ 	int err;
++	unsigned long flags;
+ 	static const u8 bcast_addr[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+ 
+ 	if (modparam_nohwcrypt)
+ 		return -ENOSPC; /* User disabled HW-crypto */
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+-	spin_lock_irq(&amp;wl-&gt;irq_lock);
+-	write_lock(&amp;wl-&gt;tx_lock);
+-	/* Why do we need all this locking here?
+-	 * mutex     -&gt; Every config operation must take it.
+-	 * irq_lock  -&gt; We modify the dev-&gt;key array, which is accessed
+-	 *              in the IRQ handlers.
++	write_lock_irqsave(&amp;wl-&gt;tx_lock, flags);
++	/* mutex     -&gt; Every config operation must take it.
+ 	 * tx_lock   -&gt; We modify the dev-&gt;key array, which is accessed
+ 	 *              in the TX handler.
+ 	 */
+@@ -3789,8 +3789,7 @@ out_unlock:
+ 		       sta ? sta-&gt;addr : bcast_addr);
+ 		b43_dump_keymemory(dev);
+ 	}
+-	write_unlock(&amp;wl-&gt;tx_lock);
+-	spin_unlock_irq(&amp;wl-&gt;irq_lock);
++	write_unlock_irqrestore(&amp;wl-&gt;tx_lock, flags);
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+ 	return err;
+@@ -3801,15 +3800,15 @@ static void b43_op_configure_filter(stru
+ 				    u64 multicast)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+-	struct b43_wldev *dev = wl-&gt;current_dev;
+-	unsigned long flags;
++	struct b43_wldev *dev;
+ 
++	mutex_lock(&amp;wl-&gt;mutex);
++	dev = wl-&gt;current_dev;
+ 	if (!dev) {
+ 		*fflags = 0;
+-		return;
++		goto out_unlock;
+ 	}
+ 
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+ 	*fflags &amp;= FIF_PROMISC_IN_BSS |
+ 		  FIF_ALLMULTI |
+ 		  FIF_FCSFAIL |
+@@ -3830,41 +3829,66 @@ static void b43_op_configure_filter(stru
+ 
+ 	if (changed &amp;&amp; b43_status(dev) &gt;= B43_STAT_INITIALIZED)
+ 		b43_adjust_opmode(dev);
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
++
++out_unlock:
++	mutex_unlock(&amp;wl-&gt;mutex);
+ }
+ 
+-/* Locking: wl-&gt;mutex */
+-static void b43_wireless_core_stop(struct b43_wldev *dev)
++/* Locking: wl-&gt;mutex
++ * Returns the current dev. This might be different from the passed in dev,
++ * because the core might be gone away while we unlocked the mutex. */
++static struct b43_wldev * b43_wireless_core_stop(struct b43_wldev *dev)
+ {
+ 	struct b43_wl *wl = dev-&gt;wl;
+-	unsigned long flags;
++	struct b43_wldev *orig_dev;
+ 
+-	if (b43_status(dev) &lt; B43_STAT_STARTED)
+-		return;
++redo:
++	if (!dev || b43_status(dev) &lt; B43_STAT_STARTED)
++		return dev;
+ 
+-	/* Disable and sync interrupts. We must do this before than
+-	 * setting the status to INITIALIZED, as the interrupt handler
+-	 * won't care about IRQs then. */
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+-	b43_write32(dev, B43_MMIO_GEN_IRQ_MASK, 0);
+-	b43_read32(dev, B43_MMIO_GEN_IRQ_MASK);	/* flush */
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+-	b43_synchronize_irq(dev);
++	/* Disable periodic work. Unlock to avoid deadlocks. */
++	mutex_unlock(&amp;wl-&gt;mutex);
++	cancel_delayed_work_sync(&amp;dev-&gt;periodic_work);
++	mutex_lock(&amp;wl-&gt;mutex);
++	dev = wl-&gt;current_dev;
++	if (!dev || b43_status(dev) &lt; B43_STAT_STARTED) {
++		/* Whoops, aliens ate up the device while we were unlocked. */
++		return dev;
++	}
+ 
+-	write_lock_irqsave(&amp;wl-&gt;tx_lock, flags);
++	/* Disable interrupts on the device. */
+ 	b43_set_status(dev, B43_STAT_INITIALIZED);
+-	write_unlock_irqrestore(&amp;wl-&gt;tx_lock, flags);
+-
+-	b43_pio_stop(dev);
++	if (0 /*FIXME dev-&gt;dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_SDIO*/) {
++		/* wl-&gt;mutex is locked. That is enough. */
++		b43_write32(dev, B43_MMIO_GEN_IRQ_MASK, 0);
++		b43_read32(dev, B43_MMIO_GEN_IRQ_MASK);	/* Flush */
++	} else {
++		spin_lock_irq(&amp;wl-&gt;hardirq_lock);
++		b43_write32(dev, B43_MMIO_GEN_IRQ_MASK, 0);
++		b43_read32(dev, B43_MMIO_GEN_IRQ_MASK);	/* Flush */
++		spin_unlock_irq(&amp;wl-&gt;hardirq_lock);
++	}
++	/* Synchronize the interrupt handlers. Unlock to avoid deadlocks. */
++	orig_dev = dev;
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+-	/* Must unlock as it would otherwise deadlock. No races here.
+-	 * Cancel the possibly running self-rearming periodic work. */
+-	cancel_delayed_work_sync(&amp;dev-&gt;periodic_work);
++	synchronize_irq(dev-&gt;dev-&gt;irq);
+ 	mutex_lock(&amp;wl-&gt;mutex);
++	dev = wl-&gt;current_dev;
++	if (!dev)
++		return dev;
++	if (dev != orig_dev) {
++		if (b43_status(dev) &gt;= B43_STAT_STARTED)
++			goto redo;
++		return dev;
++	}
++	B43_WARN_ON(b43_read32(dev, B43_MMIO_GEN_IRQ_MASK));
+ 
++	b43_pio_stop(dev);
+ 	b43_mac_suspend(dev);
+ 	free_irq(dev-&gt;dev-&gt;irq, dev);
+ 	b43dbg(wl, &quot;Wireless interface stopped\n&quot;);
++
++	return dev;
+ }
+ 
+ /* Locking: wl-&gt;mutex */
+@@ -3875,8 +3899,9 @@ static int b43_wireless_core_start(struc
+ 	B43_WARN_ON(b43_status(dev) != B43_STAT_INITIALIZED);
+ 
+ 	drain_txstatus_queue(dev);
+-	err = request_irq(dev-&gt;dev-&gt;irq, b43_interrupt_handler,
+-			  IRQF_SHARED, KBUILD_MODNAME, dev);
++	err = request_threaded_irq(dev-&gt;dev-&gt;irq, b43_interrupt_handler,
++				   b43_interrupt_thread_handler,
++				   IRQF_SHARED, KBUILD_MODNAME, dev);
+ 	if (err) {
+ 		b43err(dev-&gt;wl, &quot;Cannot request IRQ-%d\n&quot;, dev-&gt;dev-&gt;irq);
+ 		goto out;
+@@ -4155,8 +4180,8 @@ static void b43_wireless_core_exit(struc
+ {
+ 	u32 macctl;
+ 
+-	B43_WARN_ON(b43_status(dev) &gt; B43_STAT_INITIALIZED);
+-	if (b43_status(dev) != B43_STAT_INITIALIZED)
++	B43_WARN_ON(dev &amp;&amp; b43_status(dev) &gt; B43_STAT_INITIALIZED);
++	if (!dev || b43_status(dev) != B43_STAT_INITIALIZED)
+ 		return;
+ 	b43_set_status(dev, B43_STAT_UNINIT);
+ 
+@@ -4309,7 +4334,6 @@ static int b43_op_add_interface(struct i
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev;
+-	unsigned long flags;
+ 	int err = -EOPNOTSUPP;
+ 
+ 	/* TODO: allow WDS/AP devices to coexist */
+@@ -4333,12 +4357,10 @@ static int b43_op_add_interface(struct i
+ 	wl-&gt;if_type = conf-&gt;type;
+ 	memcpy(wl-&gt;mac_addr, conf-&gt;mac_addr, ETH_ALEN);
+ 
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+ 	b43_adjust_opmode(dev);
+ 	b43_set_pretbtt(dev);
+ 	b43_set_synth_pu_delay(dev, 0);
+ 	b43_upload_card_macaddress(dev);
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 
+ 	err = 0;
+  out_mutex_unlock:
+@@ -4352,7 +4374,6 @@ static void b43_op_remove_interface(stru
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev = wl-&gt;current_dev;
+-	unsigned long flags;
+ 
+ 	b43dbg(wl, &quot;Removing Interface type %d\n&quot;, conf-&gt;type);
+ 
+@@ -4364,11 +4385,9 @@ static void b43_op_remove_interface(stru
+ 
+ 	wl-&gt;operating = 0;
+ 
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
+ 	b43_adjust_opmode(dev);
+ 	memset(wl-&gt;mac_addr, 0, ETH_ALEN);
+ 	b43_upload_card_macaddress(dev);
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
+ 
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ }
+@@ -4428,10 +4447,15 @@ static void b43_op_stop(struct ieee80211
+ 	cancel_work_sync(&amp;(wl-&gt;beacon_update_trigger));
+ 
+ 	mutex_lock(&amp;wl-&gt;mutex);
+-	if (b43_status(dev) &gt;= B43_STAT_STARTED)
+-		b43_wireless_core_stop(dev);
++	if (b43_status(dev) &gt;= B43_STAT_STARTED) {
++		dev = b43_wireless_core_stop(dev);
++		if (!dev)
++			goto out_unlock;
++	}
+ 	b43_wireless_core_exit(dev);
+ 	wl-&gt;radio_enabled = 0;
++
++out_unlock:
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+ 	cancel_work_sync(&amp;(wl-&gt;txpower_adjust_work));
+@@ -4441,11 +4465,10 @@ static int b43_op_beacon_set_tim(struct 
+ 				 struct ieee80211_sta *sta, bool set)
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+-	unsigned long flags;
+ 
+-	spin_lock_irqsave(&amp;wl-&gt;irq_lock, flags);
++	mutex_lock(&amp;wl-&gt;mutex);
+ 	b43_update_templates(wl);
+-	spin_unlock_irqrestore(&amp;wl-&gt;irq_lock, flags);
++	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+ 	return 0;
+ }
+@@ -4526,8 +4549,13 @@ static void b43_chip_reset(struct work_s
+ 
+ 	prev_status = b43_status(dev);
+ 	/* Bring the device down... */
+-	if (prev_status &gt;= B43_STAT_STARTED)
+-		b43_wireless_core_stop(dev);
++	if (prev_status &gt;= B43_STAT_STARTED) {
++		dev = b43_wireless_core_stop(dev);
++		if (!dev) {
++			err = -ENODEV;
++			goto out;
++		}
++	}
+ 	if (prev_status &gt;= B43_STAT_INITIALIZED)
+ 		b43_wireless_core_exit(dev);
+ 
+@@ -4742,9 +4770,6 @@ static int b43_one_core_attach(struct ss
+ 	wldev-&gt;wl = wl;
+ 	b43_set_status(wldev, B43_STAT_UNINIT);
+ 	wldev-&gt;bad_frames_preempt = modparam_bad_frames_preempt;
+-	tasklet_init(&amp;wldev-&gt;isr_tasklet,
+-		     (void (*)(unsigned long))b43_interrupt_tasklet,
+-		     (unsigned long)wldev);
+ 	INIT_LIST_HEAD(&amp;wldev-&gt;list);
+ 
+ 	err = b43_wireless_core_attach(wldev);
+@@ -4841,11 +4866,11 @@ static int b43_wireless_init(struct ssb_
+ 
+ 	/* Initialize struct b43_wl */
+ 	wl-&gt;hw = hw;
+-	spin_lock_init(&amp;wl-&gt;irq_lock);
+ 	rwlock_init(&amp;wl-&gt;tx_lock);
+ 	spin_lock_init(&amp;wl-&gt;leds_lock);
+ 	spin_lock_init(&amp;wl-&gt;shm_lock);
+ 	mutex_init(&amp;wl-&gt;mutex);
++	spin_lock_init(&amp;wl-&gt;hardirq_lock);
+ 	INIT_LIST_HEAD(&amp;wl-&gt;devlist);
+ 	INIT_WORK(&amp;wl-&gt;beacon_update_trigger, b43_beacon_update_trigger_work);
+ 	INIT_WORK(&amp;wl-&gt;txpower_adjust_work, b43_phy_txpower_adjust_work);
+@@ -4946,8 +4971,8 @@ static int b43_suspend(struct ssb_device
+ 	wldev-&gt;suspend_in_progress = true;
+ 	wldev-&gt;suspend_init_status = b43_status(wldev);
+ 	if (wldev-&gt;suspend_init_status &gt;= B43_STAT_STARTED)
+-		b43_wireless_core_stop(wldev);
+-	if (wldev-&gt;suspend_init_status &gt;= B43_STAT_INITIALIZED)
++		wldev = b43_wireless_core_stop(wldev);
++	if (wldev &amp;&amp; wldev-&gt;suspend_init_status &gt;= B43_STAT_INITIALIZED)
+ 		b43_wireless_core_exit(wldev);
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ 
+Index: wireless-testing/drivers/net/wireless/b43/phy_common.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_common.c	2009-09-04 22:15:30.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy_common.c	2009-09-04 22:15:32.000000000 +0200
+@@ -347,7 +347,6 @@ void b43_phy_txpower_adjust_work(struct 
+ 	mutex_unlock(&amp;wl-&gt;mutex);
+ }
+ 
+-/* Called with wl-&gt;irq_lock locked */
+ void b43_phy_txpower_check(struct b43_wldev *dev, unsigned int flags)
+ {
+ 	struct b43_phy *phy = &amp;dev-&gt;phy;
+Index: wireless-testing/drivers/net/wireless/b43/phy_common.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_common.h	2009-09-04 22:15:30.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy_common.h	2009-09-04 22:15:32.000000000 +0200
+@@ -131,7 +131,7 @@ enum b43_txpwr_result {
+  * 			If the parameter &quot;ignore_tssi&quot; is true, the TSSI values should
+  * 			be ignored and a recalculation of the power settings should be
+  * 			done even if the TSSI values did not change.
+- * 			This callback is called with wl-&gt;irq_lock held and must not sleep.
++ * 			This function may sleep, but should not.
+  * 			Must not be NULL.
+  * @adjust_txpower:	Write the previously calculated TX power settings
+  * 			(from @recalc_txpower) to the hardware.
+@@ -379,7 +379,6 @@ void b43_software_rfkill(struct b43_wlde
+  *
+  * Compare the current TX power output to the desired power emission
+  * and schedule an adjustment in case it mismatches.
+- * Requires wl-&gt;irq_lock locked.
+  *
+  * @flags:	OR'ed enum b43_phy_txpower_check_flags flags.
+  * 		See the docs below.
+Index: wireless-testing/drivers/net/wireless/b43/phy_g.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_g.c	2009-09-04 22:15:30.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy_g.c	2009-09-04 22:15:32.000000000 +0200
+@@ -2823,8 +2823,6 @@ static void b43_gphy_op_adjust_txpower(s
+ 
+ 	b43_mac_suspend(dev);
+ 
+-	spin_lock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+-
+ 	/* Calculate the new attenuation values. */
+ 	bbatt = gphy-&gt;bbatt.att;
+ 	bbatt += gphy-&gt;bbatt_delta;
+@@ -2864,11 +2862,6 @@ static void b43_gphy_op_adjust_txpower(s
+ 	gphy-&gt;rfatt.att = rfatt;
+ 	gphy-&gt;bbatt.att = bbatt;
+ 
+-	/* We drop the lock early, so we can sleep during hardware
+-	 * adjustment. Possible races with op_recalc_txpower are harmless,
+-	 * as we will be called once again in case we raced. */
+-	spin_unlock_irq(&amp;dev-&gt;wl-&gt;irq_lock);
+-
+ 	if (b43_debug(dev, B43_DBG_XMITPOWER))
+ 		b43dbg(dev-&gt;wl, &quot;Adjusting TX power\n&quot;);
+ 
+Index: wireless-testing/drivers/net/wireless/b43/phy_g.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/phy_g.h	2009-09-04 22:15:30.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/phy_g.h	2009-09-04 22:15:32.000000000 +0200
+@@ -141,8 +141,7 @@ struct b43_phy_g {
+ 	int tgt_idle_tssi;
+ 	/* Current idle TSSI */
+ 	int cur_idle_tssi;
+-	/* The current average TSSI.
+-	 * Needs irq_lock, as it's updated in the IRQ path. */
++	/* The current average TSSI. */
+ 	u8 average_tssi;
+ 	/* Current TX power level attenuation control values */
+ 	struct b43_bbatt bbatt;
+Index: wireless-testing/drivers/net/wireless/b43/sysfs.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/sysfs.c	2009-09-04 22:15:30.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/sysfs.c	2009-09-04 22:15:32.000000000 +0200
+@@ -94,7 +94,6 @@ static ssize_t b43_attr_interfmode_store
+ 					 const char *buf, size_t count)
+ {
+ 	struct b43_wldev *wldev = dev_to_b43_wldev(dev);
+-	unsigned long flags;
+ 	int err;
+ 	int mode;
+ 
+@@ -120,7 +119,6 @@ static ssize_t b43_attr_interfmode_store
+ 	}
+ 
+ 	mutex_lock(&amp;wldev-&gt;wl-&gt;mutex);
+-	spin_lock_irqsave(&amp;wldev-&gt;wl-&gt;irq_lock, flags);
+ 
+ 	if (wldev-&gt;phy.ops-&gt;interf_mitigation) {
+ 		err = wldev-&gt;phy.ops-&gt;interf_mitigation(wldev, mode);
+@@ -132,7 +130,6 @@ static ssize_t b43_attr_interfmode_store
+ 		err = -ENOSYS;
+ 
+ 	mmiowb();
+-	spin_unlock_irqrestore(&amp;wldev-&gt;wl-&gt;irq_lock, flags);
+ 	mutex_unlock(&amp;wldev-&gt;wl-&gt;mutex);
+ 
+ 	return err ? err : count;
+Index: wireless-testing/drivers/net/wireless/b43/dma.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/dma.c	2009-09-04 22:15:30.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/dma.c	2009-09-04 22:15:32.000000000 +0200
+@@ -1387,7 +1387,6 @@ out_unlock:
+ 	return err;
+ }
+ 
+-/* Called with IRQs disabled. */
+ void b43_dma_handle_txstatus(struct b43_wldev *dev,
+ 			     const struct b43_txstatus *status)
+ {
+@@ -1402,7 +1401,7 @@ void b43_dma_handle_txstatus(struct b43_
+ 	if (unlikely(!ring))
+ 		return;
+ 
+-	spin_lock(&amp;ring-&gt;lock); /* IRQs are already disabled. */
++	spin_lock_irq(&amp;ring-&gt;lock);
+ 
+ 	B43_WARN_ON(!ring-&gt;tx);
+ 	ops = ring-&gt;ops;
+@@ -1463,7 +1462,7 @@ void b43_dma_handle_txstatus(struct b43_
+ 		}
+ 	}
+ 
+-	spin_unlock(&amp;ring-&gt;lock);
++	spin_unlock_irq(&amp;ring-&gt;lock);
+ }
+ 
+ void b43_dma_get_tx_stats(struct b43_wldev *dev,
+Index: wireless-testing/drivers/net/wireless/b43/pio.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/pio.c	2009-09-04 22:15:30.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/pio.c	2009-09-04 22:15:32.000000000 +0200
+@@ -570,7 +570,6 @@ out_unlock:
+ 	return err;
+ }
+ 
+-/* Called with IRQs disabled. */
+ void b43_pio_handle_txstatus(struct b43_wldev *dev,
+ 			     const struct b43_txstatus *status)
+ {
+@@ -584,7 +583,7 @@ void b43_pio_handle_txstatus(struct b43_
+ 		return;
+ 	B43_WARN_ON(!pack);
+ 
+-	spin_lock(&amp;q-&gt;lock); /* IRQs are already disabled. */
++	spin_lock_irq(&amp;q-&gt;lock);
+ 
+ 	info = IEEE80211_SKB_CB(pack-&gt;skb);
+ 
+@@ -604,7 +603,7 @@ void b43_pio_handle_txstatus(struct b43_
+ 		q-&gt;stopped = 0;
+ 	}
+ 
+-	spin_unlock(&amp;q-&gt;lock);
++	spin_unlock_irq(&amp;q-&gt;lock);
+ }
+ 
+ void b43_pio_get_tx_stats(struct b43_wldev *dev,
+Index: wireless-testing/drivers/net/wireless/b43/debugfs.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/b43/debugfs.h	2009-09-04 22:15:30.000000000 +0200
++++ wireless-testing/drivers/net/wireless/b43/debugfs.h	2009-09-04 22:15:32.000000000 +0200
+@@ -23,9 +23,10 @@ struct dentry;
+ #define B43_NR_LOGGED_TXSTATUS	100
+ 
+ struct b43_txstatus_log {
++	/* This structure is protected by wl-&gt;mutex */
++
+ 	struct b43_txstatus *log;
+ 	int end;
+-	spinlock_t lock;
+ };
+ 
+ struct b43_dfs_file {
+
+-- 
+Greetings, Michael.
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="005984.html">[PATCH 0/5] b43: Prepare driver for sleeping busses
+</A></li>
+	<LI>Next message: <A HREF="005980.html">[PATCH 2/5] b43: Remove TX spinlock
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5979">[ date ]</a>
+              <a href="thread.html#5979">[ thread ]</a>
+              <a href="subject.html#5979">[ subject ]</a>
+              <a href="author.html#5979">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

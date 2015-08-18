@@ -1,0 +1,181 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH] b43legacy: fix DMA mapping leakage
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2008-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20fix%20DMA%20mapping%20leakage&In-Reply-To=%3C20080414005949.162956b2%40polimi.it%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="003792.html">
+   <LINK REL="Next"  HREF="003802.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH] b43legacy: fix DMA mapping leakage</H1>
+    <B>Stefano Brivio</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%5D%20b43legacy%3A%20fix%20DMA%20mapping%20leakage&In-Reply-To=%3C20080414005949.162956b2%40polimi.it%3E"
+       TITLE="[PATCH] b43legacy: fix DMA mapping leakage">stefano.brivio at polimi.it
+       </A><BR>
+    <I>Mon Apr 14 00:59:49 CEST 2008</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="003792.html">[PATCH] b43legacy: fix TBTT and PU timings
+</A></li>
+        <LI>Next message: <A HREF="003802.html">mac80211 sysfs interface
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3793">[ date ]</a>
+              <a href="thread.html#3793">[ thread ]</a>
+              <a href="subject.html#3793">[ subject ]</a>
+              <a href="author.html#3793">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>This fixes a DMA mapping leakage in the case where we reject a DMA buffer
+because of its address.
+The patch by Michael Buesch has been ported to b43legacy.
+
+Signed-off-by: Stefano Brivio &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">stefano.brivio at polimi.it</A>&gt;
+Cc: Christian Casteyde &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">casteyde.christian at free.fr</A>&gt;
+---
+John, this is a fix for 2.6.25.
+---
+Index: bcm-testing/drivers/net/wireless/b43legacy/dma.c
+===================================================================
+--- bcm-testing.orig/drivers/net/wireless/b43legacy/dma.c
++++ bcm-testing/drivers/net/wireless/b43legacy/dma.c
+@@ -585,8 +585,9 @@ static int b43legacy_dmacontroller_tx_re
+ 
+ /* Check if a DMA mapping address is invalid. */
+ static bool b43legacy_dma_mapping_error(struct b43legacy_dmaring *ring,
+-					dma_addr_t addr,
+-					size_t buffersize)
++					 dma_addr_t addr,
++					 size_t buffersize,
++					 bool dma_to_device)
+ {
+ 	if (unlikely(dma_mapping_error(addr)))
+ 		return 1;
+@@ -594,11 +595,11 @@ static bool b43legacy_dma_mapping_error(
+ 	switch (ring-&gt;type) {
+ 	case B43legacy_DMA_30BIT:
+ 		if ((u64)addr + buffersize &gt; (1ULL &lt;&lt; 30))
+-			return 1;
++			goto address_error;
+ 		break;
+ 	case B43legacy_DMA_32BIT:
+ 		if ((u64)addr + buffersize &gt; (1ULL &lt;&lt; 32))
+-			return 1;
++			goto address_error;
+ 		break;
+ 	case B43legacy_DMA_64BIT:
+ 		/* Currently we can't have addresses beyond 64 bits in the kernel. */
+@@ -607,6 +608,12 @@ static bool b43legacy_dma_mapping_error(
+ 
+ 	/* The address is OK. */
+ 	return 0;
++
++address_error:
++	/* We can't support this address. Unmap it again. */
++	unmap_descbuffer(ring, addr, buffersize, dma_to_device);
++
++	return 1;
+ }
+ 
+ static int setup_rx_descbuffer(struct b43legacy_dmaring *ring,
+@@ -626,7 +633,7 @@ static int setup_rx_descbuffer(struct b4
+ 		return -ENOMEM;
+ 	dmaaddr = map_descbuffer(ring, skb-&gt;data,
+ 				 ring-&gt;rx_buffersize, 0);
+-	if (b43legacy_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize)) {
++	if (b43legacy_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize, 0)) {
+ 		/* ugh. try to realloc in zone_dma */
+ 		gfp_flags |= GFP_DMA;
+ 
+@@ -639,7 +646,7 @@ static int setup_rx_descbuffer(struct b4
+ 					 ring-&gt;rx_buffersize, 0);
+ 	}
+ 
+-	if (b43legacy_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize)) {
++	if (b43legacy_dma_mapping_error(ring, dmaaddr, ring-&gt;rx_buffersize, 0)) {
+ 		dev_kfree_skb_any(skb);
+ 		return -EIO;
+ 	}
+@@ -891,7 +898,7 @@ struct b43legacy_dmaring *b43legacy_setu
+ 					  DMA_TO_DEVICE);
+ 
+ 		if (b43legacy_dma_mapping_error(ring, dma_test,
+-					sizeof(struct b43legacy_txhdr_fw3))) {
++					sizeof(struct b43legacy_txhdr_fw3), 1)) {
+ 			/* ugh realloc */
+ 			kfree(ring-&gt;txhdr_cache);
+ 			ring-&gt;txhdr_cache = kcalloc(nr_slots,
+@@ -906,7 +913,7 @@ struct b43legacy_dmaring *b43legacy_setu
+ 					DMA_TO_DEVICE);
+ 
+ 			if (b43legacy_dma_mapping_error(ring, dma_test,
+-					sizeof(struct b43legacy_txhdr_fw3)))
++					sizeof(struct b43legacy_txhdr_fw3), 1))
+ 				goto err_kfree_txhdr_cache;
+ 		}
+ 
+@@ -1235,7 +1242,7 @@ static int dma_tx_fragment(struct b43leg
+ 	meta_hdr-&gt;dmaaddr = map_descbuffer(ring, (unsigned char *)header,
+ 					   sizeof(struct b43legacy_txhdr_fw3), 1);
+ 	if (b43legacy_dma_mapping_error(ring, meta_hdr-&gt;dmaaddr,
+-					sizeof(struct b43legacy_txhdr_fw3))) {
++					sizeof(struct b43legacy_txhdr_fw3), 1)) {
+ 		ring-&gt;current_slot = old_top_slot;
+ 		ring-&gt;used_slots = old_used_slots;
+ 		return -EIO;
+@@ -1254,7 +1261,7 @@ static int dma_tx_fragment(struct b43leg
+ 
+ 	meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+ 	/* create a bounce buffer in zone_dma on mapping failure. */
+-	if (b43legacy_dma_mapping_error(ring, meta-&gt;dmaaddr, skb-&gt;len)) {
++	if (b43legacy_dma_mapping_error(ring, meta-&gt;dmaaddr, skb-&gt;len, 1)) {
+ 		bounce_skb = __dev_alloc_skb(skb-&gt;len, GFP_ATOMIC | GFP_DMA);
+ 		if (!bounce_skb) {
+ 			ring-&gt;current_slot = old_top_slot;
+@@ -1268,7 +1275,7 @@ static int dma_tx_fragment(struct b43leg
+ 		skb = bounce_skb;
+ 		meta-&gt;skb = skb;
+ 		meta-&gt;dmaaddr = map_descbuffer(ring, skb-&gt;data, skb-&gt;len, 1);
+-		if (b43legacy_dma_mapping_error(ring, meta-&gt;dmaaddr, skb-&gt;len)) {
++		if (b43legacy_dma_mapping_error(ring, meta-&gt;dmaaddr, skb-&gt;len, 1)) {
+ 			ring-&gt;current_slot = old_top_slot;
+ 			ring-&gt;used_slots = old_used_slots;
+ 			err = -EIO;
+
+
+--
+Ciao
+Stefano
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="003792.html">[PATCH] b43legacy: fix TBTT and PU timings
+</A></li>
+	<LI>Next message: <A HREF="003802.html">mac80211 sysfs interface
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3793">[ date ]</a>
+              <a href="thread.html#3793">[ thread ]</a>
+              <a href="subject.html#3793">[ subject ]</a>
+              <a href="author.html#3793">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

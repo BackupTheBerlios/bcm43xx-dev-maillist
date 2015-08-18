@@ -1,0 +1,114 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> The new SSB subsystem for bcm43xx (and others)
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2007-February/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20The%20new%20SSB%20subsystem%20for%20bcm43xx%20%28and%20others%29&In-Reply-To=%3C20070210221150.GA28338%40srcf.ucam.org%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000457.html">
+   <LINK REL="Next"  HREF="000459.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>The new SSB subsystem for bcm43xx (and others)</H1>
+    <B>Matthew Garrett</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20The%20new%20SSB%20subsystem%20for%20bcm43xx%20%28and%20others%29&In-Reply-To=%3C20070210221150.GA28338%40srcf.ucam.org%3E"
+       TITLE="The new SSB subsystem for bcm43xx (and others)">mjg59 at srcf.ucam.org
+       </A><BR>
+    <I>Sat Feb 10 23:11:50 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000457.html">The new SSB subsystem for bcm43xx (and others)
+</A></li>
+        <LI>Next message: <A HREF="000459.html">The new SSB subsystem for bcm43xx (and others)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#458">[ date ]</a>
+              <a href="thread.html#458">[ thread ]</a>
+              <a href="subject.html#458">[ subject ]</a>
+              <a href="author.html#458">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>On Sat, Feb 10, 2007 at 10:03:57PM +0100, Michael Buesch wrote:
+&gt;<i> On Saturday 10 February 2007 21:46, Matthew Garrett wrote:
+</I>&gt;<i> &gt; I'm testing with your bcm43xx git tree, which I'm guessing is the 
+</I>&gt;<i> &gt; current ssb code. The only problem I've found is that there doesn't seem 
+</I>&gt;<i> &gt; to be any sysfs relationship between the ssb bus and (in this case) the 
+</I>&gt;<i> &gt; PCI device that it's associated with. Is this fixable? Right now it 
+</I>&gt;<i> &gt; appears as an entirely separate branch of the device tree, which doesn't 
+</I>&gt;<i> &gt; seem quite right.
+</I>&gt;<i> 
+</I>&gt;<i> I guess that's fixable, but I didn't care too much, yet.
+</I>
+Ok, here's a patch. The stack of PCMCIA headers are needed to get the 
+pcmcia_device structure. Seems to work fine for PCI - I don't have any 
+PCMCIA devices. The SSB devices now appear underneath the PCI device 
+rather than in the top level of /sys/devices.
+
+Signed-off-by: Matthew Garrett &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mjg59 at srcf.ucam.org</A>&gt;
+
+---
+
+diff --git a/drivers/ssb/scan.c b/drivers/ssb/scan.c
+index 64f94b8..b16cee9 100644
+--- a/drivers/ssb/scan.c
++++ b/drivers/ssb/scan.c
+@@ -15,6 +15,11 @@
+ #include &lt;linux/ssb/ssb.h&gt;
+ #include &lt;linux/ssb/ssb_regs.h&gt;
+ #include &lt;linux/pci.h&gt;
++#include &lt;pcmcia/cs_types.h&gt;
++#include &lt;pcmcia/cs.h&gt;
++#include &lt;pcmcia/cistpl.h&gt;
++#include &lt;pcmcia/ciscode.h&gt;
++#include &lt;pcmcia/ds.h&gt;
+ #include &lt;asm/io.h&gt;
+ 
+ #include &quot;ssb_private.h&quot;
+@@ -306,8 +311,12 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 		dev-&gt;id.vendor = (idhi &amp; SSB_IDHIGH_VC) &gt;&gt; SSB_IDHIGH_VC_SHIFT;
+ 		dev-&gt;core_index = i;
+ 		dev-&gt;bus = bus;
+-		if ((dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_PCI) &amp;&amp; (bus-&gt;host_pci))
++		if ((dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_PCI) &amp;&amp; (bus-&gt;host_pci)) {
+ 			dev-&gt;irq = bus-&gt;host_pci-&gt;irq;
++			dev-&gt;dev.parent = &amp;bus-&gt;host_pci-&gt;dev;
++		} else if (dev-&gt;bus-&gt;bustype == SSB_BUSTYPE_PCMCIA) {
++		        dev-&gt;dev.parent = &amp;bus-&gt;host_pcmcia-&gt;dev;
++		}
+ 
+ 		ssb_dprintk(KERN_INFO PFX
+ 			    &quot;Core %d found: %s &quot;
+
+-- 
+Matthew Garrett | <A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">mjg59 at srcf.ucam.org</A>
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000457.html">The new SSB subsystem for bcm43xx (and others)
+</A></li>
+	<LI>Next message: <A HREF="000459.html">The new SSB subsystem for bcm43xx (and others)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#458">[ date ]</a>
+              <a href="thread.html#458">[ thread ]</a>
+              <a href="subject.html#458">[ subject ]</a>
+              <a href="author.html#458">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>

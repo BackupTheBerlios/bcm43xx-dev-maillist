@@ -1,0 +1,156 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [PATCH 1/5] b43: N-PHY: implement b43_nphy_stay_in_carrier_search and	it's calls (V2)
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-dev/2010-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/5%5D%20b43%3A%20N-PHY%3A%20implement%20b43_nphy_stay_in_carrier_search%20and%0A%09it%27s%20calls%20%28V2%29&In-Reply-To=%3Cop.u54ppc2h9lhzdc%40linux-g0th.site%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="006669.html">
+   <LINK REL="Next"  HREF="006677.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[PATCH 1/5] b43: N-PHY: implement b43_nphy_stay_in_carrier_search and	it's calls (V2)</H1>
+    <B>Rafa&#322; Mi&#322;ecki</B> 
+    <A HREF="mailto:bcm43xx-dev%40lists.berlios.de?Subject=Re%3A%20%5BPATCH%201/5%5D%20b43%3A%20N-PHY%3A%20implement%20b43_nphy_stay_in_carrier_search%20and%0A%09it%27s%20calls%20%28V2%29&In-Reply-To=%3Cop.u54ppc2h9lhzdc%40linux-g0th.site%3E"
+       TITLE="[PATCH 1/5] b43: N-PHY: implement b43_nphy_stay_in_carrier_search and	it's calls (V2)">zajec5 at gmail.com
+       </A><BR>
+    <I>Wed Jan  6 21:54:38 CET 2010</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="006669.html">[PATCH 1/5] b43: N-PHY: implement b43_nphy_stay_carrier_search 	and it's calls
+</A></li>
+        <LI>Next message: <A HREF="006677.html">[PATCH 1/5] b43: N-PHY: implement b43_nphy_stay_in_carrier_search	and it's calls (V2)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6671">[ date ]</a>
+              <a href="thread.html#6671">[ thread ]</a>
+              <a href="subject.html#6671">[ subject ]</a>
+              <a href="author.html#6671">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>V2: fix typo in deaf_count counting, improve b43_mac_[sr] calls,
+     rename function. Thanks Michael!
+
+Signed-off-by: Rafa&#322; Mi&#322;ecki &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">zajec5 at gmail.com</A>&gt;
+---
+  drivers/net/wireless/b43/phy_n.c |   58 ++++++++++++++++++++++++++++++++++++++
+  drivers/net/wireless/b43/phy_n.h |    3 ++
+  2 files changed, 61 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index ceb429a..5252c0f 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -348,6 +348,64 @@ static void b43_nphy_reset_cca(struct b43_wldev *dev)
+  	b43_phy_write(dev, B43_NPHY_BBCFG, bbcfg &amp; ~B43_NPHY_BBCFG_RSTCCA);
+  }
+
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/clip-detection">http://bcm-v4.sipsolutions.net/802.11/PHY/N/clip-detection</A> */
++static void b43_nphy_write_clip_detection(struct b43_wldev *dev, u16 *clip_st)
++{
++	b43_phy_write(dev, B43_NPHY_C1_CLIP1THRES, clip_st[0]);
++	b43_phy_write(dev, B43_NPHY_C2_CLIP1THRES, clip_st[1]);
++}
++
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/clip-detection">http://bcm-v4.sipsolutions.net/802.11/PHY/N/clip-detection</A> */
++static void b43_nphy_read_clip_detection(struct b43_wldev *dev, u16 *clip_st)
++{
++	clip_st[0] = b43_phy_read(dev, B43_NPHY_C1_CLIP1THRES);
++	clip_st[1] = b43_phy_read(dev, B43_NPHY_C2_CLIP1THRES);
++}
++
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/classifier">http://bcm-v4.sipsolutions.net/802.11/PHY/N/classifier</A> */
++static u16 b43_nphy_classifier(struct b43_wldev *dev, u16 mask, u16 val)
++{
++	u16 tmp;
++
++	if (dev-&gt;dev-&gt;id.revision == 16)
++		b43_mac_suspend(dev);
++
++	tmp = b43_phy_read(dev, B43_NPHY_CLASSCTL);
++	tmp &amp;= (B43_NPHY_CLASSCTL_CCKEN | B43_NPHY_CLASSCTL_OFDMEN |
++		B43_NPHY_CLASSCTL_WAITEDEN);
++	tmp &amp;= ~mask;
++	tmp |= (val &amp; mask);
++	b43_phy_maskset(dev, B43_NPHY_CLASSCTL, 0xFFF8, tmp);
++
++	if (dev-&gt;dev-&gt;id.revision == 16)
++		b43_mac_enable(dev);
++
++	return tmp;
++}
++
++/* <A HREF="http://bcm-v4.sipsolutions.net/802.11/PHY/N/carriersearch">http://bcm-v4.sipsolutions.net/802.11/PHY/N/carriersearch</A> */
++static void b43_nphy_stay_in_carrier_search(struct b43_wldev *dev, bool enable)
++{
++	struct b43_phy *phy = &amp;dev-&gt;phy;
++	struct b43_phy_n *nphy = phy-&gt;n;
++
++	if (enable) {
++		u16 clip[] = { 0xFFFF, 0xFFFF };
++		if (nphy-&gt;deaf_count++ == 0) {
++			nphy-&gt;classifier_state = b43_nphy_classifier(dev, 0, 0);
++			b43_nphy_classifier(dev, 0x7, 0);
++			b43_nphy_read_clip_detection(dev, nphy-&gt;clip_state);
++			b43_nphy_write_clip_detection(dev, clip);
++		}
++		b43_nphy_reset_cca(dev);
++	} else {
++		if (--nphy-&gt;deaf_count == 0) {
++			b43_nphy_classifier(dev, 0x7, nphy-&gt;classifier_state);
++			b43_nphy_write_clip_detection(dev, nphy-&gt;clip_state);
++		}
++	}
++}
++
+  enum b43_nphy_rf_sequence {
+  	B43_RFSEQ_RX2TX,
+  	B43_RFSEQ_TX2RX,
+diff --git a/drivers/net/wireless/b43/phy_n.h b/drivers/net/wireless/b43/phy_n.h
+index e5e402a..6ab07fc 100644
+--- a/drivers/net/wireless/b43/phy_n.h
++++ b/drivers/net/wireless/b43/phy_n.h
+@@ -932,6 +932,9 @@ struct b43_phy_n {
+  	u32 deaf_count;
+  	bool mute;
+
++	u16 classifier_state;
++	u16 clip_state[2];
++
+  	u8 iqcal_chanspec_2G;
+  	u8 rssical_chanspec_2G;
+
+-- 
+1.6.4.2
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="006669.html">[PATCH 1/5] b43: N-PHY: implement b43_nphy_stay_carrier_search 	and it's calls
+</A></li>
+	<LI>Next message: <A HREF="006677.html">[PATCH 1/5] b43: N-PHY: implement b43_nphy_stay_in_carrier_search	and it's calls (V2)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6671">[ date ]</a>
+              <a href="thread.html#6671">[ thread ]</a>
+              <a href="subject.html#6671">[ subject ]</a>
+              <a href="author.html#6671">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-dev">More information about the Bcm43xx-dev
+mailing list</a><br>
+</body></html>
